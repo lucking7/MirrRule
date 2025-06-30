@@ -83,6 +83,7 @@ jobs:
           npm ci
           sudo apt-get update
           sudo apt-get install -y curl jq netcat-openbsd
+          npm install -g tsx
 
       - name: 同步规则源
         if: github.event_name == 'schedule' || github.event_name == 'repository_dispatch'
@@ -117,6 +118,7 @@ jobs:
           
           # 创建插件列表
           cat > plugin_urls.txt << 'EOF'
+          blockAds|https://raw.githubusercontent.com/fmz200/wool_scripts/main/Loon/plugin/blockAds.plugin|Remove_ads_by_fmz
           EOF
           
           # 设置并发数
@@ -147,27 +149,116 @@ jobs:
             
             echo "[任务 $idx] 开始转换: $plugin_name -> $output_name"
             
-            # 基础修复脚本 - 只修复 Script Hub URL
-            fix_script='body = body.replace(/http:\/\/127\.0\.0\.1:910[01]/g, "http://script.hub"); '
-            
-            encoded_fix=$(echo "$fix_script" | jq -sRr @uri)
-            
-            # 构建下载 URL - 使用标准 Script Hub 转换
-            download_url="http://localhost:9101/file/_start_/${plugin_url}/_end_/${output_name}.sgmodule?type=loon-plugin&target=surge-module&del=true&evalScriptmodi=${encoded_fix}"
-            
-            # 下载并保存
-            if curl -A "script-hub/1.0.0" -L --connect-timeout 10 --max-time 30 -o "Surge/Modules/${output_name}.sgmodule" "$download_url" 2>/dev/null; then
-              # 验证转换结果
-              if [[ -f "Surge/Modules/${output_name}.sgmodule" ]] && [[ -s "Surge/Modules/${output_name}.sgmodule" ]]; then
-                echo "[任务 $idx] ✅ 转换成功: $output_name"
-                echo "$plugin_name|SUCCESS" > "$result_file"
+            if [[ "$plugin_name" == "blockAds" ]]; then
+              echo "[任务 $idx] 使用内联脚本进行特殊转换: $plugin_name"
+              local input_file=".cache/${plugin_name}_${idx}.plugin"
+              local output_file_path="Surge/Modules/${output_name}.sgmodule"
+
+              # 1. 下载插件
+              if ! curl -sL --connect-timeout 20 --max-time 60 -o "$input_file" "$plugin_url"; then
+                  echo "[任务 $idx] ❌ 下载失败: $plugin_name"
+                  echo "$plugin_name|FAILED" > "$result_file"
+                  return
+              fi
+
+              # 2. 解析 [Argument] 部分并生成 Surge 参数
+              local surge_args_list=()
+              local surge_desc_list=()
+              local in_args=false
+
+              while IFS= read -r arg_line; do
+                if [[ "$arg_line" == "[Argument]" ]]; then
+                  in_args=true
+                  continue
+                fi
+                if [[ "$arg_line" == "["*"]" ]]; then
+                  in_args=false
+                  continue
+                fi
+
+                if [[ "$in_args" == true ]] && [[ -n "$arg_line" ]]; then
+                  local name=$(echo "$arg_line" | cut -d'=' -f1 | tr -d ' ')
+                  local value=$(echo "$arg_line" | cut -d'=' -f2-)
+                  local type=$(echo "$value" | cut -d',' -f1)
+                  local tag=$(echo "$value" | grep -o 'tag=[^,]*' | cut -d'=' -f2)
+                  local desc=$(echo "$value" | grep -o 'desc=.*' | cut -d'=' -f2)
+
+                  if [[ "$type" == "switch" ]]; then
+                    local default_val=$(echo "$value" | cut -d',' -f2)
+                    surge_args_list+=("${name}:${default_val}")
+                    surge_desc_list+=("${tag}: ${desc//\\n/ - }")
+                  elif [[ "$type" == "select" ]]; then
+                    local default_val=$(echo "$value" | cut -d',' -f2 | tr -d '"')
+                    surge_args_list+=("${name}:${default_val}")
+                    surge_desc_list+=("${tag}: ${desc//\\n/ - }")
+                  fi
+                fi
+              done < "$input_file"
+
+              local surge_args_str=$(IFS=,; echo "${surge_args_list[*]}")
+              local surge_desc_str=$(IFS='\n'; echo "${surge_desc_list[*]}")
+
+              # 3. 转换整个文件内容
+              local temp_output_file="${output_file_path}.tmp"
+              
+              # 写入元数据和新生成的参数
+              grep '^#!' "$input_file" > "$temp_output_file"
+              echo "#!arguments=${surge_args_str}" >> "$temp_output_file"
+              echo "#!arguments-desc=${surge_desc_str}" >> "$temp_output_file"
+              echo "" >> "$temp_output_file"
+
+              # 转换并写入其他部分
+              local in_section=""
+              while IFS= read -r content_line; do
+                  if [[ "$content_line" == "["*"]" ]]; then
+                      in_section=$(echo "$content_line" | tr -d '[]')
+                      # 跳过旧的 Argument 节
+                      if [[ "$in_section" == "Argument" ]]; then continue; fi
+                      echo "$content_line" >> "$temp_output_file"
+                      continue
+                  fi
+                  
+                  if [[ "$in_section" == "Argument" ]]; then continue; fi
+
+                  if [[ "$in_section" == "Script" ]] && [[ "$content_line" == *"enable="* ]]; then
+                      local script_part=$(echo "$content_line" | sed -E 's/,? *enable=\{([a-zA-Z0-9_]+)\} *//')
+                      local param_name=$(echo "$content_line" | sed -n -E 's/.*enable=\{([a-zA-Z0-9_]+)\}.*/\1/p')
+                      echo "{{{${param_name}}}} = ${script_part}" >> "$temp_output_file"
+                  else
+                      echo "$content_line" >> "$temp_output_file"
+                  fi
+              done < <(grep -v '^#!' "$input_file")
+              
+              # 替换原文件
+              mv "$temp_output_file" "$output_file_path"
+
+              if [[ -s "$output_file_path" ]]; then
+                  echo "[任务 $idx] ✅ 内联转换成功: $output_name"
+                  echo "$plugin_name|SUCCESS" > "$result_file"
               else
-                echo "[任务 $idx] ❌ 转换失败: $output_name (文件为空)"
+                  echo "[任务 $idx] ❌ 内联转换失败: $output_name (输出文件为空)"
+                  echo "$plugin_name|FAILED" > "$result_file"
+              fi
+
+            else
+              # 对于其他插件，使用 Script Hub
+              echo "[任务 $idx] 使用 Script Hub 进行标准转换: $plugin_name"
+              local fix_script='body = body.replace(/http:\/\/127\.0\.0\.1:910[01]/g, "http://script.hub"); '
+              local encoded_fix=$(echo "$fix_script" | jq -sRr @uri)
+              local download_url="http://localhost:9101/file/_start_/${plugin_url}/_end_/${output_name}.sgmodule?type=loon-plugin&target=surge-module&del=true&evalScriptmodi=${encoded_fix}"
+              
+              if curl -A "script-hub/1.0.0" -L --connect-timeout 10 --max-time 30 -o "Surge/Modules/${output_name}.sgmodule" "$download_url" 2>/dev/null; then
+                if [[ -f "Surge/Modules/${output_name}.sgmodule" ]] && [[ -s "Surge/Modules/${output_name}.sgmodule" ]]; then
+                  echo "[任务 $idx] ✅ 转换成功: $output_name"
+                  echo "$plugin_name|SUCCESS" > "$result_file"
+                else
+                  echo "[任务 $idx] ❌ 转换失败: $output_name (文件为空)"
+                  echo "$plugin_name|FAILED" > "$result_file"
+                fi
+              else
+                echo "[任务 $idx] ❌ 转换失败: $output_name (下载错误)"
                 echo "$plugin_name|FAILED" > "$result_file"
               fi
-            else
-              echo "[任务 $idx] ❌ 转换失败: $output_name (下载错误)"
-              echo "$plugin_name|FAILED" > "$result_file"
             fi
           }
           
@@ -273,7 +364,6 @@ jobs:
           LOON_CONVERSION_CONCURRENCY: 5
 
       - name: 转换 QX 重写规则
-        id: convert-qx
         run: |
           echo "开始 QX 到 Surge 规则转换..."
           
@@ -286,7 +376,6 @@ jobs:
           # 定义要转换的 QX 规则
           declare -A qx_rules=(
             ["MiniApp_Cleaner"]="https://github.com/fmz200/wool_scripts/raw/main/QuantumultX/rewrite/chongxie.txt"
-            ["Remove_ads_by_fmz"]="https://raw.githubusercontent.com/fmz200/wool_scripts/main/Loon/plugin/blockAds.plugin"
           )
           
           # 转换 QX 规则
@@ -294,19 +383,11 @@ jobs:
             url="${qx_rules[$name]}"
             output_file="Surge/Modules/${name}.sgmodule"
             
-            echo "转换规则: $name"
+            echo "转换 QX 规则: $name"
             encoded_name=$(echo "$name" | jq -sRr @uri)
             
-            # 判断文件类型
-            if [[ "$url" == *".plugin" ]]; then
-              # Loon 插件转换
-              echo "检测到 Loon 插件，使用 loon-plugin 转换器"
-              download_url="http://localhost:9101/file/_start_/${url}/_end_/${name}.sgmodule?type=loon-plugin&target=surge-module&del=true"
-            else
-              # QX 重写规则转换
-              echo "使用 QX 重写规则转换器"
-              download_url="http://localhost:9101/file/_start_/${url}/_end_/${name}.sgmodule?type=qx-rewrite&target=surge-module&del=true"
-            fi
+            # 使用 Script Hub 转换 QX 重写到 Surge 模块
+            download_url="http://localhost:9101/file/_start_/${url}/_end_/${name}.sgmodule?type=qx-rewrite&target=surge-module&del=true"
             
             # 添加主动预防参数
             fix_script='body = body.replace(/http:\/\/127\.0\.0\.1:910[01]/g, "http://script.hub")'
@@ -334,7 +415,7 @@ jobs:
             fi
           done
           
-          echo "QX 重写规则转换完成"
+          echo "QX 规则转换完成"
 
       - name: 合并 Surge 模块
         run: |

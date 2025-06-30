@@ -1,0 +1,15 @@
+#!name=哔哩哔哩去广告（支持Auto参数）
+#!desc=支持智能判断是否显示"最常访问"模块，以及其他去广告功能
+#!author=示例
+#!arguments=bilibili_enable:开启,showUpList:auto,filterTopReplies:开启,airborne:开启,airborneDm:关闭
+#!arguments-desc=bilibili_enable: 总开关（开启/关闭）\nshowUpList: 动态-最常访问显示方式（auto/true/false）\n  • auto: 仅当有直播时显示\n  • true: 始终显示\n  • false: 始终隐藏\nfilterTopReplies: 过滤置顶评论（开启/关闭）\nairborne: 空降助手（开启/关闭）\nairborneDm: 空降助手弹幕版（开启/关闭）
+
+[Script]
+# 动态页面处理（支持auto参数）
+{{{bilibili_enable}}} = type=http-response,pattern=^https:\/\/app\.bilibili\.com\/bilibili\.app\.dynamic\.v2\.Dynamic\/DynAll$,requires-body=1,max-size=-1,script-path=bilibili-auto-example.js,argument=showUpList={{{showUpList}}}&filterTopReplies={{{filterTopReplies}}}&airborne={{{airborne}}}&airborneDm={{{airborneDm}}}
+
+# 其他bilibili去广告规则...
+{{{bilibili_enable}}} = type=http-response,pattern=^https:\/\/(?:grpc\.biliapi\.net|app\.bilibili\.com)\/bilibili\.(?:app\.(?:view(?:unite)?\.v1\.View\/(?:View|ViewProgress)|playurl\.v1\.PlayURL\/PlayView|playerunite\.v1\.Player\/PlayViewUnite)|polymer\.app\.search\.v1\.Search\/SearchAll|community\.service\.dm\.v1\.DM\/DmView),requires-body=1,max-size=-1,binary-body-mode=1,script-path=bilibili-proto.js,argument=showUpList={{{showUpList}}}&filterTopReplies={{{filterTopReplies}}}&airborne={{{airborne}}}&airborneDm={{{airborneDm}}}
+
+[MITM]
+hostname = %APPEND% *.bilibili.com, grpc.biliapi.net, api.bilibili.com, app.bilibili.com 
