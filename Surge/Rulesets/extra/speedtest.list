@@ -1,7 +1,7 @@
 #########################################
 # Sukka's Ruleset - Speedtest Domains
-# Last Updated: 2025-06-30T09:27:58.838Z
-# Size: 1204
+# Last Updated: 2025-06-30T15:59:40.470Z
+# Size: 1205
 # License: AGPL 3.0
 # Homepage: https://ruleset.skk.moe
 # GitHub: https://github.com/SukkaW/Surge
@@ -107,6 +107,7 @@ DOMAIN,lg-syd.fdcservers.net
 DOMAIN,lg-sin.fdcservers.net
 DOMAIN,lg-sea.fdcservers.net
 DOMAIN,lg-mia.fdcservers.net
+DOMAIN,lg-lon.fdcservers.net
 DOMAIN,lg-lax.fdcservers.net
 DOMAIN,lg-hnd.fdcservers.net
 DOMAIN,lg-hkg.fdcservers.net
