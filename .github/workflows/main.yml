@@ -175,25 +175,27 @@ jobs:
                 local value=$(echo "$arg_line" | sed -E 's/^[a-zA-Z0-9_]+ *= *//')
                 local type=$(echo "$value" | cut -d',' -f1)
                 
-                # Extract tag and desc more robustly
                 local tag=$(echo "$value" | grep -o 'tag=[^,]*' | cut -d'=' -f2)
-                local desc=$(echo "$value" | grep -o 'desc=.*' | cut -d'=' -f2 | sed 's/\\n/ - /g')
+                local desc=$(echo "$value" | grep -o 'desc=.*' | cut -d'=' -f2)
 
                 [[ -z "$tag" ]] && tag="$name"
 
                 if [[ "$type" == "switch" ]]; then
                     local default_val=$(echo "$value" | cut -d',' -f2)
                     surge_args_list+=("${name}:${default_val}")
-                    surge_desc_list+=("${tag}: ${desc}")
+                    if [[ -n "$desc" ]]; then surge_desc_list+=("${tag}: ${desc}"); else surge_desc_list+=("${tag}"); fi
                 elif [[ "$type" == "select" ]]; then
                     local default_val=$(echo "$value" | cut -d',' -f2 | tr -d '"')
                     surge_args_list+=("${name}:${default_val}")
-                    surge_desc_list+=("${tag}: ${desc}")
+                    if [[ -n "$desc" ]]; then surge_desc_list+=("${tag}: ${desc}"); else surge_desc_list+=("${tag}"); fi
                 fi
               done < "$input_file"
               
               local surge_args_str=$(IFS=,; echo "${surge_args_list[*]}")
-              local surge_desc_str=$(IFS=$'\\n'; echo "${surge_desc_list[*]}")
+              
+              local final_desc_str
+              final_desc_str=$(printf '%s\\n' "${surge_desc_list[@]}")
+              final_desc_str=${final_desc_str%\\n}
               
               # 3. 转换整个文件内容
               local temp_output_file="${output_file_path}.tmp"
@@ -202,7 +204,7 @@ jobs:
               grep '^#!' "$input_file" > "$temp_output_file"
               echo "" >> "$temp_output_file"
               echo "#!arguments=${surge_args_str}" >> "$temp_output_file"
-              echo "#!arguments-desc=${surge_desc_str}" >> "$temp_output_file"
+              echo "#!arguments-desc=${final_desc_str}" >> "$temp_output_file"
               
               # 转换并写入其他部分
               local in_section=""
