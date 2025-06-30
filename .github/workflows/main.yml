@@ -149,7 +149,6 @@ jobs:
             
             echo "[任务 $idx] 开始转换: $plugin_name -> $output_name"
             
-            # 特殊处理blockAds插件的参数转换
             if [[ "$plugin_name" == "blockAds" ]]; then
               echo "[任务 $idx] 使用内联脚本进行特殊转换: $plugin_name"
               local input_file=".cache/${plugin_name}_${idx}.plugin"
@@ -162,9 +161,9 @@ jobs:
                   return
               fi
 
-              # 2. 解析 [Argument] 部分并生成 Surge 参数
-              local surge_args_list=()
-              local surge_desc_list=()
+              # 2. 从 [Argument] 区块解析参数
+              local -a surge_args_list=()
+              local -a surge_desc_list=()
               local in_args_section=false
 
               while IFS= read -r arg_line; do
@@ -177,35 +176,39 @@ jobs:
                 local type=$(echo "$value" | cut -d',' -f1)
                 
                 local tag=$(echo "$value" | grep -o 'tag=[^,]*' | cut -d'=' -f2)
-                local desc=$(echo "$value" | grep -o 'desc=.*' | cut -d'=' -f2)
+                local desc=$(echo "$value" | sed -n 's/.*,desc=//p')
 
                 [[ -z "$tag" ]] && tag="$name"
 
-                if [[ "$type" == "switch" ]]; then
+                if [[ "$type" == "switch" ]] || [[ "$type" == "select" ]]; then
                     local default_val=$(echo "$value" | cut -d',' -f2)
                     surge_args_list+=("${name}:${default_val}")
-                    if [[ -n "$desc" ]]; then surge_desc_list+=("${tag}: ${desc}"); else surge_desc_list+=("${tag}"); fi
-                elif [[ "$type" == "select" ]]; then
-                    local default_val=$(echo "$value" | cut -d',' -f2 | tr -d '"')
-                    surge_args_list+=("${name}:${default_val}")
-                    if [[ -n "$desc" ]]; then surge_desc_list+=("${tag}: ${desc}"); else surge_desc_list+=("${tag}"); fi
+                    if [[ -n "$desc" ]]; then
+                      local formatted_desc=$(echo "$desc" | sed 's/\\n/ /g')
+                      surge_desc_list+=("${tag}: ${formatted_desc}")
+                    else
+                      surge_desc_list+=("${tag}")
+                    fi
                 fi
               done < "$input_file"
               
               local surge_args_str=$(IFS=,; echo "${surge_args_list[*]}")
-              
-              local final_desc_str
-              final_desc_str=$(printf '%s\\n' "${surge_desc_list[@]}")
+              local final_desc_str=$(printf '%s\\n' "${surge_desc_list[@]}")
               final_desc_str=${final_desc_str%\\n}
-              
+
               # 3. 转换整个文件内容
               local temp_output_file="${output_file_path}.tmp"
               
               # 写入元数据和新生成的参数
               grep '^#!' "$input_file" > "$temp_output_file"
+              sed -i '/^#!date=.*/d' "$temp_output_file"
+              echo "#!date=$(date -u +'%Y-%m-%d %H:%M:%S')" >> "$temp_output_file"
+              
               echo "" >> "$temp_output_file"
-              echo "#!arguments=${surge_args_str}" >> "$temp_output_file"
-              echo "#!arguments-desc=${final_desc_str}" >> "$temp_output_file"
+              if [ ${#surge_args_list[@]} -gt 0 ]; then
+                echo "#!arguments=${surge_args_str}" >> "$temp_output_file"
+                echo "#!arguments-desc=${final_desc_str}" >> "$temp_output_file"
+              fi
               
               # 转换并写入其他部分
               local in_section=""
@@ -218,11 +221,19 @@ jobs:
                   fi
                   
                   if [[ "$in_section" == "Argument" ]]; then continue; fi
-
-                  if [[ "$in_section" == "Script" ]]; then
+                  
+                  if [[ "$in_section" == "Script" && "$content_line" != "#"* && -n "$content_line" ]]; then
                       local temp_line="$content_line"
-                      
-                      # Handle argument=[{...}] syntax first
+                      local final_line=""
+                      local enable_param=""
+
+                      # 提取 enable 参数
+                      if [[ "$temp_line" == *"enable="* ]]; then
+                          enable_param=$(echo "$temp_line" | sed -n -E 's/.*enable=\{([a-zA-Z0-9_]+)\}.*/\1/p')
+                          temp_line=$(echo "$temp_line" | sed -E 's/,? *enable=\{([a-zA-Z0-9_]+)\} *//')
+                      fi
+
+                      # 转换 argument 参数
                       if [[ "$temp_line" == *"argument=["*"]"* ]]; then
                           local prefix=$(echo "$temp_line" | sed -E 's/(.*), *argument=\[.*/\1/')
                           local suffix=$(echo "$temp_line" | sed -E 's/.*argument=\[[^]]*\](.*)/\1/')
@@ -234,24 +245,23 @@ jobs:
                               new_args_parts+=("${param}={{{${param}}}}")
                           done
                           local new_args_str=$(IFS='&'; echo "${new_args_parts[*]}")
-                          temp_line="${prefix}, argument=${new_args_str}${suffix}"
-                      fi
-                      
-                      # Handle enable={...} syntax or apply implicit enable
-                      if [[ "$content_line" == *"enable="* ]]; then
-                          local script_part=$(echo "$temp_line" | sed -E 's/,? *enable=\{([a-zA-Z0-9_]+)\} *//')
-                          local param_name=$(echo "$content_line" | sed -n -E 's/.*enable=\{([a-zA-Z0-9_]+)\}.*/\1/p')
-                          echo "{{{${param_name}}}} = ${script_part}" >> "$temp_output_file"
-                      # Apply master switch to the main Bilibili protobuf script, which lacks one
-                      elif [[ "$content_line" == *"bilibili.protobuf.js"* ]]; then
-                          echo "{{{bilibili_enable}}} = ${temp_line}" >> "$temp_output_file"
+                          final_line="${prefix}, argument=${new_args_str}${suffix}"
                       else
-                          echo "$temp_line" >> "$temp_output_file"
+                          final_line="$temp_line"
+                      fi
+
+                      # 组合并写入最终行
+                      if [[ -n "$enable_param" ]]; then
+                          echo "{{{${enable_param}}}} = ${final_line}" >> "$temp_output_file"
+                      else
+                          echo "${final_line}" >> "$temp_output_file"
                       fi
                   else
-                      echo "$content_line" >> "$temp_output_file"
+                      if [[ "$content_line" != "#!"* ]]; then
+                        echo "$content_line" >> "$temp_output_file"
+                      fi
                   fi
-              done < <(grep -v '^#!' "$input_file")
+              done < "$input_file"
               
               mv "$temp_output_file" "$output_file_path"
 
@@ -263,7 +273,7 @@ jobs:
                   echo "$plugin_name|FAILED" > "$result_file"
               fi
             else
-              # 对于其他插件，使用 Script Hub 后进行参数转换后处理
+              # 对于其他插件，使用 Script Hub
               echo "[任务 $idx] 使用 Script Hub 进行标准转换: $plugin_name"
               local fix_script='body = body.replace(/http:\/\/127\.0\.0\.1:910[01]/g, "http://script.hub"); '
               local encoded_fix=$(echo "$fix_script" | jq -sRr @uri)
@@ -271,140 +281,6 @@ jobs:
               
               if curl -A "script-hub/1.0.0" -L --connect-timeout 10 --max-time 30 -o "Surge/Modules/${output_name}.sgmodule" "$download_url" 2>/dev/null; then
                 if [[ -f "Surge/Modules/${output_name}.sgmodule" ]] && [[ -s "Surge/Modules/${output_name}.sgmodule" ]]; then
-                  # 通用参数转换后处理
-                  echo "[任务 $idx] 检查并修复参数..."
-                  
-                  # 下载原始插件用于参数提取
-                  local temp_plugin=".cache/${plugin_name}_${idx}.plugin"
-                  if curl -sL --connect-timeout 20 --max-time 60 -o "$temp_plugin" "$plugin_url"; then
-                    # 检查是否有[Argument]部分
-                    if grep -q "^\[Argument\]" "$temp_plugin"; then
-                      echo "[任务 $idx] 发现参数定义，进行转换..."
-                      
-                      # 提取参数
-                      local surge_args_list=()
-                      local surge_desc_list=()
-                      local in_args_section=false
-                      
-                      while IFS= read -r arg_line; do
-                        if [[ "$arg_line" == "[Argument]" ]]; then in_args_section=true; continue; fi
-                        if [[ "$arg_line" == "["*"]" ]]; then in_args_section=false; continue; fi
-                        if [[ "$in_args_section" != true ]] || [[ -z "$arg_line" ]] || [[ "$arg_line" == "#"* ]]; then continue; fi
-                        
-                        local name=$(echo "$arg_line" | sed -E 's/ *=.*//;s/ //g')
-                        local value=$(echo "$arg_line" | sed -E 's/^[a-zA-Z0-9_]+ *= *//')
-                        local type=$(echo "$value" | cut -d',' -f1)
-                        
-                        local tag=$(echo "$value" | grep -o 'tag=[^,]*' | cut -d'=' -f2)
-                        local desc=$(echo "$value" | grep -o 'desc=.*' | cut -d'=' -f2)
-                        
-                        [[ -z "$tag" ]] && tag="$name"
-                        
-                        if [[ "$type" == "switch" ]]; then
-                            local default_val=$(echo "$value" | cut -d',' -f2)
-                            surge_args_list+=("${name}:${default_val}")
-                            if [[ -n "$desc" ]]; then surge_desc_list+=("${tag}: ${desc}"); else surge_desc_list+=("${tag}"); fi
-                        elif [[ "$type" == "select" ]]; then
-                            local default_val=$(echo "$value" | cut -d',' -f2 | tr -d '"')
-                            surge_args_list+=("${name}:${default_val}")
-                            if [[ -n "$desc" ]]; then surge_desc_list+=("${tag}: ${desc}"); else surge_desc_list+=("${tag}"); fi
-                        fi
-                      done < "$temp_plugin"
-                      
-                      if [ ${#surge_args_list[@]} -gt 0 ]; then
-                        local surge_args_str=$(IFS=,; echo "${surge_args_list[*]}")
-                        local final_desc_str
-                        final_desc_str=$(printf '%s\\n' "${surge_desc_list[@]}")
-                        final_desc_str=${final_desc_str%\\n}
-                        
-                        # 在模块文件中插入参数定义
-                        local temp_output="Surge/Modules/${output_name}.sgmodule.tmp"
-                        local added_args=false
-                        
-                        while IFS= read -r line; do
-                          echo "$line" >> "$temp_output"
-                          # 在最后一个#!元数据行后插入参数
-                          if [[ "$line" =~ ^#! ]] && ! [[ "$line" =~ ^#!arguments ]]; then
-                            local next_line
-                            if IFS= read -r next_line; then
-                              if ! [[ "$next_line" =~ ^#! ]]; then
-                                echo "" >> "$temp_output"
-                                echo "#!arguments=${surge_args_str}" >> "$temp_output"
-                                echo "#!arguments-desc=${final_desc_str}" >> "$temp_output"
-                                added_args=true
-                              fi
-                              echo "$next_line" >> "$temp_output"
-                            fi
-                          fi
-                        done < "Surge/Modules/${output_name}.sgmodule"
-                        
-                        # 如果还没添加参数，在文件开头合适位置插入
-                        if [ "$added_args" = false ]; then
-                          local final_temp="Surge/Modules/${output_name}.sgmodule.tmp2"
-                          local in_header=true
-                          
-                          while IFS= read -r line; do
-                            if [[ "$in_header" == true ]] && ! [[ "$line" =~ ^#! ]]; then
-                              echo "" >> "$final_temp"
-                              echo "#!arguments=${surge_args_str}" >> "$final_temp"
-                              echo "#!arguments-desc=${final_desc_str}" >> "$final_temp"
-                              in_header=false
-                            fi
-                            echo "$line" >> "$final_temp"
-                          done < "$temp_output"
-                          
-                          mv "$final_temp" "$temp_output"
-                        fi
-                        
-                        # 处理Script部分的enable参数
-                        if grep -q "^\[Script\]" "$temp_output"; then
-                          local processed_output="Surge/Modules/${output_name}.sgmodule.processed"
-                          local in_script_section=false
-                          
-                          while IFS= read -r line; do
-                            if [[ "$line" == "[Script]" ]]; then
-                              in_script_section=true
-                            elif [[ "$line" =~ ^\[.*\]$ ]]; then
-                              in_script_section=false
-                            fi
-                            
-                            if [[ "$in_script_section" == true ]] && [[ "$line" == *"enable={"* ]]; then
-                              # 提取参数名
-                              local param_name=$(echo "$line" | sed -n -E 's/.*enable=\{([a-zA-Z0-9_]+)\}.*/\1/p')
-                              if [[ -n "$param_name" ]]; then
-                                # 检查是否已经有argument参数
-                                if [[ "$line" == *", argument="* ]]; then
-                                  # 如果已有argument参数，需要先移除enable参数，然后追加到argument
-                                  # 1. 移除 ", enable={param_name}"
-                                  local temp_line=$(echo "$line" | sed -E "s/, *enable=\{${param_name}\}//")
-                                  # 2. 在已有的argument后追加enable参数
-                                  local new_line=$(echo "$temp_line" | sed -E "s/(argument=)([^,]*)/\1\2\&enable={{{${param_name}}}}/")
-                                  echo "$new_line" >> "$processed_output"
-                                else
-                                  # 替换enable={param}为argument=enable={{{param}}}
-                                  local new_line=$(echo "$line" | sed -E "s/, *enable=\{${param_name}\}/, argument=enable={{{${param_name}}}}/")
-                                  echo "$new_line" >> "$processed_output"
-                                fi
-                              else
-                                echo "$line" >> "$processed_output"
-                              fi
-                            else
-                              echo "$line" >> "$processed_output"
-                            fi
-                          done < "$temp_output"
-                          
-                          mv "$processed_output" "Surge/Modules/${output_name}.sgmodule"
-                        else
-                          mv "$temp_output" "Surge/Modules/${output_name}.sgmodule"
-                        fi
-                        
-                        echo "[任务 $idx] ✅ 参数转换完成"
-                      fi
-                      
-                      rm -f "$temp_plugin"
-                    fi
-                  fi
-                  
                   echo "[任务 $idx] ✅ 转换成功: $output_name"
                   echo "$plugin_name|SUCCESS" > "$result_file"
                 else
