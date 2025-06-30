@@ -117,7 +117,6 @@ jobs:
           
           # 创建插件列表
           cat > plugin_urls.txt << 'EOF'
-          blockAds|https://raw.githubusercontent.com/fmz200/wool_scripts/main/Loon/plugin/blockAds.plugin|Remove_ads_by_fmz
           EOF
           
           # 设置并发数
@@ -274,6 +273,7 @@ jobs:
           LOON_CONVERSION_CONCURRENCY: 5
 
       - name: 转换 QX 重写规则
+        id: convert-qx
         run: |
           echo "开始 QX 到 Surge 规则转换..."
           
@@ -286,6 +286,7 @@ jobs:
           # 定义要转换的 QX 规则
           declare -A qx_rules=(
             ["MiniApp_Cleaner"]="https://github.com/fmz200/wool_scripts/raw/main/QuantumultX/rewrite/chongxie.txt"
+            ["Remove_ads_by_fmz"]="https://raw.githubusercontent.com/fmz200/wool_scripts/main/Loon/plugin/blockAds.plugin"
           )
           
           # 转换 QX 规则
@@ -293,11 +294,19 @@ jobs:
             url="${qx_rules[$name]}"
             output_file="Surge/Modules/${name}.sgmodule"
             
-            echo "转换 QX 规则: $name"
+            echo "转换规则: $name"
             encoded_name=$(echo "$name" | jq -sRr @uri)
             
-            # 使用 Script Hub 转换 QX 重写到 Surge 模块
-            download_url="http://localhost:9101/file/_start_/${url}/_end_/${name}.sgmodule?type=qx-rewrite&target=surge-module&del=true"
+            # 判断文件类型
+            if [[ "$url" == *".plugin" ]]; then
+              # Loon 插件转换
+              echo "检测到 Loon 插件，使用 loon-plugin 转换器"
+              download_url="http://localhost:9101/file/_start_/${url}/_end_/${name}.sgmodule?type=loon-plugin&target=surge-module&del=true"
+            else
+              # QX 重写规则转换
+              echo "使用 QX 重写规则转换器"
+              download_url="http://localhost:9101/file/_start_/${url}/_end_/${name}.sgmodule?type=qx-rewrite&target=surge-module&del=true"
+            fi
             
             # 添加主动预防参数
             fix_script='body = body.replace(/http:\/\/127\.0\.0\.1:910[01]/g, "http://script.hub")'
@@ -325,9 +334,7 @@ jobs:
             fi
           done
           
-          echo "QX 规则转换完成"
-
-
+          echo "QX 重写规则转换完成"
 
       - name: 合并 Surge 模块
         run: |
