@@ -30,3 +30,6 @@ Chores/engineering/.cache/
 !Surge/Scripts/*.js
 !Surge/Modules/Rules/*.list
 !Surge/Modules/Rules/**/*.conf
+
+# 忽略测试目录
+Surge/TEST/
