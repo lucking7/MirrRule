@@ -1,7 +1,7 @@
 #########################################
 # Sukka's Ruleset - Speedtest Domains
-# Last Updated: 2025-06-24T14:03:49.160Z
-# Size: 1198
+# Last Updated: 2025-06-30T09:27:58.838Z
+# Size: 1204
 # License: AGPL 3.0
 # Homepage: https://ruleset.skk.moe
 # GitHub: https://github.com/SukkaW/Surge
@@ -101,14 +101,18 @@ DOMAIN,speedtest.ams1.hivelocity.net
 DOMAIN,speedtest.lax.hivelocity.net
 DOMAIN,speedtest.dal.hivelocity.net
 DOMAIN,lg-par2.fdcservers.net
+DOMAIN,lg-tor.fdcservers.net
 DOMAIN,lg-tok.fdcservers.net
 DOMAIN,lg-syd.fdcservers.net
 DOMAIN,lg-sin.fdcservers.net
 DOMAIN,lg-sea.fdcservers.net
 DOMAIN,lg-mia.fdcservers.net
 DOMAIN,lg-lax.fdcservers.net
+DOMAIN,lg-hnd.fdcservers.net
 DOMAIN,lg-hkg.fdcservers.net
+DOMAIN,lg-fra.fdcservers.net
 DOMAIN,lg-dme.fdcservers.net
+DOMAIN,lg-dfw.fdcservers.net
 DOMAIN,lg-ams.fdcservers.net
 DOMAIN,lon-hex-speedtest.cloudconnx.net
 DOMAIN,speed.alsalamnet.net
@@ -1094,6 +1098,7 @@ DOMAIN,itanetwork.brsserver.com.br
 DOMAIN,uptelecom.brsserver.com.br
 DOMAIN,lvconnect.brsserver.com.br
 DOMAIN,glconnect.brsserver.com.br
+DOMAIN,fwnetwork.brsserver.com.br
 DOMAIN,speednet.brsserver.com.br
 DOMAIN,asanet.brsserver.com.br
 DOMAIN,velocidadestm.amazonett.com.br
@@ -1140,6 +1145,7 @@ DOMAIN,speedtest-syd.thecore.net.au
 DOMAIN,speedtest01.syd1.spintel.net.au
 DOMAIN,ookla.sy1.neptune.net.au
 DOMAIN,ookla.me1.neptune.net.au
+DOMAIN,ookla.b2.neptune.net.au
 DOMAIN,speedtest-lton.launtel.net.au
 DOMAIN,speedtest-hob.launtel.net.au
 DOMAIN,speedtest.syd01.launtel.net.au
