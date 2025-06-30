@@ -369,10 +369,20 @@ jobs:
                             fi
                             
                             if [[ "$in_script_section" == true ]] && [[ "$line" == *"enable={"* ]]; then
+                              # 提取参数名
                               local param_name=$(echo "$line" | sed -n -E 's/.*enable=\{([a-zA-Z0-9_]+)\}.*/\1/p')
                               if [[ -n "$param_name" ]]; then
-                                local script_part=$(echo "$line" | sed -E 's/,? *enable=\{[a-zA-Z0-9_]+\} *//')
-                                echo "{{{${param_name}}}} = ${script_part}" >> "$processed_output"
+                                # 检查是否已经有argument参数
+                                if [[ "$line" == *", argument="* ]]; then
+                                  # 如果已有argument参数，追加enable参数
+                                  local new_line=$(echo "$line" | sed -E "s/(argument=[^,]+)/\1\&enable={{{${param_name}}}}/")
+                                  new_line=$(echo "$new_line" | sed -E 's/, *enable=\{[a-zA-Z0-9_]+\}//')
+                                  echo "$new_line" >> "$processed_output"
+                                else
+                                  # 替换enable={param}为argument=enable={{{param}}}
+                                  local new_line=$(echo "$line" | sed -E "s/, *enable=\{${param_name}\}/, argument=enable={{{${param_name}}}}/")
+                                  echo "$new_line" >> "$processed_output"
+                                fi
                               else
                                 echo "$line" >> "$processed_output"
                               fi
