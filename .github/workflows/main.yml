@@ -84,36 +84,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y curl jq netcat-openbsd
 
-      # 定义全局修复脚本（用于 evalScriptmodi）
-      - name: 设置修复脚本
-        id: fix_script
-        run: |
-          # 创建统一的修复脚本
-          cat > /tmp/fix_script.js << 'EOF'
-          // 统一的本地地址修复脚本
-          // 1. 处理 Script Hub 特有的转换格式
-          body = body.replace(/http:\/\/127\.0\.0\.1:910[01]\/convert\/_start_([^_]+)_end_[^?]+\?([^"'\s]+)/g, function(match, url) {
-            return decodeURIComponent(url);
-          });
-          // 2. 处理其他本地地址格式
-          body = body.replace(/https?:\/\/(127\.0\.0\.1|localhost|0\.0\.0\.0)(:[0-9]+)?/g, "http://script.hub");
-          // 3. 修复链接格式
-          body = body.replace(/\[([^\[]+)\]\(([^)]+)\)/g, '$1[$2]');
-          // 4. 移除多余空行
-          body = body.replace(/\n{3,}/g, '\n\n');
-          // 5. 修复错误的元数据
-          if (/^#!name=.*_enable$/m.test(body)) {
-            body = body.replace(/^#!name=.*$/m, '#!name=' + (body.match(/#!name=(.*?)(?=\n)/)?.[1] || '模块名称'));
-          }
-          if (/^#!desc=.*-脚本开关$/m.test(body)) {
-            body = body.replace(/^#!desc=.*$/m, '#!desc=' + (body.match(/#!desc=(.*?)(?=\n)/)?.[1] || '模块描述'));
-          }
-          EOF
-          
-          # URL编码修复脚本供后续使用
-          encoded_fix=$(cat /tmp/fix_script.js | jq -sRr @uri)
-          echo "encoded_fix=$encoded_fix" >> $GITHUB_OUTPUT
-
       - name: 同步规则源
         if: github.event_name == 'schedule' || github.event_name == 'repository_dispatch'
         run: |
@@ -178,8 +148,27 @@ jobs:
             
             echo "[任务 $idx] 开始转换: $plugin_name -> $output_name"
             
-            # 构建下载 URL（使用全局修复脚本）
-            download_url="http://localhost:9101/file/_start_/${plugin_url}/_end_/${output_name}.sgmodule?type=loon-plugin&target=surge-module&del=true&evalScriptmodi=${{ steps.fix_script.outputs.encoded_fix }}"
+            # 基础修复脚本 - 适用于所有插件
+            fix_script='body = body.replace(/http:\/\/127\.0\.0\.1:910[01]/g, "http://script.hub"); '
+            
+            # 通用的格式修复
+            fix_script="${fix_script}body = body.replace(/\\[([^\\[]+)\\]\\(([^)]+)\\)/g, '\$1[\$2]'); " # 修复链接格式
+            fix_script="${fix_script}body = body.replace(/\\n{3,}/g, '\\n\\n'); " # 移除多余空行
+            
+            # 通用的元数据修复逻辑
+            # 检查 name 和 desc 是否被错误地设置为参数名或参数描述
+            fix_script="${fix_script}"
+            fix_script="${fix_script}if (/^#!name=.*_enable$/m.test(body)) { "
+            fix_script="${fix_script}  body = body.replace(/^#!name=.*$/m, '#!name=' + body.match(/#!name=(.*?)(?=\\n)/)?.[1] || '模块名称'); "
+            fix_script="${fix_script}} "
+            fix_script="${fix_script}if (/^#!desc=.*-脚本开关$/m.test(body)) { "
+            fix_script="${fix_script}  body = body.replace(/^#!desc=.*$/m, '#!desc=' + body.match(/#!desc=(.*?)(?=\\n)/)?.[1] || '模块描述'); "
+            fix_script="${fix_script}} "
+            
+            encoded_fix=$(echo "$fix_script" | jq -sRr @uri)
+            
+            # 构建下载 URL
+            download_url="http://localhost:9101/file/_start_/${plugin_url}/_end_/${output_name}.sgmodule?type=loon-plugin&target=surge-module&del=true&evalScriptmodi=${encoded_fix}"
             
             # 下载并保存
             if curl -A "script-hub/1.0.0" -L --connect-timeout 10 --max-time 30 -o "Surge/Modules/${output_name}.sgmodule" "$download_url" 2>/dev/null; then
@@ -321,8 +310,13 @@ jobs:
             echo "转换 QX 规则: $name"
             encoded_name=$(echo "$name" | jq -sRr @uri)
             
-            # 使用 Script Hub 转换 QX 重写到 Surge 模块（使用全局修复脚本）
-            download_url="http://localhost:9101/file/_start_/${url}/_end_/${name}.sgmodule?type=qx-rewrite&target=surge-module&del=true&evalScriptmodi=${{ steps.fix_script.outputs.encoded_fix }}"
+            # 使用 Script Hub 转换 QX 重写到 Surge 模块
+            download_url="http://localhost:9101/file/_start_/${url}/_end_/${name}.sgmodule?type=qx-rewrite&target=surge-module&del=true"
+            
+            # 添加主动预防参数
+            fix_script='body = body.replace(/http:\/\/127\.0\.0\.1:910[01]/g, "http://script.hub")'
+            encoded_fix=$(echo "$fix_script" | jq -sRr @uri)
+            download_url="${download_url}&evalScriptmodi=${encoded_fix}"
             
             if curl -A "script-hub/1.0.0" -L --connect-timeout 10 --max-time 30 -o "$output_file" "$download_url" 2>/dev/null; then
               echo "✅ 转换成功: $name"
@@ -469,7 +463,10 @@ jobs:
                 echo ""
                 
                 # 添加模块内容（排除所有元数据行和多余空行）
-                grep -v '^#!' "Surge/Modules/Remove_ads_by_fmz.sgmodule" | sed '/^[[:space:]]*$/d' | sed '1{/^$/d;}' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'
+                # 同时修复本地 Script Hub URL
+                grep -v '^#!' "Surge/Modules/Remove_ads_by_fmz.sgmodule" | \
+                  sed 's|http://127\.0\.0\.1:910[01]|http://script.hub|g' | \
+                  sed '/^[[:space:]]*$/d' | sed '1{/^$/d;}' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'
               } > "$temp_file"
               
               # 替换原文件
