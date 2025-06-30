@@ -374,9 +374,11 @@ jobs:
                               if [[ -n "$param_name" ]]; then
                                 # 检查是否已经有argument参数
                                 if [[ "$line" == *", argument="* ]]; then
-                                  # 如果已有argument参数，追加enable参数
-                                  local new_line=$(echo "$line" | sed -E "s/(argument=[^,]+)/\1\&enable={{{${param_name}}}}/")
-                                  new_line=$(echo "$new_line" | sed -E 's/, *enable=\{[a-zA-Z0-9_]+\}//')
+                                  # 如果已有argument参数，需要先移除enable参数，然后追加到argument
+                                  # 1. 移除 ", enable={param_name}"
+                                  local temp_line=$(echo "$line" | sed -E "s/, *enable=\{${param_name}\}//")
+                                  # 2. 在已有的argument后追加enable参数
+                                  local new_line=$(echo "$temp_line" | sed -E "s/(argument=)([^,]*)/\1\2\&enable={{{${param_name}}}}/")
                                   echo "$new_line" >> "$processed_output"
                                 else
                                   # 替换enable={param}为argument=enable={{{param}}}
