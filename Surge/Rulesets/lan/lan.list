@@ -1,4 +1,15 @@
 // Ruleset - Local Area Network
+// Last updated: 2025/7/2 05:04:49
+// DOMAIN: 12
+// DOMAIN-SUFFIX: 38
+// IP-CIDR: 8
+// IP-CIDR6: 3
+// Total: 61
+// This file contains rules for local area network addresses, private IP ranges and reserved TLDs
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/lan.conf
+//  - https://ruleset.skk.moe/List/ip/lan.conf
+// Ruleset - Local Area Network
 // Last updated: 2025/7/2 02:05:36
 // DOMAIN: 12
 // DOMAIN-SUFFIX: 38
