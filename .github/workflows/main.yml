@@ -226,6 +226,7 @@ jobs:
                       local temp_line="$content_line"
                       local final_line=""
                       local enable_param=""
+                      local script_name=""
 
                       # 提取 enable 参数
                       if [[ "$temp_line" == *"enable="* ]]; then
@@ -233,11 +234,40 @@ jobs:
                           temp_line=$(echo "$temp_line" | sed -E 's/,? *enable=\{([a-zA-Z0-9_]+)\} *//')
                       fi
 
+                      # 提取 tag 作为脚本名称
+                      if [[ "$temp_line" == *"tag="* ]]; then
+                          script_name=$(echo "$temp_line" | sed -n -E 's/.*tag=([^,]+).*/\1/p')
+                          # 移除 tag 参数，因为 Surge 不需要
+                          temp_line=$(echo "$temp_line" | sed -E 's/,? *tag=[^,]+//')
+                      fi
+
+                      # 转换 Loon 格式到 Surge 格式
+                      # Loon: http-response pattern script-path=..., requires-body=...
+                      # Surge: name = type=http-response, pattern=..., script-path=..., requires-body=...
+                      if [[ "$temp_line" =~ ^(http-request|http-response|cron|event|dns|rule|network-changed) ]]; then
+                          local script_type="${BASH_REMATCH[1]}"
+                          # 提取 pattern（在第一个空格之后，script-path 之前）
+                          local pattern=$(echo "$temp_line" | sed -E "s/^${script_type} +([^ ]+) +script-path=.*/\1/")
+                          # 提取剩余的参数
+                          local remaining=$(echo "$temp_line" | sed -E "s/^${script_type} +[^ ]+ +//")
+                          
+                          # 如果没有脚本名称，使用参数名作为默认名称
+                          if [[ -z "$script_name" && -n "$enable_param" ]]; then
+                              script_name="${enable_param/_enable/}"
+                          fi
+                          
+                          # 构建 Surge 格式的行
+                          final_line="${script_name:-script} = type=${script_type}, pattern=${pattern}, ${remaining}"
+                      else
+                          # 对于其他格式，保持原样
+                          final_line="$temp_line"
+                      fi
+
                       # 转换 argument 参数
-                      if [[ "$temp_line" == *"argument=["*"]"* ]]; then
-                          local prefix=$(echo "$temp_line" | sed -E 's/(.*), *argument=\[.*/\1/')
-                          local suffix=$(echo "$temp_line" | sed -E 's/.*argument=\[[^]]*\](.*)/\1/')
-                          local params_str=$(echo "$temp_line" | grep -o 'argument=\[[^]]*\]' | sed 's/argument=\[//;s/\]//')
+                      if [[ "$final_line" == *"argument=["*"]"* ]]; then
+                          local prefix=$(echo "$final_line" | sed -E 's/(.*), *argument=\[.*/\1/')
+                          local suffix=$(echo "$final_line" | sed -E 's/.*argument=\[[^]]*\](.*)/\1/')
+                          local params_str=$(echo "$final_line" | grep -o 'argument=\[[^]]*\]' | sed 's/argument=\[//;s/\]//')
                           local params_str_clean=$(echo "$params_str" | tr -d '{} ')
                           IFS=',' read -r -a params_array <<< "$params_str_clean"
                           local new_args_parts=()
@@ -246,8 +276,6 @@ jobs:
                           done
                           local new_args_str=$(IFS='&'; echo "${new_args_parts[*]}")
                           final_line="${prefix}, argument=${new_args_str}${suffix}"
-                      else
-                          final_line="$temp_line"
                       fi
 
                       # 组合并写入最终行
