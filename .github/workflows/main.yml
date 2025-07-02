@@ -326,18 +326,18 @@ jobs:
           
           echo "QX 规则转换完成"
 
-      - name: 修正模块参数
+      - name: 增强模块功能
         run: |
-          echo "开始修正模块参数..."
-          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/sync/module-parameter-fix-runner.ts || {
-            echo "参数修正失败，但继续构建流程"
+          echo "开始增强 ScriptHub 转换后的模块..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/sync/module-enhancer.ts || {
+            echo "模块增强处理失败，但继续构建流程"
           }
 
-      - name: 修复模块地址
+      - name: 处理和验证模块
         run: |
-          echo "开始修复模块地址问题..."
-          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/sync/module-address-fixer.ts || {
-            echo "地址修复失败，但继续构建流程"
+          echo "开始处理和验证模块（修复地址、验证完整性）..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/sync/module-processor.ts || {
+            echo "模块处理失败，但继续构建流程"
           }
 
       - name: 合并 Surge 模块

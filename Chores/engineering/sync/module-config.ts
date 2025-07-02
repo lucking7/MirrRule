@@ -1,11 +1,11 @@
 /**
  * 模块配置文件
- * 声明哪些模块需要进行参数修正以及其他配置
+ * 声明哪些模块需要特殊处理以及其他配置
  */
 
 export interface ModuleConfig {
-  // 需要参数修正的模块列表
-  modulesRequiringParameterFix: string[];
+  // 需要增强处理的模块列表（ScriptHub 转换后需要额外处理）
+  modulesRequiringEnhancement: string[];
 
   // 需要地址修复的模式
   addressFixPatterns: {
@@ -15,31 +15,33 @@ export interface ModuleConfig {
 }
 
 export const moduleConfig: ModuleConfig = {
-  // 需要参数修正的模块
-  modulesRequiringParameterFix: [
+  // 需要增强处理的模块（ScriptHub 转换后需要额外处理）
+  modulesRequiringEnhancement: [
     'Remove_ads_by_fmz.sgmodule',
     'blockAds.sgmodule',
-    // 可以在这里添加更多需要参数修正的模块
+    // 可以在这里添加更多需要增强处理的模块
   ],
 
   // 地址修复模式
   addressFixPatterns: [
     {
-      pattern: /http:\/\/127\.0\.0\.1:9101\/convert\//g,
-      replacement: 'http://script.hub/convert/',
+      // 修复 127.0.0.1:9101 地址
+      pattern: /http:\/\/127\.0\.0\.1:9101\//g,
+      replacement: 'http://script.hub/',
     },
     {
-      pattern: /http:\/\/127\.0\.0\.1:9100\/convert\//g,
-      replacement: 'http://script.hub/convert/',
+      // 修复 127.0.0.1:9100 地址
+      pattern: /http:\/\/127\.0\.0\.1:9100\//g,
+      replacement: 'http://script.hub/',
     },
   ],
 };
 
 /**
- * 检查模块是否需要参数修正
+ * 检查模块是否需要增强处理
  */
 export function needsParameterFix(moduleName: string): boolean {
-  return moduleConfig.modulesRequiringParameterFix.includes(moduleName);
+  return moduleConfig.modulesRequiringEnhancement.includes(moduleName);
 }
 
 /**
