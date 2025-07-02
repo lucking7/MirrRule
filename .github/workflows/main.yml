@@ -212,85 +212,86 @@ jobs:
               
               # 转换并写入其他部分
               local in_section=""
-              while IFS= read -r content_line; do
-                  if [[ "$content_line" =~ ^\[(.*)\]$ ]]; then
-                      in_section="${BASH_REMATCH[1]}"
-                      if [[ "$in_section" == "Argument" ]]; then continue; fi
-                      echo "$content_line" >> "$temp_output_file"
-                      continue
-                  fi
+              awk '
+                BEGIN { in_section = "" }
+                /^\[(.*)\]$/ { 
+                  in_section = substr($0, 2, length($0)-2)
+                  if (in_section == "Rewrite") {
+                    print "[URL Rewrite]"
+                  } else if (in_section != "Argument") {
+                    print $0
+                  }
+                  next
+                }
+                in_section == "Argument" { next }
+                in_section == "Script" && !/^#/ && NF {
+                  line = $0
+                  # 提取 enable 参数
+                  enable_param = ""
+                  if (match(line, /enable=\{([a-zA-Z0-9_]+)\}/, m)) {
+                    enable_param = m[1]
+                    sub(/,? *enable=\{([a-zA-Z0-9_]+)\} */, "", line)
+                  }
                   
-                  if [[ "$in_section" == "Argument" ]]; then continue; fi
+                  # 提取 tag 作为脚本名称
+                  script_name = ""
+                  if (match(line, /tag=([^,]+)/, m)) {
+                    script_name = m[1]
+                    sub(/,? *tag=[^,]+/, "", line)
+                  }
                   
-                  if [[ "$in_section" == "Script" && "$content_line" != "#"* && -n "$content_line" ]]; then
-                      local temp_line="$content_line"
-                      local final_line=""
-                      local enable_param=""
-                      local script_name=""
+                  # 转换格式
+                  if (match(line, /^(http-request|http-response|cron|event|dns|rule|network-changed)/, m)) {
+                    script_type=m[1]
+                    sub(/^(http-request|http-response|cron|event|dns|rule|network-changed)[[:space:]]+/, "", line)
+                    pattern_and_rest = line
+                    
+                    if (!script_name && enable_param) {
+                      script_name = enable_param
+                      sub(/_enable$/, "", script_name)
+                    }
+                    if (!script_name) script_name = "script"
 
-                      # 提取 enable 参数
-                      if [[ "$temp_line" == *"enable="* ]]; then
-                          enable_param=$(echo "$temp_line" | sed -n -E 's/.*enable=\{([a-zA-Z0-9_]+)\}.*/\1/p')
-                          temp_line=$(echo "$temp_line" | sed -E 's/,? *enable=\{([a-zA-Z0-9_]+)\} *//')
-                      fi
+                    # 正确分割 pattern 和剩余部分
+                    match(pattern_and_rest, /^([^ ]+)[[:space:]]+(.*)$/, parts)
+                    pattern = parts[1]
+                    remaining = parts[2]
+                    
+                    final_line = script_name " = type=" script_type ", pattern=" pattern ", " remaining
+                  } else {
+                    final_line = line
+                  }
 
-                      # 提取 tag 作为脚本名称
-                      if [[ "$temp_line" == *"tag="* ]]; then
-                          script_name=$(echo "$temp_line" | sed -n -E 's/.*tag=([^,]+).*/\1/p')
-                          # 移除 tag 参数，因为 Surge 不需要
-                          temp_line=$(echo "$temp_line" | sed -E 's/,? *tag=[^,]+//')
-                      fi
-
-                      # 转换 Loon 格式到 Surge 格式
-                      # Loon: http-response pattern script-path=..., requires-body=...
-                      # Surge: name = type=http-response, pattern=..., script-path=..., requires-body=...
-                      if [[ "$temp_line" =~ ^(http-request|http-response|cron|event|dns|rule|network-changed) ]]; then
-                          local script_type="${BASH_REMATCH[1]}"
-                          # 提取 pattern（在第一个空格之后，script-path 之前）
-                          local pattern=$(echo "$temp_line" | sed -E "s/^${script_type} +([^ ]+) +script-path=.*/\1/")
-                          # 提取剩余的参数
-                          local remaining=$(echo "$temp_line" | sed -E "s/^${script_type} +[^ ]+ +//")
-                          
-                          # 如果没有脚本名称，使用参数名作为默认名称
-                          if [[ -z "$script_name" && -n "$enable_param" ]]; then
-                              script_name="${enable_param/_enable/}"
-                          fi
-                          
-                          # 构建 Surge 格式的行
-                          final_line="${script_name:-script} = type=${script_type}, pattern=${pattern}, ${remaining}"
-                      else
-                          # 对于其他格式，保持原样
-                          final_line="$temp_line"
-                      fi
-
-                      # 转换 argument 参数
-                      if [[ "$final_line" == *"argument=["*"]"* ]]; then
-                          local prefix=$(echo "$final_line" | sed -E 's/(.*), *argument=\[.*/\1/')
-                          local suffix=$(echo "$final_line" | sed -E 's/.*argument=\[[^]]*\](.*)/\1/')
-                          local params_str=$(echo "$final_line" | grep -o 'argument=\[[^]]*\]' | sed 's/argument=\[//;s/\]//')
-                          local params_str_clean=$(echo "$params_str" | tr -d '{} ')
-                          IFS=',' read -r -a params_array <<< "$params_str_clean"
-                          local new_args_parts=()
-                          for param in "${params_array[@]}"; do
-                              new_args_parts+=("${param}={{{${param}}}}")
-                          done
-                          local new_args_str=$(IFS='&'; echo "${new_args_parts[*]}")
-                          final_line="${prefix}, argument=${new_args_str}${suffix}"
-                      fi
-
-                      # 组合并写入最终行
-                      if [[ -n "$enable_param" ]]; then
-                          # 使用参数值作为脚本名称
-                          echo "{{{${enable_param}}}} = ${final_line}" | sed "s/{{{${enable_param}}}} = ${script_name:-script} = /{{{${enable_param}}}} = /" >> "$temp_output_file"
-                      else
-                          echo "${final_line}" >> "$temp_output_file"
-                      fi
-                  else
-                      if [[ "$content_line" != "#!"* ]]; then
-                        echo "$content_line" >> "$temp_output_file"
-                      fi
-                  fi
-              done < "$input_file"
+                  # 转换 argument 参数
+                  if (match(final_line, /argument=\[([^\]]*)\]/, m)) {
+                    params_str = m[1]
+                    gsub(/[\{\} ]/, "", params_str)
+                    split(params_str, params_array, ",")
+                    new_args_str = ""
+                    for (i in params_array) {
+                      new_args_str = new_args_str (i > 1 ? "&" : "") params_array[i] "={{{" params_array[i] "}}}"
+                    }
+                    sub(/argument=\[[^\]]*\]/, "argument=" new_args_str, final_line)
+                  }
+                  
+                  if (enable_param) {
+                    # Surge 的 enable 是键值对
+                    print final_line ", enabled={{{" enable_param "}}}"
+                  } else {
+                    print final_line
+                  }
+                }
+                in_section == "Rewrite" && !/response-body-json-jq|mock-response-body|response-body-replace-regex/ {
+                  if ($2 == "reject") {
+                    print $1 " - reject"
+                  } else {
+                    print $0
+                  }
+                }
+                in_section != "Rewrite" && in_section != "Script" {
+                  if ($0 !~ /^#!/) print $0
+                }
+              ' "$input_file" >> "$temp_output_file"
               
               mv "$temp_output_file" "$output_file_path"
 
