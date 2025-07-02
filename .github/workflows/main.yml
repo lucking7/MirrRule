@@ -147,181 +147,136 @@ jobs:
             IFS='|' read -r plugin_name plugin_url output_name <<< "$line"
             [[ -z "$output_name" ]] && output_name="$plugin_name"
             
-            echo "[任务 $idx] 开始转换: $plugin_name -> $output_name"
-            
-            if [[ "$plugin_name" == "blockAds" ]]; then
-              echo "[任务 $idx] 使用内联脚本进行特殊转换: $plugin_name"
-              local input_file=".cache/${plugin_name}_${idx}.plugin"
-              local output_file_path="Surge/Modules/${output_name}.sgmodule"
+            echo "[任务 $idx] 开始处理插件: $plugin_name -> $output_name.sgmodule"
 
-              # 1. 下载插件
-              if ! curl -sL --connect-timeout 20 --max-time 60 -o "$input_file" "$plugin_url"; then
-                  echo "[任务 $idx] ❌ 下载失败: $plugin_name"
-                  echo "$plugin_name|FAILED" > "$result_file"
-                  return
+            local original_loon_plugin=".cache/${plugin_name}_original.plugin"
+            local initial_surge_module=".cache/${output_name}_initial.sgmodule"
+            local final_output_path="Surge/Modules/${output_name}.sgmodule"
+
+            # 1. 下载原始 Loon 插件以供后续解析
+            echo "[任务 $idx] 步骤 1/4: 下载原始 Loon 插件..."
+            if ! curl -sL --connect-timeout 20 --max-time 60 -o "$original_loon_plugin" "$plugin_url"; then
+                echo "[任务 $idx] ❌ 下载原始插件失败: $plugin_name"
+                echo "$plugin_name|FAILED" > "$result_file"
+                return
+            fi
+            echo "[任务 $idx] ✅ 原始 Loon 插件已下载到 $original_loon_plugin"
+
+            # 2. 使用 Script Hub 进行基础转换
+            echo "[任务 $idx] 步骤 2/4: 使用 Script Hub 进行基础转换..."
+            local download_url="http://localhost:9101/file/_start_/${plugin_url}/_end_/${output_name}.sgmodule?type=loon-plugin&target=surge-module&del=true"
+            if ! curl -sL --connect-timeout 20 --max-time 60 -o "$initial_surge_module" "$download_url"; then
+                echo "[任务 $idx] ❌ Script Hub 转换失败: $plugin_name"
+                echo "$plugin_name|FAILED" > "$result_file"
+                return
+            fi
+            
+            # 检查转换后的文件是否为空
+            if [[ ! -s "$initial_surge_module" ]]; then
+              echo "[任务 $idx] ❌ Script Hub 转换结果为空文件。"
+              echo "$plugin_name|FAILED" > "$result_file"
+              return
+            fi
+            echo "[任务 $idx] ✅ Script Hub 基础转换完成"
+
+            # 3. 解析原始 Loon 插件的参数并生成 Surge 参数元数据
+            echo "[任务 $idx] 步骤 3/4: 解析 Loon 参数..."
+            local -a surge_args_list=()
+            local -a surge_desc_list=()
+            local -A script_name_to_param=()
+            local in_args_section=false
+
+            while IFS= read -r arg_line; do
+              if [[ "$arg_line" == "[Argument]" ]]; then in_args_section=true; continue; fi
+              if [[ "$arg_line" == "["*"]" ]]; then in_args_section=false; continue; fi
+              if ! $in_args_section || [[ -z "$arg_line" ]] || [[ "$arg_line" == "#"* ]]; then continue; fi
+
+              local name=$(echo "$arg_line" | sed -E 's/ *=.*//;s/[[:space:]]//g')
+              local value=$(echo "$arg_line" | sed -E 's/^[a-zA-Z0-9_]+[[:space:]]*=[[:space:]]*//')
+              local type=$(echo "$value" | cut -d',' -f1)
+              local tag=$(echo "$value" | grep -o 'tag=[^,]*' | cut -d'=' -f2)
+              local desc=$(echo "$value" | sed -n 's/.*,desc=//p' | sed 's/\\n/ /g')
+
+              [[ -z "$tag" ]] && tag="$name"
+
+              if [[ "$type" == "switch" ]] || [[ "$type" == "select" ]]; then
+                  local default_val=$(echo "$value" | cut -d',' -f2)
+                  surge_args_list+=("${name}:${default_val}")
+                  surge_desc_list+=("${tag}${desc:+: $desc}")
+              fi
+            done < "$original_loon_plugin"
+
+            # 从原始脚本中构建 脚本名 -> 参数名 的映射
+            in_section=false
+            while IFS= read -r script_line; do
+                if [[ "$script_line" =~ ^\[(Script)\]$ ]]; then in_section=true; continue; fi
+                if [[ "$script_line" =~ ^\[.*\]$ ]]; then in_section=false; continue; fi
+                if ! $in_section || [[ ! "$script_line" =~ enable=\{([a-zA-Z0-9_]+)\} ]]; then continue; fi
+                
+                local param_name="${BASH_REMATCH[1]}"
+                local script_tag=$(echo "$script_line" | sed -n -E 's/.*tag=([^,]+).*/\1/p')
+                local script_type=$(echo "$script_line" | awk '{print $1}')
+                local script_pattern=$(echo "$script_line" | awk '{print $2}')
+
+                # 如果有 tag，就用 tag 作为 key
+                if [[ -n "$script_tag" ]]; then
+                    script_name_to_param["$script_tag"]="$param_name"
+                # 如果没有 tag，就用 type 和 pattern 作为 key
+                else
+                    script_name_to_param["${script_type},${script_pattern}"]="$param_name"
+                fi
+            done < "$original_loon_plugin"
+            echo "[任务 $idx] ✅ 参数解析完成"
+            
+            # 4. 注入参数和控制逻辑到最终的 Surge 模块
+            echo "[任务 $idx] 步骤 4/4: 注入参数到最终模块..."
+            {
+              # 写入元数据
+              grep '^#!' "$initial_surge_module" | sed '/^#!arguments/d' | sed '/^#!arguments-desc/d'
+              
+              # 写入新参数
+              if [ ${#surge_args_list[@]} -gt 0 ]; then
+                echo "#!arguments=$(IFS=,; echo "${surge_args_list[*]}")"
+                echo "#!arguments-desc=$(printf '%s\\n' "${surge_desc_list[@]}" | sed -e ':a' -e 'N' -e '$!ba' -e 's/\n/\\n/g')"
               fi
 
-              # 2. 从 [Argument] 区块解析参数
-              local -a surge_args_list=()
-              local -a surge_desc_list=()
-              local in_args_section=false
+              # 处理模块主体
+              in_section=""
+              while IFS= read -r content_line; do
+                if [[ "$content_line" =~ ^\[(.*)\]$ ]]; then
+                    in_section="${BASH_REMATCH[1]}"
+                    echo "$content_line"
+                    continue
+                fi
 
-              while IFS= read -r arg_line; do
-                if [[ "$arg_line" == "[Argument]" ]]; then in_args_section=true; continue; fi
-                if [[ "$arg_line" == "["*"]" ]]; then in_args_section=false; continue; fi
-                if [[ "$in_args_section" != true ]] || [[ -z "$arg_line" ]] || [[ "$arg_line" == "#"* ]]; then continue; fi
+                if [[ "$in_section" == "Script" && "$content_line" != "#"* && -n "$content_line" ]]; then
+                    local script_name=$(echo "$content_line" | sed -E 's/ *=.*//;s/^[[:space:]]*//;s/[[:space:]]*$//')
+                    local script_type=$(echo "$content_line" | sed -n -E 's/.*type=([^,]+).*/\1/p')
+                    local script_pattern=$(echo "$content_line" | sed -n -E 's/.*pattern=([^,]+).*/\1/p')
+                    
+                    local enable_param="${script_name_to_param[$script_name]}"
+                    if [[ -z "$enable_param" ]]; then
+                      enable_param="${script_name_to_param[${script_type},${script_pattern}]}"
+                    fi
 
-                local name=$(echo "$arg_line" | sed -E 's/ *=.*//;s/ //g')
-                local value=$(echo "$arg_line" | sed -E 's/^[a-zA-Z0-9_]+ *= *//')
-                local type=$(echo "$value" | cut -d',' -f1)
-                
-                local tag=$(echo "$value" | grep -o 'tag=[^,]*' | cut -d'=' -f2)
-                local desc=$(echo "$value" | sed -n 's/.*,desc=//p')
-
-                [[ -z "$tag" ]] && tag="$name"
-
-                if [[ "$type" == "switch" ]] || [[ "$type" == "select" ]]; then
-                    local default_val=$(echo "$value" | cut -d',' -f2)
-                    surge_args_list+=("${name}:${default_val}")
-                    if [[ -n "$desc" ]]; then
-                      local formatted_desc=$(echo "$desc" | sed 's/\\n/ /g')
-                      surge_desc_list+=("${tag}: ${formatted_desc}")
+                    if [[ -n "$enable_param" ]]; then
+                        echo "{{{${enable_param}}}} = ${content_line}"
                     else
-                      surge_desc_list+=("${tag}")
+                        echo "$content_line"
+                    fi
+                else
+                    # 排除旧的元数据
+                    if [[ ! "$content_line" =~ ^#! ]]; then
+                        echo "$content_line"
                     fi
                 fi
-              done < "$input_file"
-              
-              local surge_args_str=$(IFS=,; echo "${surge_args_list[*]}")
-              local final_desc_str=$(printf '%s\\n' "${surge_desc_list[@]}")
-              final_desc_str=${final_desc_str%\\n}
+              done < "$initial_surge_module"
 
-              # 3. 转换整个文件内容
-              local temp_output_file="${output_file_path}.tmp"
-              
-              # 写入元数据和新生成的参数
-              grep '^#!' "$input_file" > "$temp_output_file"
-              sed -i '/^#!date=.*/d' "$temp_output_file"
-              echo "#!date=$(date -u +'%Y-%m-%d %H:%M:%S')" >> "$temp_output_file"
-              
-              echo "" >> "$temp_output_file"
-              if [ ${#surge_args_list[@]} -gt 0 ]; then
-                echo "#!arguments=${surge_args_str}" >> "$temp_output_file"
-                echo "#!arguments-desc=${final_desc_str}" >> "$temp_output_file"
-              fi
-              
-              # 转换并写入其他部分
-              local in_section=""
-              awk '
-                BEGIN { in_section = "" }
-                /^\[(.*)\]$/ { 
-                  in_section = substr($0, 2, length($0)-2)
-                  if (in_section == "Rewrite") {
-                    print "[URL Rewrite]"
-                  } else if (in_section != "Argument") {
-                    print $0
-                  }
-                  next
-                }
-                in_section == "Argument" { next }
-                in_section == "Script" && !/^#/ && NF {
-                  line = $0
-                  # 提取 enable 参数
-                  enable_param = ""
-                  if (match(line, /enable=\{([a-zA-Z0-9_]+)\}/, m)) {
-                    enable_param = m[1]
-                    sub(/,? *enable=\{([a-zA-Z0-9_]+)\} */, "", line)
-                  }
-                  
-                  # 提取 tag 作为脚本名称
-                  script_name = ""
-                  if (match(line, /tag=([^,]+)/, m)) {
-                    script_name = m[1]
-                    sub(/,? *tag=[^,]+/, "", line)
-                  }
-                  
-                  # 转换格式
-                  if (match(line, /^(http-request|http-response|cron|event|dns|rule|network-changed)/, m)) {
-                    script_type=m[1]
-                    sub(/^(http-request|http-response|cron|event|dns|rule|network-changed)[[:space:]]+/, "", line)
-                    pattern_and_rest = line
-                    
-                    if (!script_name && enable_param) {
-                      script_name = enable_param
-                      sub(/_enable$/, "", script_name)
-                    }
-                    if (!script_name) script_name = "script"
+            } > "$final_output_path"
+            
+            echo "[任务 $idx] ✅ 最终模块生成成功: $final_output_path"
+            echo "$plugin_name|SUCCESS" > "$result_file"
 
-                    # 正确分割 pattern 和剩余部分
-                    match(pattern_and_rest, /^([^ ]+)[[:space:]]+(.*)$/, parts)
-                    pattern = parts[1]
-                    remaining = parts[2]
-                    
-                    final_line = script_name " = type=" script_type ", pattern=" pattern ", " remaining
-                  } else {
-                    final_line = line
-                  }
-
-                  # 转换 argument 参数
-                  if (match(final_line, /argument=\[([^\]]*)\]/, m)) {
-                    params_str = m[1]
-                    gsub(/[\{\} ]/, "", params_str)
-                    split(params_str, params_array, ",")
-                    new_args_str = ""
-                    for (i in params_array) {
-                      new_args_str = new_args_str (i > 1 ? "&" : "") params_array[i] "={{{" params_array[i] "}}}"
-                    }
-                    sub(/argument=\[[^\]]*\]/, "argument=" new_args_str, final_line)
-                  }
-                  
-                  if (enable_param) {
-                    # Surge 的 enable 是键值对
-                    print final_line ", enabled={{{" enable_param "}}}"
-                  } else {
-                    print final_line
-                  }
-                }
-                in_section == "Rewrite" && !/response-body-json-jq|mock-response-body|response-body-replace-regex/ {
-                  if ($2 == "reject") {
-                    print $1 " - reject"
-                  } else {
-                    print $0
-                  }
-                }
-                in_section != "Rewrite" && in_section != "Script" {
-                  if ($0 !~ /^#!/) print $0
-                }
-              ' "$input_file" >> "$temp_output_file"
-              
-              mv "$temp_output_file" "$output_file_path"
-
-              if [[ -s "$output_file_path" ]]; then
-                  echo "[任务 $idx] ✅ 内联转换成功: $output_name"
-                  echo "$plugin_name|SUCCESS" > "$result_file"
-              else
-                  echo "[任务 $idx] ❌ 内联转换失败: $output_name (输出文件为空)"
-                  echo "$plugin_name|FAILED" > "$result_file"
-              fi
-            else
-              # 对于其他插件，使用 Script Hub
-              echo "[任务 $idx] 使用 Script Hub 进行标准转换: $plugin_name"
-              local fix_script='body = body.replace(/http:\/\/127\.0\.0\.1:910[01]/g, "http://script.hub"); '
-              local encoded_fix=$(echo "$fix_script" | jq -sRr @uri)
-              local download_url="http://localhost:9101/file/_start_/${plugin_url}/_end_/${output_name}.sgmodule?type=loon-plugin&target=surge-module&del=true&evalScriptmodi=${encoded_fix}"
-              
-              if curl -A "script-hub/1.0.0" -L --connect-timeout 10 --max-time 30 -o "Surge/Modules/${output_name}.sgmodule" "$download_url" 2>/dev/null; then
-                if [[ -f "Surge/Modules/${output_name}.sgmodule" ]] && [[ -s "Surge/Modules/${output_name}.sgmodule" ]]; then
-                  echo "[任务 $idx] ✅ 转换成功: $output_name"
-                  echo "$plugin_name|SUCCESS" > "$result_file"
-                else
-                  echo "[任务 $idx] ❌ 转换失败: $output_name (文件为空)"
-                  echo "$plugin_name|FAILED" > "$result_file"
-                fi
-              else
-                echo "[任务 $idx] ❌ 转换失败: $output_name (下载错误)"
-                echo "$plugin_name|FAILED" > "$result_file"
-              fi
-            fi
           }
           
           # 并发转换逻辑
