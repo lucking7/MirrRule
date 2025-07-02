@@ -280,7 +280,8 @@ jobs:
 
                       # 组合并写入最终行
                       if [[ -n "$enable_param" ]]; then
-                          echo "{{{${enable_param}}}} = ${final_line}" >> "$temp_output_file"
+                          # 使用参数值作为脚本名称
+                          echo "{{{${enable_param}}}} = ${final_line}" | sed "s/{{{${enable_param}}}} = ${script_name:-script} = /{{{${enable_param}}}} = /" >> "$temp_output_file"
                       else
                           echo "${final_line}" >> "$temp_output_file"
                       fi
