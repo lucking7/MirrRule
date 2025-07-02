@@ -101,192 +101,121 @@ jobs:
             sleep 10
           done
 
-      - name: 并发转换 Loon 插件
-        id: convert-loon
+      - name: 转换 Loon 插件
         run: |
-          echo "开始并发转换 Loon 插件到 Surge 模块..."
-          
-          # 确保转换服务就绪
-          if ! nc -z localhost 9101; then
-            echo "转换服务未就绪，等待..."
-            sleep 5
-            if ! nc -z localhost 9101; then
-              echo "转换服务启动失败"
-              exit 1
-            fi
-          fi
-          
-          # 创建插件列表
-          cat > plugin_urls.txt << 'EOF'
-          blockAds|https://raw.githubusercontent.com/fmz200/wool_scripts/main/Loon/plugin/blockAds.plugin|Remove_ads_by_fmz
-          EOF
-          
-          # 设置并发数
-          CONCURRENCY="${LOON_CONVERSION_CONCURRENCY:-5}"
-          echo "使用并发数: $CONCURRENCY"
-          
-          # 创建目录和缓存文件
+          echo "开始 Loon 到 Surge 规则转换..."
           mkdir -p Surge/Modules
           mkdir -p .cache
           
-          # 检查缓存
-          cache_file=".cache/converted-modules-$(date +%Y%m%d).tar.gz"
-          manifest_file=".cache/conversion-manifest-$(date +%Y%m%d).json"
+          # 确保转换服务就绪
+          if ! nc -z localhost 9101; then
+            echo "转换服务未就绪，跳过 Loon 转换"
+            exit 0
+          fi
           
-          declare -A conversion_results
-          successful_count=0
-          failed_count=0
-          skipped_count=0
+          # 定义要转换的 Loon 插件
+          cat > plugin_urls.txt << 'EOF'
+          https://github.com/fmz200/wool_scripts/raw/main/Loon/plugin/blockAds.plugin|Remove_ads_by_fmz
+          EOF
           
-          # 转换函数
+          # 设置并发数
+          CONCURRENCY=${LOON_CONVERSION_CONCURRENCY:-5}
+          echo "使用并发数: $CONCURRENCY"
+          
+          # 初始化缓存文件
+          CACHE_FILE=".cache/loon_conversion_cache.txt"
+          touch "$CACHE_FILE"
+          
+          # 清理过期缓存（7天）
+          if [ "${{ github.event.inputs.clearCache }}" == "true" ]; then
+            echo "清理所有缓存..."
+            > "$CACHE_FILE"
+          else
+            # 清理7天前的缓存条目
+            TEMP_CACHE=$(mktemp)
+            while IFS='|' read -r cache_url cache_hash cache_time cache_name; do
+              if [ -n "$cache_time" ] && [ "$cache_time" -gt $(($(date +%s) - 604800)) ]; then
+                echo "${cache_url}|${cache_hash}|${cache_time}|${cache_name}" >> "$TEMP_CACHE"
+              fi
+            done < "$CACHE_FILE"
+            mv "$TEMP_CACHE" "$CACHE_FILE"
+          fi
+          
+          # 简单的转换函数
           convert_plugin() {
             local line="$1"
             local idx="$2"
-            local result_file=".cache/conversion_results_${idx}.txt"
             
-            IFS='|' read -r plugin_name plugin_url output_name <<< "$line"
-            [[ -z "$output_name" ]] && output_name="$plugin_name"
+            IFS='|' read -r plugin_url plugin_name <<< "$line"
             
-            echo "[任务 $idx] 开始处理插件: $plugin_name -> $output_name.sgmodule"
-
-            local original_loon_plugin=".cache/${plugin_name}_original.plugin"
-            local initial_surge_module=".cache/${output_name}_initial.sgmodule"
-            local final_output_path="Surge/Modules/${output_name}.sgmodule"
-
-            # 1. 下载原始 Loon 插件以供后续解析
-            echo "[任务 $idx] 步骤 1/4: 下载原始 Loon 插件..."
-            if ! curl -sL --connect-timeout 20 --max-time 60 -o "$original_loon_plugin" "$plugin_url"; then
-                echo "[任务 $idx] ❌ 下载原始插件失败: $plugin_name"
-                echo "$plugin_name|FAILED" > "$result_file"
-                return
-            fi
-            echo "[任务 $idx] ✅ 原始 Loon 插件已下载到 $original_loon_plugin"
-
-            # 2. 使用 Script Hub 进行基础转换
-            echo "[任务 $idx] 步骤 2/4: 使用 Script Hub 进行基础转换..."
-            local download_url="http://localhost:9101/file/_start_/${plugin_url}/_end_/${output_name}.sgmodule?type=loon-plugin&target=surge-module&del=true"
-            if ! curl -sL --connect-timeout 20 --max-time 60 -o "$initial_surge_module" "$download_url"; then
-                echo "[任务 $idx] ❌ Script Hub 转换失败: $plugin_name"
-                echo "$plugin_name|FAILED" > "$result_file"
-                return
+            if [[ -z "$plugin_url" ]] || [[ -z "$plugin_name" ]]; then
+              echo "[任务 $idx] ❌ 无效的插件配置: $line"
+              return 1
             fi
             
-            # 检查转换后的文件是否为空
-            if [[ ! -s "$initial_surge_module" ]]; then
-              echo "[任务 $idx] ❌ Script Hub 转换结果为空文件。"
-              echo "$plugin_name|FAILED" > "$result_file"
-              return
-            fi
-            echo "[任务 $idx] ✅ Script Hub 基础转换完成"
-
-            # 3. 解析原始 Loon 插件的参数并生成 Surge 参数元数据
-            echo "[任务 $idx] 步骤 3/4: 解析 Loon 参数..."
-            local -a surge_args_list=()
-            local -a surge_desc_list=()
-            local -A script_name_to_param=()
-            local in_args_section=false
-
-            while IFS= read -r arg_line; do
-              if [[ "$arg_line" == "[Argument]" ]]; then in_args_section=true; continue; fi
-              if [[ "$arg_line" == "["*"]" ]]; then in_args_section=false; continue; fi
-              if ! $in_args_section || [[ -z "$arg_line" ]] || [[ "$arg_line" == "#"* ]]; then continue; fi
-
-              local name=$(echo "$arg_line" | sed -E 's/ *=.*//;s/[[:space:]]//g')
-              local value=$(echo "$arg_line" | sed -E 's/^[a-zA-Z0-9_]+[[:space:]]*=[[:space:]]*//')
-              local type=$(echo "$value" | cut -d',' -f1)
-              local tag=$(echo "$value" | grep -o 'tag=[^,]*' | cut -d'=' -f2)
-              local desc=$(echo "$value" | sed -n 's/.*,desc=//p' | sed 's/\\n/ /g')
-
-              [[ -z "$tag" ]] && tag="$name"
-
-              if [[ "$type" == "switch" ]] || [[ "$type" == "select" ]]; then
-                  local default_val=$(echo "$value" | cut -d',' -f2)
-                  surge_args_list+=("${name}:${default_val}")
-                  surge_desc_list+=("${tag}${desc:+: $desc}")
-              fi
-            done < "$original_loon_plugin"
-
-            # 从原始脚本中构建 脚本名 -> 参数名 的映射
-            in_section=false
-            while IFS= read -r script_line; do
-                if [[ "$script_line" =~ ^\[(Script)\]$ ]]; then in_section=true; continue; fi
-                if [[ "$script_line" =~ ^\[.*\]$ ]]; then in_section=false; continue; fi
-                if ! $in_section || [[ ! "$script_line" =~ enable=\{([a-zA-Z0-9_]+)\} ]]; then continue; fi
-                
-                local param_name="${BASH_REMATCH[1]}"
-                local script_tag=$(echo "$script_line" | sed -n -E 's/.*tag=([^,]+).*/\1/p')
-                local script_type=$(echo "$script_line" | awk '{print $1}')
-                local script_pattern=$(echo "$script_line" | awk '{print $2}')
-
-                # 如果有 tag，就用 tag 作为 key
-                if [[ -n "$script_tag" ]]; then
-                    script_name_to_param["$script_tag"]="$param_name"
-                # 如果没有 tag，就用 type 和 pattern 作为 key
-                else
-                    script_name_to_param["${script_type},${script_pattern}"]="$param_name"
-                fi
-            done < "$original_loon_plugin"
-            echo "[任务 $idx] ✅ 参数解析完成"
+            echo "[任务 $idx] 开始转换: $plugin_name"
             
-            # 4. 注入参数和控制逻辑到最终的 Surge 模块
-            echo "[任务 $idx] 步骤 4/4: 注入参数到最终模块..."
-            {
-              # 写入元数据
-              grep '^#!' "$initial_surge_module" | sed '/^#!arguments/d' | sed '/^#!arguments-desc/d'
+            local output_file="Surge/Modules/${plugin_name}.sgmodule"
+            
+            # 检查缓存
+            local cache_entry=$(grep "^${plugin_url}|" "$CACHE_FILE" | tail -1)
+            local need_convert=true
+            
+            if [ -n "$cache_entry" ]; then
+              IFS='|' read -r _ cached_hash cached_time _ <<< "$cache_entry"
               
-              # 写入新参数
-              if [ ${#surge_args_list[@]} -gt 0 ]; then
-                echo "#!arguments=$(IFS=,; echo "${surge_args_list[*]}")"
-                echo "#!arguments-desc=$(printf '%s\\n' "${surge_desc_list[@]}" | sed -e ':a' -e 'N' -e '$!ba' -e 's/\n/\\n/g')"
+              # 获取远程文件的 ETag 或最后修改时间
+              local remote_headers=$(curl -sI "$plugin_url" | tr -d '\r')
+              local remote_etag=$(echo "$remote_headers" | grep -i "^etag:" | cut -d' ' -f2- | tr -d '"')
+              local remote_modified=$(echo "$remote_headers" | grep -i "^last-modified:" | cut -d' ' -f2-)
+              local remote_hash="${remote_etag:-$remote_modified}"
+              
+              if [ -n "$remote_hash" ] && [ "$remote_hash" = "$cached_hash" ] && [ -f "$output_file" ]; then
+                echo "[任务 $idx] ⚡ 使用缓存: $plugin_name (未更改)"
+                need_convert=false
+              else
+                echo "[任务 $idx] 🔄 需要更新: $plugin_name"
               fi
-
-              # 处理模块主体
-              in_section=""
-              while IFS= read -r content_line; do
-                if [[ "$content_line" =~ ^\[(.*)\]$ ]]; then
-                    in_section="${BASH_REMATCH[1]}"
-                    echo "$content_line"
-                    continue
-                fi
-
-                if [[ "$in_section" == "Script" && "$content_line" != "#"* && -n "$content_line" ]]; then
-                    local script_name=$(echo "$content_line" | sed -E 's/ *=.*//;s/^[[:space:]]*//;s/[[:space:]]*$//')
-                    local script_type=$(echo "$content_line" | sed -n -E 's/.*type=([^,]+).*/\1/p')
-                    local script_pattern=$(echo "$content_line" | sed -n -E 's/.*pattern=([^,]+).*/\1/p')
-                    
-                    local enable_param="${script_name_to_param[$script_name]}"
-                    if [[ -z "$enable_param" ]]; then
-                      enable_param="${script_name_to_param[${script_type},${script_pattern}]}"
-                    fi
-
-                    if [[ -n "$enable_param" ]]; then
-                        echo "{{{${enable_param}}}} = ${content_line}"
-                    else
-                        echo "$content_line"
-                    fi
-                else
-                    # 排除旧的元数据
-                    if [[ ! "$content_line" =~ ^#! ]]; then
-                        echo "$content_line"
-                    fi
-                fi
-              done < "$initial_surge_module"
-
-            } > "$final_output_path"
+            fi
             
-            echo "[任务 $idx] ✅ 最终模块生成成功: $final_output_path"
-            echo "$plugin_name|SUCCESS" > "$result_file"
-
+            if [ "$need_convert" = true ]; then
+              local encoded_url=$(echo "$plugin_url" | jq -sRr @uri)
+              local download_url="http://localhost:9101/file/_start_/${plugin_url}/_end_/${plugin_name}.sgmodule?type=loon-plugin&target=surge-module&del=true"
+              
+              # 使用 Script Hub 进行基础转换
+              if curl -A "script-hub/1.0.0" -L --connect-timeout 10 --max-time 30 -o "$output_file" "$download_url" 2>/dev/null; then
+                echo "[任务 $idx] ✅ 转换成功: $plugin_name"
+                
+                # 更新缓存
+                local remote_headers=$(curl -sI "$plugin_url" | tr -d '\r')
+                local remote_etag=$(echo "$remote_headers" | grep -i "^etag:" | cut -d' ' -f2- | tr -d '"')
+                local remote_modified=$(echo "$remote_headers" | grep -i "^last-modified:" | cut -d' ' -f2-)
+                local remote_hash="${remote_etag:-$remote_modified}"
+                local current_time=$(date +%s)
+                
+                # 从缓存中删除旧条目
+                grep -v "^${plugin_url}|" "$CACHE_FILE" > "$CACHE_FILE.tmp" || true
+                mv "$CACHE_FILE.tmp" "$CACHE_FILE"
+                
+                # 添加新缓存条目
+                echo "${plugin_url}|${remote_hash}|${current_time}|${plugin_name}" >> "$CACHE_FILE"
+                
+                return 0
+              else
+                echo "[任务 $idx] ❌ 转换失败: $plugin_name"
+                return 1
+              fi
+            fi
+            
+            return 0
           }
           
-          # 并发转换逻辑
-          echo "开始并发转换插件 (并发数: $CONCURRENCY)..."
-          
-          # 清理旧的结果文件
-          rm -f .cache/conversion_results_*.txt
-          
-          # 创建并发任务
+          # 并发转换
           job_count=0
+          success_count=0
+          cache_count=0
+          fail_count=0
+          
           while IFS= read -r line; do
             # 等待有空闲进程槽
             while [ $(jobs -r | wc -l) -ge $CONCURRENCY ]; do
@@ -294,7 +223,19 @@ jobs:
             done
             
             # 启动后台转换任务
-            convert_plugin "$line" "$job_count" &
+            (
+              if convert_plugin "$line" "$job_count"; then
+                # 检查是否使用了缓存
+                if grep -q "⚡ 使用缓存" <<< "$(convert_plugin "$line" "$job_count" 2>&1)"; then
+                  echo "CACHE" > ".cache/job_${job_count}_result"
+                else
+                  echo "SUCCESS" > ".cache/job_${job_count}_result"
+                fi
+              else
+                echo "FAIL" > ".cache/job_${job_count}_result"
+              fi
+            ) &
+            
             job_count=$((job_count + 1))
             
             # 避免过快启动
@@ -305,80 +246,34 @@ jobs:
           echo "等待所有转换任务完成..."
           wait
           
-          # 合并结果
-          echo "合并转换结果..."
-          for result_file in .cache/conversion_results_*.txt; do
-            if [[ -f "$result_file" ]]; then
-              while IFS='|' read -r plugin_name status; do
-                conversion_results["$plugin_name"]="$status"
-                case "$status" in
-                  "SUCCESS")
-                    successful_count=$((successful_count + 1))
-                    ;;
-                  "FAILED")
-                    failed_count=$((failed_count + 1))
-                    ;;
-                esac
-              done < "$result_file"
+          # 统计结果
+          for ((i=0; i<job_count; i++)); do
+            if [ -f ".cache/job_${i}_result" ]; then
+              result=$(cat ".cache/job_${i}_result")
+              case "$result" in
+                "SUCCESS") success_count=$((success_count + 1)) ;;
+                "CACHE") cache_count=$((cache_count + 1)) ;;
+                "FAIL") fail_count=$((fail_count + 1)) ;;
+              esac
+              rm -f ".cache/job_${i}_result"
             fi
           done
           
-          # 创建转换清单
-          echo "{" > "$manifest_file"
-          echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"," >> "$manifest_file"
-          echo "  \"total_plugins\": $(wc -l < plugin_urls.txt)," >> "$manifest_file"
-          echo "  \"successful\": $successful_count," >> "$manifest_file"
-          echo "  \"failed\": $failed_count," >> "$manifest_file"
-          echo "  \"skipped\": $skipped_count," >> "$manifest_file"
-          echo "  \"concurrency\": $CONCURRENCY," >> "$manifest_file"
-          echo "  \"results\": {" >> "$manifest_file"
+          echo ""
+          echo "转换统计:"
+          echo "  - 总任务数: $job_count"
+          echo "  - 新转换: $success_count"
+          echo "  - 使用缓存: $cache_count"
+          echo "  - 失败: $fail_count"
+          echo ""
           
-          first=true
-          for plugin in "${!conversion_results[@]}"; do
-            if [[ "$first" == "true" ]]; then
-              first=false
-            else
-              echo "," >> "$manifest_file"
-            fi
-            echo "    \"$plugin\": \"${conversion_results[$plugin]}\"" >> "$manifest_file"
-          done
+          # 显示缓存信息
+          cache_size=$(wc -l < "$CACHE_FILE" 2>/dev/null || echo "0")
+          echo "缓存信息:"
+          echo "  - 缓存条目: $cache_size"
+          echo "  - 缓存文件: $CACHE_FILE"
           
-          echo "" >> "$manifest_file"
-          echo "  }" >> "$manifest_file"
-          echo "}" >> "$manifest_file"
-          
-          # 创建缓存
-          if [[ $successful_count -gt 0 ]] || [[ $skipped_count -gt 0 ]]; then
-            echo "创建转换缓存..."
-            tar -czf "$cache_file" -C Surge/Modules/ . 2>/dev/null || true
-          fi
-          
-          # 输出统计
-          total_plugins=$(wc -l < plugin_urls.txt)
-          success_rate=$((((successful_count + skipped_count) * 100) / total_plugins))
-          
-          echo "============================================"
-          echo "转换完成统计:"
-          echo "  总插件数: $total_plugins"
-          echo "  转换成功: $successful_count"
-          echo "  转换失败: $failed_count"
-          echo "  成功率: ${success_rate}%"
-          echo "  并发数: $CONCURRENCY"
-          echo "============================================"
-          
-          # 设置 GitHub Actions 输出
-          echo "conversion_success_rate=$success_rate" >> $GITHUB_OUTPUT
-          echo "converted_plugins=$successful_count" >> $GITHUB_OUTPUT
-          echo "skipped_plugins=$skipped_count" >> $GITHUB_OUTPUT
-          
-          # 清理旧缓存（保留最新5个）
-          ls -t .cache/converted-modules-*.tar.gz 2>/dev/null | tail -n +6 | xargs rm -f 2>/dev/null || true
-          ls -t .cache/conversion-manifest-*.json 2>/dev/null | tail -n +6 | xargs rm -f 2>/dev/null || true
-          
-          # 清理临时文件
-          rm -f .cache/conversion_results_*.txt
-        env:
-          LOON_CONVERSION_CONCURRENCY: 5
+          echo "Loon 插件转换完成"
 
       - name: 转换 QX 重写规则
         run: |
@@ -406,10 +301,7 @@ jobs:
             # 使用 Script Hub 转换 QX 重写到 Surge 模块
             download_url="http://localhost:9101/file/_start_/${url}/_end_/${name}.sgmodule?type=qx-rewrite&target=surge-module&del=true"
             
-            # 添加主动预防参数
-            fix_script='body = body.replace(/http:\/\/127\.0\.0\.1:910[01]/g, "http://script.hub")'
-            encoded_fix=$(echo "$fix_script" | jq -sRr @uri)
-            download_url="${download_url}&evalScriptmodi=${encoded_fix}"
+
             
             if curl -A "script-hub/1.0.0" -L --connect-timeout 10 --max-time 30 -o "$output_file" "$download_url" 2>/dev/null; then
               echo "✅ 转换成功: $name"
@@ -433,6 +325,20 @@ jobs:
           done
           
           echo "QX 规则转换完成"
+
+      - name: 修正模块参数
+        run: |
+          echo "开始修正模块参数..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/sync/module-parameter-fix-runner.ts || {
+            echo "参数修正失败，但继续构建流程"
+          }
+
+      - name: 修复模块地址
+        run: |
+          echo "开始修复模块地址问题..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/sync/module-address-fixer.ts || {
+            echo "地址修复失败，但继续构建流程"
+          }
 
       - name: 合并 Surge 模块
         run: |

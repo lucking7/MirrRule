@@ -19,7 +19,10 @@
 		"validate:hash": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/validate-hash-collision.ts",
 		"validate:rulesyntax": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/validate-rule-syntax.ts",
 		"clean:dead-domains": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/clean-dead-domains.ts --fix",
-		"clean:dead-domains:preview": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/clean-dead-domains.ts"
+		"clean:dead-domains:preview": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/clean-dead-domains.ts",
+		"fix:module-parameters": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/sync/module-parameter-fix-runner.ts",
+		"fix:module-addresses": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/sync/module-address-fixer.ts",
+		"fix:modules": "npm run fix:module-parameters && npm run fix:module-addresses"
 	},
 	"dependencies": {
 		"@henrygd/queue": "^1.0.7",
