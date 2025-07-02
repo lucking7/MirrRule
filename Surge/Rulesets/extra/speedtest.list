@@ -1,7 +1,7 @@
 #########################################
 # Sukka's Ruleset - Speedtest Domains
-# Last Updated: 2025-06-30T15:59:40.470Z
-# Size: 1205
+# Last Updated: 2025-07-02T12:48:37.428Z
+# Size: 1207
 # License: AGPL 3.0
 # Homepage: https://ruleset.skk.moe
 # GitHub: https://github.com/SukkaW/Surge
@@ -101,6 +101,7 @@ DOMAIN,speedtest.ams1.hivelocity.net
 DOMAIN,speedtest.lax.hivelocity.net
 DOMAIN,speedtest.dal.hivelocity.net
 DOMAIN,lg-par2.fdcservers.net
+DOMAIN,lg-pa10.fdcservers.net
 DOMAIN,lg-tor.fdcservers.net
 DOMAIN,lg-tok.fdcservers.net
 DOMAIN,lg-syd.fdcservers.net
@@ -870,6 +871,7 @@ DOMAIN,speedtest.sg.hsp.net.id
 DOMAIN,speedtest-sg.cni.net.id
 DOMAIN,speedtest-sg.cbn.id
 DOMAIN,speedtest-sg.napinfo.co.id
+DOMAIN,speedtest.singapore.atharva.co.id
 DOMAIN,speedtest-intl.xl.co.id
 DOMAIN,speedtest.three.com.hk
 DOMAIN,sosimhk.datapath.three.com.hk
