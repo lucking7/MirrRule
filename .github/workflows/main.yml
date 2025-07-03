@@ -186,6 +186,18 @@ jobs:
               if curl -A "script-hub/1.0.0" -L --connect-timeout 10 --max-time 30 -o "$output_file" "$download_url" 2>/dev/null; then
                 echo "[任务 $idx] ✅ 转换成功: $plugin_name"
                 
+                # 为 Remove_ads_by_fmz (blockAds.plugin) 添加规则
+                if [[ "$plugin_name" == "Remove_ads_by_fmz" ]]; then
+                  echo "[任务 $idx] 为 Remove_ads_by_fmz 添加规则..."
+                  
+                  # 添加或追加到 [Rule] 部分
+                  if grep -q "^\[Rule\]" "$output_file"; then
+                    sed -i '/^\[Rule\]/a RULE-SET,https://ruleset.chichi.sh/Surge/Rulesets/reject/reject-Loon.list,REJECT,pre-matching,extended-matching,no-resolve' "$output_file"
+                  else
+                    echo -e "\n[Rule]\nRULE-SET,https://ruleset.chichi.sh/Surge/Rulesets/reject/reject-Loon.list,REJECT,pre-matching,extended-matching,no-resolve" >> "$output_file"
+                  fi
+                fi
+                
                 # 更新缓存
                 local remote_headers=$(curl -sI "$plugin_url" | tr -d '\r')
                 local remote_etag=$(echo "$remote_headers" | grep -i "^etag:" | cut -d' ' -f2- | tr -d '"')
@@ -310,13 +322,11 @@ jobs:
               if [[ "$name" == "MiniApp_Cleaner" ]]; then
                 echo "为 MiniApp_Cleaner 添加规则..."
                 
-                # 检查是否已有 [Rule] 部分
+                # 添加或追加到 [Rule] 部分
                 if grep -q "^\[Rule\]" "$output_file"; then
-                  # 在 [Rule] 部分后添加规则
-                  sed -i '/^\[Rule\]/a RULE-SET,https://ruleset.chichi.sh/Rulesets/reject/reject_fmz200.list,REJECT,pre-matching,extended-matching,no-resolve' "$output_file"
+                  sed -i '/^\[Rule\]/a RULE-SET,https://ruleset.chichi.sh/Surge/Rulesets/reject/reject-QX.list,REJECT,pre-matching,extended-matching,no-resolve' "$output_file"
                 else
-                  # 添加 [Rule] 部分和规则
-                  echo -e "\n[Rule]\nRULE-SET,https://ruleset.chichi.sh/Rulesets/reject/reject_fmz200.list,REJECT,pre-matching,extended-matching,no-resolve" >> "$output_file"
+                  echo -e "\n[Rule]\nRULE-SET,https://ruleset.chichi.sh/Surge/Rulesets/reject/reject-QX.list,REJECT,pre-matching,extended-matching,no-resolve" >> "$output_file"
                 fi
               fi
             else
