@@ -257,34 +257,28 @@ export function cleanAndSort(
   cleanup: boolean = false,
   keepInlineComments: boolean = true
 ): string {
+  // 始终对每一行应用转换器，由转换器根据 cleanup 参数处理注释
+  const convertedLines = content.split('\n').map(line => converter.convert(line, cleanup));
+
   if (!cleanup) {
-    // 不进行完整清理操作，但仍去重、保留注释和空行
-    return dedupRules(content);
+    // 如果不清理，我们只对转换后的内容去重（保留注释）
+    return dedupRules(convertedLines.join('\n'));
   }
 
-  // 完整清理:去注释、去空行、重排序、去重
-  const lines = content
-    .split('\n')
-    .map(line => line.trim())
-    .filter(
-      line => line && !line.startsWith('#') && !line.startsWith(';') && !line.startsWith('//')
-    );
+  // 如果清理，则过滤空行、去重并排序
+  let processedLines = convertedLines.map(line => line.trim()).filter(line => line); // 过滤掉因移除注释而产生的空行
 
-  // 处理行内注释
-  let processedLines = lines;
   if (!keepInlineComments) {
     // 如果不保留行内注释，则移除行内注释部分
-    processedLines = lines.map(line => {
+    // 注意：这里的实现很简单，可能不适用于所有注释类型
+    processedLines = processedLines.map(line => {
       const commentIndex = line.indexOf('//');
       return commentIndex >= 0 ? line.substring(0, commentIndex).trim() : line;
     });
   }
 
   // 去重并排序
-  return processedLines
-    .filter((line, index, arr) => arr.indexOf(line) === index)
-    .sort()
-    .join('\n');
+  return [...new Set(processedLines)].sort().join('\n');
 }
 
 export function dedupRules(content: string): string {

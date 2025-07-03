@@ -208,6 +208,67 @@ export class LoonToSurgeConverter {
     // 写入结果
     fs.writeFileSync(outputPath, fixedContent);
   }
+
+  private convertLoonPlugin(content: string): string {
+    // ... existing code ...
+    return content;
+  }
+
+  private addRuleSet(
+    content: string,
+    ruleSet: string,
+    policy: string = 'REJECT',
+    params: string[] = []
+  ): string {
+    const paramsString = params.length > 0 ? `,${params.join(',')}` : '';
+    const ruleLine = `RULE-SET,${ruleSet},${policy}${paramsString}`;
+
+    if (content.includes('[Rule]')) {
+      // 使用正则表达式来确保替换的精确性，并保留原有的[Rule]行
+      return content.replace(/(\[Rule\])/, `$1\n${ruleLine}`);
+    } else {
+      // 如果没有[Rule]部分，则在末尾添加
+      return `${content}\n\n[Rule]\n${ruleLine}`;
+    }
+  }
+
+  /**
+   * Enhances a module with additional rules and configurations.
+   * @returns The enhanced module content.
+   */
+  public enhance(name: string, content: string): string {
+    switch (name) {
+      case 'BiliBili.Enhanced':
+        // ... existing code ...
+        break;
+      case 'BiliBili.ADBlock':
+        // ... existing code ...
+        break;
+      case 'MiniApp_Cleaner': {
+        const ruleParams = ['pre-matching', 'extended-matching', 'no-resolve'];
+        const ruleSetUrl =
+          'https://raw.githubusercontent.com/deesdew/esdeath/main/Surge/Rulesets/reject/reject-QX.list';
+        content = this.addRuleSet(content, ruleSetUrl, 'REJECT', ruleParams);
+        break;
+      }
+      case 'blockAds_plugin': {
+        const ruleParams = ['pre-matching', 'extended-matching', 'no-resolve'];
+        const ruleSetUrl =
+          'https://raw.githubusercontent.com/deesdew/esdeath/main/Surge/Rulesets/reject/reject-Loon.list';
+        content = this.addRuleSet(content, ruleSetUrl, 'REJECT', ruleParams);
+        break;
+      }
+      default:
+        break;
+    }
+
+    // Add surge reject rule set
+    if (!content.includes('// Surge-Rule-Set')) {
+      // ... existing code ...
+    }
+
+    return content;
+  }
 }
 
 /**
