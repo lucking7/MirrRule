@@ -186,18 +186,6 @@ jobs:
               if curl -A "script-hub/1.0.0" -L --connect-timeout 10 --max-time 30 -o "$output_file" "$download_url" 2>/dev/null; then
                 echo "[任务 $idx] ✅ 转换成功: $plugin_name"
                 
-                # 为 Remove_ads_by_fmz (blockAds.plugin) 添加规则
-                if [[ "$plugin_name" == "Remove_ads_by_fmz" ]]; then
-                  echo "[任务 $idx] 为 Remove_ads_by_fmz 添加规则..."
-                  
-                  # 添加或追加到 [Rule] 部分
-                  if grep -q "^\[Rule\]" "$output_file"; then
-                    sed -i '/^\[Rule\]/a RULE-SET,https://ruleset.chichi.sh/Surge/Rulesets/reject/reject-Loon.list,REJECT,pre-matching,extended-matching,no-resolve' "$output_file"
-                  else
-                    echo -e "\n[Rule]\nRULE-SET,https://ruleset.chichi.sh/Surge/Rulesets/reject/reject-Loon.list,REJECT,pre-matching,extended-matching,no-resolve" >> "$output_file"
-                  fi
-                fi
-                
                 # 更新缓存
                 local remote_headers=$(curl -sI "$plugin_url" | tr -d '\r')
                 local remote_etag=$(echo "$remote_headers" | grep -i "^etag:" | cut -d' ' -f2- | tr -d '"')
@@ -317,24 +305,19 @@ jobs:
             
             if curl -A "script-hub/1.0.0" -L --connect-timeout 10 --max-time 30 -o "$output_file" "$download_url" 2>/dev/null; then
               echo "✅ 转换成功: $name"
-              
-              # 为 MiniApp_Cleaner 添加规则
-              if [[ "$name" == "MiniApp_Cleaner" ]]; then
-                echo "为 MiniApp_Cleaner 添加规则..."
-                
-                # 添加或追加到 [Rule] 部分
-                if grep -q "^\[Rule\]" "$output_file"; then
-                  sed -i '/^\[Rule\]/a RULE-SET,https://ruleset.chichi.sh/Surge/Rulesets/reject/reject-QX.list,REJECT,pre-matching,extended-matching,no-resolve' "$output_file"
-                else
-                  echo -e "\n[Rule]\nRULE-SET,https://ruleset.chichi.sh/Surge/Rulesets/reject/reject-QX.list,REJECT,pre-matching,extended-matching,no-resolve" >> "$output_file"
-                fi
-              fi
             else
               echo "❌ 转换失败: $name"
             fi
           done
           
           echo "QX 规则转换完成"
+
+      - name: 为转换后的模块添加规则集
+        run: |
+          echo "开始为转换后的模块添加规则集..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/sync/module-rule-injector.ts || {
+            echo "规则集添加失败，但继续构建流程"
+          }
 
       - name: 增强模块功能
         run: |
