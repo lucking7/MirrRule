@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /**
- * 模块增强器 - ScriptHub 后处理工具
- * 对 ScriptHub 转换后的 Surge 模块进行增强处理
+ * 参数注入器 - ScriptHub 后处理工具
+ * 对 ScriptHub 转换后的 Surge 模块进行参数化增强
  * 主要功能：从 Loon 插件源提取脚本信息，为 Surge 模块添加参数化控制能力
  */
 import * as fs from 'fs';
@@ -13,7 +13,7 @@ interface ScriptInfo {
   enableParam?: string;
 }
 
-export class LoonToSurgeConverter {
+export class ParameterInjector {
   /**
    * 解析 Loon 插件的 [Script] 部分，提取脚本信息
    */
@@ -65,9 +65,9 @@ export class LoonToSurgeConverter {
   }
 
   /**
-   * 修正 Script Hub 转换后的 Surge 模块，添加参数控制
+   * 为 Surge 模块注入参数控制
    */
-  static fixSurgeModule(surgeContent: string, loonScripts: ScriptInfo[]): string {
+  static injectParameters(surgeContent: string, loonScripts: ScriptInfo[]): string {
     const lines = surgeContent.split('\n');
     const result: string[] = [];
     let inScriptSection = false;
@@ -188,7 +188,7 @@ export class LoonToSurgeConverter {
   }
 
   /**
-   * 完整的转换流程
+   * 完整的参数注入流程
    */
   static async convertLoonToSurge(
     loonPluginPath: string,
@@ -202,72 +202,11 @@ export class LoonToSurgeConverter {
     // 解析 Loon 插件脚本
     const loonScripts = this.parseLoonScripts(loonContent);
 
-    // 修正 Surge 模块
-    const fixedContent = this.fixSurgeModule(surgeContent, loonScripts);
+    // 注入参数
+    const fixedContent = this.injectParameters(surgeContent, loonScripts);
 
     // 写入结果
     fs.writeFileSync(outputPath, fixedContent);
-  }
-
-  private convertLoonPlugin(content: string): string {
-    // ... existing code ...
-    return content;
-  }
-
-  private addRuleSet(
-    content: string,
-    ruleSet: string,
-    policy: string = 'REJECT',
-    params: string[] = []
-  ): string {
-    const paramsString = params.length > 0 ? `,${params.join(',')}` : '';
-    const ruleLine = `RULE-SET,${ruleSet},${policy}${paramsString}`;
-
-    if (content.includes('[Rule]')) {
-      // 使用正则表达式来确保替换的精确性，并保留原有的[Rule]行
-      return content.replace(/(\[Rule\])/, `$1\n${ruleLine}`);
-    } else {
-      // 如果没有[Rule]部分，则在末尾添加
-      return `${content}\n\n[Rule]\n${ruleLine}`;
-    }
-  }
-
-  /**
-   * Enhances a module with additional rules and configurations.
-   * @returns The enhanced module content.
-   */
-  public enhance(name: string, content: string): string {
-    switch (name) {
-      case 'BiliBili.Enhanced':
-        // ... existing code ...
-        break;
-      case 'BiliBili.ADBlock':
-        // ... existing code ...
-        break;
-      case 'Chongxie_by_fmz': {
-        const ruleParams = ['pre-matching', 'extended-matching', 'no-resolve'];
-        const ruleSetUrl =
-          'https://raw.githubusercontent.com/deesdew/esdeath/main/Surge/Rulesets/reject/reject-QX.list';
-        content = this.addRuleSet(content, ruleSetUrl, 'REJECT', ruleParams);
-        break;
-      }
-      case 'blockAds_plugin': {
-        const ruleParams = ['pre-matching', 'extended-matching', 'no-resolve'];
-        const ruleSetUrl =
-          'https://raw.githubusercontent.com/deesdew/esdeath/main/Surge/Rulesets/reject/reject-Loon.list';
-        content = this.addRuleSet(content, ruleSetUrl, 'REJECT', ruleParams);
-        break;
-      }
-      default:
-        break;
-    }
-
-    // Add surge reject rule set
-    if (!content.includes('// Surge-Rule-Set')) {
-      // ... existing code ...
-    }
-
-    return content;
   }
 }
 
@@ -319,7 +258,7 @@ async function processModule(modulePath: string): Promise<void> {
     const surgeContent = fs.readFileSync(modulePath, 'utf-8');
 
     // 解析 Loon 脚本
-    const loonScripts = LoonToSurgeConverter.parseLoonScripts(loonContent);
+    const loonScripts = ParameterInjector.parseLoonScripts(loonContent);
 
     if (loonScripts.length === 0) {
       console.log(`  警告: ${moduleName} 没有找到脚本定义`);
@@ -332,8 +271,8 @@ async function processModule(modulePath: string): Promise<void> {
     const uniqueTags = new Set(loonScripts.map(s => s.tag));
     console.log(`  找到 ${uniqueTags.size} 个唯一的脚本标签`);
 
-    // 修正模块
-    const fixedContent = LoonToSurgeConverter.fixSurgeModule(surgeContent, loonScripts);
+    // 注入参数
+    const fixedContent = ParameterInjector.injectParameters(surgeContent, loonScripts);
 
     // 写回文件
     fs.writeFileSync(modulePath, fixedContent);

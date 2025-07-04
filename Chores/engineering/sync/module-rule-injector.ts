@@ -1,34 +1,23 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-
-interface ModuleRuleConfig {
-  moduleName: string;
-  ruleSetUrl: string;
-  sourceType: 'qx' | 'loon';
-}
-
-// 配置需要添加规则的模块
-const moduleRuleConfigs: ModuleRuleConfig[] = [
-  {
-    moduleName: 'Chongxie_by_fmz',
-    ruleSetUrl: 'https://ruleset.chichi.sh/Surge/Rulesets/reject/reject-QX.list',
-    sourceType: 'qx',
-  },
-  {
-    moduleName: 'Remove_ads_by_fmz',
-    ruleSetUrl: 'https://ruleset.chichi.sh/Surge/Rulesets/reject/reject-Loon.list',
-    sourceType: 'loon',
-  },
-];
+import { moduleConfig } from './module-config.js';
 
 /**
  * 为 Surge 模块添加规则集
  * @param content 模块内容
  * @param ruleSetUrl 规则集 URL
+ * @param policy 策略（默认 REJECT）
+ * @param params 额外参数
  * @returns 修改后的内容
  */
-function addRuleToModule(content: string, ruleSetUrl: string): string {
-  const ruleToAdd = `RULE-SET,${ruleSetUrl},REJECT,pre-matching,extended-matching,no-resolve`;
+export function addRuleToModule(
+  content: string,
+  ruleSetUrl: string,
+  policy: string = 'REJECT',
+  params: string[] = []
+): string {
+  const paramsString = params.length > 0 ? `,${params.join(',')}` : '';
+  const ruleToAdd = `RULE-SET,${ruleSetUrl},${policy}${paramsString}`;
 
   // 检查是否已经有这个规则（避免重复添加）
   if (content.includes(ruleToAdd)) {
@@ -67,7 +56,10 @@ function addRuleToModule(content: string, ruleSetUrl: string): string {
  * @param modulePath 模块文件路径
  * @param config 模块配置
  */
-async function processModule(modulePath: string, config: ModuleRuleConfig): Promise<boolean> {
+export async function processModule(
+  modulePath: string,
+  config: (typeof moduleConfig.moduleRuleInjections)[0]
+): Promise<boolean> {
   try {
     console.log(`\n处理模块: ${config.moduleName}`);
     console.log(`  文件路径: ${modulePath}`);
@@ -78,7 +70,12 @@ async function processModule(modulePath: string, config: ModuleRuleConfig): Prom
     const content = await fs.readFile(modulePath, 'utf-8');
 
     // 添加规则
-    const modifiedContent = addRuleToModule(content, config.ruleSetUrl);
+    const modifiedContent = addRuleToModule(
+      content,
+      config.ruleSetUrl,
+      config.policy || 'REJECT',
+      config.params || []
+    );
 
     // 如果内容有变化，写回文件
     if (content !== modifiedContent) {
@@ -114,7 +111,7 @@ async function main() {
   }
 
   // 处理每个配置的模块
-  for (const config of moduleRuleConfigs) {
+  for (const config of moduleConfig.moduleRuleInjections) {
     const modulePath = path.join(surgeModulesDir, `${config.moduleName}.sgmodule`);
 
     // 检查文件是否存在
@@ -133,10 +130,10 @@ async function main() {
 
   // 输出统计信息
   console.log('\n📊 处理统计:');
-  console.log(`  - 配置的模块数: ${moduleRuleConfigs.length}`);
+  console.log(`  - 配置的模块数: ${moduleConfig.moduleRuleInjections.length}`);
   console.log(`  - 处理的模块数: ${processedCount}`);
   console.log(`  - 修改的模块数: ${modifiedCount}`);
-  console.log(`  - 跳过的模块数: ${moduleRuleConfigs.length - processedCount}`);
+  console.log(`  - 跳过的模块数: ${moduleConfig.moduleRuleInjections.length - processedCount}`);
 
   console.log('\n✨ 规则集添加完成！');
 }
@@ -149,4 +146,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { addRuleToModule, processModule, moduleRuleConfigs };
+export { moduleConfig };

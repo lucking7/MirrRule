@@ -3,6 +3,14 @@
  * 声明哪些模块需要特殊处理以及其他配置
  */
 
+export interface ModuleRuleConfig {
+  moduleName: string;
+  ruleSetUrl: string;
+  sourceType: 'qx' | 'loon';
+  policy?: string;
+  params?: string[];
+}
+
 export interface ModuleConfig {
   // 需要增强处理的模块列表（ScriptHub 转换后需要额外处理）
   modulesRequiringEnhancement: string[];
@@ -12,6 +20,9 @@ export interface ModuleConfig {
     pattern: RegExp;
     replacement: string;
   }[];
+
+  // 需要注入规则集的模块配置
+  moduleRuleInjections: ModuleRuleConfig[];
 }
 
 export const moduleConfig: ModuleConfig = {
@@ -33,6 +44,42 @@ export const moduleConfig: ModuleConfig = {
       // 修复 127.0.0.1:9100 地址
       pattern: /http:\/\/127\.0\.0\.1:9100\//g,
       replacement: 'http://script.hub/',
+    },
+  ],
+
+  // 规则集注入配置
+  moduleRuleInjections: [
+    {
+      moduleName: 'Chongxie_by_fmz',
+      ruleSetUrl:
+        'https://raw.githubusercontent.com/deesdew/esdeath/main/Surge/Rulesets/reject/reject-QX.list',
+      sourceType: 'qx',
+      policy: 'REJECT',
+      params: ['pre-matching', 'extended-matching', 'no-resolve'],
+    },
+    {
+      moduleName: 'blockAds_plugin',
+      ruleSetUrl:
+        'https://raw.githubusercontent.com/deesdew/esdeath/main/Surge/Rulesets/reject/reject-Loon.list',
+      sourceType: 'loon',
+      policy: 'REJECT',
+      params: ['pre-matching', 'extended-matching', 'no-resolve'],
+    },
+    {
+      moduleName: 'MiniApp_Cleaner',
+      ruleSetUrl:
+        'https://raw.githubusercontent.com/deesdew/esdeath/main/Surge/Rulesets/reject/reject-QX.list',
+      sourceType: 'qx',
+      policy: 'REJECT',
+      params: ['pre-matching', 'extended-matching', 'no-resolve'],
+    },
+    {
+      moduleName: 'Remove_ads_by_fmz',
+      ruleSetUrl:
+        'https://raw.githubusercontent.com/deesdew/esdeath/main/Surge/Rulesets/reject/reject-Loon.list',
+      sourceType: 'loon',
+      policy: 'REJECT',
+      params: ['pre-matching', 'extended-matching', 'no-resolve'],
     },
   ],
 };

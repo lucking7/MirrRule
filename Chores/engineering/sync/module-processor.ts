@@ -1,12 +1,14 @@
 #!/usr/bin/env tsx
 /**
- * 模块处理器 - 统一处理 Surge 模块的验证和修复
- * 包含地址修复、验证等功能
+ * 模块处理器 - 统一处理 Surge 模块的各种转换和增强
+ * 包含地址修复、验证、参数注入、规则注入等功能
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { moduleConfig } from './module-config.js';
+import { ParameterInjector } from './module-parameter-injector.js';
+import { addRuleToModule } from './module-rule-injector.js';
 
 export class ModuleProcessor {
   /**
@@ -76,35 +78,151 @@ export class ModuleProcessor {
   }
 
   /**
+   * 处理参数注入
+   */
+  static async processParameterInjection(modulePath: string, moduleName: string): Promise<boolean> {
+    const { needsParameterFix, getLoonPluginUrl } = await import('./module-config.js');
+
+    if (!needsParameterFix(moduleName)) {
+      return false;
+    }
+
+    const loonUrl = getLoonPluginUrl(moduleName);
+    if (!loonUrl) {
+      console.error(`  ❌ 找不到 ${moduleName} 对应的 Loon 插件 URL`);
+      return false;
+    }
+
+    try {
+      // 下载 Loon 插件
+      const loonContent = await this.downloadFile(loonUrl);
+
+      // 读取当前的 Surge 模块
+      const surgeContent = fs.readFileSync(modulePath, 'utf-8');
+
+      // 解析 Loon 脚本
+      const loonScripts = ParameterInjector.parseLoonScripts(loonContent);
+
+      if (loonScripts.length === 0) {
+        console.log(`  ⚠️  ${moduleName} 没有找到脚本定义`);
+        return false;
+      }
+
+      // 注入参数
+      const fixedContent = ParameterInjector.injectParameters(surgeContent, loonScripts);
+
+      // 写回文件
+      fs.writeFileSync(modulePath, fixedContent);
+      console.log(`  ✅ 参数注入完成（${loonScripts.length} 个脚本）`);
+      return true;
+    } catch (error) {
+      console.error(`  ❌ 参数注入失败: ${error}`);
+      return false;
+    }
+  }
+
+  /**
+   * 处理规则注入
+   */
+  static processRuleInjection(modulePath: string, moduleName: string): boolean {
+    // 查找模块的规则注入配置
+    const ruleConfig = moduleConfig.moduleRuleInjections.find(
+      config => config.moduleName === moduleName.replace('.sgmodule', '')
+    );
+
+    if (!ruleConfig) {
+      return false;
+    }
+
+    try {
+      // 读取模块内容
+      const content = fs.readFileSync(modulePath, 'utf-8');
+
+      // 添加规则
+      const modifiedContent = addRuleToModule(
+        content,
+        ruleConfig.ruleSetUrl,
+        ruleConfig.policy || 'REJECT',
+        ruleConfig.params || []
+      );
+
+      // 如果内容有变化，写回文件
+      if (content !== modifiedContent) {
+        fs.writeFileSync(modulePath, modifiedContent, 'utf-8');
+        console.log(`  ✅ 规则注入完成`);
+        return true;
+      }
+    } catch (error) {
+      console.error(`  ❌ 规则注入失败: ${error}`);
+    }
+
+    return false;
+  }
+
+  /**
+   * 下载文件
+   */
+  static async downloadFile(url: string): Promise<string> {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to download: ${response.statusText}`);
+    }
+    return await response.text();
+  }
+
+  /**
    * 处理单个模块文件
    */
   static async processModuleFile(
     filePath: string,
-    options: { fix: boolean; validate: boolean } = { fix: true, validate: true }
+    options: {
+      fix: boolean;
+      validate: boolean;
+      parameterInject: boolean;
+      ruleInject: boolean;
+    } = { fix: true, validate: true, parameterInject: true, ruleInject: true }
   ): Promise<{ modified: boolean; validation: any }> {
     const moduleName = path.basename(filePath);
-    const content = fs.readFileSync(filePath, 'utf-8');
+    let content = fs.readFileSync(filePath, 'utf-8');
     let modified = false;
     let validation = null;
+
+    console.log(`\n处理模块: ${moduleName}`);
 
     // 验证
     if (options.validate) {
       validation = this.validateModule(content);
       if (!validation.valid || validation.warnings.length > 0) {
-        console.log(`\n${moduleName}:`);
         validation.errors.forEach(error => console.log(`  ❌ ${error}`));
         validation.warnings.forEach(warning => console.log(`  ⚠️  ${warning}`));
       }
     }
 
-    // 修复
+    // 地址修复
     if (options.fix) {
       const { fixed, changes } = this.fixAddresses(content);
 
       if (changes > 0 || fixed !== content) {
         fs.writeFileSync(filePath, fixed);
         modified = true;
-        console.log(`  ✅ 已修复 ${changes} 处问题`);
+        console.log(`  ✅ 地址修复完成（${changes} 处）`);
+        content = fixed;
+      }
+    }
+
+    // 参数注入
+    if (options.parameterInject) {
+      const parameterModified = await this.processParameterInjection(filePath, moduleName);
+      if (parameterModified) {
+        modified = true;
+      }
+    }
+
+    // 规则注入
+    if (options.ruleInject) {
+      const ruleModified = this.processRuleInjection(filePath, moduleName);
+      if (ruleModified) {
+        modified = true;
       }
     }
 
@@ -116,7 +234,12 @@ export class ModuleProcessor {
    */
   static async processDirectory(
     directory: string,
-    options: { fix: boolean; validate: boolean } = { fix: true, validate: true }
+    options: {
+      fix: boolean;
+      validate: boolean;
+      parameterInject: boolean;
+      ruleInject: boolean;
+    } = { fix: true, validate: true, parameterInject: true, ruleInject: true }
   ): Promise<{ totalFiles: number; modifiedFiles: number; errorFiles: number }> {
     const files = fs
       .readdirSync(directory)
@@ -126,7 +249,9 @@ export class ModuleProcessor {
     let modifiedFiles = 0;
     let errorFiles = 0;
 
-    console.log(`处理 ${files.length} 个模块文件...\n`);
+    console.log(`发现 ${files.length} 个模块文件`);
+    console.log('处理选项:', options);
+    console.log('');
 
     for (const file of files) {
       try {
@@ -155,6 +280,8 @@ async function main() {
   const options = {
     fix: !args.includes('--no-fix'),
     validate: !args.includes('--no-validate'),
+    parameterInject: !args.includes('--no-parameter-inject'),
+    ruleInject: !args.includes('--no-rule-inject'),
   };
 
   const targetPath =
