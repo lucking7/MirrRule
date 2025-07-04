@@ -3322,4 +3322,4 @@ hostname = %APPEND% *.gamersky.com, emisdatacenteraws.hafoo.com, spamblocker-api
 
 
 [Rule]
-RULE-SET,https://ruleset.chichi.sh/Surge/Rulesets/reject/reject-QX.list,REJECT,pre-matching,extended-matching,no-resolve
+RULE-SET,https://raw.githubusercontent.com/deesdew/esdeath/main/Surge/Rulesets/reject/reject-QX.list,REJECT,pre-matching,extended-matching,no-resolve
