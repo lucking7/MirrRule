@@ -52,7 +52,7 @@ export const moduleConfig: ModuleConfig = {
     {
       moduleName: 'Chongxie_by_fmz',
       ruleSetUrl:
-        'https://raw.githubusercontent.com/deesdew/esdeath/main/Surge/Rulesets/reject/reject-QX.list',
+        'https://raw.githubusercontent.com/lucking7/esdeath/main/Surge/Rulesets/reject/reject-QX.list',
       sourceType: 'qx',
       policy: 'REJECT',
       params: ['pre-matching', 'extended-matching', 'no-resolve'],
@@ -60,7 +60,7 @@ export const moduleConfig: ModuleConfig = {
     {
       moduleName: 'blockAds_plugin',
       ruleSetUrl:
-        'https://raw.githubusercontent.com/deesdew/esdeath/main/Surge/Rulesets/reject/reject-Loon.list',
+        'https://raw.githubusercontent.com/lucking7/esdeath/main/Surge/Rulesets/reject/reject-Loon.list',
       sourceType: 'loon',
       policy: 'REJECT',
       params: ['pre-matching', 'extended-matching', 'no-resolve'],
@@ -68,7 +68,7 @@ export const moduleConfig: ModuleConfig = {
     {
       moduleName: 'MiniApp_Cleaner',
       ruleSetUrl:
-        'https://raw.githubusercontent.com/deesdew/esdeath/main/Surge/Rulesets/reject/reject-QX.list',
+        'https://raw.githubusercontent.com/lucking7/esdeath/main/Surge/Rulesets/reject/reject-QX.list',
       sourceType: 'qx',
       policy: 'REJECT',
       params: ['pre-matching', 'extended-matching', 'no-resolve'],
@@ -76,7 +76,7 @@ export const moduleConfig: ModuleConfig = {
     {
       moduleName: 'Remove_ads_by_fmz',
       ruleSetUrl:
-        'https://raw.githubusercontent.com/deesdew/esdeath/main/Surge/Rulesets/reject/reject-Loon.list',
+        'https://raw.githubusercontent.com/lucking7/esdeath/main/Surge/Rulesets/reject/reject-Loon.list',
       sourceType: 'loon',
       policy: 'REJECT',
       params: ['pre-matching', 'extended-matching', 'no-resolve'],
