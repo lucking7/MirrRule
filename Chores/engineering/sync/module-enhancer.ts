@@ -244,7 +244,7 @@ export class LoonToSurgeConverter {
       case 'BiliBili.ADBlock':
         // ... existing code ...
         break;
-      case 'MiniApp_Cleaner': {
+      case 'Chongxie_by_fmz': {
         const ruleParams = ['pre-matching', 'extended-matching', 'no-resolve'];
         const ruleSetUrl =
           'https://raw.githubusercontent.com/deesdew/esdeath/main/Surge/Rulesets/reject/reject-QX.list';

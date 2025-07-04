@@ -141,8 +141,12 @@ export const ruleGroups: RuleGroup[] = [
     name: 'Reject',
     files: [
       {
-        path: 'Surge/Rulesets/reject/reject_fmz200.list',
+        path: 'Surge/Rulesets/reject/reject-QX.list',
         url: 'https://raw.githubusercontent.com/fmz200/wool_scripts/main/QuantumultX/filter/fenliu.list',
+      },
+      {
+        path: 'Surge/Rulesets/reject/reject-Loon.list',
+        url: 'https://github.com/fmz200/wool_scripts/raw/main/Loon/rule/rejectAd.list',
       },
       {
         path: 'Surge/Rulesets/reject/reject-no-drop.list',
@@ -158,7 +162,7 @@ export const ruleGroups: RuleGroup[] = [
     name: 'Direct',
     files: [
       {
-        path: 'Surge/Rulesets/direct/direct_fmz200.list',
+        path: 'Surge/Rulesets/direct/direct-QX.list',
         url: 'https://github.com/fmz200/wool_scripts/raw/main/QuantumultX/filter/fenliuxiuzheng.list',
       },
     ],
@@ -499,18 +503,12 @@ export const specialRules: SpecialRuleConfig[] = [
     name: 'Emby',
     targetFile: 'Surge/Rulesets/stream/video/emby_all.list',
     sourceFiles: [
-      'https://github.com/m4v8vsyj/me/raw/main/emby.list',
       'https://github.com/KuGouGo/Rules/raw/main/emby.list',
+      'https://github.com/m4v8vsyj/me/raw/main/emby.list',
       'https://github.com/kefengyoyo/own/raw/main/Emby-P.list',
       'https://github.com/forevergooe/Rules/raw/master/Surge/Emby.list',
       'https://github.com/Repcz/Tool/raw/X/Surge/Custom/Emby.list',
     ],
-    /** 
-      'https://github.com/kudu98/clash_fufu/raw/main/Config/EMBY-domain.yaml',
-      'https://github.com/kudu98/clash_fufu/raw/main/Config/EMBY-sntp.yaml',
-      'https://github.com/kudu98/clash_fufu/raw/main/Config/Emby.yaml',
-      'https://github.com/kudu98/clash_fufu/raw/main/Config/EMBY-AWA.yaml',
-      */
     cleanup: true,
     keepInlineComments: true,
     dedup: true,

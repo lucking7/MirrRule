@@ -10,7 +10,7 @@ interface ModuleRuleConfig {
 // 配置需要添加规则的模块
 const moduleRuleConfigs: ModuleRuleConfig[] = [
   {
-    moduleName: 'MiniApp_Cleaner',
+    moduleName: 'Chongxie_by_fmz',
     ruleSetUrl: 'https://ruleset.chichi.sh/Surge/Rulesets/reject/reject-QX.list',
     sourceType: 'qx',
   },

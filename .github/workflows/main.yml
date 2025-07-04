@@ -287,7 +287,7 @@ jobs:
           
           # 定义要转换的 QX 规则
           declare -A qx_rules=(
-            ["MiniApp_Cleaner"]="https://github.com/fmz200/wool_scripts/raw/main/QuantumultX/rewrite/chongxie.txt"
+            ["Chongxie_by_fmz"]="https://github.com/fmz200/wool_scripts/raw/main/QuantumultX/rewrite/chongxie.txt"
           )
           
           # 转换 QX 规则
