@@ -20,10 +20,10 @@
 		"validate:rulesyntax": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/validate-rule-syntax.ts",
 		"clean:dead-domains": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/clean-dead-domains.ts --fix",
 		"clean:dead-domains:preview": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/clean-dead-domains.ts",
-		    "enhance:modules": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/sync/module-enhancer.ts",
-    "process:modules": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/sync/module-processor.ts",
-    "validate:modules": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/sync/module-processor.ts --no-fix",
-    "fix:modules": "npm run enhance:modules && npm run process:modules"
+		"enhance:modules": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/sync/module-enhancer.ts",
+		"process:modules": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/sync/module-processor.ts",
+		"validate:modules": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/sync/module-processor.ts --no-fix",
+		"fix:modules": "npm run enhance:modules && npm run process:modules"
 	},
 	"dependencies": {
 		"@henrygd/queue": "^1.0.7",
@@ -58,9 +58,13 @@
 	"devDependencies": {
 		"@types/async-retry": "^1.4.9",
 		"@types/cli-progress": "^3.11.6",
+		"@types/glob": "^8.1.0",
 		"@types/handlebars": "^4.1.0",
 		"@types/handlebars-helpers": "^0.5.6",
 		"@types/node": "^22.14.1",
+		"@types/punycode": "^2.1.4",
+		"fast-cidr-tools": "^0.3.2",
+		"glob": "^11.0.3",
 		"ts-node": "^10.9.2",
 		"typescript": "^5.8.3"
 	},

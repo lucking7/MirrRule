@@ -1,4 +1,37 @@
 ## > LocalLan
+## >> special-use-domain-names
+## >> RFC2606 & RFC6761
+## >> RFC5735
+## >> RFC6762
+## >> RFC8375
+## >> IETF draft-davies-internal-tld-01
+## >> RFC6303
+## >> RFC7793
+## >> ASUS router
+## >> QQ Loopback
+## >> Windows
+## > LocalLan CIDR
+## > LocalProxies
+IP-CIDR,0.0.0.0/8
+IP-CIDR,10.0.0.0/8
+IP-CIDR,100.64.0.0/10
+IP-CIDR,127.0.0.0/8
+IP-CIDR,169.254.0.0/16
+IP-CIDR,172.16.0.0/12
+IP-CIDR,192.0.0.0/24
+IP-CIDR,192.0.2.0/24
+IP-CIDR,192.88.99.0/24
+IP-CIDR,192.168.0.0/16
+IP-CIDR,198.18.0.0/15
+IP-CIDR,198.51.100.0/24
+IP-CIDR,203.0.113.0/24
+IP-CIDR,224.0.0.0/3
+IP-CIDR6,::/127
+IP-CIDR6,100::/64
+IP-CIDR6,2001:db8::/64
+IP-CIDR6,fc00::/64
+IP-CIDR6,fe80::/64
+IP-CIDR6,ff00::/64
 DOMAIN-SUFFIX,foo.com
 DOMAIN-SUFFIX,ip6-localhost
 DOMAIN-SUFFIX,ip6-loopback
@@ -6,36 +39,15 @@ DOMAIN-SUFFIX,lens.l.google.com
 DOMAIN-SUFFIX,n.n.srv.nintendo.net
 DOMAIN-SUFFIX,stun.l.google.com
 DOMAIN-SUFFIX,xnotify.xboxlive.com
-## >> special-use-domain-names
 DOMAIN-SUFFIX,lan
 DOMAIN-SUFFIX,localdomain
-## >> RFC2606 & RFC6761
 DOMAIN-SUFFIX,example
 DOMAIN-SUFFIX,invalid
 DOMAIN-SUFFIX,localhost
 DOMAIN-SUFFIX,test
-## >> RFC5735
-IP-CIDR,0.0.0.0/8,no-resolve
-IP-CIDR,10.0.0.0/8,no-resolve
-IP-CIDR,127.0.0.0/8,no-resolve
-IP-CIDR,169.254.0.0/16,no-resolve
-IP-CIDR,172.16.0.0/12,no-resolve
-IP-CIDR,192.0.0.0/24,no-resolve
-IP-CIDR,192.0.2.0/24,no-resolve
-IP-CIDR,192.88.99.0/24,no-resolve
-IP-CIDR,192.168.0.0/16,no-resolve
-IP-CIDR,198.18.0.0/15,no-resolve
-IP-CIDR,198.51.100.0/24,no-resolve
-IP-CIDR,203.0.113.0/24,no-resolve
-IP-CIDR,224.0.0.0/4,no-resolve
-IP-CIDR,240.0.0.0/4,no-resolve
-## >> RFC6762
 DOMAIN-SUFFIX,local
-## >> RFC8375
 DOMAIN-SUFFIX,home.arpa
-## >> IETF draft-davies-internal-tld-01
 DOMAIN-SUFFIX,internal
-## >> RFC6303
 DOMAIN-SUFFIX,10.in-addr.arpa
 DOMAIN-SUFFIX,16.172.in-addr.arpa
 DOMAIN-SUFFIX,17.172.in-addr.arpa
@@ -69,7 +81,6 @@ DOMAIN-SUFFIX,9.e.f.ip6.arpa
 DOMAIN-SUFFIX,a.e.f.ip6.arpa
 DOMAIN-SUFFIX,b.e.f.ip6.arpa
 DOMAIN-SUFFIX,8.b.d.0.1.0.0.2.ip6.arpa
-## >> RFC7793
 DOMAIN-SUFFIX,64.100.in-addr.arpa
 DOMAIN-SUFFIX,65.100.in-addr.arpa
 DOMAIN-SUFFIX,66.100.in-addr.arpa
@@ -134,27 +145,11 @@ DOMAIN-SUFFIX,124.100.in-addr.arpa
 DOMAIN-SUFFIX,125.100.in-addr.arpa
 DOMAIN-SUFFIX,126.100.in-addr.arpa
 DOMAIN-SUFFIX,127.100.in-addr.arpa
-## >> ASUS router
 DOMAIN-SUFFIX,router.asus.com
-## >> QQ Loopback
 DOMAIN-SUFFIX,localhost.sec.qq.com
 DOMAIN-SUFFIX,localhost.ptlogin2.qq.com
-## >> Windows
 DOMAIN-SUFFIX,msftconnecttest.com
 DOMAIN-SUFFIX,msftncsi.com
-## > LocalLan CIDR
-IP-CIDR,100.64.0.0/10,no-resolve
-IP-CIDR,224.0.0.0/3,no-resolve
-IP-CIDR,255.255.255.255/32,no-resolve
-IP-CIDR6,::/128,no-resolve
-IP-CIDR6,::/127,no-resolve
-IP-CIDR6,::1/128,no-resolve
-IP-CIDR6,100::/64,no-resolve
-IP-CIDR6,2001:db8::/32,no-resolve
-IP-CIDR6,fc00::/7,no-resolve
-IP-CIDR6,fe80::/10,no-resolve
-IP-CIDR6,ff00::/8,no-resolve
-## > LocalProxies
 PROCESS-NAME,shadowsocks-win.exe
 PROCESS-NAME,shadowsocksr-win.exe
 PROCESS-NAME,simple-obfs.exe

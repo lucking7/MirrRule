@@ -13,7 +13,7 @@ export function generateHtml(
   } = {}
 ): string {
   const {
-    title = "Luck's Surge Rules & Modules Hub",
+    title = "Luck's Rules Hub",
     description = 'Everything that happens is good for me.',
     author = 'IKE IKE',
     updateTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
@@ -122,6 +122,7 @@ export function generateHtml(
       <style>
         /* 样式内容 - 这里会非常长，包含所有CSS样式 */
         :root {
+          /* 浅色主题 */
           --background: 0 0% 100%;
           --foreground: 240 10% 3.9%;
           --card: 0 0% 100%;
@@ -134,9 +135,130 @@ export function generateHtml(
           --radius: 0.5rem;
           --radiant-anim-duration: 10s;
           --radiant-width: 100px;
+          
+          /* 文件树颜色 */
+          --tree-hover-bg: rgba(17, 24, 39, 0.04);
+          --tree-icon-color: rgba(17, 24, 39, 0.7);
+          --tree-border-color: rgba(17, 24, 39, 0.15);
+          --tree-action-bg: rgba(17, 24, 39, 0.05);
+          --tree-action-hover-bg: rgba(17, 24, 39, 0.1);
+          
+          /* 文件类型标签颜色 */
+          --tag-sgmodule-bg: rgba(56, 189, 248, 0.15);
+          --tag-sgmodule-color: rgba(3, 105, 161, 0.9);
+          --tag-list-bg: rgba(52, 211, 153, 0.15);
+          --tag-list-color: rgba(6, 95, 70, 0.9);
+          --tag-js-bg: rgba(251, 191, 36, 0.15);
+          --tag-js-color: rgba(146, 64, 14, 0.9);
+          --tag-conf-bg: rgba(167, 139, 250, 0.15);
+          --tag-conf-color: rgba(76, 29, 149, 0.9);
+          --tag-mmdb-bg: rgba(251, 146, 60, 0.15);
+          --tag-mmdb-color: rgba(154, 52, 18, 0.9);
+          
+          /* 搜索框颜色 */
+          --search-bg: white;
+          --search-border: rgba(17, 24, 39, 0.1);
+          --search-focus-border: rgba(17, 24, 39, 0.2);
+          --search-icon-color: rgba(17, 24, 39, 0.4);
+          
+          /* 卡片颜色 */
+          --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+          --card-hover-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        /* 深色主题 - Community Theme 蓝色风格 */
+        [data-theme="dark"] {
+          /* 基础颜色 */
+          --background: 220 13% 10%;
+          --foreground: 213 31% 91%;
+          --card: 222 16% 12%;
+          --card-foreground: 213 31% 91%;
+          --primary: 210 100% 56%;
+          --primary-foreground: 0 0% 100%;
+          --secondary: 222 16% 20%;
+          --secondary-foreground: 213 31% 91%;
+          --border: 223 14% 20%;
+          
+          /* 文件树颜色 */
+          --tree-hover-bg: rgba(139, 190, 255, 0.1);
+          --tree-icon-color: rgba(139, 190, 255, 0.7);
+          --tree-border-color: rgba(139, 190, 255, 0.2);
+          --tree-action-bg: rgba(139, 190, 255, 0.1);
+          --tree-action-hover-bg: rgba(139, 190, 255, 0.2);
+          
+          /* 文件类型标签颜色 - 深色模式 */
+          --tag-sgmodule-bg: rgba(56, 189, 248, 0.2);
+          --tag-sgmodule-color: rgba(125, 211, 252, 1);
+          --tag-list-bg: rgba(52, 211, 153, 0.2);
+          --tag-list-color: rgba(110, 231, 183, 1);
+          --tag-js-bg: rgba(251, 191, 36, 0.2);
+          --tag-js-color: rgba(252, 211, 77, 1);
+          --tag-conf-bg: rgba(167, 139, 250, 0.2);
+          --tag-conf-color: rgba(196, 181, 253, 1);
+          --tag-mmdb-bg: rgba(251, 146, 60, 0.2);
+          --tag-mmdb-color: rgba(252, 165, 165, 1);
+          
+          /* 搜索框颜色 */
+          --search-bg: hsl(222 16% 15%);
+          --search-border: hsl(223 14% 25%);
+          --search-focus-border: hsl(210 100% 56%);
+          --search-icon-color: rgba(139, 190, 255, 0.6);
+          
+          /* 卡片颜色 */
+          --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+          --card-hover-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* 自动检测系统主题 */
+        @media (prefers-color-scheme: dark) {
+          :root:not([data-theme="light"]) {
+            /* 复制深色主题变量 */
+            --background: 220 13% 10%;
+            --foreground: 213 31% 91%;
+            --card: 222 16% 12%;
+            --card-foreground: 213 31% 91%;
+            --primary: 210 100% 56%;
+            --primary-foreground: 0 0% 100%;
+            --secondary: 222 16% 20%;
+            --secondary-foreground: 213 31% 91%;
+            --border: 223 14% 20%;
+            
+            --tree-hover-bg: rgba(139, 190, 255, 0.1);
+            --tree-icon-color: rgba(139, 190, 255, 0.7);
+            --tree-border-color: rgba(139, 190, 255, 0.2);
+            --tree-action-bg: rgba(139, 190, 255, 0.1);
+            --tree-action-hover-bg: rgba(139, 190, 255, 0.2);
+            
+            --tag-sgmodule-bg: rgba(56, 189, 248, 0.2);
+            --tag-sgmodule-color: rgba(125, 211, 252, 1);
+            --tag-list-bg: rgba(52, 211, 153, 0.2);
+            --tag-list-color: rgba(110, 231, 183, 1);
+            --tag-js-bg: rgba(251, 191, 36, 0.2);
+            --tag-js-color: rgba(252, 211, 77, 1);
+            --tag-conf-bg: rgba(167, 139, 250, 0.2);
+            --tag-conf-color: rgba(196, 181, 253, 1);
+            --tag-mmdb-bg: rgba(251, 146, 60, 0.2);
+            --tag-mmdb-color: rgba(252, 165, 165, 1);
+            
+            --search-bg: hsl(222 16% 15%);
+            --search-border: hsl(223 14% 25%);
+            --search-focus-border: hsl(210 100% 56%);
+            --search-icon-color: rgba(139, 190, 255, 0.6);
+            
+            --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+            --card-hover-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+          }
         }
         
         /* 基础样式 */
+        html {
+          /* 动态字体大小：基础16px + 视口宽度的0.25% */
+          /* 在320px屏幕上 = 16px + 0.8px = 16.8px */
+          /* 在1280px屏幕上 = 16px + 3.2px = 19.2px */
+          /* 在1920px屏幕上 = 16px + 4.8px = 20.8px */
+          font-size: clamp(16px, calc(1rem + 0.25vw), 22px);
+        }
+        
         body {
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
           color: hsl(var(--foreground));
@@ -149,21 +271,40 @@ export function generateHtml(
             radial-gradient(at 97% 96%, hsla(38, 60%, 74%, 0.04) 0px, transparent 50%),
             radial-gradient(at 33% 50%, hsla(222, 67%, 73%, 0.04) 0px, transparent 50%),
             radial-gradient(at 79% 53%, hsla(343, 68%, 79%, 0.04) 0px, transparent 50%);
+          /* 确保正文至少16px */
+          font-size: 1rem;
+          line-height: 1.6;
+        }
+        
+        /* 深色模式下的背景 */
+        [data-theme="dark"] body,
+        @media (prefers-color-scheme: dark) {
+          :root:not([data-theme="light"]) body {
+            background-image: 
+              radial-gradient(at 27% 37%, hsla(210, 100%, 56%, 0.03) 0px, transparent 50%),
+              radial-gradient(at 97% 21%, hsla(125, 98%, 72%, 0.03) 0px, transparent 50%),
+              radial-gradient(at 52% 99%, hsla(354, 98%, 61%, 0.03) 0px, transparent 50%),
+              radial-gradient(at 10% 29%, hsla(256, 96%, 67%, 0.03) 0px, transparent 50%),
+              radial-gradient(at 97% 96%, hsla(38, 60%, 74%, 0.03) 0px, transparent 50%),
+              radial-gradient(at 33% 50%, hsla(222, 67%, 73%, 0.03) 0px, transparent 50%),
+              radial-gradient(at 79% 53%, hsla(343, 68%, 79%, 0.03) 0px, transparent 50%);
+          }
         }
         
         /* 文件树样式 */
         .file-tree {
-          font-family: ui-monospace, SFMono-Regular, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, monospace;
-          font-size: 0.95rem;
-          line-height: 1.6;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          /* 确保文件树不小于16px */
+          font-size: clamp(1rem, calc(0.95rem + 0.2vw), 1.125rem);
+          line-height: 1.8;
         }
         
         .tree-folder-header,
         .tree-file {
           display: flex;
           align-items: center;
-          padding: 0.275rem 0.5rem;
-          border-radius: 0.375rem;
+          padding: 0.5rem 0.75rem;
+          border-radius: 0.5rem;
           transition: background-color 0.15s ease;
         }
         
@@ -173,7 +314,7 @@ export function generateHtml(
         
         .tree-folder-header:hover,
         .tree-file:hover {
-          background-color: rgba(17, 24, 39, 0.04);
+          background-color: var(--tree-hover-bg);
         }
         
         .folder-icon,
@@ -182,7 +323,7 @@ export function generateHtml(
           display: flex;
           align-items: center;
           justify-content: center;
-          color: rgba(17, 24, 39, 0.7);
+          color: var(--tree-icon-color);
         }
         
         .folder-name,
@@ -196,7 +337,7 @@ export function generateHtml(
         .tree-folder-content {
           margin-left: 0.75rem;
           padding-left: 1rem;
-          border-left: 1px dashed rgba(17, 24, 39, 0.15);
+          border-left: 1px dashed var(--tree-border-color);
           overflow: hidden;
           display: none;
         }
@@ -238,17 +379,18 @@ export function generateHtml(
           align-items: center;
           justify-content: center;
           transition: all 0.15s ease;
-          background-color: rgba(17, 24, 39, 0.05);
+          background-color: var(--tree-action-bg);
           cursor: pointer;
         }
         
         .tree-file-action:hover {
-          background-color: rgba(17, 24, 39, 0.1);
+          background-color: var(--tree-action-hover-bg);
         }
         
         /* 文件类型标签 */
         .file-type-tag {
-          font-size: 0.65rem;
+          /* 标签文字动态但有最小限制 */
+          font-size: clamp(0.75rem, calc(0.7rem + 0.1vw), 0.875rem);
           padding: 0.1rem 0.3rem;
           border-radius: 0.25rem;
           margin-right: 0.5rem;
@@ -257,28 +399,28 @@ export function generateHtml(
         }
         
         .file-type-sgmodule {
-          background-color: rgba(56, 189, 248, 0.15);
-          color: rgba(3, 105, 161, 0.9);
+          background-color: var(--tag-sgmodule-bg);
+          color: var(--tag-sgmodule-color);
         }
         
         .file-type-list {
-          background-color: rgba(52, 211, 153, 0.15);
-          color: rgba(6, 95, 70, 0.9);
+          background-color: var(--tag-list-bg);
+          color: var(--tag-list-color);
         }
         
         .file-type-js {
-          background-color: rgba(251, 191, 36, 0.15);
-          color: rgba(146, 64, 14, 0.9);
+          background-color: var(--tag-js-bg);
+          color: var(--tag-js-color);
         }
         
         .file-type-conf {
-          background-color: rgba(167, 139, 250, 0.15);
-          color: rgba(76, 29, 149, 0.9);
+          background-color: var(--tag-conf-bg);
+          color: var(--tag-conf-color);
         }
         
         .file-type-mmdb {
-          background-color: rgba(251, 146, 60, 0.15);
-          color: rgba(154, 52, 18, 0.9);
+          background-color: var(--tag-mmdb-bg);
+          color: var(--tag-mmdb-color);
         }
         
         /* Animated Tooltip */
@@ -286,9 +428,10 @@ export function generateHtml(
             position: fixed;
             padding: 0.35rem 0.6rem;
             border-radius: 0.375rem;
-            background-color: #111827;
-            color: white;
-            font-size: 0.8rem;
+            background-color: hsl(var(--card));
+            color: hsl(var(--card-foreground));
+            /* Tooltip动态字体，但保持较小 */
+            font-size: clamp(0.8rem, calc(0.75rem + 0.1vw), 0.9rem);
             white-space: nowrap;
             pointer-events: none;
             opacity: 0;
@@ -296,44 +439,47 @@ export function generateHtml(
             z-index: 100;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             transform: translate(-50%, -100%); /* Center tooltip above cursor */
+            border: 1px solid hsl(var(--border));
         }
         
         /* 搜索框 */
         .search-container {
           position: relative;
-          margin-bottom: 1.25rem;
+          margin-bottom: 1.5rem;
         }
         
         .search-input {
           width: 100%;
-          padding: 0.75rem 1rem 0.75rem 2.5rem;
-          border-radius: 0.5rem;
-          background-color: white;
-          border: 1px solid rgba(17, 24, 39, 0.1);
-          color: #111827;
+          padding: 1rem 1.25rem 1rem 3rem;
+          border-radius: 0.75rem;
+          background-color: var(--search-bg);
+          border: 1px solid var(--search-border);
+          color: hsl(var(--foreground));
           transition: all 0.2s ease;
           font-family: inherit;
           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+          /* 搜索框确保不小于16px */
+          font-size: clamp(1rem, calc(0.95rem + 0.15vw), 1.125rem);
         }
         
         .search-input::placeholder {
-          color: rgba(17, 24, 39, 0.4);
+          color: var(--search-icon-color);
         }
         
         .search-input:focus {
           outline: none;
-          border-color: rgba(17, 24, 39, 0.2);
-          background-color: white;
-          box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.05);
+          border-color: var(--search-focus-border);
+          box-shadow: 0 0 0 3px rgba(var(--primary), 0.15);
         }
         
         .search-icon {
           position: absolute;
-          left: 0.75rem;
+          left: 1rem;
           top: 50%;
           transform: translateY(-50%);
-          color: rgba(17, 24, 39, 0.4);
+          color: var(--search-icon-color);
           pointer-events: none;
+          font-size: 1.25rem;
         }
         
         /* 警告框 */
@@ -354,6 +500,17 @@ export function generateHtml(
           align-items: center;
           gap: 0.5rem;
           border: 1px solid rgb(187, 247, 208);
+          /* 警告框保持标准大小 */
+          font-size: 1rem;
+        }
+        
+        [data-theme="dark"] .alert,
+        @media (prefers-color-scheme: dark) {
+          :root:not([data-theme="light"]) .alert {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: rgb(110, 231, 183);
+            border-color: rgba(16, 185, 129, 0.3);
+          }
         }
         
         .alert.show {
@@ -367,8 +524,8 @@ export function generateHtml(
           margin-bottom: 2rem;
           padding: 2rem 1rem;
           border-radius: 1rem;
-          background-color: rgba(255, 255, 255, 0.8);
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+          background-color: hsl(var(--card));
+          box-shadow: var(--card-shadow);
           backdrop-filter: blur(8px);
         }
         
@@ -390,7 +547,8 @@ export function generateHtml(
         }
         
         .main-title {
-          font-size: 2.8rem;
+          /* 动态标题大小：从2rem到3.5rem */
+          font-size: clamp(2rem, calc(2rem + 2vw), 3.5rem);
           font-weight: 700;
           margin-bottom: 0.75rem;
           display: inline-block;
@@ -401,16 +559,27 @@ export function generateHtml(
           animation: bg-position 6s infinite alternate linear;
           text-shadow: 0 2px 10px rgba(153, 101, 21, 0.15);
           letter-spacing: 0.5px;
+          font-family: ui-monospace, SFMono-Regular, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, monospace;
+        }
+        
+        /* 深色模式标题渐变 */
+        [data-theme="dark"] .main-title,
+        @media (prefers-color-scheme: dark) {
+          :root:not([data-theme="light"]) .main-title {
+            background: linear-gradient(to right, #3b82f6, #60a5fa, #93c5fd, #60a5fa, #3b82f6);
+            text-shadow: 0 2px 10px rgba(59, 130, 246, 0.25);
+          }
         }
         
         .subtitle {
-          font-size: 1.2rem;
+          /* 动态副标题大小 */
+          font-size: clamp(1rem, calc(1rem + 0.5vw), 1.5rem);
           max-width: 36rem;
           margin: 0 auto 1rem;
           font-style: italic;
           position: relative;
           display: inline-block;
-          background: linear-gradient(to right, transparent, #333, transparent);
+          background: linear-gradient(to right, transparent, hsl(var(--foreground)), transparent);
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
@@ -419,6 +588,7 @@ export function generateHtml(
           background-repeat: no-repeat;
           background-position: 0 0;
           text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+          font-family: ui-monospace, SFMono-Regular, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, monospace;
         }
         
         .radiant-animation {
@@ -427,16 +597,17 @@ export function generateHtml(
         
         /* Card styles */
         .esdeath-card {
-          background-color: white;
+          background-color: hsl(var(--card));
           border-radius: 1rem;
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+          box-shadow: var(--card-shadow);
           transition: transform 0.2s ease, box-shadow 0.2s ease;
           overflow: hidden;
+          border: 1px solid hsl(var(--border));
         }
         
         .esdeath-card:hover {
           transform: translateY(-2px);
-          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+          box-shadow: var(--card-hover-shadow);
         }
         
         /* 3D Depth effect */
@@ -543,6 +714,14 @@ export function generateHtml(
             display: flex;
             flex-direction: column;
         }
+        
+        [data-theme="dark"] .iphone-screen,
+        @media (prefers-color-scheme: dark) {
+          :root:not([data-theme="light"]) .iphone-screen {
+            background: hsl(var(--card));
+          }
+        }
+        
         .dynamic-island {
             position: absolute;
             top: 12px;
@@ -557,15 +736,24 @@ export function generateHtml(
         #iphone-screen-content {
             flex-grow: 1;
             overflow-y: auto;
-            color: #333;
-            font-family: monospace;
-            font-size: 0.8rem;
+            color: hsl(var(--foreground));
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            /* iPhone预览内容动态字体 */
+            font-size: clamp(0.875rem, calc(0.85rem + 0.1vw), 1rem);
             white-space: pre-wrap;
             word-wrap: break-word;
             padding: 45px 15px 15px 15px;
             scrollbar-width: thin;
             scrollbar-color: #aaa #f1f1f1;
         }
+        
+        [data-theme="dark"] #iphone-screen-content,
+        @media (prefers-color-scheme: dark) {
+          :root:not([data-theme="light"]) #iphone-screen-content {
+            scrollbar-color: hsl(var(--border)) hsl(var(--card));
+          }
+        }
+        
         #iphone-screen-content::-webkit-scrollbar {
           width: 5px;
         }
@@ -580,11 +768,33 @@ export function generateHtml(
         #iphone-screen-content::-webkit-scrollbar-thumb:hover {
           background: #888;
         }
+        
+        [data-theme="dark"] #iphone-screen-content::-webkit-scrollbar-track,
+        @media (prefers-color-scheme: dark) {
+          :root:not([data-theme="light"]) #iphone-screen-content::-webkit-scrollbar-track {
+            background: hsl(var(--card));
+          }
+        }
+        
+        [data-theme="dark"] #iphone-screen-content::-webkit-scrollbar-thumb,
+        @media (prefers-color-scheme: dark) {
+          :root:not([data-theme="light"]) #iphone-screen-content::-webkit-scrollbar-thumb {
+            background: hsl(var(--border));
+          }
+        }
+        
+        [data-theme="dark"] #iphone-screen-content::-webkit-scrollbar-thumb:hover,
+        @media (prefers-color-scheme: dark) {
+          :root:not([data-theme="light"]) #iphone-screen-content::-webkit-scrollbar-thumb:hover {
+            background: hsl(var(--foreground) / 0.3);
+          }
+        }
+        
         .close-modal-btn {
             position: absolute;
             top: -15px;
             right: -15px;
-            background: white;
+            background: hsl(var(--card));
             border: none;
             border-radius: 50%;
             width: 32px;
@@ -595,25 +805,72 @@ export function generateHtml(
             justify-content: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
             transition: transform 0.2s ease;
+            color: hsl(var(--foreground));
         }
         .close-modal-btn:hover {
             transform: scale(1.1);
         }
+        
+        /* 主题切换按钮 */
+        .theme-toggle {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          width: 3rem;
+          height: 3rem;
+          border-radius: 50%;
+          background: hsl(var(--card));
+          border: 1px solid hsl(var(--border));
+          box-shadow: var(--card-shadow);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          z-index: 50;
+        }
+        
+        .theme-toggle:hover {
+          transform: scale(1.05);
+          box-shadow: var(--card-hover-shadow);
+        }
+        
+        .theme-toggle iconify-icon {
+          font-size: 1.5rem;
+          color: hsl(var(--foreground));
+        }
+        
+                /* 链接样式 */
+        a {
+          color: hsl(210 100% 56%);
+          text-decoration: none;
+          transition: opacity 0.2s ease;
+        }
+        
+        a:hover {
+          opacity: 0.8;
+          text-decoration: underline;
+        }
+        
+        /* 浅色模式下的链接颜色 */
+        [data-theme="light"] a {
+          color: hsl(217 91% 60%);
+        }
       </style>
     </head>
-    <body class="bg-white text-gray-900 min-h-screen">
-      <div id="app" class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <body>
+      <div id="app" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <header>
           <div class="title-container depth-effect">
             <h1 class="main-title">${title}</h1>
             <p class="subtitle">${description}</p>
           </div>
           
-          <div class="flex flex-wrap items-center justify-center gap-2 mb-8 text-sm text-gray-600">
-            <span>Made by <a href="https://github.com/lucking7" class="text-blue-600 hover:underline">${author}</a></span>
-            <span class="text-gray-400">•</span>
-            <span><a href="https://github.com/lucking7/esdeath" class="text-blue-600 hover:underline">Source @ GitHub</a></span>
-            <span class="text-gray-400">•</span>
+          <div class="flex flex-wrap items-center justify-center gap-2 mb-8" style="color: hsl(var(--foreground) / 0.7); font-size: clamp(0.875rem, calc(0.85rem + 0.1vw), 1rem);">
+            <span>Made by <a href="https://github.com/lucking7">luck</a></span>
+            <span style="color: hsl(var(--foreground) / 0.4);">•</span>
+            <span><a href="https://github.com/lucking7/esdeath">Source @ GitHub</a></span>
+            <span style="color: hsl(var(--foreground) / 0.4);">•</span>
             <span>更新于: ${updateTime}</span>
           </div>
         </header>
@@ -628,7 +885,7 @@ export function generateHtml(
           >
         </div>
 
-        <div class="esdeath-card depth-effect p-5">
+        <div class="esdeath-card depth-effect p-6">
           <div class="file-tree">
             <ul>
               ${renderTree(tree)}
@@ -662,10 +919,57 @@ export function generateHtml(
                 </button>
             </div>
         </div>
+        
+        <!-- 主题切换按钮 -->
+        <div class="theme-toggle" id="theme-toggle" title="切换主题">
+          <iconify-icon icon="tabler:sun" id="theme-icon"></iconify-icon>
+        </div>
       </div>
 
       <script>
         document.addEventListener('DOMContentLoaded', function() {
+          // --- 主题管理 ---
+          const themeToggle = document.getElementById('theme-toggle');
+          const themeIcon = document.getElementById('theme-icon');
+          const html = document.documentElement;
+          
+          // 获取当前主题
+          function getCurrentTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) return savedTheme;
+            
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          
+          // 设置主题
+          function setTheme(theme) {
+            if (theme === 'dark') {
+              html.setAttribute('data-theme', 'dark');
+              themeIcon.setAttribute('icon', 'tabler:moon');
+            } else {
+              html.setAttribute('data-theme', 'light');
+              themeIcon.setAttribute('icon', 'tabler:sun');
+            }
+            localStorage.setItem('theme', theme);
+          }
+          
+          // 初始化主题
+          setTheme(getCurrentTheme());
+          
+          // 主题切换点击事件
+          themeToggle.addEventListener('click', function() {
+            const currentTheme = html.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            setTheme(newTheme);
+          });
+          
+          // 监听系统主题变化
+          window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+            if (!localStorage.getItem('theme')) {
+              setTheme(e.matches ? 'dark' : 'light');
+            }
+          });
+          
           // --- Animated Tooltip ---
           const tooltip = document.getElementById('animated-tooltip');
           document.querySelectorAll('[data-tooltip-text]').forEach(el => {

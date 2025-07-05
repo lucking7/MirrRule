@@ -326,6 +326,14 @@ jobs:
           mkdir -p Surge/Modules/Rules
           npm run merge
 
+      - name: 优化规则文件
+        run: |
+          echo "开始优化规则文件..."
+          echo "应用 Trie 树优化和 CIDR 合并..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/build/lib/rule-optimizer.ts || {
+            echo "规则优化失败，但继续构建流程"
+          }
+
       - name: 验证规则完整性
         id: validate
         run: |
@@ -333,34 +341,44 @@ jobs:
           mkdir -p .cache
           
           echo "验证规则语法..."
-          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/build/scripts/validate-rule-syntax.ts || true
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/build/validate/validate-rule-syntax.ts || true
           
           echo "验证非法 TLD..."
-          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/build/scripts/validate-illegal-tld.ts || true
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/build/validate/validate-illegal-tld.ts || true
+          
+          echo "验证全球规则集 TLD..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/build/validate/validate-global-tld.ts || true
           
           echo "检测哈希冲突..."
-          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/build/scripts/validate-hash-collision.ts || true
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/build/validate/validate-hash-collision.ts || true
+          
+          echo "生成规则统计..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/build/validate/validate-rule-statistics.ts || true
           
           syntax_errors=0
           tld_errors=0
+          global_tld_errors=0
           hash_errors=0
           
           [ -f ".cache/syntax-errors.json" ] && syntax_errors=$(jq '.errors | length' .cache/syntax-errors.json 2>/dev/null || echo "0")
           [ -f ".cache/illegal-tlds.json" ] && tld_errors=$(jq length .cache/illegal-tlds.json 2>/dev/null || echo "0")
+          [ -f ".cache/global-tld-errors.json" ] && global_tld_errors=$(jq '.totalErrors' .cache/global-tld-errors.json 2>/dev/null || echo "0")
           [ -f ".cache/hash-collisions.json" ] && hash_errors=$(jq length .cache/hash-collisions.json 2>/dev/null || echo "0")
           
-          total_errors=$((syntax_errors + tld_errors + hash_errors))
+          total_errors=$((syntax_errors + tld_errors + global_tld_errors + hash_errors))
           
           echo "validation_errors_count=$total_errors" >> $GITHUB_OUTPUT
           echo "syntax_errors=$syntax_errors" >> $GITHUB_OUTPUT
           echo "tld_errors=$tld_errors" >> $GITHUB_OUTPUT
+          echo "global_tld_errors=$global_tld_errors" >> $GITHUB_OUTPUT
           echo "hash_errors=$hash_errors" >> $GITHUB_OUTPUT
           
           if [ "$total_errors" -gt 0 ]; then
             echo "has_validation_errors=true" >> $GITHUB_OUTPUT
             echo "发现 $total_errors 个验证错误"
             echo "  - 语法错误: $syntax_errors"
-            echo "  - TLD 错误: $tld_errors"
+            echo "  - 非法 TLD: $tld_errors"
+            echo "  - 全球规则集 TLD 错误: $global_tld_errors"
             echo "  - 哈希冲突: $hash_errors"
             exit 1
           else
@@ -440,11 +458,18 @@ jobs:
           if [ "${{ steps.validate.outputs.has_validation_errors }}" == "true" ]; then
             echo "- 状态: 发现问题" >> $GITHUB_STEP_SUMMARY
             echo "- 语法错误: ${{ steps.validate.outputs.syntax_errors }} 个" >> $GITHUB_STEP_SUMMARY
-            echo "- TLD 错误: ${{ steps.validate.outputs.tld_errors }} 个" >> $GITHUB_STEP_SUMMARY
+            echo "- 非法 TLD: ${{ steps.validate.outputs.tld_errors }} 个" >> $GITHUB_STEP_SUMMARY
+            echo "- 全球规则集 TLD 错误: ${{ steps.validate.outputs.global_tld_errors }} 个" >> $GITHUB_STEP_SUMMARY
             echo "- 哈希冲突: ${{ steps.validate.outputs.hash_errors }} 个" >> $GITHUB_STEP_SUMMARY
           else
             echo "- 状态: 验证通过" >> $GITHUB_STEP_SUMMARY
             echo "- 总错误数: 0 个" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -f ".cache/rule-statistics.md" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 规则统计" >> $GITHUB_STEP_SUMMARY
+            cat .cache/rule-statistics.md >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY

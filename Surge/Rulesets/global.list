@@ -8,7 +8,8 @@
 #
 # This file contains rules for services that are not available inside the Mainland China.
 #########################################
-DOMAIN,th1s_rule5et_1s_m4d3_by_5ukk4w_ruleset.skk.moe
+################## EOF ##################
+DOMAIN-SUFFIX,moe
 DOMAIN-SUFFIX,community
 DOMAIN-SUFFIX,network
 DOMAIN-SUFFIX,x.company
@@ -234,7 +235,6 @@ DOMAIN-SUFFIX,arc.net
 DOMAIN-SUFFIX,sf.net
 DOMAIN-SUFFIX,he.net
 DOMAIN-SUFFIX,ddys.mov
-DOMAIN-SUFFIX,moe
 DOMAIN-SUFFIX,mil
 DOMAIN-SUFFIX,hsex.men
 DOMAIN-SUFFIX,lol
@@ -1056,4 +1056,3 @@ DOMAIN-KEYWORD,browserleaks
 DOMAIN-KEYWORD,dropbox
 DOMAIN-KEYWORD,pinterest
 USER-AGENT,Roam*
-################## EOF ##################

@@ -6,6 +6,7 @@
 # Homepage: https://ruleset.skk.moe
 # GitHub: https://github.com/SukkaW/Surge
 #########################################
+################## EOF ##################
 DOMAIN,th1s_rule5et_1s_m4d3_by_5ukk4w_ruleset.skk.moe
 DOMAIN-SUFFIX,ipstack.com
 DOMAIN-SUFFIX,ip-api.com
@@ -20,5 +21,3 @@ DOMAIN-SUFFIX,services.googleapis.cn
 DOMAIN,fonts.googleapis.cn
 DOMAIN,fonts.gstatic.cn
 DOMAIN,ip.cn
-################## EOF ##################
-
