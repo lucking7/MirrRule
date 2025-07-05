@@ -1,6 +1,6 @@
 // 目录显示优先级
 export const DIRECTORY_PRIORITY = {
-  Rulesets: 1,
+  List: 1,
   Modules: 2,
   Rules: 3,
   Scripts: 4,

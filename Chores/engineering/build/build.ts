@@ -29,7 +29,7 @@ let allowedDirectories = ['Dial'];
 // 配置化的路径映射
 const PATH_MAPPINGS = [
   { source: 'Surge/Modules', target: 'Modules' },
-  { source: 'Surge/Modules/Rules', target: 'Rulesets' },
+  { source: 'Surge/Modules/Rules', target: 'List' },
   { source: 'Dial/Sukka/Modules', target: 'Dial/Sukka/Modules' },
   { source: 'Dial/Sukka/Mock', target: 'Dial/Sukka/Mock' },
   { source: 'Dial/BiliUniverse', target: 'Dial/BiliUniverse' },
@@ -228,9 +228,9 @@ async function buildFileTreeData(
             relativePath === dir ||
             relativePath.startsWith(dir + '/') ||
             relativePath === 'Modules' ||
-            relativePath === 'Rulesets' ||
+            relativePath === 'List' ||
             relativePath.startsWith('Modules/') ||
-            relativePath.startsWith('Rulesets/')
+            relativePath.startsWith('List/')
           );
         });
 
@@ -1386,7 +1386,7 @@ async function main() {
 
     // 创建新的根目录结构
     await fs.mkdir(path.join(OUTPUT_DIR, 'Modules'), { recursive: true });
-    await fs.mkdir(path.join(OUTPUT_DIR, 'Rulesets'), { recursive: true });
+    await fs.mkdir(path.join(OUTPUT_DIR, 'List'), { recursive: true });
 
     // 动态创建目录结构
     for (const dir of allowedDirectories) {
@@ -1420,7 +1420,7 @@ async function main() {
     await copyDirectory(sourceDir, targetDir);
 
     // 复制规则文件
-    // 特殊处理Chores目录：将sgmodule复制到Modules，ruleset复制到Rulesets
+    // 特殊处理Chores目录：将sgmodule复制到Modules，ruleset复制到List
     const sgmoduleSource = path.join(ROOT_DIR, 'Chores', 'sgmodule');
     const sgmoduleDestination = path.join(OUTPUT_DIR, 'Modules');
     try {
@@ -1435,10 +1435,10 @@ async function main() {
     }
 
     const rulesetSource = path.join(ROOT_DIR, 'Chores', 'ruleset');
-    const rulesetDestination = path.join(OUTPUT_DIR, 'Rulesets');
+    const rulesetDestination = path.join(OUTPUT_DIR, 'List');
     try {
       if (await dirExists(rulesetSource)) {
-        console.log(`Copying directory: Chores/ruleset to Rulesets`);
+        console.log(`Copying directory: Chores/ruleset to List`);
         await copyDirectory(rulesetSource, rulesetDestination);
       } else {
         console.log(`Directory not found: Chores/ruleset - skipping`);
@@ -1491,14 +1491,14 @@ async function main() {
       });
     }
 
-    // 添加Rulesets目录(Chores/ruleset)
+    // 添加List目录(Chores/ruleset)
     try {
       if (await dirExists(rulesetSource)) {
-        const rulesetsData = await buildFileTreeData(rulesetSource, 'Rulesets');
+        const rulesetsData = await buildFileTreeData(rulesetSource, 'List');
         if (rulesetsData.length > 0) {
           treeData.push({
-            id: 'Rulesets',
-            name: 'Rulesets',
+            id: 'List',
+            name: 'List',
             isSelectable: true,
             children: rulesetsData,
           });

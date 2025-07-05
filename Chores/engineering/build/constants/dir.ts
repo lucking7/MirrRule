@@ -26,7 +26,7 @@ export const PUBLIC_DIR = IS_CI
 
 // 输出子目录
 export const OUTPUT_SURGE_DIR = path.join(PUBLIC_DIR, 'Surge');
-export const OUTPUT_RULESETS_DIR = path.join(PUBLIC_DIR, 'Rulesets');
+export const OUTPUT_RULESETS_DIR = path.join(PUBLIC_DIR, 'List');
 export const OUTPUT_MODULES_DIR = path.join(PUBLIC_DIR, 'Modules');
 export const OUTPUT_SCRIPTS_DIR = path.join(PUBLIC_DIR, 'Scripts');
 export const OUTPUT_DIAL_DIR = path.join(PUBLIC_DIR, 'Dial');

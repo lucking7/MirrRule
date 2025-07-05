@@ -2,7 +2,7 @@
 export const DIRECTORY_PRIORITY: Record<string, number> = {
   // 主分类
   Surge: 10,
-  Rulesets: 20,
+  List: 20,
   Modules: 30,
   Scripts: 40,
   Domain: 50,
