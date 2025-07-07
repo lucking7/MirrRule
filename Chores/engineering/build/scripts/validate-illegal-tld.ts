@@ -30,12 +30,16 @@ interface IllegalTldResult {
 async function scanRuleFiles(): Promise<DomainRule[]> {
   const allRules: DomainRule[] = [];
 
+  // 获取项目根目录（从 build/scripts 回到项目根目录）
+  const projectRoot = path.resolve(process.cwd(), '../..');
+
   for (const scanPath of SCAN_DIRECTORIES) {
     try {
-      const ruleFiles = await fs.readdir(scanPath, { withFileTypes: true });
+      const fullPath = path.join(projectRoot, scanPath);
+      const ruleFiles = await fs.readdir(fullPath, { withFileTypes: true });
       for (const file of ruleFiles) {
         if (file.isFile()) {
-          const filePath = path.join(scanPath, file.name);
+          const filePath = path.join(fullPath, file.name);
           const rules = await extractDomainRules(filePath, {
             includeKeywords: true,
             recordLineNumbers: true,

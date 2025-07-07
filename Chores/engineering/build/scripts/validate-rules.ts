@@ -1,6 +1,7 @@
 import { glob } from 'glob';
 import { readFile } from 'fs/promises';
 import { parse } from 'tldts';
+import path from 'node:path';
 
 // 权威 TLD 列表
 const ICANN_TLDS = new Set([
@@ -94,17 +95,31 @@ async function validateFile(filePath: string): Promise<ValidationResult> {
 }
 
 async function main() {
-  const ruleFiles = await glob('Surge/Rulesets/**/*.list');
-  const results = await Promise.all(ruleFiles.map(validateFile));
+  // 获取项目根目录（从 build/scripts 回到项目根目录）
+  const projectRoot = path.resolve(process.cwd(), '../..');
+  const ruleFiles = await glob('Surge/Rulesets/**/*.list', { cwd: projectRoot });
 
+  const results = await Promise.all(
+    ruleFiles.map(file => validateFile(path.join(projectRoot, file)))
+  );
+
+  let errorCount = 0;
   results.forEach(result => {
     if (result.errors.length > 0) {
-      console.log(`\n❌ 在 ${result.filePath} 中发现错误:`);
+      console.log(`\n❌ 在 ${path.relative(projectRoot, result.filePath)} 中发现错误:`);
       result.errors.forEach(err => {
         console.log(`  - 行 ${err.line}: ${err.domain} (${err.reason})`);
+        errorCount++;
       });
     }
   });
+
+  if (errorCount === 0) {
+    console.log('✅ 所有规则文件验证通过！');
+  } else {
+    console.log(`\n❌ 总共发现 ${errorCount} 个错误`);
+    process.exit(1);
+  }
 }
 
 main().catch(console.error);
