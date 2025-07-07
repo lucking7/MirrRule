@@ -716,11 +716,11 @@ jobs:
           
           # 1. 验证规则语法
           echo "📝 验证规则语法..."
-          npx tsx scripts/validate-rules.ts
+          npx tsx build/scripts/validate-rules.ts
           
           # 2. 检测非法 TLD
           echo "🌐 检测非法 TLD..."
-          npx tsx scripts/validate-illegal-tld.ts
+          npx tsx build/scripts/validate-illegal-tld.ts
           
           # 3. 检测 Reject 规则 TLD 合法性
           echo "🌐 检测 Reject 规则 TLD 合法性..."
