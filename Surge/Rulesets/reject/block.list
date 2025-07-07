@@ -1,10 +1,10 @@
 # Sukka's Surge Reject Rules - Optimized
 # NOTE: This file has been optimized and merged in-place
-# Total Rules: 1964
+# Total Rules: 1965
 # Removed by Whitelist: 7
-# Domain Optimization: 238 rules merged
+# Domain Optimization: 239 rules merged
 # IP Optimization: 1 CIDRs merged
-# Last Updated: 2025-07-07T12:05:09.546Z
+# Last Updated: 2025-07-07T15:03:28.970Z
 
 DOMAIN,a.wkanx.com
 DOMAIN,ad-cn.jovcloud.com
