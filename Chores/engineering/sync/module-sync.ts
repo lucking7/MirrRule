@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { REPO_PATH } from './rule-sources.js';
 import axios from 'axios';
 import { execSync } from 'child_process';
+import { mergeRejectRules } from './rule-reject-merger.js';
 
 // 创建目录（如果不存在）
 async function ensureDir(dir: string) {
@@ -665,6 +666,13 @@ async function mirrorIRingoModules() {
 export async function mirrorAll() {
   console.log('开始镜像同步所有模块...');
 
+  // 先合并 reject 规则
+  console.log('开始合并 Reject 规则...');
+  const rejectMergeSuccess = await mergeRejectRules();
+  if (!rejectMergeSuccess) {
+    console.error('Reject 规则合并失败，但继续其他同步任务...');
+  }
+
   const results = await Promise.all([
     mirrorSukkaModules(),
     mirrorBiliUniverseModules(),
@@ -673,7 +681,7 @@ export async function mirrorAll() {
   ]);
 
   const [sukkaResult, biliResult, dualSubsResult, iRingoResult] = results;
-  const anyChanged = results.some(result => result.assetsChanged);
+  const anyChanged = results.some(result => result.assetsChanged) || rejectMergeSuccess;
 
   if (anyChanged) {
     console.log('有模块发生变化，正在提交修改...');
@@ -695,11 +703,17 @@ export async function mirrorAll() {
 
       // 添加所有变更 - 更新路径
       execSync('git add ./Dial/');
+      execSync('git add ./Surge/Rulesets/reject/block.list');
 
       // 准备提交信息
       let commitMessage = '';
 
+      if (rejectMergeSuccess) {
+        commitMessage += '🚫 优化 Reject 规则';
+      }
+
       if (sukkaResult.assetsChanged) {
+        if (commitMessage) commitMessage += ' 和 ';
         commitMessage +=
           sukkaResult.modificationsMode || sukkaResult.mockUpdated
             ? '🔧 同步并修改 Sukka 模块'

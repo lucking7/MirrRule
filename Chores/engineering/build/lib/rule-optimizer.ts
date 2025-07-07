@@ -1,5 +1,5 @@
-import { HostnameTrie } from './trie.js';
-import { optimizeCidrList } from './cidr-optimizer.js';
+import { HostnameTrie } from './lib/trie.js';
+import { optimizeCidrList } from './lib/cidr-optimizer.js';
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { glob } from 'glob';

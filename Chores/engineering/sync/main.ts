@@ -3,7 +3,7 @@ import { RuleConverter } from './rule-converter.js';
 import { RuleMerger } from './rule-merger.js';
 import { config, ruleGroups, specialRules } from './rule-sources.js';
 import { ensureDirectoryExists, initializeDirectoryStructure } from './utils.js';
-import { GeoIPProcessor } from './geoip-processor.js';
+import { GeoIPProcessor } from './rule-geoip-processor.js';
 import path from 'node:path';
 import { RuleFormat } from './rule-types.js';
 

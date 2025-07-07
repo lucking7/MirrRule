@@ -3,9 +3,9 @@
  * 用于处理规则列表中的域名去重和子域名合并
  */
 
-import { HostnameTrie } from '../lib/trie.js';
-import { createKeywordFilter } from '../lib/keyword-filter.js';
-import { normalizeDomain, getParentDomains } from '../lib/utils.js';
+import { HostnameTrie } from './lib/trie.js';
+import { createKeywordFilter } from './lib/keyword-filter.js';
+import { normalizeDomain, getParentDomains } from './lib/utils.js';
 import { readFile, writeFile } from 'fs/promises';
 import { resolve } from 'path';
 

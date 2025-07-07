@@ -6,7 +6,7 @@
 import { readdir, readFile, stat } from 'fs/promises';
 import { join, extname, basename, dirname } from 'path';
 import { glob } from 'glob';
-import { safeWriteFile, createProgressReporter } from './utils.js';
+import { safeWriteFile, createProgressReporter } from './lib/utils.js';
 
 export interface FileMetadata {
   /**

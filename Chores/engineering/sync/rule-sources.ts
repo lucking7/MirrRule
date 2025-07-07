@@ -503,6 +503,7 @@ export const specialRules: SpecialRuleConfig[] = [
     name: 'Emby',
     targetFile: 'Surge/Rulesets/stream/video/emby_all.list',
     sourceFiles: [
+      'https://github.com/buhuizhuce/Surge/raw/main/Module/EmbyRules.sgmodule',
       'https://github.com/KuGouGo/Rules/raw/main/emby.list',
       'https://github.com/m4v8vsyj/me/raw/main/emby.list',
       'https://github.com/kefengyoyo/own/raw/main/Emby-P.list',

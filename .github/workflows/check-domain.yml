@@ -1,179 +1,432 @@
-name: Manual Domain Alive Check
+name: 域名活性检测
 on:
-  # 仅手动触发 - 域名测活资源消耗大，避免自动触发
   workflow_dispatch:
     inputs:
+      output_format:
+        description: '输出格式'
+        type: choice
+        default: 'summary'
+        options:
+          - 'summary'
+          - 'full'
+          - 'json'
       auto_fix:
-        description: '是否自动修复发现的问题 (删除失效域名)'
-        required: false
-        default: 'false'
+        description: '自动修复死域名'
+        type: boolean
+        default: false
+      check_sources:
+        description: '检测源文件目录'
         type: choice
+        default: 'all'
         options:
-          - 'false'
-          - 'true'
-      concurrency_level:
-        description: '并发数量 (推荐: 32-64，过高可能被DNS服务器限制)'
-        required: false
-        default: '64'
-        type: choice
-        options:
-          - '32'
-          - '64'
-          - '96'
-          - '128'
+          - 'all'
+          - 'domainset'
+          - 'non_ip'
+          - 'reject'
+      concurrent_limit:
+        description: '并发检测数量'
+        type: number
+        default: 32
 
 jobs:
-  domain-alive-check:
-    name: 🔍 域名活性检测
-    # 使用ARM runner降低成本（参考Surge策略）
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 180  # 3小时超时保护
-
+  check-domains:
+    runs-on: ubuntu-latest
     steps:
-      - name: 获取当前日期
-        id: date
-        run: |
-          echo "date=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
-          echo "year=$(date +'%Y')" >> $GITHUB_OUTPUT
-          echo "month=$(date +'%m')" >> $GITHUB_OUTPUT
-          echo "day=$(date +'%d')" >> $GITHUB_OUTPUT
-          echo "hour=$(date +'%H')" >> $GITHUB_OUTPUT
-          echo "minute=$(date +'%M')" >> $GITHUB_OUTPUT
-          echo "second=$(date +'%S')" >> $GITHUB_OUTPUT
-      
-      - name: 🗄️ 恢复域名缓存 (Surge级策略)
-        uses: actions/cache/restore@v4
-        id: cache-restore
-        with:
-          path: |
-            .cache
-            .cache/undici-better-sqlite3-cache-store.db
-            .cache/dns-cache.db
-            .cache/doh-cache.db
-          # 分钟级精确缓存键 - 最大化缓存命中率
-          key: ${{ runner.os }}-domain-cache-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }} ${{ steps.date.outputs.hour }}:${{ steps.date.outputs.minute }}:${{ steps.date.outputs.second }}
-          # 多级回退策略 - 参考Surge实现
-          restore-keys: |
-            ${{ runner.os }}-domain-cache-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }} ${{ steps.date.outputs.hour }}:${{ steps.date.outputs.minute }}:
-            ${{ runner.os }}-domain-cache-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }} ${{ steps.date.outputs.hour }}:
-            ${{ runner.os }}-domain-cache-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
-            ${{ runner.os }}-domain-cache-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-
-            ${{ runner.os }}-domain-cache-v3-${{ steps.date.outputs.year }}-
-            ${{ runner.os }}-domain-cache-v3-
-      
-      - name: 检出代码
+      - name: 克隆仓库
         uses: actions/checkout@v4
         with:
-          persist-credentials: ${{ github.event.inputs.auto_fix == 'true' }}
-          token: ${{ github.event.inputs.auto_fix == 'true' && secrets.GITHUB_TOKEN || '' }}
+          token: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: 设置Node.js
+      - name: 设置 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: ./Chores/engineering/package-lock.json
       
       - name: 安装依赖
-        run: npm ci
-      
-      # 核心域名活性检测 - 高并发优化
-      - name: 🚀 域名活性检测 (并发=${{ github.event.inputs.concurrency_level }})
-        id: domain-check
-        env:
-          CONCURRENCY: ${{ github.event.inputs.concurrency_level }}
         run: |
-          mkdir -p .cache
-          echo "🔍 开始高并发域名活性检测..."
-          echo "⚙️ 并发数量: ${{ github.event.inputs.concurrency_level }}"
-          echo "📊 缓存状态: ${{ steps.cache-restore.outputs.cache-hit == 'true' && '命中' || '未命中' }}"
-          
-          # 传递并发数量给脚本
-          export CONCURRENCY=${{ github.event.inputs.concurrency_level }}
-          
-          if [ "${{ github.event.inputs.auto_fix }}" == "true" ]; then
-            NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/build/scripts/clean-dead-domains.ts --fix
-            echo "auto_fix_executed=true" >> $GITHUB_OUTPUT
-          else
-            NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/build/scripts/clean-dead-domains.ts
-          fi
-          
-          # 统计检测结果
-          if [ -f ".cache/dead-domains.json" ]; then
-            DEAD_COUNT=$(jq length .cache/dead-domains.json)
-            echo "dead_domains_count=$DEAD_COUNT" >> $GITHUB_OUTPUT
-            if [ "$DEAD_COUNT" -gt 0 ]; then
-              echo "has_dead_domains=true" >> $GITHUB_OUTPUT
-              echo "🔴 发现 $DEAD_COUNT 个失效域名"
-            else
-              echo "has_dead_domains=false" >> $GITHUB_OUTPUT
-              echo "🟢 所有域名存活正常"
-            fi
-          else
-            echo "has_dead_domains=false" >> $GITHUB_OUTPUT
-          fi
+          cd ./Chores/engineering
+          npm ci
       
-      # 自动修复功能
-      - name: 🔧 自动修复失效域名
-        if: github.event.inputs.auto_fix == 'true' && steps.domain-check.outputs.auto_fix_executed == 'true'
+      - name: 恢复缓存
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./Chores/engineering/.cache
+            ./Chores/engineering/dns-cache.db
+          key: domain-check-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            domain-check-${{ runner.os }}-
+      
+      - name: 运行域名活性检测
+        id: check
+        run: |
+          cd ./Chores/engineering
+          
+          # 创建检测脚本
+          cat > scripts/enhanced-domain-check.ts << 'EOF'
+          import { fdir as Fdir } from 'fdir';
+          import path from 'node:path';
+          import fs from 'node:fs/promises';
+          import { isDomainAlive } from '../lib/is-domain-alive.js';
+          import { fetchTextByLine } from '../lib/fetch-text-by-line.js';
+          import { extractDomainFromRule } from '../lib/process-line.js';
+          import { newQueue } from '@henrygd/queue';
+          import cliProgress from 'cli-progress';
+          import { xxhash3 } from 'hash-wasm';
+          import { getDomain } from 'tldts';
+          import picocolors from 'picocolors';
+          
+          interface DomainCheckResult {
+            domain: string;
+            includeAllSubdomain: boolean;
+            alive: boolean;
+            source: string;
+            hash?: string;
+          }
+          
+          interface CheckStats {
+            total: number;
+            alive: number;
+            dead: number;
+            checkDuration: number;
+            deadDomains: DomainCheckResult[];
+            topDeadApexDomains: [string, number][];
+            hashCollisions: Map<string, Set<string>>;
+          }
+          
+          const checkSources = process.env.CHECK_SOURCES || 'all';
+          const outputFormat = process.env.OUTPUT_FORMAT || 'summary';
+          const concurrentLimit = parseInt(process.env.CONCURRENT_LIMIT || '32', 10);
+          
+          async function main() {
+            const startTime = Date.now();
+            const queue = newQueue(concurrentLimit);
+            const results: DomainCheckResult[] = [];
+            const hashMap = new Map<string, Set<string>>();
+            const deadApexDomainCount = new Map<string, number>();
+            
+            // 确定要扫描的目录
+            const scanDirs: string[] = [];
+            if (checkSources === 'all' || checkSources === 'domainset') {
+              scanDirs.push(path.join('data', 'domainset'));
+            }
+            if (checkSources === 'all' || checkSources === 'non_ip') {
+              scanDirs.push(path.join('data', 'non_ip'));
+            }
+            if (checkSources === 'all' || checkSources === 'reject') {
+              scanDirs.push(path.join('Surge', 'Rulesets', 'reject'));
+            }
+            
+            // 扫描文件
+            const files: string[] = [];
+            for (const dir of scanDirs) {
+              try {
+                const dirFiles = await new Fdir()
+                  .withFullPaths()
+                  .filter((filePath, isDirectory) => {
+                    if (isDirectory) return false;
+                    const ext = path.extname(filePath);
+                    return ext === '.txt' || ext === '.conf' || ext === '.list';
+                  })
+                  .crawl(dir)
+                  .withPromise();
+                files.push(...dirFiles);
+              } catch (err) {
+                console.warn(`⚠️  跳过不存在的目录: ${dir}`);
+              }
+            }
+            
+            if (files.length === 0) {
+              console.error('❌ 未找到任何规则文件');
+              process.exit(1);
+            }
+            
+            console.log(`📂 找到 ${files.length} 个规则文件`);
+            console.log(`🔧 并发限制: ${concurrentLimit}`);
+            console.log(`📋 输出格式: ${outputFormat}`);
+            
+            // 创建进度条
+            const bar = new cliProgress.SingleBar({
+              format: '检测进度 |{bar}| {percentage}% | {value}/{total} | {domain}',
+              barCompleteChar: '\u2588',
+              barIncompleteChar: '\u2591',
+              hideCursor: true
+            }, cliProgress.Presets.shades_classic);
+            
+            let totalDomains = 0;
+            const domainSet = new Set<string>();
+            
+            // 预处理：计算总域名数
+            for (const filepath of files) {
+              const content = await fs.readFile(filepath, 'utf-8');
+              const lines = content.split('\n');
+              
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) continue;
+                
+                const extracted = extractDomainFromRule(trimmed);
+                if (extracted && extracted.domain) {
+                  const domainKey = (extracted.includeAllSubdomain ? '.' : '') + extracted.domain;
+                  if (!domainSet.has(domainKey)) {
+                    domainSet.add(domainKey);
+                    totalDomains++;
+                  }
+                }
+              }
+            }
+            
+            bar.start(totalDomains, 0, { domain: '初始化...' });
+            
+            // 并行处理所有文件
+            await Promise.all(files.map(filepath => {
+              return (async () => {
+                const content = await fs.readFile(filepath, 'utf-8');
+                const lines = content.split('\n');
+                const relativePath = path.relative(process.cwd(), filepath);
+                
+                for (const line of lines) {
+                  const trimmed = line.trim();
+                  if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) continue;
+                  
+                  const extracted = extractDomainFromRule(trimmed);
+                  if (!extracted || !extracted.domain) continue;
+                  
+                  const { domain, includeAllSubdomain } = extracted;
+                  const domainKey = (includeAllSubdomain ? '.' : '') + domain;
+                  
+                  // 计算哈希
+                  const hash = await xxhash3(domainKey);
+                  if (!hashMap.has(hash)) {
+                    hashMap.set(hash, new Set());
+                  }
+                  hashMap.get(hash)!.add(domainKey);
+                  
+                  await queue.add(async () => {
+                    bar.update(bar.value, { domain: domainKey });
+                    
+                    const alive = await isDomainAlive(domain, includeAllSubdomain);
+                    
+                    const result: DomainCheckResult = {
+                      domain,
+                      includeAllSubdomain,
+                      alive,
+                      source: relativePath,
+                      hash
+                    };
+                    
+                    results.push(result);
+                    
+                    if (!alive) {
+                      const apexDomain = getDomain(domain);
+                      if (apexDomain) {
+                        deadApexDomainCount.set(
+                          apexDomain,
+                          (deadApexDomainCount.get(apexDomain) || 0) + 1
+                        );
+                      }
+                    }
+                    
+                    bar.increment(1);
+                  });
+                }
+              })();
+            }));
+            
+            await queue.done();
+            bar.stop();
+            
+            // 统计结果
+            const deadDomains = results.filter(r => !r.alive);
+            const aliveDomains = results.filter(r => r.alive);
+            
+            // 检测哈希碰撞
+            const collisions = new Map<string, Set<string>>();
+            for (const [hash, domains] of hashMap) {
+              if (domains.size > 1) {
+                collisions.set(hash, domains);
+              }
+            }
+            
+            // 排序死域名的顶级域
+            const topDeadApexDomains = Array.from(deadApexDomainCount.entries())
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 20);
+            
+            const stats: CheckStats = {
+              total: results.length,
+              alive: aliveDomains.length,
+              dead: deadDomains.length,
+              checkDuration: Date.now() - startTime,
+              deadDomains,
+              topDeadApexDomains,
+              hashCollisions: collisions
+            };
+            
+            // 输出结果
+            console.log('\n' + picocolors.bold('📊 检测统计'));
+            console.log(picocolors.green(`✅ 存活域名: ${stats.alive}`));
+            console.log(picocolors.red(`❌ 死亡域名: ${stats.dead}`));
+            console.log(picocolors.yellow(`⚡ 检测耗时: ${(stats.checkDuration / 1000).toFixed(2)}s`));
+            console.log(picocolors.blue(`🔍 哈希碰撞: ${collisions.size}`));
+            
+            if (collisions.size > 0) {
+              console.log('\n' + picocolors.bold('⚠️  哈希碰撞'));
+              for (const [hash, domains] of collisions) {
+                console.log(`${hash} => ${Array.from(domains).join(', ')}`);
+              }
+            }
+            
+            if (topDeadApexDomains.length > 0) {
+              console.log('\n' + picocolors.bold('🏆 死亡域名 Top 20（按顶级域统计）'));
+              console.table(topDeadApexDomains.map(([domain, count]) => ({
+                '顶级域': domain,
+                '死亡数量': count
+              })));
+            }
+            
+            // 根据输出格式生成不同的报告
+            const reportPath = 'domain-check-report.json';
+            
+            if (outputFormat === 'json') {
+              await fs.writeFile(reportPath, JSON.stringify(stats, null, 2));
+              console.log(`\n📄 完整报告已保存至: ${reportPath}`);
+            } else if (outputFormat === 'full') {
+              const fullReport = {
+                ...stats,
+                deadDomainsList: deadDomains.map(d => ({
+                  domain: (d.includeAllSubdomain ? '.' : '') + d.domain,
+                  source: d.source
+                }))
+              };
+              await fs.writeFile(reportPath, JSON.stringify(fullReport, null, 2));
+              console.log(`\n📄 详细报告已保存至: ${reportPath}`);
+            } else {
+              // summary 模式只输出统计信息
+              const summaryReport = {
+                stats: {
+                  total: stats.total,
+                  alive: stats.alive,
+                  dead: stats.dead,
+                  deadPercentage: ((stats.dead / stats.total) * 100).toFixed(2) + '%',
+                  checkDuration: (stats.checkDuration / 1000).toFixed(2) + 's',
+                  hashCollisions: collisions.size
+                },
+                topDeadApexDomains: Object.fromEntries(topDeadApexDomains)
+              };
+              await fs.writeFile(reportPath, JSON.stringify(summaryReport, null, 2));
+            }
+            
+            // 设置 GitHub Actions 输出
+            console.log(`::set-output name=total::${stats.total}`);
+            console.log(`::set-output name=alive::${stats.alive}`);
+            console.log(`::set-output name=dead::${stats.dead}`);
+            console.log(`::set-output name=dead_percentage::${((stats.dead / stats.total) * 100).toFixed(2)}%`);
+            console.log(`::set-output name=hash_collisions::${collisions.size}`);
+            
+            // 如果死域名比例过高，发出警告
+            const deadPercentage = (stats.dead / stats.total) * 100;
+            if (deadPercentage > 5) {
+              console.log('\n' + picocolors.yellow(`⚠️  警告: 死域名比例较高 (${deadPercentage.toFixed(2)}%)`));
+            }
+          }
+          
+          main().catch(err => {
+            console.error('❌ 检测过程中发生错误:', err);
+            process.exit(1);
+          });
+          EOF
+          
+          # 设置环境变量并运行检测
+          export CHECK_SOURCES="${{ github.event.inputs.check_sources }}"
+          export OUTPUT_FORMAT="${{ github.event.inputs.output_format }}"
+          export CONCURRENT_LIMIT="${{ github.event.inputs.concurrent_limit }}"
+          
+          npx tsx scripts/enhanced-domain-check.ts
+      
+      - name: 自动修复死域名
+        if: ${{ github.event.inputs.auto_fix == 'true' && steps.check.outputs.dead != '0' }}
+        run: |
+          cd ./Chores/engineering
+          
+          # 创建修复脚本
+          cat > scripts/fix-dead-domains.ts << 'EOF'
+          import fs from 'node:fs/promises';
+          import path from 'node:path';
+          
+          async function fixDeadDomains() {
+            const reportPath = 'domain-check-report.json';
+            const report = JSON.parse(await fs.readFile(reportPath, 'utf-8'));
+            
+            if (!report.deadDomains || report.deadDomains.length === 0) {
+              console.log('✅ 没有需要修复的死域名');
+              return;
+            }
+            
+            console.log(`🔧 开始修复 ${report.deadDomains.length} 个死域名...`);
+            
+            // 按文件分组死域名
+            const fileMap = new Map<string, Set<string>>();
+            for (const dead of report.deadDomains) {
+              const domainKey = (dead.includeAllSubdomain ? '.' : '') + dead.domain;
+              if (!fileMap.has(dead.source)) {
+                fileMap.set(dead.source, new Set());
+              }
+              fileMap.get(dead.source)!.add(domainKey);
+            }
+            
+            // 修复每个文件
+            for (const [filepath, deadDomains] of fileMap) {
+              const fullPath = path.resolve(filepath);
+              const content = await fs.readFile(fullPath, 'utf-8');
+              const lines = content.split('\n');
+              
+              const newLines = lines.filter(line => {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) {
+                  return true; // 保留空行和注释
+                }
+                
+                // 检查是否包含死域名
+                for (const deadDomain of deadDomains) {
+                  if (line.includes(deadDomain)) {
+                    console.log(`  ❌ 移除: ${line.trim()} (来自 ${filepath})`);
+                    return false;
+                  }
+                }
+                
+                return true;
+              });
+              
+              // 写回文件
+              await fs.writeFile(fullPath, newLines.join('\n'));
+              console.log(`  ✅ 已修复: ${filepath} (移除 ${lines.length - newLines.length} 行)`);
+            }
+            
+            console.log('🎉 修复完成！');
+          }
+          
+          fixDeadDomains().catch(err => {
+            console.error('❌ 修复过程中发生错误:', err);
+            process.exit(1);
+          });
+          EOF
+          
+          npx tsx scripts/fix-dead-domains.ts
+      
+      - name: 提交修复
+        if: ${{ github.event.inputs.auto_fix == 'true' && steps.check.outputs.dead != '0' }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          
-          if git diff --quiet; then
-            echo "💡 没有文件被修改，跳过提交"
-          else
-            git add .
-            git commit -m "🤖 自动修复: 移除失效域名 [skip ci]
-            
-            - 移除 ${{ steps.domain-check.outputs.dead_domains_count }} 个失效域名
-            - 并发数量: ${{ github.event.inputs.concurrency_level }}
-            - 修复时间: ${{ steps.date.outputs.date }}
-            - 触发者: @${{ github.actor }}"
-            
-            git push
-            echo "✅ 自动修复已提交"
-          fi
+          git add -A
+          git diff --quiet && git diff --staged --quiet || git commit -m "fix: 自动移除 ${{ steps.check.outputs.dead }} 个死域名"
+          git push
       
-      # 保存增强缓存
-      - name: 💾 保存域名缓存 (持久化DNS查询结果)
-        if: always()
-        uses: actions/cache/save@v4
+      - name: 上传检测报告
+        uses: actions/upload-artifact@v4
         with:
-          path: |
-            .cache
-            .cache/undici-better-sqlite3-cache-store.db
-            .cache/dns-cache.db
-            .cache/doh-cache.db
-          key: ${{ runner.os }}-domain-cache-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }} ${{ steps.date.outputs.hour }}:${{ steps.date.outputs.minute }}:${{ steps.date.outputs.second }}
-      
-      # 详细性能报告
-      - name: 📊 性能与结果汇总
-        run: |
-          echo "## 🔍 域名活性检测报告" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # 性能指标
-          echo "### ⚡ 性能指标" >> $GITHUB_STEP_SUMMARY
-          echo "- **并发数量**: ${{ github.event.inputs.concurrency_level }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **缓存状态**: ${{ steps.cache-restore.outputs.cache-hit == 'true' && '✅ 命中 (大幅加速)' || '❌ 未命中 (首次运行)' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **执行时间**: 开始于 ${{ steps.date.outputs.date }}" >> $GITHUB_STEP_SUMMARY
-          
-          # 检测结果
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🎯 检测结果" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.domain-check.outputs.has_dead_domains }}" == "true" ]; then
-            echo "- **状态**: ❌ 发现问题" >> $GITHUB_STEP_SUMMARY
-            echo "- **失效域名**: ${{ steps.domain-check.outputs.dead_domains_count }} 个" >> $GITHUB_STEP_SUMMARY
-            if [ "${{ github.event.inputs.auto_fix }}" == "true" ]; then
-              echo "- **修复状态**: ✅ 已自动修复并提交" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "- **修复建议**: 💡 使用 \`auto_fix=true\` 自动修复" >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            echo "- **状态**: ✅ 所有域名存活正常" >> $GITHUB_STEP_SUMMARY
-            echo "- **失效域名**: 0 个" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "💡 **优化建议**: 定期运行可维护缓存，提升后续检测速度" >> $GITHUB_STEP_SUMMARY
+          name: domain-check-report
+          path: ./Chores/engineering/domain-check-report.json
