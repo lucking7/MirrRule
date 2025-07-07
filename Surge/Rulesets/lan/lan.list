@@ -1,3 +1,14 @@
+// Ruleset - Local Area Network
+// Last updated: 2025/7/7 23:53:12
+// DOMAIN: 12
+// DOMAIN-SUFFIX: 38
+// IP-CIDR: 8
+// IP-CIDR6: 5
+// Total: 63
+// This file contains rules for local area network addresses, private IP ranges and reserved TLDs
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/lan.conf
+//  - https://ruleset.skk.moe/List/ip/lan.conf
 IP-CIDR,0.0.0.0/8
 IP-CIDR,10.0.0.0/8
 IP-CIDR,100.64.0.0/10
@@ -5416,3 +5427,5 @@ DOMAIN,repeater.asus.com
 DOMAIN,router.asus.com
 DOMAIN,aterm.me
 DOMAIN-SUFFIX,tplogin.cn
+IP-CIDR6,fc00::/7
+IP-CIDR6,fe80::/10

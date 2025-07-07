@@ -47,7 +47,7 @@ export const ruleGroups: RuleGroup[] = [
     files: [
       {
         path: 'Surge/Rulesets/apple/apns.list',
-        url: 'https://kelee.one/Tool/Loon/Rule/ApplePushNotificationService.list',
+        url: 'https://kelee.one/Tool/Loon/Lsr/ApplePushNotificationService.lsr',
       },
       {
         path: 'Surge/Rulesets/apple/apple_all.list',
@@ -125,7 +125,7 @@ export const ruleGroups: RuleGroup[] = [
       },
       {
         path: 'Surge/Rulesets/stream/video/tiktok.list',
-        url: 'https://kelee.one/Tool/Loon/Rule/TikTok.list',
+        url: 'https://kelee.one/Tool/Loon/Lsr/TikTok.lsr',
       },
       {
         path: 'Surge/Rulesets/stream/cn.list',
@@ -236,11 +236,11 @@ export const ruleGroups: RuleGroup[] = [
     files: [
       {
         path: 'Surge/Rulesets/cdn/download_global_kelee.list',
-        url: 'https://kelee.one/Tool/Loon/Rule/InternationalDownloadCDN.list',
+        url: 'https://kelee.one/Tool/Loon/Lsr/InternationalDownloadCDN.lsr',
       },
       {
         path: 'Surge/Rulesets/cdn/download_cn_kelee.list',
-        url: 'https://kelee.one/Tool/Loon/Rule/ChinaDownloadCDN.list',
+        url: 'https://kelee.one/Tool/Loon/Lsr/ChinaDownloadCDN.lsr',
       },
     ],
   },
@@ -399,7 +399,7 @@ export const specialRules: SpecialRuleConfig[] = [
     targetFile: 'Surge/Rulesets/aigc.list',
     sourceFiles: [
       'https://ruleset.skk.moe/List/non_ip/ai.conf',
-      'https://kelee.one/Tool/Loon/Rule/AI.list',
+      'https://kelee.one/Tool/Loon/Lsr/AI.lsr',
       'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/AI.list',
       'https://github.com/dler-io/Rules/raw/main/Surge/Surge%203/Provider/AI%20Suite.list',
     ],

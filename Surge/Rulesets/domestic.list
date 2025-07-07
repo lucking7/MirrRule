@@ -1,3 +1,15 @@
+// Ruleset - Domestic Services
+// Last updated: 2025/7/7 23:53:06
+// DOMAIN: 19
+// DOMAIN-SUFFIX: 776
+// IP-CIDR: 2
+// USER-AGENT: 3
+// OTHER: 5
+// Total: 805
+// This file contains known addresses that are available in Mainland China
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/domestic.conf
+//  - https://ruleset.skk.moe/List/ip/domestic.conf
 DOMAIN,th1s_rule5et_1s_m4d3_by_5ukk4w_ruleset.skk.moe
 DOMAIN-SUFFIX,c-t.work
 DOMAIN-SUFFIX,mijia.tech

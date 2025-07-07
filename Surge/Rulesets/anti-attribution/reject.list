@@ -3,15 +3,6 @@
 # https://github.com/SunsetMkt/anti-ip-attribution
 # 适用于Clash RULE-SET
 DOMAIN,httpdns.bilivideo.com
-// Ruleset - Anti-IP Attribution (Reject)
-// Last updated: 2025/7/5 23:03:17
-// DOMAIN: 1
-// IP-CIDR: 18
-// IP-CIDR6: 1
-// Total: 20
-// This file contains reject rules to counter IP-based location attribution required by Chinese social media platforms
-// Data sources:
-//  - https://github.com/SunsetMkt/anti-ip-attribution/raw/main/generated/rule-set-reject.list
 IP-CIDR,47.101.175.206/32,no-resolve
 IP-CIDR,47.100.123.169/32,no-resolve
 IP-CIDR,120.46.169.234/32,no-resolve

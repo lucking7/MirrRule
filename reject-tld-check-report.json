@@ -1,0 +1,195 @@
+{
+  "timestamp": "2025-07-07T15:41:25.905Z",
+  "mode": "fix",
+  "summary": {
+    "totalFiles": 3,
+    "totalDomains": 17361,
+    "totalIllegalDomains": 21,
+    "illegalTldDistribution": {
+      "UNKNOWN": 4,
+      "xn": 2,
+      "com-no-drop": 2,
+      "5pk": 2,
+      "channelray": 2,
+      "con": 2,
+      "eastday": 2,
+      "sentry": 2,
+      "uop": 2,
+      "xiaoqiang": 1
+    }
+  },
+  "details": [
+    {
+      "file": "/Users/jasperl./Documents/GitHub/esdeath/Surge/Rulesets/reject/block.list",
+      "totalDomains": 1714,
+      "illegalTldDomains": 2,
+      "illegalTldDistribution": {
+        "UNKNOWN": 2
+      },
+      "examples": [
+        {
+          "domain": "browsercfg-drcn.cloud.dbankcloud.cn // 甚至想 DOMAIN-KEYWORD",
+          "tld": "UNKNOWN",
+          "line": "DOMAIN,browsercfg-drcn.cloud.dbankcloud.cn // 甚至想 DOMAIN-KEYWORD",
+          "lineNumber": 222
+        },
+        {
+          "domain": "browsercfg-drcn.cloud.dbankcloud.cn // 甚至想 domain-keyword",
+          "tld": "UNKNOWN",
+          "line": "DOMAIN,browsercfg-drcn.cloud.dbankcloud.cn // 甚至想 domain-keyword",
+          "lineNumber": 223
+        }
+      ]
+    },
+    {
+      "file": "/Users/jasperl./Documents/GitHub/esdeath/Surge/Rulesets/reject/reject-Loon.list",
+      "totalDomains": 7815,
+      "illegalTldDomains": 10,
+      "illegalTldDistribution": {
+        "UNKNOWN": 1,
+        "xn": 1,
+        "com-no-drop": 2,
+        "5pk": 1,
+        "channelray": 1,
+        "con": 1,
+        "eastday": 1,
+        "sentry": 1,
+        "uop": 1
+      },
+      "examples": [
+        {
+          "domain": "-normal-lq.zijieapi.com",
+          "tld": "UNKNOWN",
+          "line": "DOMAIN-SUFFIX,-normal-lq.zijieapi.com",
+          "lineNumber": 1288
+        },
+        {
+          "domain": "meituan.xn",
+          "tld": "xn",
+          "line": "DOMAIN-SUFFIX,meituan.xn",
+          "lineNumber": 7767
+        },
+        {
+          "domain": "tmead.y.qq.com-no-drop",
+          "tld": "com-no-drop",
+          "line": "DOMAIN,tmead.y.qq.com-no-drop",
+          "lineNumber": 7800
+        },
+        {
+          "domain": "tmeadbak.y.qq.com-no-drop",
+          "tld": "com-no-drop",
+          "line": "DOMAIN,tmeadbak.y.qq.com-no-drop",
+          "lineNumber": 7801
+        },
+        {
+          "domain": "mg.5pk",
+          "tld": "5pk",
+          "line": "DOMAIN-SUFFIX,mg.5pk",
+          "lineNumber": 7828
+        },
+        {
+          "domain": "cpv.channelray",
+          "tld": "channelray",
+          "line": "DOMAIN-SUFFIX,cpv.channelray",
+          "lineNumber": 7865
+        },
+        {
+          "domain": "nxrxt.con",
+          "tld": "con",
+          "line": "DOMAIN-SUFFIX,nxrxt.con",
+          "lineNumber": 7884
+        },
+        {
+          "domain": "afpimages.eastday",
+          "tld": "eastday",
+          "line": "DOMAIN-SUFFIX,afpimages.eastday",
+          "lineNumber": 7887
+        },
+        {
+          "domain": "ingest.sentry",
+          "tld": "sentry",
+          "line": "DOMAIN-SUFFIX,ingest.sentry",
+          "lineNumber": 7982
+        },
+        {
+          "domain": "localnetwork.uop",
+          "tld": "uop",
+          "line": "DOMAIN-SUFFIX,localnetwork.uop",
+          "lineNumber": 8042
+        }
+      ]
+    },
+    {
+      "file": "/Users/jasperl./Documents/GitHub/esdeath/Surge/Rulesets/reject/reject-QX.list",
+      "totalDomains": 7832,
+      "illegalTldDomains": 9,
+      "illegalTldDistribution": {
+        "UNKNOWN": 1,
+        "xn": 1,
+        "xiaoqiang": 1,
+        "5pk": 1,
+        "channelray": 1,
+        "con": 1,
+        "eastday": 1,
+        "sentry": 1,
+        "uop": 1
+      },
+      "examples": [
+        {
+          "domain": "-normal-lq.zijieapi.com",
+          "tld": "UNKNOWN",
+          "line": "DOMAIN-SUFFIX,-normal-lq.zijieapi.com",
+          "lineNumber": 1347
+        },
+        {
+          "domain": "meituan.xn",
+          "tld": "xn",
+          "line": "DOMAIN-SUFFIX,meituan.xn",
+          "lineNumber": 7829
+        },
+        {
+          "domain": "xiaoqiang",
+          "tld": "xiaoqiang",
+          "line": "DOMAIN-SUFFIX,xiaoqiang",
+          "lineNumber": 7888
+        },
+        {
+          "domain": "mg.5pk",
+          "tld": "5pk",
+          "line": "DOMAIN-SUFFIX,mg.5pk",
+          "lineNumber": 7889
+        },
+        {
+          "domain": "cpv.channelray",
+          "tld": "channelray",
+          "line": "DOMAIN-SUFFIX,cpv.channelray",
+          "lineNumber": 7926
+        },
+        {
+          "domain": "nxrxt.con",
+          "tld": "con",
+          "line": "DOMAIN-SUFFIX,nxrxt.con",
+          "lineNumber": 7945
+        },
+        {
+          "domain": "afpimages.eastday",
+          "tld": "eastday",
+          "line": "DOMAIN-SUFFIX,afpimages.eastday",
+          "lineNumber": 7948
+        },
+        {
+          "domain": "ingest.sentry",
+          "tld": "sentry",
+          "line": "DOMAIN-SUFFIX,ingest.sentry",
+          "lineNumber": 8043
+        },
+        {
+          "domain": "localnetwork.uop",
+          "tld": "uop",
+          "line": "DOMAIN-SUFFIX,localnetwork.uop",
+          "lineNumber": 8103
+        }
+      ]
+    }
+  ]
+}

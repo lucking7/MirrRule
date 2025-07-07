@@ -496,8 +496,11 @@ jobs:
             }
             
             // 设置输出
-            console.log(\`::set-output name=ip_optimized::\${results.filter(r => r.optimized).length}\`);
-            console.log(\`::set-output name=ip_reduced::\${totalOriginal - totalOptimized}\`);
+            if (process.env.GITHUB_OUTPUT) {
+              const fs = require('fs');
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, \`ip_optimized=\${results.filter(r => r.optimized).length}\n\`);
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, \`ip_reduced=\${totalOriginal - totalOptimized}\n\`);
+            }
             
             return results.filter(r => r.optimized).length > 0;
           }
@@ -510,8 +513,8 @@ jobs:
           
           npx tsx scripts/optimize-ip-cidrs.ts || {
             echo "⚠️  IP 段优化失败，但继续构建流程"
-            echo "::set-output name=ip_optimized::0"
-            echo "::set-output name=ip_reduced::0"
+            echo "ip_optimized=0" >> $GITHUB_OUTPUT
+            echo "ip_reduced=0" >> $GITHUB_OUTPUT
           }
       
       - name: 优化域名规则
@@ -689,8 +692,11 @@ jobs:
             }
             
             // 设置输出
-            console.log(\`::set-output name=domains_optimized::\${results.filter(r => r.optimized).length}\`);
-            console.log(\`::set-output name=domains_reduced::\${totalOriginal - totalOptimized}\`);
+            if (process.env.GITHUB_OUTPUT) {
+              const fs = require('fs');
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, \`domains_optimized=\${results.filter(r => r.optimized).length}\n\`);
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, \`domains_reduced=\${totalOriginal - totalOptimized}\n\`);
+            }
             
             return results.filter(r => r.optimized).length > 0;
           }
@@ -703,8 +709,23 @@ jobs:
           
           npx tsx scripts/optimize-domains.ts || {
             echo "⚠️  域名优化失败，但继续构建流程"
-            echo "::set-output name=domains_optimized::0"
-            echo "::set-output name=domains_reduced::0"
+            echo "domains_optimized=0" >> $GITHUB_OUTPUT
+            echo "domains_reduced=0" >> $GITHUB_OUTPUT
+          }
+
+      - name: 优化 Reject 规则
+        id: optimize-reject
+        run: |
+          cd ./Chores/engineering
+          
+          echo "🚫 开始优化 Reject 规则集..."
+          
+          # 运行 reject 优化器测试脚本
+          npx tsx sync/test-reject-optimizer.ts || {
+            echo "⚠️  Reject 规则优化失败，但继续构建流程"
+            echo "reject_processed=0" >> $GITHUB_OUTPUT
+            echo "reject_invalid=0" >> $GITHUB_OUTPUT
+            echo "reject_merged=0" >> $GITHUB_OUTPUT
           }
 
       - name: 验证规则集
@@ -758,6 +779,10 @@ jobs:
             
             if [[ "${{ steps.optimize-domains.outputs.domains_optimized }}" != "0" ]]; then
               COMMIT_MSG="$COMMIT_MSG [域名优化: -${{ steps.optimize-domains.outputs.domains_reduced }}]"
+            fi
+            
+            if [[ "${{ steps.optimize-reject.outputs.reject_processed }}" != "0" ]]; then
+              COMMIT_MSG="$COMMIT_MSG [Reject优化: 处理${{ steps.optimize-reject.outputs.reject_processed }}条]"
             fi
             
             COMMIT_MSG="$COMMIT_MSG [触发${{ github.event_name }}]"
@@ -829,6 +854,14 @@ jobs:
             echo "- 域名优化: 优化了 ${{ steps.optimize-domains.outputs.domains_optimized }} 个文件，减少 ${{ steps.optimize-domains.outputs.domains_reduced }} 条规则" >> $GITHUB_STEP_SUMMARY
           else
             echo "- 域名优化: 无需优化" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ steps.optimize-reject.outputs.reject_processed }}" != "0" ]]; then
+            echo "- Reject 规则优化: 处理了 ${{ steps.optimize-reject.outputs.reject_processed }} 条规则" >> $GITHUB_STEP_SUMMARY
+            echo "  - 无效 TLD: ${{ steps.optimize-reject.outputs.reject_invalid }} 条" >> $GITHUB_STEP_SUMMARY
+            echo "  - 合并规则: ${{ steps.optimize-reject.outputs.reject_merged }} 条" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Reject 规则优化: 无需优化" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY

@@ -1,6 +1,5 @@
 import { glob } from 'glob';
 import { readFile } from 'fs/promises';
-import { parse } from 'tldts';
 import path from 'node:path';
 
 // 权威 TLD 列表
@@ -25,8 +24,10 @@ const ICANN_TLDS = new Set([
   'org.cn',
   'gov.cn',
   'za',
-  'dev',
-  'app',
+  // 更多合法的 TLD...
+  'de', 'uk', 'jp', 'fr', 'au', 'ca', 'es', 'it', 'ru', 'br', 'nl', 'ch', 'se',
+  'no', 'dk', 'fi', 'pl', 'be', 'at', 'gr', 'cz', 'hu', 'ro', 'pt', 'il', 'in',
+  'kr', 'tw', 'hk', 'sg', 'my', 'th', 'id', 'ph', 'vn', 'tr', 'ae', 'sa', 'eg',
 ]);
 
 const VALID_LONG_TLDS = new Set([
@@ -67,7 +68,7 @@ function getTld(domain: string): string | null {
 function isValidTld(domain: string): boolean {
   const tld = getTld(domain);
   if (!tld) return false;
-  return ICANN_TLDS.has(tld);
+  return ICANN_TLDS.has(tld) || VALID_LONG_TLDS.has(tld);
 }
 
 async function validateFile(filePath: string): Promise<ValidationResult> {
@@ -77,17 +78,39 @@ async function validateFile(filePath: string): Promise<ValidationResult> {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
+    
+    // 跳过注释和空行
     if (line.startsWith('#') || line.startsWith('//') || !line) continue;
 
-    const parts = line.split(',');
-    const domain = parts[0].includes('DOMAIN') ? parts[1] : parts[0];
+    // 检查是否包含逗号（标准规则格式）
+    if (line.includes(',')) {
+      // 解析规则类型和内容
+      const commaIndex = line.indexOf(',');
+      const ruleType = line.substring(0, commaIndex).trim();
+      const ruleContent = line.substring(commaIndex + 1).trim();
 
-    if (domain && !isValidTld(domain)) {
-      errors.push({
-        line: i + 1,
-        domain,
-        reason: '无效或非法的 TLD',
-      });
+      // 只验证域名类型的规则
+      if ((ruleType === 'DOMAIN' || ruleType === 'DOMAIN-SUFFIX') && ruleContent) {
+        if (!isValidTld(ruleContent)) {
+          errors.push({
+            line: i + 1,
+            domain: ruleContent,
+            reason: '无效或非法的 TLD',
+          });
+        }
+      }
+      // 跳过其他类型的规则（IP-CIDR, IP-CIDR6, DOMAIN-KEYWORD, USER-AGENT, IP-ASN, PROCESS-NAME 等）
+    } else {
+      // 如果没有逗号，可能是单个域名
+      if (!line.includes('/') && line.includes('.') && !line.startsWith('IP-') && !line.includes('PROCESS-') && !line.includes('USER-')) {
+        if (!isValidTld(line)) {
+          errors.push({
+            line: i + 1,
+            domain: line,
+            reason: '无效或非法的 TLD',
+          });
+        }
+      }
     }
   }
 
