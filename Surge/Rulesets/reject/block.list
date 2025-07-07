@@ -1,10 +1,10 @@
 # Sukka's Surge Reject Rules - Optimized
 # NOTE: This file has been optimized and merged in-place
-# Total Rules: 1732
-# Removed by Whitelist: 6
-# Domain Optimization: 8 rules merged
-# IP Optimization: 0 CIDRs merged
-# Last Updated: 2025-07-07T09:25:23.518Z
+# Total Rules: 1964
+# Removed by Whitelist: 7
+# Domain Optimization: 238 rules merged
+# IP Optimization: 1 CIDRs merged
+# Last Updated: 2025-07-07T12:05:09.546Z
 
 DOMAIN,a.wkanx.com
 DOMAIN,ad-cn.jovcloud.com
@@ -219,6 +219,7 @@ DOMAIN,ads.superawesome.tv
 DOMAIN,ads.yahoo.de
 DOMAIN,adv.bandi.so
 DOMAIN,advertise.baicizhan.org
+DOMAIN,browsercfg-drcn.cloud.dbankcloud.cn // 甚至想 DOMAIN-KEYWORD
 DOMAIN,browsercfg-drcn.cloud.dbankcloud.cn // 甚至想 domain-keyword
 DOMAIN,c.clarity.ms
 DOMAIN,o.clarity.ms
