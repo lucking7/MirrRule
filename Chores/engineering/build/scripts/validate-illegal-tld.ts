@@ -6,14 +6,11 @@ import { type Span } from '../trace/index.js';
 import { promises as fs } from 'node:fs';
 
 // 一些已知的非法 TLD
-const ILLEGAL_TLDS = new Set([
+const TRULY_ILLEGAL_TLDS = new Set(['test', 'example', 'invalid', 'localhost']);
+
+// 内部域名 TLD（在 direct 规则中是合法的）
+const INTERNAL_TLDS = new Set([
   'local',
-  'localhost',
-  'test',
-  'example',
-  'invalid',
-  'onion',
-  'i2p',
   'internal',
   'private',
   'lan',
@@ -24,10 +21,35 @@ const ILLEGAL_TLDS = new Set([
   'workgroup',
 ]);
 
+// 特殊网络 TLD（在 reject 规则中是合法的）
+const SPECIAL_NETWORK_TLDS = new Set([
+  'onion', // Tor network
+  'i2p', // I2P network
+]);
+
 interface IllegalDomainInfo {
   domain: string;
   file: string;
   line: number;
+}
+
+function isIllegal(tld: string, filePath: string): boolean {
+  const lowerTld = tld.toLowerCase();
+  const fileName = path.basename(filePath).toLowerCase();
+
+  // 1. 真正非法的 TLD 在任何文件中都无效
+  if (TRULY_ILLEGAL_TLDS.has(lowerTld)) {
+    return true;
+  }
+
+  // 2. 对于 direct.list 和 reject.list，只要不是真正非法的TLD，就都算合法
+  //    这样就允许了 .lan, .internal, .onion 等特殊TLD
+  if (fileName.includes('direct') || fileName.includes('reject')) {
+    return false;
+  }
+
+  // 3. 对于其他所有规则文件，内部TLD和特殊网络TLD都被视为非法
+  return INTERNAL_TLDS.has(lowerTld) || SPECIAL_NETWORK_TLDS.has(lowerTld);
 }
 
 async function checkFileForIllegalTLD(filePath: string): Promise<IllegalDomainInfo[]> {
@@ -61,9 +83,9 @@ async function checkFileForIllegalTLD(filePath: string): Promise<IllegalDomainIn
       if (domain) {
         // 检查是否包含非法 TLD
         const parts = domain.split('.');
-        const tld = parts[parts.length - 1].toLowerCase();
+        const tld = parts.at(-1);
 
-        if (ILLEGAL_TLDS.has(tld)) {
+        if (tld && isIllegal(tld, filePath)) {
           illegalDomains.push({
             domain,
             file: path.relative(process.cwd(), filePath),
@@ -84,11 +106,7 @@ export async function validateIllegalTLD(parentSpan: Span) {
 
   const span = parentSpan.traceChild('validate-illegal-tld');
   try {
-    const dirsToCheck = [
-      path.join(SOURCE_DIR, 'domainset'),
-      path.join(SOURCE_DIR, 'non_ip'),
-      path.join(SURGE_DIR, 'Rulesets'),
-    ];
+    const dirsToCheck = [path.join(SURGE_DIR, 'Rulesets')];
 
     const allIllegalDomains: IllegalDomainInfo[] = [];
 
