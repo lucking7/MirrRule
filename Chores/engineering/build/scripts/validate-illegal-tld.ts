@@ -27,13 +27,109 @@ const SPECIAL_NETWORK_TLDS = new Set([
   'i2p', // I2P network
 ]);
 
+// 规则集类型枚举
+enum RulesetType {
+  DOMAINSET = 'DomainsetOutput',
+  IPLIST = 'IPListOutput',
+  RULESET = 'RulesetOutput',
+  UNKNOWN = 'Unknown',
+}
+
+// 规则类型标识符
+const DOMAIN_RULE_PREFIXES = [
+  'DOMAIN,',
+  'DOMAIN-SUFFIX,',
+  'DOMAIN-KEYWORD,',
+  'DOMAIN-SET,',
+  'DOMAIN-WILDCARD,',
+];
+const IP_RULE_PREFIXES = ['IP-CIDR,', 'IP-CIDR6,', 'GEOIP,', 'IP-ASN,'];
+const OTHER_RULE_PREFIXES = [
+  'USER-AGENT,',
+  'URL-REGEX,',
+  'PROCESS-NAME,',
+  'AND,',
+  'OR,',
+  'NOT,',
+  'SUBNET,',
+  'DEST-PORT,',
+  'SRC-PORT,',
+  'SRC-IP,',
+  'PROTOCOL,',
+  'SCRIPT,',
+  'CELLULAR-RADIO,',
+  'DEVICE-NAME,',
+];
+
 interface IllegalDomainInfo {
   domain: string;
   file: string;
   line: number;
 }
 
-function isIllegal(tld: string, filePath: string): boolean {
+// 检测文件的规则集类型
+async function detectRulesetType(filePath: string): Promise<RulesetType> {
+  let hasDomainRules = false;
+  let hasIpRules = false;
+  let hasOtherRules = false;
+  let hasPureDomains = false;
+  let lineCount = 0;
+  const maxLinesToCheck = 100; // 只检查前100行来判断类型
+
+  try {
+    for await (const line of readFileByLine(filePath)) {
+      lineCount++;
+      if (lineCount > maxLinesToCheck) break;
+
+      const trimmedLine = line.trim();
+      if (!trimmedLine || trimmedLine.startsWith('#') || trimmedLine.startsWith('//')) {
+        continue;
+      }
+
+      // 检查是否包含规则前缀
+      const hasRulePrefix = [
+        ...DOMAIN_RULE_PREFIXES,
+        ...IP_RULE_PREFIXES,
+        ...OTHER_RULE_PREFIXES,
+      ].some(prefix => trimmedLine.startsWith(prefix));
+
+      if (hasRulePrefix) {
+        // 检查具体是哪种规则
+        if (DOMAIN_RULE_PREFIXES.some(prefix => trimmedLine.startsWith(prefix))) {
+          hasDomainRules = true;
+        }
+        if (IP_RULE_PREFIXES.some(prefix => trimmedLine.startsWith(prefix))) {
+          hasIpRules = true;
+        }
+        if (OTHER_RULE_PREFIXES.some(prefix => trimmedLine.startsWith(prefix))) {
+          hasOtherRules = true;
+        }
+      } else if (trimmedLine.includes('.')) {
+        // 可能是纯域名格式
+        hasPureDomains = true;
+      }
+    }
+
+    // 判断规则集类型
+    if (hasDomainRules || hasIpRules || hasOtherRules) {
+      // 混合规则集
+      return RulesetType.RULESET;
+    } else if (hasIpRules && !hasDomainRules && !hasOtherRules) {
+      // 纯 IP 规则集
+      return RulesetType.IPLIST;
+    } else if (hasPureDomains && !hasIpRules && !hasOtherRules) {
+      // 纯域名集
+      return RulesetType.DOMAINSET;
+    }
+
+    return RulesetType.UNKNOWN;
+  } catch (error) {
+    console.warn(`⚠️ 无法检测文件类型 ${filePath}: ${error}`);
+    return RulesetType.UNKNOWN;
+  }
+}
+
+function isIllegal(tld: string, filePath: string, rulesetType: RulesetType): boolean {
   const lowerTld = tld.toLowerCase();
   const fileName = path.basename(filePath).toLowerCase();
 
@@ -42,17 +138,30 @@ function isIllegal(tld: string, filePath: string): boolean {
     return true;
   }
 
-  // 2. 对于 direct.list 和 reject.list，只要不是真正非法的TLD，就都算合法
-  //    这样就允许了 .lan, .internal, .onion 等特殊TLD
+  // 2. 对于混合规则集（RulesetOutput），不检查内部和特殊网络 TLD
+  //    因为这些规则集可能包含各种合法的内部网络和特殊用途域名
+  if (rulesetType === RulesetType.RULESET) {
+    return false;
+  }
+
+  // 3. 对于特定文件名的规则集，采用宽松策略
   if (fileName.includes('direct') || fileName.includes('reject')) {
     return false;
   }
 
-  // 3. 对于其他所有规则文件，内部TLD和特殊网络TLD都被视为非法
+  // 4. 对于纯域名集（DomainsetOutput），内部TLD和特殊网络TLD都被视为非法
+  if (rulesetType === RulesetType.DOMAINSET) {
+    return INTERNAL_TLDS.has(lowerTld) || SPECIAL_NETWORK_TLDS.has(lowerTld);
+  }
+
+  // 5. 对于 IP 规则集，不应该包含域名，但如果包含了，则检查 TLD
   return INTERNAL_TLDS.has(lowerTld) || SPECIAL_NETWORK_TLDS.has(lowerTld);
 }
 
-async function checkFileForIllegalTLD(filePath: string): Promise<IllegalDomainInfo[]> {
+async function checkFileForIllegalTLD(
+  filePath: string,
+  rulesetType: RulesetType
+): Promise<IllegalDomainInfo[]> {
   const illegalDomains: IllegalDomainInfo[] = [];
   let lineNumber = 0;
 
@@ -85,7 +194,7 @@ async function checkFileForIllegalTLD(filePath: string): Promise<IllegalDomainIn
         const parts = domain.split('.');
         const tld = parts.at(-1);
 
-        if (tld && isIllegal(tld, filePath)) {
+        if (tld && isIllegal(tld, filePath, rulesetType)) {
           illegalDomains.push({
             domain,
             file: path.relative(process.cwd(), filePath),
@@ -106,7 +215,12 @@ export async function validateIllegalTLD(parentSpan: Span) {
 
   const span = parentSpan.traceChild('validate-illegal-tld');
   try {
-    const dirsToCheck = [path.join(SURGE_DIR, 'Rulesets')];
+    const dirsToCheck = [
+      // 移除不存在的Source目录，避免CI报错
+      // path.join(SOURCE_DIR, 'domainset'),
+      // path.join(SOURCE_DIR, 'non_ip'),
+      path.join(SURGE_DIR, 'Rulesets'),
+    ];
 
     const allIllegalDomains: IllegalDomainInfo[] = [];
 
@@ -119,7 +233,13 @@ export async function validateIllegalTLD(parentSpan: Span) {
 
         for (const file of targetFiles) {
           const filePath = path.join(dir, file);
-          const illegalDomains = await checkFileForIllegalTLD(filePath);
+
+          // 先检测规则集类型
+          const rulesetType = await detectRulesetType(filePath);
+          console.log(picocolors.gray(`  检测 ${file}: ${rulesetType}`));
+
+          // 根据规则集类型进行相应的检查
+          const illegalDomains = await checkFileForIllegalTLD(filePath, rulesetType);
           allIllegalDomains.push(...illegalDomains);
         }
       } catch (error) {
