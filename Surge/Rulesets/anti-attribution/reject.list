@@ -1,3 +1,10 @@
+// Ruleset - Anti-IP Attribution (Reject)
+// Last updated: 2025/7/9 15:48:42
+// DOMAIN: 1
+// IP-CIDR: 18
+// IP-CIDR6: 1
+// Total: 20
+// This file contains reject rules to counter IP-based location attribution required by Chinese social media platforms
 # 针对部分网站显示IP归属地的分流规则
 # anti-ip-attribution rule-set-reject.list v0.3.1 d4a828fd5aa22dfc4368311ab0846d3349b8409d
 # https://github.com/SunsetMkt/anti-ip-attribution

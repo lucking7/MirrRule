@@ -1,384 +1,279 @@
-import dns2, { DnsResponse as DNS2Response, PacketQuestion, DnsResolver } from 'dns2';
-import asyncRetry from 'async-retry';
+import { Resolver } from 'node:dns/promises';
+import net from 'node:net';
 import picocolors from 'picocolors';
-import { looseTldtsOpt } from '../constants/loose-tldts-opt.js';
-import { createKeyedAsyncMutex } from './keyed-async-mutex.js';
+import type { Span } from '../trace/index.js';
 import { pickRandom } from 'foxts/pick-random';
-import tldts from 'tldts-experimental';
-import * as whoiser from 'whoiser';
-import process from 'node:process';
-import { createRetrieKeywordFilter as createKeywordFilter } from 'foxts/retrie';
-import { dohCache } from './doh-cache.js';
+import { createRetrieKeywordFilter } from 'foxts/retrie';
+import { newQueue } from '@henrygd/queue';
+import cliProgress from 'cli-progress';
 
+// DNS over HTTPS 服务器配置
+const DOH_SERVERS_INTL = [
+  'https://cloudflare-dns.com/dns-query',
+  'https://dns.google/dns-query',
+  'https://dns.quad9.net/dns-query',
+  'https://doh.opendns.com/dns-query',
+  'https://dns.sb/dns-query',
+];
+
+const DOH_SERVERS_CN = [
+  'https://223.5.5.5/dns-query', // 阿里 DNS
+  'https://doh.pub/dns-query', // 腾讯 DNS
+  'https://1.12.12.12/dns-query', // DNSPod
+];
+
+// 创建 DNS 解析器
+const resolver = new Resolver();
+resolver.setServers(['1.1.1.1', '8.8.8.8', '9.9.9.9']);
+
+// 域名活性缓存
 const domainAliveMap = new Map<string, boolean>();
 
-class DnsError extends Error {
-  name = 'DnsError';
-  constructor(readonly message: string, public readonly server: string) {
-    super(message);
+// 创建互斥锁
+const mutexMap = new Map<string, Promise<boolean>>();
+
+/**
+ * 检查域名是否是 IP 地址
+ */
+function isIPAddress(domain: string): boolean {
+  return net.isIP(domain) !== 0;
+}
+
+/**
+ * 获取 Apex Domain（顶级域名）
+ */
+function getApexDomain(domain: string): string {
+  const parts = domain.split('.');
+  if (parts.length <= 2) return domain;
+
+  // 处理常见的二级域名后缀
+  const twoLevelTlds = ['co.uk', 'com.cn', 'net.cn', 'org.cn', 'gov.cn'];
+  const lastTwo = parts.slice(-2).join('.');
+
+  if (twoLevelTlds.includes(lastTwo) && parts.length > 2) {
+    return parts.slice(-3).join('.');
+  }
+
+  return parts.slice(-2).join('.');
+}
+
+/**
+ * 通过 DoH 查询检查域名
+ */
+async function checkDoH(domain: string, servers: string[]): Promise<boolean> {
+  // 随机选择 2 个服务器
+  const selectedServers = pickRandom(servers, 2);
+
+  for (const server of selectedServers) {
+    try {
+      const url = new URL(server);
+      url.searchParams.set('name', domain);
+      url.searchParams.set('type', 'A');
+
+      const response = await fetch(url.toString(), {
+        headers: { Accept: 'application/dns-json' },
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.Answer && data.Answer.length > 0) {
+          return true;
+        }
+      }
+    } catch {
+      // 继续尝试下一个服务器
+    }
+  }
+  return false;
+}
+
+/**
+ * 通过 DNS 查询检查域名是否存活
+ */
+async function checkDNS(domain: string): Promise<boolean> {
+  try {
+    // 尝试解析 A 记录
+    const addresses = await resolver.resolve4(domain).catch(() => []);
+    if (addresses.length > 0) return true;
+
+    // 尝试解析 AAAA 记录
+    const addresses6 = await resolver.resolve6(domain).catch(() => []);
+    if (addresses6.length > 0) return true;
+
+    // 尝试解析 CNAME 记录
+    const cname = await resolver.resolveCname(domain).catch(() => []);
+    if (cname.length > 0) return true;
+
+    // 尝试解析 NS 记录
+    const ns = await resolver.resolveNs(domain).catch(() => []);
+    if (ns.length > 0) return true;
+
+    // 尝试解析 MX 记录
+    const mx = await resolver.resolveMx(domain).catch(() => []);
+    if (mx.length > 0) return true;
+
+    return false;
+  } catch {
+    return false;
   }
 }
 
-interface DnsResponse extends DNS2Response {
-  dns: string
-}
-
-const dohServers: Array<[string, DnsResolver]> = ([
-  '8.8.8.8',
-  '8.8.4.4',
-  '1.0.0.1',
-  '1.1.1.1',
-  '162.159.36.1',
-  '162.159.46.1',
-  'dns.cloudflare.com', // Cloudflare DoH that uses different IPs
-  // one.one.one.one // Cloudflare DoH that uses 1.1.1.1 and 1.0.0.1
-  '101.101.101.101', // TWNIC
-  '185.222.222.222', // DNS.SB
-  '45.11.45.11', // DNS.SB
-  'doh.dns.sb', // DNS.SB, Different PoPs w/ GeoDNS
-  // 'doh.sb', // DNS.SB xTom Anycast IP
-  // 'dns.sb', // DNS.SB use same xTom Anycast IP as doh.sb
-  'dns10.quad9.net', // Quad9 unfiltered
-  'doh.sandbox.opendns.com', // OpenDNS sandbox (unfiltered)
-  'unfiltered.adguard-dns.com',
-  // '0ms.dev', // Proxy Cloudflare
-  // '76.76.2.0', // ControlD unfiltered, path not /dns-query
-  // '76.76.10.0', // ControlD unfiltered, path not /dns-query
-  // 'dns.bebasid.com', // BebasID, path not /dns-query but /unfiltered
-  // '193.110.81.0', // dns0.eu
-  // '185.253.5.0', // dns0.eu
-  // 'zero.dns0.eu',
-  'dns.nextdns.io',
-  'anycast.dns.nextdns.io',
-  'wikimedia-dns.org',
-  'puredns.org',
-  // 'ordns.he.net',
-  // 'dns.mullvad.net',
-  'basic.rethinkdns.com'
-  // '198.54.117.10' // NameCheap DNS, supports DoT, DoH, UDP53
-  // 'ada.openbld.net',
-  // 'dns.rabbitdns.org'
-] as const).map(dns => [
-  dns,
-  dns2.DOHClient({
-    dns,
-    http: false
-  })
-] as const);
-
-const domesticDohServers: Array<[string, DnsResolver]> = ([
-  '223.5.5.5',
-  '223.6.6.6',
-  '120.53.53.53',
-  '1.12.12.12'
-] as const).map(dns => [
-  dns,
-  dns2.DOHClient({
-    dns,
-    http: false
-  })
-] as const);
-
-const domainAliveMutex = createKeyedAsyncMutex<boolean>('isDomainAlive');
-
-export async function isDomainAlive(
-  domain: string,
-  // we dont need to check domain[0] here, this is only from runAgainstSourceFile
-  isIncludeAllSubdomain: boolean = false
-): Promise<boolean> {
-  if (domainAliveMap.has(domain)) {
-    return domainAliveMap.get(domain)!;
-  }
-  const apexDomain = tldts.getDomain(domain, looseTldtsOpt);
-  if (!apexDomain) {
-    // console.log(picocolors.gray('[domain invalid]'), picocolors.gray('no apex domain'), { domain });
-    domainAliveMap.set('.' + domain, true);
+/**
+ * 检查单个域名是否存活
+ */
+async function checkSingleDomain(domain: string): Promise<boolean> {
+  // 跳过 IP 地址
+  if (isIPAddress(domain)) {
     return true;
   }
 
-  const apexDomainAlive = await isApexDomainAlive(apexDomain);
-  if (isIncludeAllSubdomain || domain.length > apexDomain.length) {
-    return apexDomainAlive;
-  }
-  if (!apexDomainAlive) {
-    return false;
+  // 检查缓存
+  if (domainAliveMap.has(domain)) {
+    return domainAliveMap.get(domain)!;
   }
 
-  return domainAliveMutex.acquire(domain, async () => {
-    domain = domain[0] === '.' ? domain.slice(1) : domain;
-
-    const aDns: string[] = [];
-    const aaaaDns: string[] = [];
-
-    // test 2 times before make sure record is empty
-    const servers = pickRandom(dohServers, 2);
-    for (let i = 0; i < 2; i++) {
-    // eslint-disable-next-line no-await-in-loop -- sequential
-      const aRecords = (await $resolve(domain, 'A', servers[i]));
-      if (aRecords.answers.length > 0) {
-        domainAliveMap.set(domain, true);
-        return true;
-      }
-
-      aDns.push(aRecords.dns);
-    }
-    for (let i = 0; i < 2; i++) {
-    // eslint-disable-next-line no-await-in-loop -- sequential
-      const aaaaRecords = (await $resolve(domain, 'AAAA', servers[i]));
-      if (aaaaRecords.answers.length > 0) {
-        domainAliveMap.set(domain, true);
-        return true;
-      }
-
-      aaaaDns.push(aaaaRecords.dns);
-    }
-
-    // only then, let's test twice with domesticDohServers
-    const domesticServers = pickRandom(domesticDohServers, 2);
-    for (let i = 0; i < 2; i++) {
-    // eslint-disable-next-line no-await-in-loop -- sequential
-      const aRecords = (await $resolve(domain, 'A', domesticServers[i]));
-      if (aRecords.answers.length > 0) {
-        domainAliveMap.set(domain, true);
-        return true;
-      }
-
-      aDns.push(aRecords.dns);
-    }
-    for (let i = 0; i < 2; i++) {
-    // eslint-disable-next-line no-await-in-loop -- sequential
-      const aaaaRecords = (await $resolve(domain, 'AAAA', domesticServers[i]));
-      if (aaaaRecords.answers.length > 0) {
-        domainAliveMap.set(domain, true);
-        return true;
-      }
-
-      aaaaDns.push(aaaaRecords.dns);
-    }
-
-    console.log(picocolors.red('[dead subdomain]'), { domain, aDns: new Set(aDns), aaaaDns: new Set(aaaaDns) });
-    domainAliveMap.set(domain, false);
-    return false;
-  });
-}
-
-const apexDomainMap = createKeyedAsyncMutex<boolean>('isApexDomainAlive');
-
-function isApexDomainAlive(apexDomain: string) {
-  if (domainAliveMap.has(apexDomain)) {
-    return domainAliveMap.get(apexDomain)!;
+  // 使用简单的互斥锁防止重复查询
+  if (mutexMap.has(domain)) {
+    return mutexMap.get(domain)!;
   }
 
-  return apexDomainMap.acquire(apexDomain, async () => {
-    const servers = pickRandom(dohServers, 2);
-    for (let i = 0, len = servers.length; i < len; i++) {
-      const server = servers[i];
-      // eslint-disable-next-line no-await-in-loop -- one by one
-      const resp = await $resolve(apexDomain, 'NS', server);
-      if (resp.answers.length > 0) {
-        domainAliveMap.set(apexDomain, true);
-        return true;
+  const promise = (async () => {
+    // 1. 先检查 Apex Domain
+    const apexDomain = getApexDomain(domain);
+    if (apexDomain !== domain && domainAliveMap.has(apexDomain)) {
+      const apexAlive = domainAliveMap.get(apexDomain)!;
+      domainAliveMap.set(domain, apexAlive);
+      return apexAlive;
+    }
+
+    // 2. DNS 查询
+    let alive = await checkDNS(domain);
+
+    // 3. 如果 DNS 无记录，尝试 DoH 查询
+    if (!alive) {
+      // 先尝试国际 DoH 服务器
+      alive = await checkDoH(domain, DOH_SERVERS_INTL);
+
+      // 如果还是无记录，尝试国内 DoH 服务器
+      if (!alive) {
+        alive = await checkDoH(domain, DOH_SERVERS_CN);
       }
     }
 
-    let whois: whoiser.WhoisSearchResult;
-    try {
-      whois = await getWhois(apexDomain);
-    } catch (e) {
-      console.log(picocolors.red('[whois error]'), { domain: apexDomain }, e);
-      domainAliveMap.set(apexDomain, true);
-      return true;
+    // 缓存结果
+    domainAliveMap.set(domain, alive);
+
+    // 如果是 apex domain，也缓存它
+    if (domain === apexDomain) {
+      domainAliveMap.set(apexDomain, alive);
     }
 
-    const whoisError = noWhois(whois);
-    if (!whoisError) {
-      console.log(picocolors.gray('[domain alive]'), picocolors.gray('whois found'), { domain: apexDomain });
-      domainAliveMap.set(apexDomain, true);
-      return true;
+    // 清理互斥锁
+    mutexMap.delete(domain);
+
+    return alive;
+  })();
+
+  mutexMap.set(domain, promise);
+  return promise;
+}
+
+/**
+ * 批量检查域名是否存活
+ */
+export async function checkDomainsAlive(
+  span: Span,
+  domains: string[],
+  options?: {
+    concurrency?: number;
+    showProgress?: boolean;
+  }
+): Promise<Map<string, boolean>> {
+  const concurrency = options?.concurrency || 32;
+  const showProgress = options?.showProgress ?? true;
+
+  console.log(`🔍 开始检查 ${domains.length} 个域名的活跃性...`);
+
+  // 创建进度条
+  let progressBar: cliProgress.SingleBar | null = null;
+  if (showProgress) {
+    progressBar = new cliProgress.SingleBar({
+      format: '检查进度 |{bar}| {percentage}% | {value}/{total} | {eta_formatted}',
+      barCompleteChar: '\u2588',
+      barIncompleteChar: '\u2591',
+      hideCursor: true,
+    });
+    progressBar.start(domains.length, 0);
+  }
+
+  // 创建队列
+  const queue = newQueue(concurrency);
+  const results = new Map<string, boolean>();
+  let processed = 0;
+
+  // 处理函数
+  const processDomain = async (domain: string) => {
+    const alive = await checkSingleDomain(domain);
+    results.set(domain, alive);
+
+    if (!alive) {
+      console.log(picocolors.red(`\n❌ 死域名: ${domain}`));
     }
 
-    console.log(picocolors.red('[domain dead]'), 'whois not found', { domain: apexDomain, err: whoisError });
-
-    domainAliveMap.set(apexDomain, false);
-    return false;
-  });
-}
-
-async function $resolve(name: string, type: PacketQuestion, server: [string, DnsResolver]) {
-  const [dohServer, dohClient] = server;
-  
-  // 尝试从缓存获取
-  const cacheKey = dohCache.getCacheKey(name, type, dohServer);
-  const cachedResponse = dohCache.get(cacheKey);
-  
-  if (cachedResponse) {
-    try {
-      const parsed = JSON.parse(cachedResponse) as DnsResponse;
-      return parsed;
-    } catch (e) {
-      // 缓存数据损坏，继续执行查询
+    processed++;
+    if (progressBar) {
+      progressBar.update(processed);
     }
+  };
+
+  // 添加所有任务到队列
+  const promises = domains.map(domain => queue.add(() => processDomain(domain)));
+
+  // 等待所有任务完成
+  await Promise.all(promises);
+
+  if (progressBar) {
+    progressBar.stop();
   }
 
-  // 执行 DoH 查询
-  try {
-    return await asyncRetry(async () => {
-      try {
-        const response = await dohClient(name, type);
-        const result = {
-          ...response,
-          dns: dohServer
-        } satisfies DnsResponse;
-        
-        // 缓存成功的响应
-        // TTL 设置：有答案的缓存更久（1小时），无答案的缓存较短（5分钟）
-        const ttl = result.answers.length > 0 ? 3600000 : 300000;
-        dohCache.set(cacheKey, JSON.stringify(result), ttl);
-        
-        return result;
-      } catch (e) {
-        // console.error(e);
-        throw new DnsError((e as Error).message, dohServer);
-      }
-    }, { retries: 5 });
-  } catch (e) {
-    console.log('[doh error]', name, type, e);
-    throw e;
-  }
-}
+  const aliveCount = Array.from(results.values()).filter(v => v).length;
+  const deadCount = domains.length - aliveCount;
 
-async function getWhois(domain: string) {
-  return asyncRetry(() => (whoiser as any).whoisDomain(domain, { raw: true }), { retries: 5 });
-}
-
-// TODO: this is a workaround for https://github.com/LayeredStudio/whoiser/issues/117
-const whoisNotFoundKeywordTest = createKeywordFilter([
-  'no match for',
-  'does not exist',
-  'not found',
-  'no found',
-  'no entries',
-  'no data found',
-  'is available for registration',
-  'currently available for application',
-  'no matching record',
-  'no information available about domain name',
-  'not been registered',
-  'no match!!',
-  'status: available',
-  ' is free',
-  'no object found',
-  'nothing found',
-  'status: free',
-  // 'pendingdelete',
-  ' has been blocked by '
-]);
-
-// whois server can redirect, so whoiser might/will get info from multiple whois servers
-// some servers (like TLD whois servers) might have cached/outdated results
-// we can only make sure a domain is alive once all response from all whois servers demonstrate so
-function noWhois(whois: whoiser.WhoisSearchResult): null | string {
-  let empty = true;
-
-  for (const key in whois) {
-    if (Object.hasOwn(whois, key)) {
-      empty = false;
-
-      // if (key === 'error') {
-      //   // if (
-      //   //   (typeof whois.error === 'string' && whois.error)
-      //   //   || (Array.isArray(whois.error) && whois.error.length > 0)
-      //   // ) {
-      //   //   console.error(whois);
-      //   //   return true;
-      //   // }
-      //   continue;
-      // }
-
-      // if (key === 'text') {
-      //   if (Array.isArray(whois.text)) {
-      //     for (const value of whois.text) {
-      //       if (whoisNotFoundKeywordTest(value.toLowerCase())) {
-      //         return value;
-      //       }
-      //     }
-      //   }
-      //   continue;
-      // }
-      // if (key === 'Name Server') {
-      //   // if (Array.isArray(whois[key]) && whois[key].length === 0) {
-      //   //   return false;
-      //   // }
-      //   continue;
-      // }
-
-      // if (key === 'Domain Status') {
-      //   if (Array.isArray(whois[key])) {
-      //     for (const status of whois[key]) {
-      //       if (status === 'free' || status === 'AVAILABLE') {
-      //         return key + ': ' + status;
-      //       }
-      //       if (whoisNotFoundKeywordTest(status.toLowerCase())) {
-      //         return key + ': ' + status;
-      //       }
-      //     }
-      //   }
-
-      //   continue;
-      // }
-
-      // if (typeof whois[key] === 'string' && whois[key]) {
-      //   if (whoisNotFoundKeywordTest(whois[key].toLowerCase())) {
-      //     return key + ': ' + whois[key];
-      //   }
-
-      //   continue;
-      // }
-
-      if (key === '__raw' && typeof whois.__raw === 'string') {
-        const lines = whois.__raw.trim().toLowerCase().replaceAll(/[\t ]+/g, ' ').split(/\r?\n/);
-
-        if (process.env.DEBUG) {
-          console.log({ lines });
-        }
-
-        for (const line of lines) {
-          if (whoisNotFoundKeywordTest(line)) {
-            return line;
-          }
-        }
-        continue;
-      }
-
-      if (typeof whois[key] === 'object' && !Array.isArray(whois[key])) {
-        const tmp = noWhois(whois[key] as whoiser.WhoisSearchResult);
-        if (tmp) {
-          return tmp;
-        }
-        continue;
-      }
-    }
+  console.log(`\n✅ 检查完成: ${aliveCount}/${domains.length} 个域名存活`);
+  if (deadCount > 0) {
+    console.log(picocolors.red(`❌ 发现 ${deadCount} 个死域名`));
   }
 
-  if (empty) {
-    return 'whois is empty';
+  return results;
+}
+
+/**
+ * 过滤出存活的域名
+ */
+export async function filterAliveDomains(
+  span: Span,
+  domains: string[],
+  options?: {
+    concurrency?: number;
+    showProgress?: boolean;
   }
-
-  return null;
+): Promise<string[]> {
+  const results = await checkDomainsAlive(span, domains, options);
+  return domains.filter(domain => results.get(domain) === true);
 }
 
-// 导出辅助函数供其他模块使用 - 移除泛型约束，直接使用 any
-export function keyedAsyncMutexWithQueue(key: string, fn: () => Promise<any>): Promise<any> {
-  return domainAliveMutex.acquire(key, fn);
-}
-
-// 保持向后兼容的旧 API
-export async function isDomainAlive_legacy(domain: string, isSuffix = false): Promise<[string, boolean]> {
-  const result = await isDomainAlive(domain, isSuffix);
-  return [domain, result];
-}
-
-// 重新导出 getApexDomain 以保持兼容性
-export function getApexDomain(domain: string): string | null {
-  return tldts.getDomain(domain, looseTldtsOpt);
+/**
+ * 获取死域名列表
+ */
+export async function getDeadDomains(
+  span: Span,
+  domains: string[],
+  options?: {
+    concurrency?: number;
+    showProgress?: boolean;
+  }
+): Promise<string[]> {
+  const results = await checkDomainsAlive(span, domains, options);
+  return domains.filter(domain => results.get(domain) === false);
 }

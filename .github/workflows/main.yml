@@ -728,6 +728,44 @@ jobs:
             echo "reject_merged=0" >> $GITHUB_OUTPUT
           }
 
+      - name: 构建 Reject 域名集（合并 AdGuard 过滤器）
+        id: build-reject
+        run: |
+          echo "🚀 开始构建 Reject 域名集..."
+          npm run build:reject || {
+            echo "⚠️  Reject 域名集构建失败，但继续流程"
+            echo "reject_built=false" >> $GITHUB_OUTPUT
+          }
+          echo "reject_built=true" >> $GITHUB_OUTPUT
+
+      - name: 构建完整规则集（新构建系统）
+        id: build-all
+        run: |
+          echo "🚀 开始使用新构建系统构建所有规则集..."
+          
+          # 运行完整构建
+          npm run build || {
+            echo "⚠️  新构建系统执行失败，但继续流程"
+            echo "build_success=false" >> $GITHUB_OUTPUT
+            exit 0
+          }
+          
+          echo "build_success=true" >> $GITHUB_OUTPUT
+          
+          # 统计构建结果
+          reject_count=$(find Surge/Rulesets/reject -name "*.list" 2>/dev/null | wc -l || echo "0")
+          domainset_count=$(find Surge/Rulesets/domainset -name "*.list" 2>/dev/null | wc -l || echo "0")
+          ruleset_count=$(find Surge/Rulesets -name "*.list" 2>/dev/null | wc -l || echo "0")
+          
+          echo "reject_count=$reject_count" >> $GITHUB_OUTPUT
+          echo "domainset_count=$domainset_count" >> $GITHUB_OUTPUT
+          echo "ruleset_count=$ruleset_count" >> $GITHUB_OUTPUT
+          
+          echo "✅ 新构建系统执行完成"
+          echo "  - Reject 规则: $reject_count 个"
+          echo "  - 域名集: $domainset_count 个"
+          echo "  - 规则集总数: $ruleset_count 个"
+
       - name: 验证规则集
         id: validate
         run: |
@@ -862,6 +900,17 @@ jobs:
             echo "  - 合并规则: ${{ steps.optimize-reject.outputs.reject_merged }} 条" >> $GITHUB_STEP_SUMMARY
           else
             echo "- Reject 规则优化: 无需优化" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 新构建系统结果" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.build-all.outputs.build_success }}" == "true" ]]; then
+            echo "- 状态: ✅ 成功" >> $GITHUB_STEP_SUMMARY
+            echo "- Reject 规则集: ${{ steps.build-all.outputs.reject_count }} 个" >> $GITHUB_STEP_SUMMARY
+            echo "- 域名集: ${{ steps.build-all.outputs.domainset_count }} 个" >> $GITHUB_STEP_SUMMARY
+            echo "- 规则集总数: ${{ steps.build-all.outputs.ruleset_count }} 个" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- 状态: ⚠️  未执行或失败" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "" >> $GITHUB_STEP_SUMMARY

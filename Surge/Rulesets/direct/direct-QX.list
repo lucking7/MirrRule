@@ -18,123 +18,123 @@
 
 
 # >>>>>>>>>>>>>>> ✅ 1 ✅ <<<<<<<<<<<<<<
-host, ad.12306.cn, direct
+DOMAIN,ad.12306.cn,DIRECT
 
 
 
 
 # >>>>>>>>>>>>>>> ✅ A ✅ <<<<<<<<<<<<<<
 # > anti-ad
-host-keyword, anti-ad.net, direct
+DOMAIN-KEYWORD,anti-ad.net,DIRECT
 
 # > Alibaba
-host,log.mmstat.com, direct
-host,sycm.mmstat.com, direct
+DOMAIN,log.mmstat.com,DIRECT
+DOMAIN,sycm.mmstat.com,DIRECT
 
 # > 爱影视
-host,static.jssp.tv, direct
-host,lain.bgm.tv, direct
-host,tiao.cjkypo.com, direct
-host,ok.zuidapic.com, direct
-host,ts.thefilehosting.com, direct
-host,deo.shopeemobile.com, direct
-host,m3u8.255tv.tk, direct
-host,m3u8.mstopq.com, direct
-host,ain.bgm.tv, direct
-host-keyword,vip.lz-cdn, direct
-host-keyword,ax1x.com, direct
-host-keyword,o.lencr.org, direct
-host-keyword,ttcdn-tos.kkimg.cc, direct
+DOMAIN,static.jssp.tv,DIRECT
+DOMAIN,lain.bgm.tv,DIRECT
+DOMAIN,tiao.cjkypo.com,DIRECT
+DOMAIN,ok.zuidapic.com,DIRECT
+DOMAIN,ts.thefilehosting.com,DIRECT
+DOMAIN,deo.shopeemobile.com,DIRECT
+DOMAIN,m3u8.255tv.tk,DIRECT
+DOMAIN,m3u8.mstopq.com,DIRECT
+DOMAIN,ain.bgm.tv,DIRECT
+DOMAIN-KEYWORD,vip.lz-cdn,DIRECT
+DOMAIN-KEYWORD,ax1x.com,DIRECT
+DOMAIN-KEYWORD,o.lencr.org,DIRECT
+DOMAIN-KEYWORD,ttcdn-tos.kkimg.cc,DIRECT
 
 
 
 # >>>>>>>>>>>>>>> ✅ D ✅ <<<<<<<<<<<<<<
 # > 大师兄影视
-host,sdk.alibaba.com.ailbaba.me, direct
-host,img.ffzypic.com, direct
-host,img.liangzipic.com, direct
-host,img.bfzypic.com, direct
-host,img.kuaikanzy.net, direct
-host,vip.imgffzy.com, direct
-host,vip.ffzyread.com, direct
-host,cdn.jsdelivr.net, direct
-host,image.maimn.com, direct
-host-keyword,bfzycdn.com, direct
-host-keyword,vip.kuaikan-cdn, direct
-host-keyword,vip.ffzy-play, direct
-host-keyword,vip.ffzy-online, direct
+DOMAIN,sdk.alibaba.com.ailbaba.me,DIRECT
+DOMAIN,img.ffzypic.com,DIRECT
+DOMAIN,img.liangzipic.com,DIRECT
+DOMAIN,img.bfzypic.com,DIRECT
+DOMAIN,img.kuaikanzy.net,DIRECT
+DOMAIN,vip.imgffzy.com,DIRECT
+DOMAIN,vip.ffzyread.com,DIRECT
+DOMAIN,cdn.jsdelivr.net,DIRECT
+DOMAIN,image.maimn.com,DIRECT
+DOMAIN-KEYWORD,bfzycdn.com,DIRECT
+DOMAIN-KEYWORD,vip.kuaikan-cdn,DIRECT
+DOMAIN-KEYWORD,vip.ffzy-play,DIRECT
+DOMAIN-KEYWORD,vip.ffzy-online,DIRECT
 
 
 
 # >>>>>>>>>>>>>>> ✅ P ✅ <<<<<<<<<<<<<<
 # > 苹果推送服务
-host-keyword, push.apple.com, direct
+DOMAIN-KEYWORD,push.apple.com,DIRECT
 # > 苹果时间同步
-host, time.apple.com, direct
+DOMAIN,time.apple.com,DIRECT
 # > 苹果天气服务
-host-keyword, weather-edge.apple.com, direct
-host-keyword, weather-adge.apple.com, direct
-host-suffix, weather-data.apple.com, direct
-host-suffix, weather-map.apple.com, direct
-host-suffix, weather-analytics-events.apple.com, direct
+DOMAIN-KEYWORD,weather-edge.apple.com,DIRECT
+DOMAIN-KEYWORD,weather-adge.apple.com,DIRECT
+DOMAIN-SUFFIX,weather-data.apple.com,DIRECT
+DOMAIN-SUFFIX,weather-map.apple.com,DIRECT
+DOMAIN-SUFFIX,weather-analytics-events.apple.com,DIRECT
 # > 苹果内购服务
-host-keyword, buy.itunes.apple.com, direct
+DOMAIN-KEYWORD,buy.itunes.apple.com,DIRECT
 # > 苹果icloud
-host-keyword, icloud.com, direct
+DOMAIN-KEYWORD,icloud.com,DIRECT
 # > 苹果输入法相关服务
-host-keyword, api.smoot.apple.com, direct
-host-keyword, api.smoot.apple.cn, direct
+DOMAIN-KEYWORD,api.smoot.apple.com,DIRECT
+DOMAIN-KEYWORD,api.smoot.apple.cn,DIRECT
 # > 苹果iMessage服务
-host, init.ess.apple.com, direct
+DOMAIN,init.ess.apple.com,DIRECT
 # > 苹果其他服务
-host-keyword, ssl.apple.com, direct
-host-keyword, humb.apple.com, direct
-host, smp-device-content.apple.com, direct
-host-keyword, api-adservices.apple.com, direct
-host-keyword, ls.apple.com, direct
-host-keyword, gsa.apple.com, direct
-host-keyword, ess.apple.com, direct
+DOMAIN-KEYWORD,ssl.apple.com,DIRECT
+DOMAIN-KEYWORD,humb.apple.com,DIRECT
+DOMAIN,smp-device-content.apple.com,DIRECT
+DOMAIN-KEYWORD,api-adservices.apple.com,DIRECT
+DOMAIN-KEYWORD,ls.apple.com,DIRECT
+DOMAIN-KEYWORD,gsa.apple.com,DIRECT
+DOMAIN-KEYWORD,ess.apple.com,DIRECT
 # > 苹果app store
-host, itunes.apple.com, direct
+DOMAIN,itunes.apple.com,DIRECT
 
 
 
 # >>>>>>>>>>>>>>> ✅ Q ✅ <<<<<<<<<<<<<<
 # > QQ空间
-host-keyword, ctc.qzs.qzone.qq.com, direct
+DOMAIN-KEYWORD,ctc.qzs.qzone.qq.com,DIRECT
 
 
 # >>>>>>>>>>>>>>> ✅ S ✅ <<<<<<<<<<<<<<
 # > Strava
-host,analytics.strava.com, direct
+DOMAIN,analytics.strava.com,DIRECT
 
 
 
 # >>>>>>>>>>>>>>> ✅ T ✅ <<<<<<<<<<<<<<
 # > Tencent
-host,fairplay.l.qq.com, direct
-host,livew.l.qq.com, direct
-host,vd.l.qq.com, direct
-host,vi.l.qq.com, direct
+DOMAIN,fairplay.l.qq.com,DIRECT
+DOMAIN,livew.l.qq.com,DIRECT
+DOMAIN,vd.l.qq.com,DIRECT
+DOMAIN,vi.l.qq.com,DIRECT
 
 
 
 # >>>>>>>>>>>>>>> ✅ U ✅ <<<<<<<<<<<<<<
 # > Umeng
-host,msg.umeng.com, direct
-host,msg.umengcloud.com, direct
+DOMAIN,msg.umeng.com,DIRECT
+DOMAIN,msg.umengcloud.com,DIRECT
 
 
 
 # >>>>>>>>>>>>>>> ✅ X ✅ <<<<<<<<<<<<<<
 # > 携程
-host-keyword, aw-s.tripcdn.com, direct
-host-keyword, trip.com, direct
+DOMAIN-KEYWORD,aw-s.tripcdn.com,DIRECT
+DOMAIN-KEYWORD,trip.com,DIRECT
 
 
 
 # > 其他分流修正
 # > 路由器后台
-ip-cidr, 192.168.0.1/24, direct
+IP-CIDR,192.168.0.1/24,DIRECT
 # > 天翼网关
-ip-cidr, 192.168.1.1/24, direct
+IP-CIDR,192.168.1.1/24,DIRECT

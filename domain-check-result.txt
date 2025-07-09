@@ -1,0 +1,29 @@
+
+> sync-rules@1.0.0 validate:domain-alive
+> NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/build/scripts/validate-domain-alive.ts
+
+🔍 开始验证域名活跃性...
+
+SOURCE_DIR: /Users/jasperl./Documents/GitHub/esdeath/Source
+📁 扫描源文件...
+  检查目录: /Users/jasperl./Documents/GitHub/esdeath/Source/domainset
+  domainset/example.conf: 3 个域名
+  domainset/test-dead-domains.conf: 4 个域名
+  domainset/test-domains.conf: 6 个域名
+  检查目录: /Users/jasperl./Documents/GitHub/esdeath/Source/non_ip
+
+📊 总计找到 13 个域名需要验证
+
+🔍 开始检查 11 个域名的活跃性...
+
+❌ 死域名: .example.org
+
+✅ 检查完成: 10/11 个域名存活
+❌ 发现 1 个死域名
+
+❌ 发现 1 个死域名:
+
+📄 domainset/example.conf:
+  - .example.org
+
+{"domainset/example.conf":[".example.org"]}

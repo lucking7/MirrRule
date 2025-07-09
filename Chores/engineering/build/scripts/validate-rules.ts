@@ -1,6 +1,8 @@
 import { glob } from 'glob';
 import { readFile } from 'fs/promises';
 import path from 'node:path';
+import { type Span } from '../trace/index.js';
+import picocolors from 'picocolors';
 
 // 权威 TLD 列表
 const ICANN_TLDS = new Set([
@@ -25,9 +27,45 @@ const ICANN_TLDS = new Set([
   'gov.cn',
   'za',
   // 更多合法的 TLD...
-  'de', 'uk', 'jp', 'fr', 'au', 'ca', 'es', 'it', 'ru', 'br', 'nl', 'ch', 'se',
-  'no', 'dk', 'fi', 'pl', 'be', 'at', 'gr', 'cz', 'hu', 'ro', 'pt', 'il', 'in',
-  'kr', 'tw', 'hk', 'sg', 'my', 'th', 'id', 'ph', 'vn', 'tr', 'ae', 'sa', 'eg',
+  'de',
+  'uk',
+  'jp',
+  'fr',
+  'au',
+  'ca',
+  'es',
+  'it',
+  'ru',
+  'br',
+  'nl',
+  'ch',
+  'se',
+  'no',
+  'dk',
+  'fi',
+  'pl',
+  'be',
+  'at',
+  'gr',
+  'cz',
+  'hu',
+  'ro',
+  'pt',
+  'il',
+  'in',
+  'kr',
+  'tw',
+  'hk',
+  'sg',
+  'my',
+  'th',
+  'id',
+  'ph',
+  'vn',
+  'tr',
+  'ae',
+  'sa',
+  'eg',
 ]);
 
 const VALID_LONG_TLDS = new Set([
@@ -78,7 +116,7 @@ async function validateFile(filePath: string): Promise<ValidationResult> {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    
+
     // 跳过注释和空行
     if (line.startsWith('#') || line.startsWith('//') || !line) continue;
 
@@ -102,7 +140,13 @@ async function validateFile(filePath: string): Promise<ValidationResult> {
       // 跳过其他类型的规则（IP-CIDR, IP-CIDR6, DOMAIN-KEYWORD, USER-AGENT, IP-ASN, PROCESS-NAME 等）
     } else {
       // 如果没有逗号，可能是单个域名
-      if (!line.includes('/') && line.includes('.') && !line.startsWith('IP-') && !line.includes('PROCESS-') && !line.includes('USER-')) {
+      if (
+        !line.includes('/') &&
+        line.includes('.') &&
+        !line.startsWith('IP-') &&
+        !line.includes('PROCESS-') &&
+        !line.includes('USER-')
+      ) {
         if (!isValidTld(line)) {
           errors.push({
             line: i + 1,
@@ -117,32 +161,46 @@ async function validateFile(filePath: string): Promise<ValidationResult> {
   return { filePath, errors };
 }
 
-async function main() {
-  // 获取项目根目录（从 build/scripts 回到项目根目录）
-  const projectRoot = path.resolve(process.cwd(), '../..');
-  const ruleFiles = await glob('Surge/Rulesets/**/*.list', { cwd: projectRoot });
+export async function validateRules(parentSpan: Span) {
+  const span = parentSpan.traceChild('validate-rules');
 
-  const results = await Promise.all(
-    ruleFiles.map(file => validateFile(path.join(projectRoot, file)))
-  );
+  try {
+    // 获取项目根目录
+    const projectRoot = path.resolve(process.cwd());
+    const ruleFiles = await glob('Surge/Rulesets/**/*.list', { cwd: projectRoot });
 
-  let errorCount = 0;
-  results.forEach(result => {
-    if (result.errors.length > 0) {
-      console.log(`\n❌ 在 ${path.relative(projectRoot, result.filePath)} 中发现错误:`);
-      result.errors.forEach(err => {
-        console.log(`  - 行 ${err.line}: ${err.domain} (${err.reason})`);
-        errorCount++;
-      });
+    const results = await Promise.all(
+      ruleFiles.map(file => validateFile(path.join(projectRoot, file)))
+    );
+
+    let errorCount = 0;
+    results.forEach(result => {
+      if (result.errors.length > 0) {
+        console.log(`\n❌ 在 ${path.relative(projectRoot, result.filePath)} 中发现错误:`);
+        result.errors.forEach(err => {
+          console.log(`  - 行 ${err.line}: ${err.domain} (${err.reason})`);
+          errorCount++;
+        });
+      }
+    });
+
+    if (errorCount === 0) {
+      console.log(picocolors.green('✅ 所有规则文件验证通过！'));
+    } else {
+      throw new Error(`发现 ${errorCount} 个规则错误`);
     }
-  });
-
-  if (errorCount === 0) {
-    console.log('✅ 所有规则文件验证通过！');
-  } else {
-    console.log(`\n❌ 总共发现 ${errorCount} 个错误`);
-    process.exit(1);
+  } finally {
+    span.stop();
   }
 }
 
-main().catch(console.error);
+// 如果直接运行脚本
+if (import.meta.url === `file://${process.argv[1]}`) {
+  import('../trace/index.js').then(({ createSpan }) => {
+    const rootSpan = createSpan('root');
+    validateRules(rootSpan).catch(error => {
+      console.error(picocolors.red('❌ 验证失败:'), error);
+      process.exit(1);
+    });
+  });
+}

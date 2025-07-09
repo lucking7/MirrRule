@@ -790,7 +790,6 @@ DOMAIN-SUFFIX,hbogeo.cust.footprint.net
 DOMAIN-SUFFIX,hbomaxdash.s.llnwi.net
 DOMAIN-SUFFIX,manifest.prod.boltdns.net
 DOMAIN-SUFFIX,execute-api.ap-southeast-1.amazonaws.com
-DOMAIN-SUFFIX,execute-api.us-east-1.amazonaws.com
 ## >> HBO Asia
 DOMAIN-SUFFIX,hboasia.com
 DOMAIN-SUFFIX,hboasia1-i.akamaihd.net
@@ -818,7 +817,6 @@ DOMAIN-SUFFIX,s3-ap-southeast-1.amazonaws.com
 DOMAIN-SUFFIX,hbonow.com
 DOMAIN-SUFFIX,now-ashare.com
 DOMAIN-SUFFIX,now-tv.com
-DOMAIN-SUFFIX,now.com
 DOMAIN-SUFFIX,now.com.hk
 DOMAIN-SUFFIX,nowe.com
 DOMAIN-SUFFIX,nowe.hk

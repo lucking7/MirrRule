@@ -1,164 +1,152 @@
-import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
-import { parse } from 'tldts';
 import picocolors from 'picocolors';
-import { extractDomainRules } from '../lib/rule-extractor.js';
+import { readFileByLine } from '../lib/fetch-text-by-line.js';
+import path from 'node:path';
+import { SOURCE_DIR, SURGE_DIR } from '../constants/dir.js';
+import { type Span } from '../trace/index.js';
+import { promises as fs } from 'node:fs';
 
-// 常量定义
-const SCAN_DIRECTORIES = ['Chores/ruleset', 'Surge/Rulesets', 'Surge/domainset', 'Dial'];
+// 一些已知的非法 TLD
+const ILLEGAL_TLDS = new Set([
+  'local',
+  'localhost',
+  'test',
+  'example',
+  'invalid',
+  'onion',
+  'i2p',
+  'internal',
+  'private',
+  'lan',
+  'home',
+  'corp',
+  'mail',
+  'localdomain',
+  'workgroup',
+]);
 
-interface DomainRule {
+interface IllegalDomainInfo {
   domain: string;
-  ruleType: string;
-  filePath: string;
-  lineNumber: number;
-  originalLine: string;
+  file: string;
+  line: number;
 }
 
-interface IllegalTldResult {
-  domain: string;
-  tld: string;
-  filePath: string;
-  lineNumber: number;
-  originalLine: string;
-  ruleType: string;
-}
+async function checkFileForIllegalTLD(filePath: string): Promise<IllegalDomainInfo[]> {
+  const illegalDomains: IllegalDomainInfo[] = [];
+  let lineNumber = 0;
 
-/**
- * 扫描规则文件
- */
-async function scanRuleFiles(): Promise<DomainRule[]> {
-  const allRules: DomainRule[] = [];
+  try {
+    for await (const line of readFileByLine(filePath)) {
+      lineNumber++;
+      const trimmedLine = line.trim();
 
-  // 获取项目根目录（从 build/scripts 回到项目根目录）
-  const projectRoot = path.resolve(process.cwd(), '../..');
+      // 跳过空行和注释
+      if (!trimmedLine || trimmedLine.startsWith('#') || trimmedLine.startsWith('//')) {
+        continue;
+      }
 
-  for (const scanPath of SCAN_DIRECTORIES) {
-    try {
-      const fullPath = path.join(projectRoot, scanPath);
-      const ruleFiles = await fs.readdir(fullPath, { withFileTypes: true });
-      for (const file of ruleFiles) {
-        if (file.isFile()) {
-          const filePath = path.join(fullPath, file.name);
-          const rules = await extractDomainRules(filePath, {
-            includeKeywords: true,
-            recordLineNumbers: true,
-            validateDomains: false,
+      // 提取域名
+      let domain: string | null = null;
+
+      if (trimmedLine.includes(',')) {
+        // 规则格式: DOMAIN,example.com 或 DOMAIN-SUFFIX,example.com
+        const parts = trimmedLine.split(',');
+        if (parts[0] === 'DOMAIN' || parts[0] === 'DOMAIN-SUFFIX') {
+          domain = parts[1]?.trim();
+        }
+      } else if (trimmedLine.includes('.')) {
+        // 纯域名格式
+        domain = trimmedLine;
+      }
+
+      if (domain) {
+        // 检查是否包含非法 TLD
+        const parts = domain.split('.');
+        const tld = parts[parts.length - 1].toLowerCase();
+
+        if (ILLEGAL_TLDS.has(tld)) {
+          illegalDomains.push({
+            domain,
+            file: path.relative(process.cwd(), filePath),
+            line: lineNumber,
           });
-          allRules.push(...rules);
         }
       }
-    } catch (error) {
-      console.log(picocolors.yellow(`[skip] 目录不存在或无法访问: ${scanPath}`));
     }
+  } catch (error) {
+    console.warn(`⚠️ 无法读取文件 ${filePath}: ${error}`);
   }
 
-  return allRules;
+  return illegalDomains;
 }
 
-/**
- * 检测非法TLD
- */
-async function detectIllegalTlds(rules: DomainRule[]): Promise<IllegalTldResult[]> {
-  const results: IllegalTldResult[] = [];
+export async function validateIllegalTLD(parentSpan: Span) {
+  console.log(picocolors.blue('🔍 检查非法 TLD...'));
 
-  for (const rule of rules) {
-    try {
-      const parsed = parse(rule.domain);
+  const span = parentSpan.traceChild('validate-illegal-tld');
+  try {
+    const dirsToCheck = [
+      path.join(SOURCE_DIR, 'domainset'),
+      path.join(SOURCE_DIR, 'non_ip'),
+      path.join(SURGE_DIR, 'Rulesets'),
+    ];
 
-      if (!parsed.publicSuffix) {
-        continue;
-      }
+    const allIllegalDomains: IllegalDomainInfo[] = [];
 
-      if (parsed.isIcann || parsed.isPrivate) {
-        continue;
-      }
+    for (const dir of dirsToCheck) {
+      try {
+        const files = await fs.readdir(dir);
+        const targetFiles = files.filter(
+          f => f.endsWith('.txt') || f.endsWith('.conf') || f.endsWith('.list')
+        );
 
-      results.push({
-        domain: rule.domain,
-        tld: parsed.publicSuffix,
-        filePath: rule.filePath,
-        lineNumber: rule.lineNumber,
-        originalLine: rule.originalLine,
-        ruleType: rule.ruleType,
-      });
-    } catch (error) {
-      const lastDotIndex = rule.domain.lastIndexOf('.');
-      if (lastDotIndex > 0) {
-        const tld = rule.domain.substring(lastDotIndex + 1);
-        results.push({
-          domain: rule.domain,
-          tld: tld,
-          filePath: rule.filePath,
-          lineNumber: rule.lineNumber,
-          originalLine: rule.originalLine,
-          ruleType: rule.ruleType,
-        });
+        for (const file of targetFiles) {
+          const filePath = path.join(dir, file);
+          const illegalDomains = await checkFileForIllegalTLD(filePath);
+          allIllegalDomains.push(...illegalDomains);
+        }
+      } catch (error) {
+        console.warn(`⚠️ 无法访问目录 ${dir}: ${error}`);
       }
     }
-  }
 
-  return results;
+    if (allIllegalDomains.length === 0) {
+      console.log(picocolors.green('✅ 未发现非法 TLD'));
+      return;
+    }
+
+    console.log(picocolors.red(`\n❌ 发现 ${allIllegalDomains.length} 个非法 TLD:\n`));
+
+    // 按文件分组
+    const byFile = new Map<string, IllegalDomainInfo[]>();
+    for (const info of allIllegalDomains) {
+      if (!byFile.has(info.file)) {
+        byFile.set(info.file, []);
+      }
+      byFile.get(info.file)!.push(info);
+    }
+
+    // 输出结果
+    for (const [file, domains] of byFile) {
+      console.log(picocolors.yellow(`📄 ${file}:`));
+      for (const info of domains) {
+        console.log(`  行 ${info.line}: ${info.domain}`);
+      }
+      console.log();
+    }
+
+    throw new Error(`发现 ${allIllegalDomains.length} 个非法 TLD`);
+  } finally {
+    span.stop();
+  }
 }
 
-/**
- * 主函数
- */
-async function main() {
-  console.log(picocolors.blue('开始检测非法/笔误TLD...'));
-
-  const rules = await scanRuleFiles();
-  console.log(picocolors.green(`扫描完成，共发现 ${rules.length} 条域名规则`));
-
-  if (rules.length === 0) {
-    console.log(picocolors.yellow('没有找到任何域名规则，请检查规则文件路径'));
-    return;
-  }
-
-  const illegalResults = await detectIllegalTlds(rules);
-
-  console.log(picocolors.green(`检测完成，发现 ${illegalResults.length} 个非法TLD`));
-
-  if (illegalResults.length === 0) {
-    console.log(picocolors.green('所有域名的TLD都是有效的！'));
-    return;
-  }
-
-  console.log(picocolors.red('\n发现非法/笔误TLD:'));
-
-  const tldGroups: Record<string, IllegalTldResult[]> = {};
-  for (const result of illegalResults) {
-    if (!tldGroups[result.tld]) {
-      tldGroups[result.tld] = [];
-    }
-    tldGroups[result.tld].push(result);
-  }
-
-  for (const [tld, results] of Object.entries(tldGroups)) {
-    console.log(picocolors.red(`\n  .${tld} (${results.length} 个域名):`));
-    for (const result of results.slice(0, 5)) {
-      console.log(
-        picocolors.gray(
-          `    ${result.domain} (${path.relative(process.cwd(), result.filePath)}:${
-            result.lineNumber
-          })`
-        )
-      );
-    }
-    if (results.length > 5) {
-      console.log(picocolors.gray(`    ... 还有 ${results.length - 5} 个`));
-    }
-  }
-
-  console.log(picocolors.yellow('\n建议:'));
-  console.log('   1. 检查是否为拼写错误（如 .con → .com）');
-  console.log('   2. 确认是否为已废弃的TLD');
-  console.log('   3. 对于DOMAIN-KEYWORD规则，确认关键词是否合理');
-  console.log('   4. 私有域名（如.local, .tor, .dn42等）会被自动跳过');
+// 如果直接运行脚本
+if (import.meta.url === `file://${process.argv[1]}`) {
+  import('../trace/index.js').then(({ createSpan }) => {
+    const rootSpan = createSpan('root');
+    validateIllegalTLD(rootSpan).catch(error => {
+      console.error(picocolors.red('❌ 验证失败:'), error);
+      process.exit(1);
+    });
+  });
 }
-
-// 执行主函数
-main().catch(error => {
-  console.error(picocolors.red('TLD检测失败:'), error);
-  process.exit(1);
-});

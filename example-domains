@@ -1,0 +1,27 @@
+# 示例域名集合
+# Last updated: 2025/7/8 17:09:07
+DOMAIN,example.com
+DOMAIN,test.example.com
+DOMAIN,google.com
+DOMAIN,facebook.com
+DOMAIN,twitter.com
+DOMAIN,youtube.com
+DOMAIN,amazon.com
+DOMAIN,baidu.com
+DOMAIN,alibaba.com
+DOMAIN,tencent.com
+DOMAIN,jd.com
+DOMAIN,weibo.com
+DOMAIN,github.com
+DOMAIN,stackoverflow.com
+DOMAIN,npmjs.com
+DOMAIN,docker.com
+DOMAIN,cnn.com
+DOMAIN,bbc.com
+DOMAIN,nytimes.com
+DOMAIN,reuters.com
+DOMAIN,bloomberg.com
+DOMAIN,demo.example.org
+DOMAIN,pypi.org
+# DOMAIN: 23
+# Total: 23

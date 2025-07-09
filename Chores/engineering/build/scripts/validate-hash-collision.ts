@@ -1,317 +1,227 @@
 /**
- * 哈希冲突检测脚本
+ * 域名规则哈希碰撞检测脚本
  *
  * 功能：
- * 1. 扫描所有规则文件
- * 2. 计算每行规则的哈希值
- * 3. 检测并报告哈希冲突
- * 4. 支持GitHub Actions集成
+ * 1. 扫描 domainset 和 non_ip 目录下的域名规则
+ * 2. 使用 xxhash3 算法计算域名哈希值
+ * 3. 检测并报告哈希碰撞
  *
- * 基于Surge-master的validate-hash-collision-test.ts改进
+ * 技术栈：
+ * - xxhash-wasm: xxhash3 算法
+ * - fdir: 高效文件遍历
+ * - @henrygd/queue: 并发处理
+ * - cli-progress: 进度显示
+ * - foxts: 工具函数
  */
 
-import { SOURCE_DIR } from '../constants/dir.js';
-import path from 'node:path';
-import * as fs from 'node:fs/promises';
-import { fdir as Fdir } from 'fdir';
 import picocolors from 'picocolors';
-import { xxhash3 } from 'hash-wasm';
+import { readFileByLine, readFileIntoProcessedArray } from '../lib/fetch-text-by-line.js';
+import path from 'node:path';
+import { SOURCE_DIR } from '../constants/dir.js';
+import { type Span } from '../trace/index.js';
+import { fdir } from 'fdir';
+import { newQueue } from '@henrygd/queue';
+import cliProgress from 'cli-progress';
+import xxhashWasm from 'xxhash-wasm';
 
-interface HashCollision {
+let xxhashInstance: Awaited<ReturnType<typeof xxhashWasm>> | null = null;
+
+async function getXXHash() {
+  if (!xxhashInstance) {
+    xxhashInstance = await xxhashWasm();
+  }
+  return xxhashInstance;
+}
+
+interface HashInfo {
   hash: string;
-  conflictingLines: {
-    content: string;
-    filePath: string;
-    lineNumber: number;
-  }[];
+  domains: Set<string>;
 }
 
-/**
- * 计算字符串的哈希值（使用xxhash3算法，与Surge保持一致）
- */
-async function calculateHash(input: string): Promise<string> {
-  return await xxhash3(input.trim());
-}
-
-/**
- * 处理单行文本，移除注释和空行
- */
-function processLine(line: string): string | null {
-  const trimmed = line.trim();
-  if (trimmed.length === 0) {
-    return null;
-  }
-
-  const line_0 = trimmed.charCodeAt(0);
-
-  // 跳过注释行
-  if (line_0 === 33 /** ! */ || (line_0 === 47 /** / */ && trimmed.charCodeAt(1) === 47) /** / */) {
-    return null;
-  }
-
-  if (line_0 === 35 /** # */) {
-    if (trimmed.charCodeAt(1) !== 35 /** # */) {
-      // # Comment
-      return null;
-    }
-    if (trimmed.charCodeAt(2) === 35 /** # */ && trimmed.charCodeAt(3) === 35 /** # */) {
-      // ################## EOF ##################
-      return null;
-    }
-  }
-
-  return trimmed;
-}
-
-/**
- * 处理单个文件，提取规则内容用于哈希计算
- */
-async function processRuleFile(
-  filePath: string
-): Promise<{ content: string; lineNumber: number }[]> {
-  const results: { content: string; lineNumber: number }[] = [];
+async function processFile(
+  filePath: string,
+  hashMap: Map<string, HashInfo>,
+  progressBar?: cliProgress.SingleBar
+): Promise<void> {
+  const xxhash = await getXXHash();
+  const relativePath = path.relative(SOURCE_DIR, filePath);
 
   try {
-    const content = await fs.readFile(filePath, 'utf-8');
-    const lines = content.split('\n');
+    // 根据目录类型处理文件
+    if (relativePath.startsWith('domainset' + path.sep)) {
+      // domainset 目录：纯域名文件
+      const lines = await readFileIntoProcessedArray(filePath);
 
-    let lineNumber = 0;
-    let fileType: 'ruleset' | 'domainset' | null = null;
+      for (const line of lines) {
+        // 处理 .example.com -> example.com
+        const domain = line[0] === '.' ? line.slice(1) : line;
 
-    for (const rawLine of lines) {
-      lineNumber++;
+        // 计算 xxhash3
+        const hash = xxhash.h64ToString(domain);
 
-      const line = processLine(rawLine);
-      if (!line) {
-        continue;
-      }
-
-      // 自动检测文件类型
-      if (fileType === null) {
-        if (line.includes(',')) {
-          fileType = 'ruleset';
+        if (!hashMap.has(hash)) {
+          hashMap.set(hash, {
+            hash,
+            domains: new Set([domain]),
+          });
         } else {
-          fileType = 'domainset';
+          hashMap.get(hash)!.domains.add(domain);
         }
       }
+    } else if (relativePath.startsWith('non_ip' + path.sep)) {
+      // non_ip 目录：混合规则文件，提取域名部分
+      for await (const line of readFileByLine(filePath)) {
+        const trimmedLine = line.trim();
 
-      let hashContent: string;
+        // 跳过空行和注释
+        if (!trimmedLine || trimmedLine.startsWith('#') || trimmedLine.startsWith('//')) {
+          continue;
+        }
 
-      if (fileType === 'ruleset') {
-        // 对于规则集，使用完整的规则行
-        hashContent = line;
-      } else if (fileType === 'domainset') {
-        // 对于域名集，标准化处理（移除前导点）
-        hashContent = line.startsWith('.') ? line.slice(1) : line;
-      } else {
-        hashContent = line;
+        // 提取域名规则
+        if (trimmedLine.includes(',')) {
+          const parts = trimmedLine.split(',');
+          if (parts[0] === 'DOMAIN' || parts[0] === 'DOMAIN-SUFFIX') {
+            const domain = parts[1]?.trim();
+            if (domain) {
+              // 计算 xxhash3
+              const hash = xxhash.h64ToString(domain);
+
+              if (!hashMap.has(hash)) {
+                hashMap.set(hash, {
+                  hash,
+                  domains: new Set([domain]),
+                });
+              } else {
+                hashMap.get(hash)!.domains.add(domain);
+              }
+            }
+          }
+        }
       }
+    }
 
-      results.push({
-        content: hashContent,
-        lineNumber,
-      });
+    if (progressBar) {
+      progressBar.increment();
+    }
+  } catch (error) {
+    console.warn(`⚠️ 无法处理文件 ${filePath}: ${error}`);
+  }
+}
+
+export async function validateHashCollision(parentSpan: Span) {
+  console.log(picocolors.blue('🔍 检查域名规则哈希碰撞...'));
+
+  const span = parentSpan.traceChild('validate-hash-collision');
+
+  try {
+    // 使用 fdir 高效遍历文件
+    const crawler = new fdir()
+      .withBasePath()
+      .filter(path => path.endsWith('.txt') || path.endsWith('.conf') || path.endsWith('.list'));
+
+    const domainsetFiles = await crawler.crawl(path.join(SOURCE_DIR, 'domainset')).withPromise();
+    const nonIpFiles = await crawler.crawl(path.join(SOURCE_DIR, 'non_ip')).withPromise();
+    const files = [...domainsetFiles, ...nonIpFiles];
+
+    if (files.length === 0) {
+      console.log(picocolors.yellow('⚠️ 未找到域名规则文件'));
+      return;
+    }
+
+    // 创建进度条
+    const progressBar = new cliProgress.SingleBar({
+      format: '处理进度 |' + picocolors.cyan('{bar}') + '| {percentage}% | {value}/{total} 文件',
+      barCompleteChar: '\u2588',
+      barIncompleteChar: '\u2591',
+      hideCursor: true,
+    });
+
+    progressBar.start(files.length, 0);
+
+    // 使用队列并发处理文件
+    const queue = newQueue(32);
+    const hashMap = new Map<string, HashInfo>();
+
+    // 添加所有文件处理任务到队列
+    const tasks = files.map((file: string) =>
+      queue.add(() => processFile(file, hashMap, progressBar))
+    );
+
+    // 等待所有任务完成
+    await Promise.all(tasks);
+
+    progressBar.stop();
+
+    // 检测碰撞
+    const collisions: Array<[string, Set<string>]> = [];
+    let totalCollisions = 0;
+
+    hashMap.forEach((info, hash) => {
+      if (info.domains.size > 1) {
+        collisions.push([hash, info.domains]);
+        totalCollisions += info.domains.size - 1;
+      }
+    });
+
+    // 输出结果
+    if (collisions.length === 0) {
+      console.log(picocolors.green('✅ 未发现域名哈希碰撞'));
+      return;
     }
 
     console.log(
-      picocolors.green('[processed]'),
-      `${results.length} rules from`,
-      path.relative(process.cwd(), filePath)
+      picocolors.yellow(
+        `\n⚠️ 发现 ${collisions.length} 个哈希值存在碰撞，涉及 ${totalCollisions} 个域名:\n`
+      )
     );
 
-    return results;
-  } catch (error) {
-    console.error(picocolors.red('[error]'), `Failed to process ${filePath}:`, error);
-    return [];
-  }
-}
+    // 按碰撞域名数量排序
+    collisions.sort((a, b) => b[1].size - a[1].size);
 
-/**
- * 扫描规则文件
- */
-async function scanRuleFiles(): Promise<string[]> {
-  const scanPaths = [
-    path.join(SOURCE_DIR, '..', 'Dial'),
-    path.join(SOURCE_DIR, '..', 'Chores', 'ruleset'),
-    path.join(SOURCE_DIR, '..', 'Rulesets'),
-    path.join(SOURCE_DIR, '..', 'Surge', 'Modules', 'Rules'),
-  ];
+    // 显示前10个最严重的碰撞
+    const showCount = Math.min(10, collisions.length);
+    for (let i = 0; i < showCount; i++) {
+      const [hash, domains] = collisions[i];
+      console.log(picocolors.red(`哈希 ${hash} => ${domains.size} 个域名:`));
 
-  const allFiles: string[] = [];
+      const domainList = Array.from(domains);
+      const displayCount = Math.min(5, domainList.length);
 
-  for (const scanPath of scanPaths) {
-    try {
-      const ruleFiles = await new Fdir()
-        .withFullPaths()
-        .filter((filePath, isDirectory) => {
-          if (isDirectory) return false;
-          const extname = path.extname(filePath);
-          return extname === '.list' || extname === '.conf' || extname === '.txt';
-        })
-        .crawl(scanPath)
-        .withPromise();
-
-      allFiles.push(...ruleFiles);
-    } catch (error) {
-      console.log(picocolors.yellow(`[skip] 目录不存在或无法访问: ${scanPath}`));
-    }
-  }
-
-  return allFiles;
-}
-
-/**
- * 检测哈希冲突
- */
-async function detectHashCollisions(files: string[]): Promise<HashCollision[]> {
-  const hashMap = new Map<string, { content: string; filePath: string; lineNumber: number }[]>();
-
-  // 处理所有文件
-  for (const filePath of files) {
-    const rules = await processRuleFile(filePath);
-
-    for (const rule of rules) {
-      const hash = await calculateHash(rule.content);
-
-      if (!hashMap.has(hash)) {
-        hashMap.set(hash, []);
+      for (let j = 0; j < displayCount; j++) {
+        console.log(`  - ${domainList[j]}`);
       }
 
-      hashMap.get(hash)!.push({
-        content: rule.content,
-        filePath,
-        lineNumber: rule.lineNumber,
-      });
-    }
-  }
-
-  // 找出冲突
-  const collisions: HashCollision[] = [];
-
-  for (const [hash, items] of hashMap.entries()) {
-    if (items.length > 1) {
-      // 检查是否为真正的冲突（内容不同但哈希相同）
-      const uniqueContents = new Set(items.map(item => item.content));
-
-      if (uniqueContents.size > 1) {
-        collisions.push({
-          hash,
-          conflictingLines: items,
-        });
+      if (domainList.length > displayCount) {
+        console.log(`  ... 还有 ${domainList.length - displayCount} 个域名`);
       }
-    }
-  }
-
-  return collisions;
-}
-
-/**
- * 导出结果给GitHub Actions
- */
-async function exportResultsForGitHub(collisions: HashCollision[]): Promise<void> {
-  const cacheDir = path.join(process.cwd(), '.cache');
-
-  // 确保缓存目录存在
-  await fs.mkdir(cacheDir, { recursive: true });
-
-  // 转换为更友好的格式
-  const results = collisions.map(collision => ({
-    hash: collision.hash,
-    conflictCount: collision.conflictingLines.length,
-    conflicts: collision.conflictingLines.map(line => ({
-      content: line.content,
-      file: path.relative(process.cwd(), line.filePath),
-      line: line.lineNumber,
-    })),
-  }));
-
-  // 写入缓存文件
-  await fs.writeFile(path.join(cacheDir, 'hash-collisions.json'), JSON.stringify(results, null, 2));
-
-  // 输出GitHub Actions环境变量
-  if (process.env.GITHUB_OUTPUT) {
-    const output =
-      `has_hash_collisions=${collisions.length > 0 ? 'true' : 'false'}\n` +
-      `hash_collisions_count=${collisions.length}\n`;
-
-    await fs.appendFile(process.env.GITHUB_OUTPUT, output);
-  }
-
-  console.log(
-    picocolors.blue(`[github] 已导出 ${collisions.length} 个哈希冲突到 .cache/hash-collisions.json`)
-  );
-}
-
-/**
- * 主函数
- */
-async function main() {
-  const isCI = process.env.CI === 'true';
-
-  console.log(picocolors.blue('🔍 开始检测规则哈希冲突...'));
-
-  // 1. 扫描规则文件
-  console.log(picocolors.yellow('📁 扫描规则文件...'));
-  const files = await scanRuleFiles();
-  console.log(picocolors.green(`✅ 扫描完成，共发现 ${files.length} 个规则文件`));
-
-  if (files.length === 0) {
-    console.log(picocolors.yellow('⚠️  没有找到任何规则文件，请检查规则文件路径'));
-    return;
-  }
-
-  // 2. 检测哈希冲突
-  console.log(picocolors.yellow('🔍 检测哈希冲突...'));
-  const collisions = await detectHashCollisions(files);
-
-  console.log(picocolors.green(`✅ 检测完成，发现 ${collisions.length} 个哈希冲突`));
-
-  if (collisions.length === 0) {
-    console.log(picocolors.green('🎉 没有发现哈希冲突！'));
-
-    // 即使没有冲突，也需要导出用于GitHub Actions
-    if (isCI) {
-      await exportResultsForGitHub([]);
+      console.log();
     }
 
-    return;
-  }
-
-  // 3. 显示冲突详情
-  console.log(picocolors.red('\n💥 发现哈希冲突:'));
-
-  for (const collision of collisions) {
-    console.log(picocolors.red(`\n  哈希值: ${collision.hash}`));
-    console.log(picocolors.yellow(`  冲突规则 (${collision.conflictingLines.length} 条):`));
-
-    for (const line of collision.conflictingLines) {
-      console.log(picocolors.gray(`    "${line.content}"`));
+    if (collisions.length > showCount) {
       console.log(
-        picocolors.gray(
-          `      位置: ${path.relative(process.cwd(), line.filePath)}:${line.lineNumber}`
-        )
+        picocolors.yellow(`... 还有 ${collisions.length - showCount} 个哈希碰撞未显示\n`)
       );
     }
-  }
 
-  // 4. 导出数据给GitHub Actions
-  if (isCI) {
-    await exportResultsForGitHub(collisions);
-  }
-
-  // 5. 输出修复建议
-  console.log(picocolors.yellow('\n💡 修复建议:'));
-  console.log('   1. 在冲突规则行末尾添加不同的注释');
-  console.log('   2. 微调规则内容（如添加空格或调整格式）');
-  console.log('   3. 检查是否为重复规则，可考虑合并或删除');
-
-  if (!isCI) {
-    console.log(picocolors.gray('\n📋 详细结果已保存到 .cache/hash-collisions.json'));
+    // 统计信息
+    console.log(picocolors.blue('📊 统计信息:'));
+    console.log(`  - 处理文件数: ${files.length}`);
+    console.log(`  - 唯一哈希数: ${hashMap.size}`);
+    console.log(`  - 碰撞哈希数: ${collisions.length}`);
+    console.log(`  - 碰撞域名数: ${totalCollisions}`);
+  } finally {
+    span.stop();
   }
 }
 
-// 执行主函数
-main().catch(error => {
-  console.error(picocolors.red('💥 哈希冲突检测失败:'), error);
-  process.exit(1);
-});
+// 如果直接运行脚本
+if (import.meta.url === `file://${process.argv[1]}`) {
+  import('../trace/index.js').then(({ createSpan }) => {
+    const rootSpan = createSpan('root');
+    validateHashCollision(rootSpan).catch(error => {
+      console.error(picocolors.red('❌ 验证失败:'), error);
+      process.exit(1);
+    });
+  });
+}

@@ -1,5 +1,5 @@
 // Ruleset - AIGC Services
-// Last updated: 2025/7/7 23:51:09
+// Last updated: 2025/7/9 15:49:13
 // DOMAIN: 49
 // DOMAIN-SUFFIX: 57
 // DOMAIN-KEYWORD: 6
@@ -10,7 +10,7 @@
 // This file contains rules for AI services including OpenAI, Google Gemini, Claude, Perplexity and other generative AI platforms
 // Data sources:
 //  - https://ruleset.skk.moe/List/non_ip/ai.conf
-//  - https://kelee.one/Tool/Loon/Rule/AI.list
+//  - https://kelee.one/Tool/Loon/Lsr/AI.lsr
 //  - https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/AI.list
 //  - https://github.com/dler-io/Rules/raw/main/Surge/Surge%203/Provider/AI%20Suite.list
 AND,((DOMAIN-KEYWORD,chatgpt-async-webps-prod-),(DOMAIN-SUFFIX,webpubsub.azure.com))
