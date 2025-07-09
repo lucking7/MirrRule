@@ -173,7 +173,7 @@ export const ruleGroups: RuleGroup[] = [
       {
         path: 'Surge/Rulesets/anti-attribution/direct.list',
         url: 'https://github.com/SunsetMkt/anti-ip-attribution/raw/main/generated/rule-set-direct.list',
-        title: 'Ruleset - Anti-IP Attribution (Direct)',
+        title: 'Ruleset - Anti-IP (Direct)',
         description:
           'This file contains direct rules to counter IP-based location attribution required by Chinese social media platforms',
         header: {
@@ -443,26 +443,27 @@ export const specialRules: SpecialRuleConfig[] = [
         'This file contains rules for Microsoft services, including services operated in mainland China (Microsoft 365, Microsoft Teams, etc).',
     },
   },
-  {
-    name: 'Reject',
-    targetFile: 'Surge/Rulesets/reject/block.list',
-    sourceFiles: [
-      'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Reject/Advertising.list',
-      'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Reject/Malicious.list',
-      'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Reject/Tracking.list',
-      'https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-Surge.list',
-      //'https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/master/anti-ad-surge.txt',
-      //'https://raw.githubusercontent.com/Cats-Team/AdRules/main/adrules.list',
-    ],
-    cleanup: true,
-    dedup: true,
-    header: {
-      enable: true,
-      title: 'Ruleset - Advertising, Malicious Sites & Tracking Protection',
-      description:
-        'This file contains combined rules for blocking ads, malicious sites and user tracking services',
-    },
-  },
+  // 注释掉 Reject 合并规则，因为已经整合到 build-reject-domainset.ts 中
+  // {
+  //   name: 'Reject',
+  //   targetFile: 'Surge/Rulesets/reject/block.list',
+  //   sourceFiles: [
+  //     'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Reject/Advertising.list',
+  //     'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Reject/Malicious.list',
+  //     'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Reject/Tracking.list',
+  //     'https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-Surge.list',
+  //     //'https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/master/anti-ad-surge.txt',
+  //     //'https://raw.githubusercontent.com/Cats-Team/AdRules/main/adrules.list',
+  //   ],
+  //   cleanup: true,
+  //   dedup: true,
+  //   header: {
+  //     enable: true,
+  //     title: 'Ruleset - Advertising, Malicious Sites & Tracking Protection',
+  //     description:
+  //       'This file contains combined rules for blocking ads, malicious sites and user tracking services',
+  //   },
+  // },
   {
     name: 'Reject (Sukka)',
     targetFile: 'Surge/Rulesets/reject.list',

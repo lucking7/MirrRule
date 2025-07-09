@@ -716,17 +716,11 @@ jobs:
       - name: 优化 Reject 规则
         id: optimize-reject
         run: |
-          cd ./Chores/engineering
-          
-          echo "🚫 开始优化 Reject 规则集..."
-          
-          # 运行 reject 优化器测试脚本
-          npx tsx sync/test-reject-optimizer.ts || {
-            echo "⚠️  Reject 规则优化失败，但继续构建流程"
-            echo "reject_processed=0" >> $GITHUB_OUTPUT
-            echo "reject_invalid=0" >> $GITHUB_OUTPUT
-            echo "reject_merged=0" >> $GITHUB_OUTPUT
-          }
+          # 注意：Reject 规则现在由 build:reject 统一处理，这里跳过优化
+          echo "⏭️  跳过 Reject 规则优化（将由 build:reject 统一处理）"
+          echo "reject_processed=0" >> $GITHUB_OUTPUT
+          echo "reject_invalid=0" >> $GITHUB_OUTPUT
+          echo "reject_merged=0" >> $GITHUB_OUTPUT
 
       - name: 构建 Reject 域名集（合并 AdGuard 过滤器）
         id: build-reject

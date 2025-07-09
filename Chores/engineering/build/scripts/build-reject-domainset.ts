@@ -35,6 +35,35 @@ const ADGUARD_FILTERS = [
   },
 ];
 
+// 其他规则源（来自 rule-sources.ts）
+const OTHER_RULE_SOURCES = [
+  {
+    url: 'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Reject/Advertising.list',
+    type: 'surge',
+  },
+  {
+    url: 'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Reject/Malicious.list',
+    type: 'surge',
+  },
+  {
+    url: 'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Reject/Tracking.list',
+    type: 'surge',
+  },
+  {
+    url: 'https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-Surge.list',
+    type: 'surge',
+  },
+  // 可选的额外源（取消注释启用）
+  // {
+  //   url: 'https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/master/anti-ad-surge.txt',
+  //   type: 'surge',
+  // },
+  // {
+  //   url: 'https://raw.githubusercontent.com/Cats-Team/AdRules/main/adrules.list',
+  //   type: 'surge',
+  // },
+];
+
 // 预定义白名单（参考 surge-master-2）
 const PREDEFINED_WHITELIST = new Set([
   // Crash reporting
@@ -59,8 +88,14 @@ const PREDEFINED_WHITELIST = new Set([
   '.localdomain',
 ]);
 
-// 项目根目录
-const REPO_PATH = path.resolve(process.cwd());
+// 项目根目录（从 build/scripts 目录向上 4 级）
+const REPO_PATH = path.resolve(
+  import.meta.url.startsWith('file:') ? path.dirname(new URL(import.meta.url).pathname) : __dirname,
+  '..',
+  '..',
+  '..',
+  '..'
+);
 const SOURCE_DIR = path.join(REPO_PATH, 'Surge', 'Rulesets', 'reject');
 const OUTPUT_DIR = path.join(REPO_PATH, 'Surge', 'Rulesets', 'reject');
 
@@ -200,6 +235,50 @@ export const buildRejectDomainSet = task(
     }
   }
 
+  // 下载并处理其他 Surge 规则源
+  console.log('\n📥 下载其他规则源...');
+
+  for (const source of OTHER_RULE_SOURCES) {
+    try {
+      const content = await fetchAssets(source.url);
+      const lines = content.filter(
+        (line: string) => line && !line.startsWith('#') && !line.startsWith('//')
+      );
+
+      console.log(`✅ 处理 ${source.url.split('/').pop()}: ${lines.length} 条规则`);
+
+      // 处理 Surge 规则
+      for (const line of lines) {
+        const parts = line.split(',');
+        const ruleType = parts[0];
+        const value = parts[1];
+
+        if (ruleType === 'DOMAIN' || ruleType === 'DOMAIN-SUFFIX') {
+          // 检查白名单
+          if (PREDEFINED_WHITELIST.has(value)) {
+            stats.whitelisted++;
+            continue;
+          }
+
+          // 验证 TLD
+          const validation = validator.validate(value, { source: RuleSource.RemoteList });
+          if (!validation.valid) {
+            console.warn(picocolors.yellow(`⚠️  非法 TLD: ${value} (${validation.reason})`));
+            stats.invalidTlds++;
+            continue;
+          }
+
+          stats.totalDomains++;
+          domainTrie.add(value, ruleType === 'DOMAIN-SUFFIX');
+        } else if (ruleType === 'IP-CIDR' || ruleType === 'IP-CIDR6') {
+          stats.ipRules++;
+        }
+      }
+    } catch (error) {
+      console.error(picocolors.red(`❌ 下载失败: ${source.url}`), error);
+    }
+  }
+
   // 从 Trie 树导出优化后的域名
   const optimizedDomains: string[] = [];
   const optimizedSuffixes: string[] = [];
@@ -216,7 +295,13 @@ export const buildRejectDomainSet = task(
 
   // 生成输出文件
   const output: string[] = [
-    "# Sukka's Surge Reject Rules - Merged from AdGuard Filters",
+    "# Sukka's Surge Reject Rules - Unified from Multiple Sources",
+    '# Sources:',
+    '#   - AdGuard Base Filter',
+    '#   - EasyPrivacy',
+    '#   - AdGuard Chinese filter',
+    '#   - ConnersHua RuleGo (Advertising, Malicious, Tracking)',
+    '#   - TG-Twilight AWAvenue-Ads-Rule',
     '# License: AGPL 3.0',
     '# Homepage: https://github.com/SukkaW/Surge',
     `# Updated: ${new Date().toISOString()}`,
