@@ -7,12 +7,12 @@
 #   - TG-Twilight AWAvenue-Ads-Rule
 # License: AGPL 3.0
 # Homepage: https://github.com/SukkaW/Surge
-# Updated: 2025-07-09T08:19:29.717Z
+# Updated: 2025-07-09T08:24:13.949Z
 
-# Total Domains Processed: 131452
+# Total Domains Processed: 131627
 # Whitelisted: 0
-# Invalid TLDs: 2
-# Optimized (merged): 65579
+# Invalid TLDs: 27
+# Optimized (merged): 65754
 # IP Rules: 6
 
 DOMAIN,*
