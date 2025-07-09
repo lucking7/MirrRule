@@ -162,7 +162,7 @@ async function main() {
     ];
 
     await rejectOptimizer.optimizeRejectRules(config.repoPath, {
-      enableTldValidation: true,
+      enableTldValidation: false, // reject 规则作为 RulesetOutput，不进行 TLD 验证
       enableDomainMerge: true,
       enableWhitelist: true,
       whitelistDomains,

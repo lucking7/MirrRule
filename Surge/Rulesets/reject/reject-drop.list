@@ -1,10 +1,11 @@
 # Sukka's Surge Reject Rules - Optimized
 # NOTE: This file has been optimized and merged in-place
 # Total Rules: 5
-# Invalid TLD Removed: 2
 # IP Optimization: 0 CIDRs merged
-# Last Updated: 2025-07-09T08:57:35.244Z
+# Last Updated: 2025-07-09T09:08:54.914Z
 
 DOMAIN,th1s_rule5et_1s_m4d3_by_5ukk4w_ruleset.skk.moe
+DOMAIN-SUFFIX,undefined
+DOMAIN-SUFFIX,null
 DOMAIN-SUFFIX,in.applicationinsights.azure.com
 DOMAIN-SUFFIX,geo2.adobe.com

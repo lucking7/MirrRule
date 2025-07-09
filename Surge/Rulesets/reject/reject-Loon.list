@@ -1,10 +1,9 @@
 # Sukka's Surge Reject Rules - Optimized
 # NOTE: This file has been optimized and merged in-place
 # Total Rules: 9122
-# Invalid TLD Removed: 10
 # Domain Optimization: 1307 rules merged
 # IP Optimization: 0 CIDRs merged
-# Last Updated: 2025-07-09T08:57:35.300Z
+# Last Updated: 2025-07-09T09:08:54.948Z
 
 DOMAIN-SUFFIX,miaozhen.com
 DOMAIN-SUFFIX,getui.com
@@ -1048,6 +1047,7 @@ DOMAIN-SUFFIX,market.21cn.com
 DOMAIN-SUFFIX,shows.21cn.com
 DOMAIN,ad.zijieapi.com
 DOMAIN,applog.zijieapi.com
+DOMAIN-SUFFIX,-normal-lq.zijieapi.com
 DOMAIN-SUFFIX,000dn.com
 DOMAIN-SUFFIX,001union.com
 DOMAIN-SUFFIX,0086555.com
@@ -7526,6 +7526,7 @@ DOMAIN-SUFFIX,dn-growing.qbox.me
 DOMAIN-SUFFIX,ss.subo.me
 DOMAIN-SUFFIX,b.thefile.me
 DOMAIN-SUFFIX,get.thefile.me
+DOMAIN-SUFFIX,meituan.xn
 DOMAIN-SUFFIX,meituan.yoga
 DOMAIN,ads.nicovideo.jp
 DOMAIN-SUFFIX,ad-cloud.jp
@@ -7558,6 +7559,8 @@ DOMAIN-SUFFIX,ad.netowl.jp
 DOMAIN-SUFFIX,nichibenren.or.jp
 DOMAIN-SUFFIX,ai.yimg.jp
 DOMAIN-SUFFIX,yads.c.yimg.jp
+DOMAIN,tmead.y.qq.com-NO-DROP
+DOMAIN,tmeadbak.y.qq.com-NO-DROP
 DOMAIN-SUFFIX,ad.qingting.fm
 DOMAIN,adlaunch.qingting.fm
 DOMAIN,ad-cdn.qingting.fm
@@ -7584,6 +7587,7 @@ DOMAIN-SUFFIX,config.ioam.de
 DOMAIN-SUFFIX,de.ioam.de
 DOMAIN-SUFFIX,wtpn.twenga.de
 DOMAIN-SUFFIX,bl.wavecdn.de
+DOMAIN-SUFFIX,mg.5pk
 DOMAIN-SUFFIX,msg.71.am
 DOMAIN-SUFFIX,msga.71.am
 DOMAIN-SUFFIX,cloudad.asia
@@ -7620,6 +7624,7 @@ DOMAIN-SUFFIX,go.gotourls.bid
 DOMAIN-SUFFIX,20150930.cf
 DOMAIN-SUFFIX,2016bobo.cf
 DOMAIN-SUFFIX,ad.search.ch
+DOMAIN-SUFFIX,cpv.channelray
 DOMAIN-SUFFIX,xn--2qux23c9ziyrq.club
 DOMAIN-SUFFIX,e.zhuyuanp.club
 DOMAIN-SUFFIX,m.zhuyuanp.club
@@ -7638,8 +7643,10 @@ DOMAIN-SUFFIX,18av.mm-cg.co
 DOMAIN-SUFFIX,p215223.mycdn2.co
 DOMAIN-SUFFIX,eee.ttyy888.co
 DOMAIN-SUFFIX,alog.umeng.co
+DOMAIN-SUFFIX,nxrxt.con
 DOMAIN-SUFFIX,8hykthze.cricket
 DOMAIN-SUFFIX,webmine.cz
+DOMAIN-SUFFIX,afpimages.eastday
 DOMAIN-SUFFIX,bnrs.ilm.ee
 DOMAIN-SUFFIX,clickstrip.6wav.es
 DOMAIN-SUFFIX,pub1.cope.es
@@ -7734,6 +7741,7 @@ DOMAIN-SUFFIX,pixel.vihub.ru
 DOMAIN-SUFFIX,ad.xmovies8.ru
 DOMAIN-SUFFIX,spb.bid.run
 DOMAIN-SUFFIX,adrotator.se
+DOMAIN-SUFFIX,ingest.sentry
 DOMAIN-SUFFIX,coin-hive-proxy-ybydcnjgkl.now.sh
 DOMAIN-SUFFIX,party-nngvitbizn.now.sh
 DOMAIN-SUFFIX,ad.proxy.sh
@@ -7793,6 +7801,7 @@ DOMAIN-SUFFIX,connect.summit.co.uk
 DOMAIN-SUFFIX,creatives.summitconnect.co.uk
 DOMAIN-SUFFIX,wtpn.twenga.co.uk
 DOMAIN-SUFFIX,partners.vouchedfor.co.uk
+DOMAIN-SUFFIX,localnetwork.uop
 DOMAIN-SUFFIX,amung.us
 DOMAIN-SUFFIX,sitetag.us
 DOMAIN-SUFFIX,wole.us

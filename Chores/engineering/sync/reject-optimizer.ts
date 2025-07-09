@@ -38,13 +38,16 @@ export class RejectOptimizer {
 
   /**
    * 优化 reject 规则文件
+   *
+   * 注意：reject 规则作为 RulesetOutput 类型，根据设计不应进行 tldts 规范化
+   * 这是因为 reject 规则可能包含特殊格式的域名或 IP 地址
    */
   async optimizeFile(
     filePath: string,
     options: RejectOptimizationOptions = {}
   ): Promise<OptimizationResult> {
     const {
-      enableTldValidation = true,
+      enableTldValidation = false, // 默认不启用，因为 RulesetOutput 不应进行 TLD 验证
       enableDomainMerge = true,
       enableWhitelist = true,
       whitelistDomains = [],
