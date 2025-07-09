@@ -11,7 +11,6 @@
 		"build:temp": "OUTPUT_DIR=$(mktemp -d) NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/index.ts && echo \"构建完成，输出到临时目录: $OUTPUT_DIR\"",
 		"build:clean": "npm run build && rm -rf public",
 		"build:reject": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/build-reject-domainset.ts",
-		"build:reject:enhanced": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/build-reject-domainset-enhanced.ts",
 		"build:common": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/build-common.ts",
 		"test": "echo \"Error: no test specified\" && exit 1",
 		"dev": "npm run sync && npm run build",

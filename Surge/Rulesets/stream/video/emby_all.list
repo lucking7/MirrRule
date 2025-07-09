@@ -1,11 +1,11 @@
 // Ruleset - Emby Media Servers
-// Last updated: 2025/7/9 15:49:26
-// DOMAIN: 192
-// DOMAIN-SUFFIX: 357
+// Last updated: 2025/7/9 16:57:33
+// DOMAIN: 193
+// DOMAIN-SUFFIX: 358
 // DOMAIN-KEYWORD: 3
-// IP-CIDR: 36
+// IP-CIDR: 38
 // OTHER: 1
-// Total: 589
+// Total: 593
 // This file contains rules for third-party Emby media server instances requiring proxy access
 // Data sources:
 //  - https://github.com/buhuizhuce/Surge/raw/main/Module/EmbyRules.sgmodule
@@ -89,6 +89,7 @@ DOMAIN,emby.oceancloud.asia,Emby
 DOMAIN,emby.tnx.one // Nanflix
 DOMAIN,emby.wenjian.de,Emby
 DOMAIN,emby.younoyes.com,Emby
+DOMAIN,emby.zn.al,Emby
 DOMAIN,emby1.123456789.lol,Emby
 DOMAIN,emby1.liustar.click,DIRECT     //主线路
 DOMAIN,emby2.staryuki.com,Emby
@@ -565,6 +566,7 @@ DOMAIN-SUFFIX,yunti.online
 DOMAIN-SUFFIX,yunti.online,Emby
 DOMAIN-SUFFIX,zabc.net
 DOMAIN-SUFFIX,zi0.icu
+DOMAIN-SUFFIX,zn.al,Emby
 DOMAIN-SUFFIX,zox.show
 IP-CIDR,102.223.180.108/32,no-resolve // misakaf
 IP-CIDR,104.243.41.35/32,Emby,no-resolve
@@ -581,6 +583,8 @@ IP-CIDR,167.235.116.53/32,no-resolve // Lyrebird-琴鸟
 IP-CIDR,168.119.137.205/32,no-resolve
 IP-CIDR,168.138.45.100/32,no-resolve
 IP-CIDR,17.248.216.66/32,no-resolve
+IP-CIDR,17.248.216.66/32,no-resolve
+IP-CIDR,17.248.216.67/32,no-resolve
 IP-CIDR,17.248.216.67/32,no-resolve
 IP-CIDR,188.172.228.49/32,no-resolve
 IP-CIDR,188.172.228.65/32,no-resolve
