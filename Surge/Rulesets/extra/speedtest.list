@@ -1,7 +1,7 @@
 #########################################
 # Sukka's Ruleset - Speedtest Domains
-# Last Updated: 2025-07-08T12:49:39.989Z
-# Size: 1212
+# Last Updated: 2025-07-10T14:48:02.751Z
+# Size: 1218
 # License: AGPL 3.0
 # Homepage: https://ruleset.skk.moe
 # GitHub: https://github.com/SukkaW/Surge
@@ -149,6 +149,7 @@ DOMAIN,speedtest03.srv.whplny.alticeusa.net
 DOMAIN,speedtest01.srv.snjsca.alticeusa.net
 DOMAIN,speedtest01.srv.hcvlny.alticeusa.net
 DOMAIN,speedtest01.srv.dllstx.alticeusa.net
+DOMAIN,st0.dal.tularosa.net
 DOMAIN,speedtest.polycomm.net
 DOMAIN-SUFFIX,speedtest.ozarksgo.net
 DOMAIN,speedtest.sea1.nitelusa.net
@@ -310,6 +311,7 @@ DOMAIN-SUFFIX,speedtestcustom.com
 DOMAIN,speedtest.parishbroadband.com
 DOMAIN,speedtest2.pacificinternet.com
 DOMAIN,speedtest.naturalwireless.com
+DOMAIN,speedtest.masteritsupport.com
 DOMAIN,digital-net-isp.com
 DOMAIN,ookla-london.briantbroadband.com
 DOMAIN,speedtest.unlimitedfiber.com
@@ -725,6 +727,7 @@ DOMAIN,st-bolu-1.turksatkablo.com.tr
 DOMAIN,umr1speedtest.turktelekom.com.tr
 DOMAIN,uls1speedtest.turktelekom.com.tr
 DOMAIN,sam1speedtest.turktelekom.com.tr
+DOMAIN,kay1speedtest.turktelekom.com.tr
 DOMAIN,izm1speedtest.turktelekom.com.tr
 DOMAIN,gun1speedtest.turktelekom.com.tr
 DOMAIN,gay1speedtest.turktelekom.com.tr
@@ -858,6 +861,7 @@ DOMAIN,speed.udx.icscoe.jp
 DOMAIN,speedtest.ddps.jp
 DOMAIN,speedtest-xg-oki.glbb.ne.jp
 DOMAIN,speedtest.softether.co.jp
+DOMAIN,speedtest.ot01.zaq.ad.jp
 DOMAIN,speed.coe.ad.jp
 DOMAIN,sig-speedtest.moratelindo.io
 DOMAIN,sp.tulipgroup.io
@@ -896,6 +900,7 @@ DOMAIN,ookla3.1und1-mobilfunk.de
 DOMAIN,speedtest.creolineserver.de
 DOMAIN,speedtest.ip-projects.de
 DOMAIN,speedtest.fra01.datascheune.de
+DOMAIN,speed2.netlixor.de
 DOMAIN,speed.netlixor.de
 DOMAIN,speedtest1.synlinq.de
 DOMAIN,speedtest.fra.plusnet.de
@@ -918,6 +923,7 @@ DOMAIN,cesu-nb.zjtelecom.com.cn
 DOMAIN,cesu-hz.zjtelecom.com.cn
 DOMAIN,speedtest.bmcc.com.cn
 DOMAIN,speedtest.asymptote.cc
+DOMAIN,speedtest.alexf.cc
 DOMAIN,o-uk-1.flwc.cc
 DOMAIN,speedtest.redbirdcommunications.ca
 DOMAIN,sp1.voyageurinternet.ca
