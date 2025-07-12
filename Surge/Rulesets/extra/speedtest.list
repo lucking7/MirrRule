@@ -1,7 +1,7 @@
 #########################################
 # Sukka's Ruleset - Speedtest Domains
-# Last Updated: 2025-07-10T14:48:02.751Z
-# Size: 1218
+# Last Updated: 2025-07-12T12:44:34.566Z
+# Size: 1225
 # License: AGPL 3.0
 # Homepage: https://ruleset.skk.moe
 # GitHub: https://github.com/SukkaW/Surge
@@ -41,6 +41,7 @@ DOMAIN,speedtest04.ber.server.camp
 DOMAIN,speedtest03.ber.server.camp
 DOMAIN,sg.cloudhost.asia
 DOMAIN,speed.onlinedersm.xyz
+DOMAIN,speedtest-msk.refoxcloud.xyz
 DOMAIN,speed1.yasarnet.xyz
 DOMAIN,ccs.los-angeles.ca.speedtest.6667890.xyz
 DOMAIN,tyo.st.spacecore.pro
@@ -551,6 +552,7 @@ DOMAIN,sthamiltonwireless.rogers.com
 DOMAIN,stedmontonwireless.rogers.com
 DOMAIN,stwindsorwireless.rogers.com
 DOMAIN,sttorontowireless.rogers.com
+DOMAIN,stsudburywireless.rogers.com
 DOMAIN,streddeerwireless.rogers.com
 DOMAIN,stnanaimowireless.rogers.com
 DOMAIN,stkelownawireless.rogers.com
@@ -561,6 +563,7 @@ DOMAIN,stsarniawireless.rogers.com
 DOMAIN,stmiltonwireless.rogers.com
 DOMAIN,stlondonwireless.rogers.com
 DOMAIN,stguelphwireless.rogers.com
+DOMAIN,stbarriewireless.rogers.com
 DOMAIN,stscarborough.rogers.com
 DOMAIN,storangeville.rogers.com
 DOMAIN,stmississauga.rogers.com
@@ -581,6 +584,7 @@ DOMAIN,sttoronto.rogers.com
 DOMAIN,stmilton.rogers.com
 DOMAIN,stlondon.rogers.com
 DOMAIN,stguelph.rogers.com
+DOMAIN,stbarrie.rogers.com
 DOMAIN,speedtest2.rhitcr.com
 DOMAIN,speedtest3.dal.nxlink.com
 DOMAIN,mirror.nforce.com
@@ -669,6 +673,7 @@ DOMAIN,gd-speedtest.homeplus.net.tw
 DOMAIN,custom.tbcnet.net.tw
 DOMAIN,speedtest.tinp.net.tw
 DOMAIN,seednet-ty1.seed.net.tw
+DOMAIN,seednet-tc1.seed.net.tw
 DOMAIN,fetzl1.seed.net.tw
 DOMAIN,fetnt1.seed.net.tw
 DOMAIN-SUFFIX,speedtest.idv.tw
@@ -948,6 +953,7 @@ DOMAIN,stvaughan.netcrawler.ca
 DOMAIN,speedtest.netcrawler.ca
 DOMAIN,stlondon.netcrawler.ca
 DOMAIN,stguelph.netcrawler.ca
+DOMAIN,stbarrie.netcrawler.ca
 DOMAIN,speedtest.mornington.ca
 DOMAIN,speedtest.45networks.ca
 DOMAIN,speedtest.techminds.ca
@@ -965,6 +971,7 @@ DOMAIN,speedtest.blacksun.ca
 DOMAIN,t4y-tor-sts1.ser.tek4you.ca
 DOMAIN,yyz-speedtest.xplore.ca
 DOMAIN,yyc-speedtest.xplore.ca
+DOMAIN,st2.speedtest.vianet.ca
 DOMAIN,speedtest.switch.ca
 DOMAIN,speedtest-engine.primus.ca
 DOMAIN,speedtest1.innsys.ca
