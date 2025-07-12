@@ -1,9 +1,9 @@
 # Sukka's Surge Reject Rules - Optimized
 # NOTE: This file has been optimized and merged in-place
-# Total Rules: 9112
-# Domain Optimization: 1307 rules merged
+# Total Rules: 9109
+# Domain Optimization: 1305 rules merged
 # IP Optimization: 0 CIDRs merged
-# Last Updated: 2025-07-12T03:30:03.298Z
+# Last Updated: 2025-07-12T06:03:37.383Z
 
 DOMAIN-SUFFIX,miaozhen.com
 DOMAIN-SUFFIX,getui.com
@@ -7713,7 +7713,6 @@ DOMAIN-SUFFIX,sape.ru
 DOMAIN-SUFFIX,tns-counter.ru
 DOMAIN-SUFFIX,winlinebet.ru
 DOMAIN-SUFFIX,yadro.ru
-DOMAIN-SUFFIX,yandex.ru
 DOMAIN-SUFFIX,ad.3dnews.ru
 DOMAIN-SUFFIX,rtb.com.ru
 DOMAIN-SUFFIX,dmg.digitaltarget.ru
