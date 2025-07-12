@@ -6,6 +6,16 @@ import { SingleBar } from 'cli-progress';
 import { IPListOutput } from '../lib/rules/ip.js';
 import { readFileByLine } from '../lib/fetch-text-by-line.js';
 import { merge as mergeCidr } from 'fast-cidr-tools';
+import { HostnameSmolTrie } from '../../lib/trie.js';
+import { fdir as Fdir } from 'fdir';
+
+interface OptimizationStats {
+  totalFiles: number;
+  optimizedFiles: number;
+  totalRulesReduced: number;
+  ipOptimized: number;
+  domainOptimized: number;
+}
 
 export async function optimizeAllRules(parentSpan: Span) {
   const span = parentSpan.traceChild('optimize-all-rules');
@@ -16,245 +26,340 @@ export async function optimizeAllRules(parentSpan: Span) {
     // 优化任务列表
     const optimizationTasks = [
       {
-        name: 'IP 列表 CIDR 合并',
-        task: () => optimizeIPLists(span),
+        name: '优化 IP 规则（CIDR 合并）',
+        func: () => optimizeIPRules(span),
       },
       {
-        name: '域名集合优化',
-        task: () => optimizeDomainSets(span),
-      },
-      {
-        name: '混合规则集优化',
-        task: () => optimizeMixedRulesets(span),
-      },
-      {
-        name: '清理重复规则',
-        task: () => cleanupDuplicates(span),
+        name: '优化域名规则（去重）',
+        func: () => optimizeDomainRules(span),
       },
     ];
 
-    // 执行所有优化任务
+    const stats: OptimizationStats = {
+      totalFiles: 0,
+      optimizedFiles: 0,
+      totalRulesReduced: 0,
+      ipOptimized: 0,
+      domainOptimized: 0,
+    };
+
+    // 并行执行优化任务
     const results = await Promise.all(
-      optimizationTasks.map(async ({ name, task }) => {
+      optimizationTasks.map(async task => {
+        const taskSpan = span.traceChild(task.name);
         try {
-          console.log(picocolors.gray(`  ▶ ${name}...`));
-          const result = await task();
-          console.log(picocolors.green(`  ✓ ${name} 完成`));
-          return { name, success: true, result };
+          console.log(picocolors.gray(`  ▶ ${task.name}...`));
+          const result = await task.func();
+          console.log(picocolors.green(`  ✓ ${task.name} 完成`));
+          return result;
         } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
-          console.log(picocolors.red(`  ✗ ${name} 失败: ${errorMsg}`));
-          return { name, success: false, error: errorMsg };
+          console.error(picocolors.red(`  ✗ ${task.name} 失败: ${error}`));
+          throw error;
+        } finally {
+          taskSpan.stop();
         }
       })
     );
 
-    // 打印优化结果
-    console.log(picocolors.green('\n✅ 规则优化完成'));
+    // 合并统计数据
+    results.forEach(result => {
+      stats.totalFiles += result.totalFiles;
+      stats.optimizedFiles += result.optimizedFiles;
+      stats.totalRulesReduced += result.totalRulesReduced;
+      if ('ipOptimized' in result) stats.ipOptimized += result.ipOptimized;
+      if ('domainOptimized' in result) stats.domainOptimized += result.domainOptimized;
+    });
 
-    const successful = results.filter(r => r.success);
-    if (successful.length > 0) {
-      successful.forEach(r => {
-        if (r.result && r.result.stats) {
-          const stats = r.result.stats;
-          console.log(picocolors.gray(`${r.name}:`));
-          Object.entries(stats).forEach(([key, value]) => {
-            console.log(picocolors.gray(`  - ${key}: ${value}`));
-          });
-        }
-      });
-    }
+    // 输出优化报告
+    console.log(picocolors.cyan('\n📊 优化报告:'));
+    console.log(
+      picocolors.gray(`  • 总文件数: ${stats.totalFiles} | 已优化: ${stats.optimizedFiles}`)
+    );
+    console.log(picocolors.gray(`  • 规则减少: ${stats.totalRulesReduced} 条`));
+    console.log(picocolors.gray(`  • IP 段合并: ${stats.ipOptimized} 条`));
+    console.log(picocolors.gray(`  • 域名去重: ${stats.domainOptimized} 条`));
+
+    console.log(picocolors.green('✅ 规则优化完成！'));
+    return stats;
+  } catch (error) {
+    console.error(picocolors.red('❌ 规则优化失败:'), error);
+    throw error;
   } finally {
     span.stop();
   }
 }
 
-// 优化 IP 列表（CIDR 合并）
-async function optimizeIPLists(span: Span) {
-  const childSpan = span.traceChild('optimize-ip-lists');
+// 优化 IP 规则（CIDR 合并）
+async function optimizeIPRules(parentSpan: Span) {
+  const span = parentSpan.traceChild('optimize-ip-rules');
 
   try {
-    const ipListDir = path.resolve('List');
-    const ipFiles = await fs
-      .readdir(ipListDir)
-      .then(files =>
-        files.filter(f => f.endsWith('.txt') && (f.includes('ipv4') || f.includes('ipv6')))
-      )
-      .catch(() => []);
+    const rulesetDir = 'Surge/Rulesets';
+    const stats = {
+      totalFiles: 0,
+      optimizedFiles: 0,
+      totalRulesReduced: 0,
+      ipOptimized: 0,
+    };
 
-    if (ipFiles.length === 0) {
-      return { stats: { files: 0 } };
-    }
+    // 获取所有规则文件
+    const files = await fs.readdir(rulesetDir);
+    const ruleFiles = files.filter(f => f.endsWith('.list'));
 
     const progressBar = new SingleBar({
-      format:
-        'IP 优化 |' + picocolors.cyan('{bar}') + '| {percentage}% | {current}/{total} | {filename}',
-      barCompleteChar: '\u2588',
-      barIncompleteChar: '\u2591',
-      hideCursor: true,
+      format: '  {bar} {percentage}% | {value}/{total} 文件',
+      barCompleteChar: '█',
+      barIncompleteChar: '░',
     });
 
-    progressBar.start(ipFiles.length, 0, { filename: '' });
+    progressBar.start(ruleFiles.length, 0);
 
-    let totalOptimized = 0;
-    let totalReduced = 0;
-
-    for (let i = 0; i < ipFiles.length; i++) {
-      const filename = ipFiles[i];
-      const filePath = path.join(ipListDir, filename);
+    for (const file of ruleFiles) {
+      const filePath = path.join(rulesetDir, file);
+      stats.totalFiles++;
 
       try {
-        // 读取 IP 列表
-        const content = await fs.readFile(filePath, 'utf-8');
-        const ips = content.trim().split('\n').filter(Boolean);
-        const originalCount = ips.length;
-
-        // 判断是 IPv4 还是 IPv6
-        const isIPv4 = filename.includes('ipv4');
-
-        if (isIPv4) {
-          // IPv4 进行 CIDR 合并
-          const merged = mergeCidr(ips, true);
-          const mergedCount = merged.length;
-
-          if (mergedCount < originalCount) {
-            // 写回优化后的内容
-            await fs.writeFile(filePath, merged.join('\n') + '\n');
-            totalOptimized++;
-            totalReduced += originalCount - mergedCount;
-          }
+        const { optimized, reducedCount } = await optimizeIPRulesInFile(filePath, span);
+        if (optimized) {
+          stats.optimizedFiles++;
+          stats.totalRulesReduced += reducedCount;
+          stats.ipOptimized += reducedCount;
         }
-
-        progressBar.update(i + 1, { filename });
       } catch (error) {
-        console.error(picocolors.red(`\n优化 ${filename} 失败:`), error);
+        console.error(picocolors.yellow(`\n  ⚠️  无法优化 ${file}: ${error}`));
       }
+
+      progressBar.increment();
     }
 
     progressBar.stop();
-
-    return {
-      stats: {
-        处理文件数: ipFiles.length,
-        优化文件数: totalOptimized,
-        减少规则数: totalReduced,
-      },
-    };
+    return stats;
   } finally {
-    childSpan.stop();
+    span.stop();
   }
 }
 
-// 优化域名集合
-async function optimizeDomainSets(span: Span) {
-  const childSpan = span.traceChild('optimize-domain-sets');
+// 优化单个文件中的 IP 规则
+async function optimizeIPRulesInFile(
+  filePath: string,
+  parentSpan: Span
+): Promise<{ optimized: boolean; reducedCount: number }> {
+  const span = parentSpan.traceChild(`optimize-ip-file-${path.basename(filePath)}`);
 
   try {
-    // 域名集合已在构建时通过 Trie 自动优化
-    // 这里可以添加额外的优化逻辑
-    console.log(picocolors.gray('    域名集合已在构建时优化'));
+    const lines: string[] = [];
+    const ipv4Cidrs: string[] = [];
+    const ipv6Cidrs: string[] = [];
+    let hasChanges = false;
 
-    return {
-      stats: {
-        优化方式: 'Trie 结构',
-        自动去重: '是',
-        子域合并: '是',
-      },
-    };
-  } finally {
-    childSpan.stop();
-  }
-}
+    // 读取文件并分类规则
+    for await (const line of readFileByLine(filePath)) {
+      const trimmed = line.trim();
 
-// 优化混合规则集
-async function optimizeMixedRulesets(span: Span) {
-  const childSpan = span.traceChild('optimize-mixed-rulesets');
-
-  try {
-    // 混合规则集的优化已在构建时完成
-    // 包括：自动去重、CIDR 合并、格式验证等
-    console.log(picocolors.gray('    混合规则集已在构建时优化'));
-
-    return {
-      stats: {
-        自动去重: '是',
-        'CIDR 合并': '是 (IPv4)',
-        格式验证: '是',
-      },
-    };
-  } finally {
-    childSpan.stop();
-  }
-}
-
-// 清理重复规则
-async function cleanupDuplicates(span: Span) {
-  const childSpan = span.traceChild('cleanup-duplicates');
-
-  try {
-    // 创建全局规则缓存，用于跨文件去重
-    const globalRuleCache = {
-      domains: new Set<string>(),
-      ips: new Set<string>(),
-      other: new Set<string>(),
-    };
-
-    // 扫描所有输出文件，统计重复情况
-    const outputDirs = ['Surge/Rulesets', 'Surge/Domainset', 'List'];
-    let duplicateCount = 0;
-
-    for (const dir of outputDirs) {
-      if (
-        !(await fs
-          .access(dir)
-          .then(() => true)
-          .catch(() => false))
-      ) {
-        continue;
-      }
-
-      const files = await fs.readdir(dir);
-      for (const file of files) {
-        const filePath = path.join(dir, file);
-        const stat = await fs.stat(filePath);
-
-        if (!stat.isFile()) continue;
-
-        const content = await fs.readFile(filePath, 'utf-8');
-        const lines = content.trim().split('\n');
-
-        for (const line of lines) {
-          if (!line || line.startsWith('#')) continue;
-
-          // 简单分类
-          let cache: Set<string>;
-          if (line.match(/^\d+\.\d+\.\d+\.\d+/) || line.includes(':')) {
-            cache = globalRuleCache.ips;
-          } else if (line.includes('.') && !line.includes(',')) {
-            cache = globalRuleCache.domains;
-          } else {
-            cache = globalRuleCache.other;
-          }
-
-          if (cache.has(line)) {
-            duplicateCount++;
-          } else {
-            cache.add(line);
-          }
+      if (trimmed.startsWith('IP-CIDR,')) {
+        const cidr = trimmed.split(',')[1];
+        if (cidr.includes(':')) {
+          ipv6Cidrs.push(cidr);
+        } else {
+          ipv4Cidrs.push(cidr);
         }
+        hasChanges = true;
+      } else {
+        lines.push(line);
       }
     }
 
-    return {
-      stats: {
-        扫描目录: outputDirs.length,
-        跨文件重复: duplicateCount,
-        唯一域名: globalRuleCache.domains.size,
-        '唯一 IP': globalRuleCache.ips.size,
-        唯一其他: globalRuleCache.other.size,
-      },
-    };
+    if (!hasChanges) {
+      return { optimized: false, reducedCount: 0 };
+    }
+
+    // 合并 CIDR
+    const originalCount = ipv4Cidrs.length + ipv6Cidrs.length;
+    const mergedIpv4 = ipv4Cidrs.length > 0 ? mergeCidr(ipv4Cidrs) : [];
+    const mergedIpv6 = ipv6Cidrs.length > 0 ? mergeCidr(ipv6Cidrs) : [];
+
+    // 重建文件内容
+    const newLines: string[] = [];
+    let insertedCidrs = false;
+
+    for (const line of lines) {
+      if (!insertedCidrs && line.trim() && !line.startsWith('#')) {
+        // 在第一个非注释行之前插入合并后的 CIDR
+        for (const cidr of mergedIpv4) {
+          newLines.push(`IP-CIDR,${cidr},no-resolve`);
+        }
+        for (const cidr of mergedIpv6) {
+          newLines.push(`IP-CIDR6,${cidr},no-resolve`);
+        }
+        insertedCidrs = true;
+      }
+      newLines.push(line);
+    }
+
+    // 如果文件只有注释，在末尾添加
+    if (!insertedCidrs) {
+      for (const cidr of mergedIpv4) {
+        newLines.push(`IP-CIDR,${cidr},no-resolve`);
+      }
+      for (const cidr of mergedIpv6) {
+        newLines.push(`IP-CIDR6,${cidr},no-resolve`);
+      }
+    }
+
+    // 写回文件
+    await fs.writeFile(filePath, newLines.join('\n'));
+
+    const newCount = mergedIpv4.length + mergedIpv6.length;
+    const reducedCount = originalCount - newCount;
+
+    return { optimized: true, reducedCount };
   } finally {
-    childSpan.stop();
+    span.stop();
+  }
+}
+
+// 优化域名规则（去重）
+async function optimizeDomainRules(parentSpan: Span) {
+  const span = parentSpan.traceChild('optimize-domain-rules');
+
+  try {
+    const rulesetDir = 'Surge/Rulesets';
+    const stats = {
+      totalFiles: 0,
+      optimizedFiles: 0,
+      totalRulesReduced: 0,
+      domainOptimized: 0,
+    };
+
+    // 获取所有规则文件
+    const files = await fs.readdir(rulesetDir);
+    const ruleFiles = files.filter(f => f.endsWith('.list'));
+
+    const progressBar = new SingleBar({
+      format: '  {bar} {percentage}% | {value}/{total} 文件',
+      barCompleteChar: '█',
+      barIncompleteChar: '░',
+    });
+
+    progressBar.start(ruleFiles.length, 0);
+
+    for (const file of ruleFiles) {
+      const filePath = path.join(rulesetDir, file);
+      stats.totalFiles++;
+
+      try {
+        const { optimized, reducedCount } = await optimizeDomainRulesInFile(filePath, span);
+        if (optimized) {
+          stats.optimizedFiles++;
+          stats.totalRulesReduced += reducedCount;
+          stats.domainOptimized += reducedCount;
+        }
+      } catch (error) {
+        console.error(picocolors.yellow(`\n  ⚠️  无法优化 ${file}: ${error}`));
+      }
+
+      progressBar.increment();
+    }
+
+    progressBar.stop();
+    return stats;
+  } finally {
+    span.stop();
+  }
+}
+
+// 优化单个文件中的域名规则
+async function optimizeDomainRulesInFile(
+  filePath: string,
+  parentSpan: Span
+): Promise<{ optimized: boolean; reducedCount: number }> {
+  const span = parentSpan.traceChild(`optimize-domain-file-${path.basename(filePath)}`);
+
+  try {
+    const lines: string[] = [];
+    const domainTrie = new HostnameSmolTrie();
+    const domainRules: Map<string, string> = new Map();
+    let hasChanges = false;
+
+    // 读取文件并分类规则
+    for await (const line of readFileByLine(filePath)) {
+      const trimmed = line.trim();
+
+      if (trimmed.startsWith('DOMAIN,') || trimmed.startsWith('DOMAIN-SUFFIX,')) {
+        const parts = trimmed.split(',');
+        const domain = parts[1];
+        const ruleType = parts[0];
+
+        if (!domainRules.has(domain)) {
+          domainRules.set(domain, ruleType);
+          domainTrie.add(domain);
+        } else {
+          hasChanges = true; // 发现重复
+        }
+      } else {
+        lines.push(line);
+      }
+    }
+
+    if (!hasChanges && domainRules.size === 0) {
+      return { optimized: false, reducedCount: 0 };
+    }
+
+    // 使用 Trie 进行包含关系优化
+    const optimizedDomains: Map<string, string> = new Map();
+    for (const [domain, ruleType] of domainRules) {
+      // 检查是否被其他域名包含
+      let isIncluded = false;
+      const parts = domain.split('.');
+      for (let i = 1; i < parts.length; i++) {
+        const parent = parts.slice(i).join('.');
+        if (domainTrie.has(parent) && parent !== domain) {
+          isIncluded = true;
+          hasChanges = true;
+          break;
+        }
+      }
+
+      if (!isIncluded) {
+        optimizedDomains.set(domain, ruleType);
+      }
+    }
+
+    const originalCount = domainRules.size;
+    const newCount = optimizedDomains.size;
+    const reducedCount = originalCount - newCount;
+
+    if (reducedCount === 0 && !hasChanges) {
+      return { optimized: false, reducedCount: 0 };
+    }
+
+    // 重建文件内容
+    const newLines: string[] = [];
+    let insertedDomains = false;
+
+    for (const line of lines) {
+      if (!insertedDomains && line.trim() && !line.startsWith('#')) {
+        // 在第一个非注释行之前插入优化后的域名规则
+        for (const [domain, ruleType] of optimizedDomains) {
+          newLines.push(`${ruleType},${domain}`);
+        }
+        insertedDomains = true;
+      }
+      newLines.push(line);
+    }
+
+    // 如果文件只有注释，在末尾添加
+    if (!insertedDomains) {
+      for (const [domain, ruleType] of optimizedDomains) {
+        newLines.push(`${ruleType},${domain}`);
+      }
+    }
+
+    // 写回文件
+    await fs.writeFile(filePath, newLines.join('\n'));
+
+    return { optimized: true, reducedCount };
+  } finally {
+    span.stop();
   }
 }
