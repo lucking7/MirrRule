@@ -36,7 +36,10 @@
 		"optimize:rules": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/sync/rule-optimizer.ts",
 		"optimize:rules:dry": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/sync/rule-optimizer.ts --dry-run",
 		"optimize:rules:help": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/sync/rule-optimizer.ts --help",
-		"validate:all": "npm run validate:rules && npm run validate:tld && npm run check:reject-tld"
+		"validate:all": "npm run validate:rules && npm run validate:tld && npm run check:reject-tld",
+		"test:classifier": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/scripts/test-ruleset-classifier.ts",
+		"scan:rulesets": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/scripts/scan-rulesets.ts",
+		"test:ruleset": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/scripts/test-specific-ruleset.ts"
 	},
 	"dependencies": {
 		"@henrygd/queue": "^1.0.7",

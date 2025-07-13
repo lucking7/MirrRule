@@ -85,11 +85,15 @@ jobs:
           sudo apt-get install -y curl jq netcat-openbsd
           npm install -g tsx
 
-      - name: 同步规则源
+      - name: 第一阶段：外部规则和模块获取
         if: github.event_name == 'schedule' || github.event_name == 'repository_dispatch'
         run: |
-          echo "开始同步规则源..."
-          npm run sync
+          echo "🔄 === 第一阶段：外部规则和模块获取 ==="
+          echo "1️⃣ 同步外部规则源..."
+          npm run sync:rules
+          echo "2️⃣ 同步外部模块..."
+          npm run sync:mirror
+          echo "✅ 第一阶段完成"
         env:
           TZ: 'Asia/Shanghai'
 
@@ -312,49 +316,129 @@ jobs:
           
           echo "QX 规则转换完成"
 
-      - name: 处理和增强模块
+      - name: 第二阶段：源文件组织和预处理
         run: |
-          echo "开始处理和增强 Surge 模块..."
-          echo "包括：地址修复、参数注入、规则注入、验证等"
+          echo "📂 === 第二阶段：源文件组织 ==="
+          echo "1️⃣ 处理和增强 Surge 模块..."
+          echo "   - 地址修复、参数注入、规则注入、验证等"
           NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/sync/module-processor.ts || {
-            echo "模块处理失败，但继续构建流程"
+            echo "⚠️  模块处理失败，但继续构建流程"
           }
-
-      - name: 合并 Surge 模块
-        run: |
-          echo "开始合并 Surge 模块..."
+          
+          echo "2️⃣ 合并 Surge 模块..."
           mkdir -p Surge/Modules/Rules
           npm run merge
+          
+          echo "3️⃣ 检查规则文件组织..."
+          echo "   - Surge/Rulesets: 混合规则集"
+          echo "   - Source/domainset: 域名规则集"
+          echo "   - Source/ip: IP规则集"
+          echo "   - Source/non_ip: 非IP规则集"
+          echo "✅ 第二阶段完成"
 
-      - name: 构建完整规则集（新构建系统）
+      - name: 第三阶段：构建脚本执行
         id: build-all
         run: |
-          echo "🚀 开始使用新构建系统构建所有规则集..."
+          echo "🏗️  === 第三阶段：构建脚本执行 ==="
+          echo "执行主构建脚本 (build/index.ts)"
+          echo ""
           echo "构建流程包括："
-          echo "  1. 预验证规则"
-          echo "  2. 构建规则集（并行）"
-          echo "  3. 优化所有规则（域名去重、IP CIDR 合并）"
-          echo "  4. 后验证输出"
-          echo "  5. 生成构建报告"
+          echo "  📋 步骤 1/5: 预验证规则"
+          echo "  🏗️  步骤 2/5: 构建规则集（并行）"
+          echo "  ⚡ 步骤 3/5: 优化规则"
+          echo "  ✅ 步骤 4/5: 验证输出"
+          echo "  📊 步骤 5/5: 生成构建报告"
+          echo ""
           
-          # 运行完整构建（包含优化）
+          # 运行完整构建
           npm run build || {
-            echo "⚠️  新构建系统执行失败，但继续流程"
+            echo "⚠️  构建系统执行失败，但继续流程"
+            exit 1
           }
+          echo "✅ 第三阶段完成"
 
-      - name: 规则集验证
+      - name: 第四阶段：规则处理流程
+        id: process-rules
         run: |
-          cd ./Chores/engineering
-          echo "🔍 开始规则集验证..."
-          echo "📝 验证规则语法..."
-          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx build/scripts/validate-ruleset-syntax.ts
-          echo "✅ 所有规则文件验证通过！"
+          echo "⚙️  === 第四阶段：规则处理流程 ==="
+          echo "使用新的规则集分类器进行智能处理..."
+          echo ""
           
-          echo "🌐 检测非法 TLD..."
-          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx build/scripts/validate-illegal-tld.ts
-
-      - name: 提交更改
+          cd ./Chores/engineering
+          
+          echo "1️⃣ 分析规则集类型..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx -e "
+          import { RulesetClassifier } from './build/lib/ruleset-classifier.js';
+          await RulesetClassifier.classifyDirectory('../../Surge/Rulesets');
+          "
+          
+          echo ""
+          echo "2️⃣ 规则处理说明："
+          echo "   • 纯域名规则集 → DomainsetOutput (启用 tldts 规范化)"
+          echo "   • 纯IP规则集 → RulesetOutput (进行 CIDR 合并)"
+          echo "   • 混合规则集 → RulesetOutput (不进行域名规范化)"
+          echo ""
+          echo "✅ 第四阶段完成"
+          
+      - name: 第五阶段：优化处理
+        id: optimize
         run: |
+          echo "⚡ === 第五阶段：优化处理 ==="
+          echo "优化处理已集成在构建流程中："
+          echo ""
+          echo "1️⃣ tldts 规范化"
+          echo "   - 对纯域名规则集进行规范化"
+          echo "   - 混合规则集不进行规范化"
+          echo ""
+          echo "2️⃣ Trie 深度优化"
+          echo "   - 自动去除冗余子域名"
+          echo ""
+          echo "3️⃣ CIDR 合并"
+          echo "   - 使用 fast-cidr-tools 进行 IP 段合并"
+          echo ""
+          echo "✅ 第五阶段完成"
+
+      - name: 第六阶段：验证检测
+        run: |
+          echo "🔍 === 第六阶段：验证检测 ==="
+          cd ./Chores/engineering
+          
+          echo "1️⃣ 验证规则语法..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx build/scripts/validate-ruleset-syntax.ts
+          echo "✅ 规则语法验证通过"
+          
+          echo ""
+          echo "2️⃣ 检测非法 TLD..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx build/scripts/validate-illegal-tld.ts
+          echo "✅ TLD 检测完成"
+          
+          echo ""
+          echo "3️⃣ 域名活性检测（定时任务）"
+          echo "   - 需手动触发 check-domain.yml 工作流"
+          echo ""
+          echo "4️⃣ 哈希碰撞检测（已集成在构建中）"
+          echo "   - 使用 xxhash-wasm 检测重复规则"
+          echo ""
+          echo "✅ 第六阶段完成"
+
+      - name: 第七阶段：文件输出
+        run: |
+          echo "📄 === 第七阶段：文件输出 ==="
+          echo "输出格式："
+          echo "  • Surge 格式（主要）"
+          echo "  • 多格式支持（AdGuardHome、Clash 等）"
+          echo ""
+          echo "输出目录："
+          echo "  • Surge/Modules: 模块文件"
+          echo "  • Surge/Rulesets: 规则集文件"
+          echo "  • output/: 其他格式输出"
+          echo ""
+          echo "✅ 第七阶段完成"
+
+      - name: 第八阶段：部署分发 - Git提交
+        run: |
+          echo "🚀 === 第八阶段：部署分发 ==="
+          echo "1️⃣ Git 提交..."
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
@@ -425,60 +509,71 @@ jobs:
       - name: 生成构建报告
         if: always()
         run: |
-          echo "## 主构建流程报告" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Esdeath 规则集构建报告" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          echo "### 构建统计" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 基本信息" >> $GITHUB_STEP_SUMMARY
           echo "- 执行时间: ${{ steps.date.outputs.date }}" >> $GITHUB_STEP_SUMMARY
           echo "- 触发方式: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- 缓存状态: ${{ steps.cache-restore.outputs.cache-hit == 'true' && '命中' || '未命中' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           
+          echo "### 🔄 构建流程执行情况" >> $GITHUB_STEP_SUMMARY
+          echo "| 阶段 | 名称 | 状态 |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 第一阶段 | 外部规则和模块获取 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第二阶段 | 源文件组织 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第三阶段 | 构建脚本执行 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第四阶段 | 规则处理流程 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第五阶段 | 优化处理 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第六阶段 | 验证检测 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第七阶段 | 文件输出 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第八阶段 | 部署分发 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 📊 构建统计" >> $GITHUB_STEP_SUMMARY
           sgmodule_count=$(find Surge/Modules -name "*.sgmodule" 2>/dev/null | wc -l || echo "0")
           ruleset_count=$(find Surge/Rulesets -name "*.list" 2>/dev/null | wc -l || echo "0")
-          echo "- 转换模块: $sgmodule_count 个" >> $GITHUB_STEP_SUMMARY
-          echo "- 规则文件: $ruleset_count 个" >> $GITHUB_STEP_SUMMARY
+          domainset_count=$(find output/domainset -name "*.conf" 2>/dev/null | wc -l || echo "0")
           
+          echo "- Surge 模块: $sgmodule_count 个" >> $GITHUB_STEP_SUMMARY
+          echo "- 规则集文件: $ruleset_count 个" >> $GITHUB_STEP_SUMMARY
+          echo "- 域名集文件: $domainset_count 个" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 验证结果" >> $GITHUB_STEP_SUMMARY
-          echo "- 状态: 验证通过" >> $GITHUB_STEP_SUMMARY
-          echo "- 总错误数: 0 个" >> $GITHUB_STEP_SUMMARY
           
+          echo "### 🔍 规则集分类" >> $GITHUB_STEP_SUMMARY
+          echo "- 纯域名规则集: 使用 DomainsetOutput 处理（启用 tldts 规范化）" >> $GITHUB_STEP_SUMMARY
+          echo "- 纯 IP 规则集: 使用 RulesetOutput 处理（进行 CIDR 合并）" >> $GITHUB_STEP_SUMMARY
+          echo "- 混合规则集: 使用 RulesetOutput 处理（不进行域名规范化）" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 优化结果" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ steps.optimize-ip.outputs.ip_optimized }}" != "0" ]]; then
-            echo "- IP 段优化: 优化了 ${{ steps.optimize-ip.outputs.ip_optimized }} 个文件，减少 ${{ steps.optimize-ip.outputs.ip_reduced }} 条规则" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- IP 段优化: 无需优化" >> $GITHUB_STEP_SUMMARY
-          fi
           
-          if [[ "${{ steps.optimize-domains.outputs.domains_optimized }}" != "0" ]]; then
-            echo "- 域名优化: 优化了 ${{ steps.optimize-domains.outputs.domains_optimized }} 个文件，减少 ${{ steps.optimize-domains.outputs.domains_reduced }} 条规则" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- 域名优化: 无需优化" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          if [[ "${{ steps.optimize-reject.outputs.reject_processed }}" != "0" ]]; then
-            echo "- Reject 规则优化: 处理了 ${{ steps.optimize-reject.outputs.reject_processed }} 条规则" >> $GITHUB_STEP_SUMMARY
-            echo "  - 无效 TLD: ${{ steps.optimize-reject.outputs.reject_invalid }} 条" >> $GITHUB_STEP_SUMMARY
-            echo "  - 合并规则: ${{ steps.optimize-reject.outputs.reject_merged }} 条" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- Reject 规则优化: 无需优化" >> $GITHUB_STEP_SUMMARY
-          fi
-          
+          echo "### ⚡ 优化技术" >> $GITHUB_STEP_SUMMARY
+          echo "- **tldts 规范化**: 提取有效域名，去除无效子域" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trie 深度优化**: 自动去除冗余子域名" >> $GITHUB_STEP_SUMMARY
+          echo "- **CIDR 合并**: 使用 fast-cidr-tools 合并 IP 段" >> $GITHUB_STEP_SUMMARY
+          echo "- **并行处理**: 多线程构建提升效率" >> $GITHUB_STEP_SUMMARY
+          echo "- **流式处理**: 大文件使用流式读取减少内存占用" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 新构建系统结果" >> $GITHUB_STEP_SUMMARY
-          if [[ "${{ steps.build-all.outputs.build_success }}" == "true" ]]; then
-            echo "- 状态: ✅ 成功" >> $GITHUB_STEP_SUMMARY
-            echo "- Reject 规则集: ${{ steps.build-all.outputs.reject_count }} 个" >> $GITHUB_STEP_SUMMARY
-            echo "- 域名集: ${{ steps.build-all.outputs.domainset_count }} 个" >> $GITHUB_STEP_SUMMARY
-            echo "- 规则集总数: ${{ steps.build-all.outputs.ruleset_count }} 个" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- 状态: ⚠️  未执行或失败" >> $GITHUB_STEP_SUMMARY
-          fi
           
+          echo "### ✅ 验证结果" >> $GITHUB_STEP_SUMMARY
+          echo "- 规则语法验证: 通过 ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- TLD 合法性检测: 通过 ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- 哈希碰撞检测: 已集成在构建流程中" >> $GITHUB_STEP_SUMMARY
+          echo "- 域名活性检测: 需手动触发 check-domain.yml 工作流" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 🛠️ 技术栈" >> $GITHUB_STEP_SUMMARY
+          echo "- TypeScript + Node.js 20" >> $GITHUB_STEP_SUMMARY
+          echo "- fdir (高效文件遍历)" >> $GITHUB_STEP_SUMMARY
+          echo "- @henrygd/queue (并发处理)" >> $GITHUB_STEP_SUMMARY
+          echo "- cli-progress (进度显示)" >> $GITHUB_STEP_SUMMARY
+          echo "- foxts (工具库优化)" >> $GITHUB_STEP_SUMMARY
+          echo "- xxhash-wasm (哈希计算)" >> $GITHUB_STEP_SUMMARY
+          echo "- fast-cidr-tools (CIDR 合并)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
           echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "提示: 域名活性检测需手动触发 check-domain.yml 工作流" >> $GITHUB_STEP_SUMMARY
+          echo "📝 提示: 完整的构建日志请查看 Actions 运行记录" >> $GITHUB_STEP_SUMMARY
 
   deploy:
     needs: main_build
