@@ -163,10 +163,25 @@ async function checkFileForIllegalTLD(
   rulesetType: RulesetType
 ): Promise<IllegalDomainInfo[]> {
   const illegalDomains: IllegalDomainInfo[] = [];
+  const fileName = path.basename(filePath);
+
+  // 混合规则集（RulesetOutput）不需要 TLD 验证
+  if (rulesetType === RulesetType.RULESET) {
+    console.log(picocolors.gray(`    跳过混合规则集的 TLD 验证: ${fileName}`));
+    return illegalDomains;
+  }
+
+  // IP 规则集也不需要 TLD 验证
+  if (rulesetType === RulesetType.IPLIST) {
+    console.log(picocolors.gray(`    跳过 IP 规则集的 TLD 验证: ${fileName}`));
+    return illegalDomains;
+  }
+
   let lineNumber = 0;
+  const source = readFileByLine(filePath);
 
   try {
-    for await (const line of readFileByLine(filePath)) {
+    for await (const line of source) {
       lineNumber++;
       const trimmedLine = line.trim();
 

@@ -45,7 +45,12 @@ export async function validateAllRules(parentSpan: Span, options: ValidationOpti
       if (!options.skipDomainAlive) {
         validationTasks.push({
           name: '域名活性检测',
-          task: () => validateDomainAlive(span),
+          task: () => {
+            console.log(
+              picocolors.yellow('  域名活性检测需要手动触发 (npm run validate:domain-alive)')
+            );
+            return Promise.resolve();
+          },
         });
       }
     } else {

@@ -6,6 +6,7 @@ import { DomainsetOutput } from '../lib/rules/domainset.js';
 import { RulesetOutput } from '../lib/rules/ruleset.js';
 import { readFileIntoProcessedArray } from '../lib/fetch-text-by-line.js';
 import picocolors from 'picocolors';
+import fs from 'node:fs/promises';
 
 // 获取当前文件所在目录
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -32,6 +33,14 @@ async function scanSourceFiles(): Promise<SourceFile[]> {
   const files: SourceFile[] = [];
 
   console.log(`扫描目录: ${SOURCE_DIR}`);
+
+  // 检查 SOURCE_DIR 是否存在
+  try {
+    await fs.access(SOURCE_DIR);
+  } catch {
+    console.warn(picocolors.yellow('⚠️  Source 目录不存在，跳过通用规则集构建'));
+    return files;
+  }
 
   // 扫描 domainset 目录
   try {
@@ -117,14 +126,14 @@ async function processFile(span: any, file: SourceFile) {
       break;
 
     case 'non_ip':
-      output = new RulesetOutput(span, file.id, 'non_ip')
+      output = new RulesetOutput(file.id)
         .withTitle(`Sukka's Ruleset - ${file.id} (Non-IP)`)
         .withDescription(SHARED_DESCRIPTION);
       await output.addFromRuleset(content);
       break;
 
     case 'ip':
-      output = new RulesetOutput(span, file.id, 'ip')
+      output = new RulesetOutput(file.id)
         .withTitle(`Sukka's Ruleset - ${file.id} (IP)`)
         .withDescription(SHARED_DESCRIPTION);
       await output.addFromRuleset(content);

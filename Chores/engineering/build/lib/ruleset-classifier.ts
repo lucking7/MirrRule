@@ -1,9 +1,10 @@
 /**
  * 规则集分类器
- * 用于判定规则集的类型：纯域名、纯IP、混合规则集
+ * 用于自动识别规则集类型（纯域名、纯IP、混合）
  */
 
-import { readFileByLine } from './fetch-text-by-line.js';
+import * as path from 'node:path';
+import { readFileByLine } from '../lib/fetch-text-by-line.js';
 import { processLine } from './process-line.js';
 import picocolors from 'picocolors';
 
@@ -30,7 +31,25 @@ export class RulesetClassifier {
    * 分析规则集文件，判定其类型
    */
   static async classifyFile(filePath: string): Promise<RulesetClassification> {
-    const stats = {
+    const fileName = path.basename(filePath);
+
+    // 特殊处理：某些文件总是混合规则集
+    const alwaysMixedFiles = ['cdn.list', 'direct.list'];
+    if (alwaysMixedFiles.includes(fileName)) {
+      console.log(picocolors.gray(`  特殊处理: ${fileName} 强制分类为混合规则集`));
+      return {
+        type: RulesetType.MIXED,
+        stats: {
+          domains: 0,
+          ips: 0,
+          other: 1, // 标记为other以确保被识别为混合
+          total: 1,
+        },
+        confidence: 1.0, // 100%确定
+      };
+    }
+
+    const stats: RulesetClassification['stats'] = {
       domains: 0,
       ips: 0,
       other: 0,

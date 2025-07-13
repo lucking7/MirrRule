@@ -44,18 +44,32 @@ async function processFile(
   progressBar?: cliProgress.SingleBar
 ): Promise<void> {
   const xxhash = await getXXHash();
-  const relativePath = path.relative(SOURCE_DIR, filePath);
 
   try {
-    // 根据目录类型处理文件
-    if (relativePath.startsWith('domainset' + path.sep)) {
-      // domainset 目录：纯域名文件
-      const lines = await readFileIntoProcessedArray(filePath);
+    // 处理规则文件，提取域名
+    for await (const line of readFileByLine(filePath)) {
+      const trimmedLine = line.trim();
 
-      for (const line of lines) {
-        // 处理 .example.com -> example.com
-        const domain = line[0] === '.' ? line.slice(1) : line;
+      // 跳过空行和注释
+      if (!trimmedLine || trimmedLine.startsWith('#') || trimmedLine.startsWith('//')) {
+        continue;
+      }
 
+      // 处理不同格式的域名规则
+      let domain: string | undefined;
+
+      if (trimmedLine.includes(',')) {
+        // 混合规则集格式：DOMAIN,example.com 或 DOMAIN-SUFFIX,example.com
+        const parts = trimmedLine.split(',');
+        if (parts[0] === 'DOMAIN' || parts[0] === 'DOMAIN-SUFFIX') {
+          domain = parts[1]?.trim();
+        }
+      } else if (!trimmedLine.includes(' ') && trimmedLine.includes('.')) {
+        // 纯域名格式：example.com 或 .example.com
+        domain = trimmedLine.startsWith('.') ? trimmedLine.slice(1) : trimmedLine;
+      }
+
+      if (domain) {
         // 计算 xxhash3
         const hash = xxhash.h64ToString(domain);
 
@@ -68,44 +82,13 @@ async function processFile(
           hashMap.get(hash)!.domains.add(domain);
         }
       }
-    } else if (relativePath.startsWith('non_ip' + path.sep)) {
-      // non_ip 目录：混合规则文件，提取域名部分
-      for await (const line of readFileByLine(filePath)) {
-        const trimmedLine = line.trim();
-
-        // 跳过空行和注释
-        if (!trimmedLine || trimmedLine.startsWith('#') || trimmedLine.startsWith('//')) {
-          continue;
-        }
-
-        // 提取域名规则
-        if (trimmedLine.includes(',')) {
-          const parts = trimmedLine.split(',');
-          if (parts[0] === 'DOMAIN' || parts[0] === 'DOMAIN-SUFFIX') {
-            const domain = parts[1]?.trim();
-            if (domain) {
-              // 计算 xxhash3
-              const hash = xxhash.h64ToString(domain);
-
-              if (!hashMap.has(hash)) {
-                hashMap.set(hash, {
-                  hash,
-                  domains: new Set([domain]),
-                });
-              } else {
-                hashMap.get(hash)!.domains.add(domain);
-              }
-            }
-          }
-        }
-      }
     }
 
     if (progressBar) {
       progressBar.increment();
     }
   } catch (error) {
-    console.warn(`⚠️ 无法处理文件 ${filePath}: ${error}`);
+    console.error(`❌ 处理文件失败: ${filePath}`, error);
   }
 }
 
@@ -120,9 +103,22 @@ export async function validateHashCollision(parentSpan: Span) {
       .withBasePath()
       .filter(path => path.endsWith('.txt') || path.endsWith('.conf') || path.endsWith('.list'));
 
-    const domainsetFiles = await crawler.crawl(path.join(SOURCE_DIR, 'domainset')).withPromise();
-    const nonIpFiles = await crawler.crawl(path.join(SOURCE_DIR, 'non_ip')).withPromise();
-    const files = [...domainsetFiles, ...nonIpFiles];
+    const files: string[] = [];
+
+    // 尝试扫描各个目录，优雅处理不存在的情况
+    const dirsToScan = [
+      path.join(path.dirname(SOURCE_DIR), 'Surge', 'Rulesets'),
+      path.join(path.dirname(SOURCE_DIR), 'Chores', 'ruleset'),
+    ];
+
+    for (const dir of dirsToScan) {
+      try {
+        const dirFiles = await crawler.crawl(dir).withPromise();
+        files.push(...dirFiles);
+      } catch (error) {
+        console.log(picocolors.gray(`  跳过不存在的目录: ${dir}`));
+      }
+    }
 
     if (files.length === 0) {
       console.log(picocolors.yellow('⚠️ 未找到域名规则文件'));

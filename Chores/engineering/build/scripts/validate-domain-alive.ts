@@ -78,17 +78,18 @@ export async function validateDomainAlive(parentSpan: Span) {
   try {
     // 需要扫描的目录和文件类型
     const scanConfigs = [
-      { dir: path.join(SOURCE_DIR, 'domainset'), types: ['.txt', '.conf'] },
-      { dir: path.join(SOURCE_DIR, 'non_ip'), types: ['.txt', '.conf'] },
+      // 修改为扫描实际存在的规则目录
+      { dir: path.join(path.dirname(SOURCE_DIR), 'Surge', 'Rulesets'), types: ['.list'] },
+      { dir: path.join(path.dirname(SOURCE_DIR), 'Chores', 'ruleset'), types: ['.list'] },
     ];
 
-    console.log(`SOURCE_DIR: ${SOURCE_DIR}`);
+    console.log(`工作目录: ${path.dirname(SOURCE_DIR)}`);
 
     // 收集所有需要验证的域名
     const allDomainsByFile = new Map<string, string[]>();
     let totalDomains = 0;
 
-    console.log('📁 扫描源文件...');
+    console.log('📁 扫描规则文件...');
     for (const config of scanConfigs) {
       console.log(`  检查目录: ${config.dir}`);
       const domainsByFile = await scanDirectory(config.dir, config.types);
@@ -97,7 +98,9 @@ export async function validateDomainAlive(parentSpan: Span) {
         allDomainsByFile.set(file, domains);
         totalDomains += domains.length;
         console.log(
-          `  ${picocolors.gray(path.relative(SOURCE_DIR, file))}: ${domains.length} 个域名`
+          `  ${picocolors.gray(path.relative(path.dirname(SOURCE_DIR), file))}: ${
+            domains.length
+          } 个域名`
         );
       }
     }
@@ -142,7 +145,7 @@ export async function validateDomainAlive(parentSpan: Span) {
     const result: Record<string, string[]> = {};
 
     for (const [file, domains] of deadDomainsByFile) {
-      const relPath = path.relative(SOURCE_DIR, file);
+      const relPath = path.relative(path.dirname(SOURCE_DIR), file);
       console.log(picocolors.yellow(`📄 ${relPath}:`));
 
       domains.forEach(d => {
