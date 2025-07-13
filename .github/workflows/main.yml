@@ -408,8 +408,8 @@ jobs:
           echo "✅ 规则语法验证通过"
           
           echo ""
-          echo "2️⃣ 检测非法 TLD..."
-          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx build/scripts/validate-illegal-tld.ts
+          echo "2️⃣ 检测 TLD 有效性..."
+          npm run validate:tld
           echo "✅ TLD 检测完成"
           
           echo ""

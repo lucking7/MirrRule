@@ -19,7 +19,7 @@
 		"validate:rules": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/validate-rules.ts",
 		"validate:domains": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/clean-dead-domains.ts",
 		"validate:domain-alive": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/validate-domain-alive.ts",
-		"validate:tld": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/validate-illegal-tld.ts",
+		"validate:tld": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/validate-rules.ts",
 		"validate:hash": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/validate-hash-collision.ts",
 		"validate:rulesyntax": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/validate-rule-syntax.ts",
 		"clean:dead-domains": "NODE_OPTIONS=\"--experimental-specifier-resolution=node\" tsx Chores/engineering/build/scripts/clean-dead-domains.ts --fix",

@@ -1,6 +1,5 @@
 import { Span } from '../trace/index.js';
 import { validateRules } from './validate-rules.js';
-import { validateIllegalTLD } from './validate-illegal-tld.js';
 import { validateHashCollision } from './validate-hash-collision.js';
 import { validateDomainAlive } from './validate-domain-alive.js';
 import picocolors from 'picocolors';
@@ -23,16 +22,10 @@ export async function validateAllRules(parentSpan: Span, options: ValidationOpti
     if (!options.postBuild) {
       // 构建前验证（源文件）
 
-      // 1. 验证规则格式
+      // 1. 验证规则格式（包含 TLD 验证）
       validationTasks.push({
         name: '规则格式验证',
         task: () => validateRules(span),
-      });
-
-      // 2. 验证非法 TLD
-      validationTasks.push({
-        name: '非法 TLD 检测',
-        task: () => validateIllegalTLD(span),
       });
 
       // 3. 验证哈希冲突

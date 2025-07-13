@@ -1,4 +1,16 @@
 // Ruleset - Domestic Services
+// Last updated: 2025/7/14 02:59:33
+// DOMAIN: 20
+// DOMAIN-SUFFIX: 783
+// IP-CIDR: 2
+// USER-AGENT: 3
+// OTHER: 5
+// Total: 813
+// This file contains known addresses that are available in Mainland China
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/domestic.conf
+//  - https://ruleset.skk.moe/List/ip/domestic.conf
+// Ruleset - Domestic Services
 // Last updated: 2025/7/9 17:08:53
 // DOMAIN: 19
 // DOMAIN-SUFFIX: 776
@@ -5855,3 +5867,11 @@ USER-AGENT,%E6%89%8B%E6%9C%BA%E6%B7%98%E5%AE%9D*
 USER-AGENT,TeslaMap
 IP-CIDR,140.205.1.0/24,no-resolve
 IP-CIDR,162.14.0.0/18,no-resolve
+DOMAIN-SUFFIX,taobao.org
+DOMAIN,kms.03k.org
+DOMAIN-SUFFIX,4008823823.com
+DOMAIN-SUFFIX,alipaydev.com
+DOMAIN-SUFFIX,alimama.com
+DOMAIN-SUFFIX,hwwt8.com
+DOMAIN-SUFFIX,110.com
+DOMAIN-SUFFIX,kfcapp.cn

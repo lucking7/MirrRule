@@ -1,5 +1,4 @@
 import { createSpan, printTraceResult } from './trace/index.js';
-import { buildRejectDomainSetEnhanced } from './scripts/build-reject-domainset.js';
 import { buildCommon } from './scripts/build-common.js';
 import { buildMixedRuleset } from './scripts/build-mixed-ruleset.js';
 import { validateAllRules } from './scripts/validate-all-rules.js';
@@ -23,9 +22,6 @@ async function main() {
     // 2. 构建阶段（并行执行）
     console.log(picocolors.yellow('\n🏗️  步骤 2/5: 构建规则集...'));
     await Promise.all([
-      // 构建 reject 域名集（合并 AdGuard 过滤器）
-      buildRejectDomainSetEnhanced(rootSpan),
-
       // 构建通用规则集（从 Source 目录）
       buildCommon(rootSpan),
 

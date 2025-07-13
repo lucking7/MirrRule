@@ -1,7 +1,7 @@
 #########################################
 # Sukka's Ruleset - Speedtest Domains
-# Last Updated: 2025-07-12T12:44:34.566Z
-# Size: 1225
+# Last Updated: 2025-07-13T12:45:12.699Z
+# Size: 1226
 # License: AGPL 3.0
 # Homepage: https://ruleset.skk.moe
 # GitHub: https://github.com/SukkaW/Surge
@@ -204,6 +204,7 @@ DOMAIN,speedtest.nexicom.net
 DOMAIN,ookla.lunoxia.net
 DOMAIN,speed.lordnet.net
 DOMAIN,speedtest.lekloud.net
+DOMAIN,speed.farknet.net
 DOMAIN,iperf-ams-nl.eranium.net
 DOMAIN,msk-speedtest2.corbina.net
 DOMAIN-SUFFIX,speedtest.contabo.net
