@@ -404,7 +404,7 @@ jobs:
           cd ./Chores/engineering
           
           echo "1️⃣ 验证规则语法..."
-          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx build/scripts/validate-ruleset-syntax.ts
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx build/scripts/validate-rule-syntax.ts
           echo "✅ 规则语法验证通过"
           
           echo ""
