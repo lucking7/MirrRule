@@ -33,3 +33,4 @@ Chores/engineering/.cache/
 
 # 忽略测试目录
 Surge/TEST/
+node_modules/
