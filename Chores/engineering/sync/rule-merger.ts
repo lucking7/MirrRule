@@ -16,6 +16,125 @@ import { ruleGroups, specialRules } from './rule-sources.js';
 export class RuleMerger {
   constructor(private repoPath: string, private converter: RuleConverter) {}
 
+  /**
+   * 解析 Surge 模块文件内容，提取规则部分
+   * @param content - 模块文件内容
+   * @returns 提取的规则内容
+   */
+  private parseSurgeModule(content: string): string {
+    const lines = content.split('\n');
+    const rules: string[] = [];
+    let inRuleSection = false;
+
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+
+      // 检测 [Rule] 节的开始
+      if (trimmedLine === '[Rule]') {
+        inRuleSection = true;
+        continue;
+      }
+
+      // 检测其他节的开始，结束规则收集
+      if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']') && inRuleSection) {
+        break;
+      }
+
+      // 在规则节中收集规则
+      if (inRuleSection && trimmedLine) {
+        // 跳过注释行
+        if (trimmedLine.startsWith('#')) {
+          // 可以选择保留某些注释作为分组标记
+          if (trimmedLine.includes('>')) {
+            rules.push(trimmedLine);
+          }
+          continue;
+        }
+
+        // 处理参数化规则 - 移除参数占位符，只保留规则本身
+        let rule = trimmedLine;
+
+        // 移除参数化策略部分 {{{...}}}
+        // 例如: DOMAIN,example.com,{{{卷毛鼠Policy}}} 变成 DOMAIN,example.com
+        rule = rule.replace(/,\{\{\{[^}]+\}\}\}/g, '');
+
+        // 验证规则格式，确保有有效的值
+        const parts = rule.split(',');
+        if (parts.length >= 2 && parts[1].trim()) {
+          // 保留行内注释
+          rules.push(rule);
+        }
+      }
+    }
+
+    return rules.join('\n');
+  }
+
+  /**
+   * 清理规则内容，移除无效规则和参数化内容
+   * @param content - 规则内容
+   * @returns 清理后的规则内容
+   */
+  private cleanRuleContent(content: string): string {
+    const lines = content.split('\n');
+    const cleanedRules: string[] = [];
+
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+
+      // 跳过空行和节标记
+      if (!trimmedLine || (trimmedLine.startsWith('[') && trimmedLine.endsWith(']'))) {
+        continue;
+      }
+
+      // 保留注释
+      if (trimmedLine.startsWith('#') || trimmedLine.startsWith('//')) {
+        cleanedRules.push(line);
+        continue;
+      }
+
+      // 清理参数化策略
+      let cleanedRule = trimmedLine.replace(/,\{\{\{[^}]+\}\}\}/g, '');
+
+      // 验证规则格式
+      const parts = cleanedRule.split(',');
+      const ruleType = parts[0]?.trim();
+      const ruleValue = parts[1]?.trim();
+
+      // 确保规则有有效的类型和值
+      if (
+        ruleType &&
+        ruleValue &&
+        [
+          'DOMAIN',
+          'DOMAIN-SUFFIX',
+          'DOMAIN-KEYWORD',
+          'DOMAIN-WILDCARD',
+          'IP-CIDR',
+          'IP-CIDR6',
+          'IP-ASN',
+          'GEOIP',
+          'USER-AGENT',
+          'URL-REGEX',
+          'PROCESS-NAME',
+          'RULE-SET',
+        ].includes(ruleType)
+      ) {
+        // 额外检查：确保值不是节标记或其他无效内容
+        if (
+          !ruleValue.startsWith('[') &&
+          !ruleValue.endsWith(']') &&
+          ruleValue !== 'Rule' &&
+          ruleValue !== ''
+        ) {
+          cleanedRules.push(cleanedRule);
+        }
+      }
+    }
+
+    return cleanedRules.join('\n');
+  }
+
   async mergeSpecialRules(config: SpecialRuleConfig): Promise<boolean> {
     const {
       name,
@@ -98,6 +217,10 @@ export class RuleMerger {
               processedContent = payloadContent;
             }
           }
+          // 处理 Surge 模块文件
+          else if (source.endsWith('.sgmodule') || content.includes('[Rule]')) {
+            processedContent = this.parseSurgeModule(content);
+          }
 
           // 移除现有头部
           contents.push(processedContent.replace(/^#.*\n/gm, '').trim());
@@ -127,6 +250,9 @@ export class RuleMerger {
         .map(line => this.converter.convert(line))
         .filter(Boolean) // 过滤掉空行和不支持的规则
         .join('\n');
+
+      // 5.6 清理规则内容，移除无效规则和参数化内容
+      mergedContent = this.cleanRuleContent(mergedContent);
 
       // 6. 处理去重和清理排序
       let shouldDedup = true;
