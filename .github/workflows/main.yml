@@ -369,7 +369,9 @@ jobs:
           echo "1️⃣ 分析规则集类型..."
           NODE_OPTIONS="--experimental-specifier-resolution=node" tsx -e "
           import { RulesetClassifier } from './build/lib/ruleset-classifier.js';
-          await RulesetClassifier.classifyDirectory('../../Surge/Rulesets');
+          (async () => {
+            await RulesetClassifier.classifyDirectory('../../Surge/Rulesets');
+          })();
           "
           
           echo ""
