@@ -1,0 +1,5277 @@
+DOMAIN-SUFFIX,bilivideo.com
+DOMAIN-SUFFIX,hdslb.com
+DOMAIN-SUFFIX,szbdyd.com
+DOMAIN-SUFFIX,zijieapi.com
+DOMAIN-SUFFIX,ecombdapi.com
+DOMAIN-SUFFIX,wsproxy.douyu.com
+DOMAIN-SUFFIX,danmuproxy.douyu.com
+DOMAIN,y.qq.com
+DOMAIN-SUFFIX,akamaized.net
+DOMAIN-SUFFIX,lf127.net
+DOMAIN-SUFFIX,hls3-akm.douyucdn.cn
+DOMAIN-SUFFIX,hlsa-akm.douyucdn.cn
+DOMAIN-SUFFIX,hls1a-akm.douyucdn.cn
+DOMAIN-SUFFIX,hls3a-akm.douyucdn.cn
+DOMAIN-SUFFIX,vplay1a.douyucdn.cn
+DOMAIN-SUFFIX,vplay3a.douyucdn.cn
+DOMAIN-SUFFIX,ws-tct.douyucdn.cn
+DOMAIN-SUFFIX,akm-tct.douyucdn.cn
+DOMAIN-SUFFIX,tx2play1.douyucdn.cn
+DOMAIN-SUFFIX,tc-tct1.douyucdn.cn
+DOMAIN-SUFFIX,img.douyucdn.cn
+DOMAIN,china-img.soulapp.cn
+DOMAIN,img.soulapp.cn
+// Ruleset - Anti-IP (Direct)
+// Last updated: 2025/7/14 14:04:37
+// DOMAIN: 3
+// DOMAIN-SUFFIX: 20
+// Total: 23
+// This file contains direct rules to counter IP-based location attribution required by Chinese social media platforms
+# 针对部分网站显示IP归属地的分流规则
+# anti-ip-attribution rule-set-direct.list v0.3.1 d4a828fd5aa22dfc4368311ab0846d3349b8409d
+# https://github.com/SunsetMkt/anti-ip-attribution
+# 适用于Clash RULE-SETplinkwifi.net
+DOMAIN-SUFFIX,cinematik.net
+DOMAIN-SUFFIX,tplinkap.net
+DOMAIN-SUFFIX,pornbits.net
+DOMAIN-SUFFIX,gfxpeers.net
+DOMAIN-SUFFIX,discfan.net
+DOMAIN-SUFFIX,pthome.net
+DOMAIN-SUFFIX,nicept.net
+DOMAIN-SUFFIX,joyhd.net
+DOMAIN-SUFFIX,engage.cloudflareclient.com
+DOMAIN-SUFFIX,download.555mac.com
+DOMAIN-SUFFIX,blackwell-synergy.com
+DOMAIN-SUFFIX,huaweimobilewifi.com
+DOMAIN-SUFFIX,springernature.com
+DOMAIN,setmeup.arubanetworks.com
+DOMAIN,instant.arubanetworks.com
+DOMAIN-SUFFIX,routerlogin.com
+DOMAIN-SUFFIX,asusrouter.com
+DOMAIN-SUFFIX,nanyangpt.com
+DOMAIN-SUFFIX,springer.com
+DOMAIN-SUFFIX,pterclub.com
+DOMAIN-SUFFIX,leaguehd.com
+DOMAIN-SUFFIX,keepfrds.com
+DOMAIN-SUFFIX,hddolby.com
+DOMAIN,console.gl-inet.com
+DOMAIN,hotspot.cslwifi.com
+DOMAIN-SUFFIX,cgpeers.com
+DOMAIN-SUFFIX,xunlei.com
+DOMAIN-SUFFIX,trontv.com
+DOMAIN-SUFFIX,skyey2.com
+DOMAIN-SUFFIX,scopus.com
+DOMAIN-SUFFIX,nature.com
+DOMAIN-SUFFIX,wiley.com
+DOMAIN-SUFFIX,npupt.com
+DOMAIN-SUFFIX,hitpt.com
+DOMAIN-SUFFIX,hdupt.com
+DOMAIN-SUFFIX,dxdhd.com
+DOMAIN,captive.apple.com
+DOMAIN,repeater.asus.com
+DOMAIN,router.asus.com
+DOMAIN-SUFFIX,oup.com
+DOMAIN-SUFFIX,localdomain
+DOMAIN-SUFFIX,internal
+DOMAIN-SUFFIX,orpheus.network
+DOMAIN,mobile.hotspot
+DOMAIN-SUFFIX,router
+DOMAIN-SUFFIX,plex.direct
+DOMAIN-SUFFIX,ui.direct
+DOMAIN,unifi
+DOMAIN,ntt.setup
+DOMAIN-SUFFIX,local
+DOMAIN-SUFFIX,bogon
+DOMAIN-SUFFIX,52pt.site
+DOMAIN-SUFFIX,concertos.live
+DOMAIN-SUFFIX,j99.info
+DOMAIN-SUFFIX,home
+DOMAIN,pi.hole
+DOMAIN-SUFFIX,soulvoice.club
+DOMAIN-SUFFIX,dicmusic.club
+DOMAIN-SUFFIX,btschool.club
+DOMAIN-SUFFIX,ourbits.club
+DOMAIN-SUFFIX,hdatmos.club
+DOMAIN-SUFFIX,ptsbao.club
+DOMAIN-SUFFIX,hdcity.city
+DOMAIN-SUFFIX,moecat.best
+DOMAIN-SUFFIX,168.192.in-addr.arpa
+DOMAIN-SUFFIX,31.172.in-addr.arpa
+DOMAIN-SUFFIX,30.172.in-addr.arpa
+DOMAIN-SUFFIX,29.172.in-addr.arpa
+DOMAIN-SUFFIX,28.172.in-addr.arpa
+DOMAIN-SUFFIX,27.172.in-addr.arpa
+DOMAIN-SUFFIX,26.172.in-addr.arpa
+DOMAIN-SUFFIX,25.172.in-addr.arpa
+DOMAIN-SUFFIX,24.172.in-addr.arpa
+DOMAIN-SUFFIX,23.172.in-addr.arpa
+DOMAIN-SUFFIX,22.172.in-addr.arpa
+DOMAIN-SUFFIX,21.172.in-addr.arpa
+DOMAIN-SUFFIX,20.172.in-addr.arpa
+DOMAIN-SUFFIX,19.172.in-addr.arpa
+DOMAIN-SUFFIX,18.172.in-addr.arpa
+DOMAIN-SUFFIX,17.172.in-addr.arpa
+DOMAIN-SUFFIX,16.172.in-addr.arpa
+DOMAIN-SUFFIX,254.169.in-addr.arpa
+DOMAIN-SUFFIX,10.in-addr.arpa
+DOMAIN-SUFFIX,home.arpa
+DOMAIN-SUFFIX,blutopia.xyz
+DOMAIN-SUFFIX,hd4.xyz
+DOMAIN-SUFFIX,hdpost.top
+DOMAIN-SUFFIX,acg.rip
+DOMAIN-SUFFIX,m2m
+DOMAIN-SUFFIX,lan
+DOMAIN,homerouter.cpe
+DOMAIN-SUFFIX,msg.vg
+DOMAIN-SUFFIX,hdbd.us
+DOMAIN-SUFFIX,classix-unlimited.co.uk
+DOMAIN-SUFFIX,animebytes.tv
+DOMAIN-SUFFIX,privatehd.to
+DOMAIN-SUFFIX,exoticaz.to
+DOMAIN-SUFFIX,cinemaz.to
+DOMAIN-SUFFIX,avistaz.to
+DOMAIN-SUFFIX,beitai.pt
+DOMAIN-SUFFIX,passthepopcorn.me
+DOMAIN-SUFFIX,aidoru-online.me
+DOMAIN-SUFFIX,asiancinema.me
+DOMAIN-SUFFIX,awesome-hd.me
+DOMAIN-SUFFIX,empornium.me
+DOMAIN-SUFFIX,bibliotik.me
+DOMAIN-SUFFIX,beyond-hd.me
+DOMAIN-SUFFIX,anthelion.me
+DOMAIN-SUFFIX,oppaiti.me
+DOMAIN-SUFFIX,hdzone.me
+DOMAIN-SUFFIX,hdsky.me
+DOMAIN,aterm.me
+DOMAIN-SUFFIX,lztr.me
+DOMAIN-SUFFIX,nebulance.io
+DOMAIN-SUFFIX,filelist.io
+DOMAIN-SUFFIX,karagarga.in
+DOMAIN-SUFFIX,totheglory.im
+DOMAIN-SUFFIX,jpopsuki.eu
+DOMAIN-SUFFIX,chdbits.co
+DOMAIN-SUFFIX,hdarea.co
+DOMAIN-SUFFIX,tplogin.cn
+DOMAIN-SUFFIX,bt.neu6.edu.cn
+DOMAIN-SUFFIX,hudbt.hust.edu.cn
+DOMAIN-SUFFIX,securelogin.com.cn
+DOMAIN-SUFFIX,bt.byr.cn
+DOMAIN-SUFFIX,redacted.ch
+DOMAIN-SUFFIX,open.cd
+DOMAIN-SUFFIX,alpharatio.cc
+DOMAIN-SUFFIX,m-team.cc
+DOMAIN-SUFFIX,ncore.cc
+DOMAIN-SUFFIX,avgv.cc
+DOMAIN-KEYWORD,mac-torrent-download
+DOMAIN-KEYWORD,cnki.net
+DOMAIN-KEYWORD,wanfangdata
+DOMAIN-KEYWORD,pkulaw
+DOMAIN-KEYWORD,westlawchina
+DOMAIN-KEYWORD,readcube
+DOMAIN-KEYWORD,sciencedirect
+DOMAIN-KEYWORD,elsevier
+DOMAIN-KEYWORD,deepdyve
+DOMAIN-KEYWORD,els-cdn
+USER-AGENT,%E8%BF%85%E9%9B%B7
+PROCESS-NAME,AdGuardHome
+PROCESS-NAME,nmap
+PROCESS-NAME,v2ray
+PROCESS-NAME,xray
+PROCESS-NAME,ss-local
+PROCESS-NAME,clash
+PROCESS-NAME,ClashX
+PROCESS-NAME,trojan
+PROCESS-NAME,trojan-go
+PROCESS-NAME,privoxy
+PROCESS-NAME,cloudflared
+PROCESS-NAME,aria2c
+PROCESS-NAME,fdm
+PROCESS-NAME,Folx
+PROCESS-NAME,NetTransport
+PROCESS-NAME,Thunder
+PROCESS-NAME,ThunderVIP
+PROCESS-NAME,Transmission
+PROCESS-NAME,transmission-daemon
+PROCESS-NAME,transmission-qt
+PROCESS-NAME,BitComet
+PROCESS-NAME,uTorrent
+PROCESS-NAME,qbittorrent*
+PROCESS-NAME,DownloadService
+PROCESS-NAME,qBittorrent
+PROCESS-NAME,qbittorrent-nox
+PROCESS-NAME,WebTorrent
+PROCESS-NAME,WebTorrent Helper
+PROCESS-NAME,amuled
+PROCESS-NAME,LocalSend
+PROCESS-NAME,UUBooster
+PROCESS-NAME,tailscaled
+PROCESS-NAME,parsecd
+PROCESS-NAME,SunloginClient_Desktop
+PROCESS-NAME,SunloginClient_Helper
+PROCESS-NAME,BaiduNetdisk_mac
+PROCESS-NAME,Logi Options
+PROCESS-NAME,Logi Options Daemon
+// Ruleset - Direct Connection
+// Last updated: 2025/7/14 02:59:34
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/7/9 17:08:54
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/7/9 16:57:34
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/7/9 15:49:29
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/7/7 23:53:09
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/19 20:09:39
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/19 17:32:35
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/19 17:31:12
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/19 17:19:42
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/19 15:43:34
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/18 13:12:57
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/18 12:18:28
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/18 11:33:48
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/18 10:42:16
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/18 09:40:11
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/18 08:40:27
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/18 07:12:07
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/18 06:12:32
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/18 05:12:04
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/18 04:13:28
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/18 03:11:59
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/18 02:14:27
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/18 01:12:16
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/18 00:13:34
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 23:13:36
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 22:12:25
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 21:21:37
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 20:18:53
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 19:12:11
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 18:12:39
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 17:13:27
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 16:15:43
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 15:12:40
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 14:15:57
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 13:12:42
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 12:18:27
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 11:34:04
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 10:42:47
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 09:41:01
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 08:39:59
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 07:12:09
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 06:12:08
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 05:12:10
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 04:12:37
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 03:11:48
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 02:14:59
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 01:12:22
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/17 00:14:15
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 23:12:34
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 22:12:55
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 21:21:58
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 20:18:10
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 19:12:12
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 18:12:55
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 17:14:17
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 16:16:01
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 15:14:04
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 14:16:14
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 13:14:08
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 12:20:20
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 11:37:11
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 10:45:23
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 09:41:07
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 08:41:47
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 07:12:03
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 06:12:11
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 05:12:04
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 04:12:14
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 03:11:40
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 02:13:12
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 01:11:58
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/16 00:12:10
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 23:11:56
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 22:12:42
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 21:17:29
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 20:16:10
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 19:11:44
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 18:12:23
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 17:12:13
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 16:13:32
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 15:12:21
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 14:14:15
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 13:12:36
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 12:18:53
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 11:37:52
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 10:48:25
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 09:40:31
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 08:44:30
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 07:12:07
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 06:11:57
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 05:12:04
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 04:12:03
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 03:11:37
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 02:13:02
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 01:11:54
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/15 00:12:15
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 23:11:54
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 22:11:46
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 21:17:39
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 20:15:42
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 19:11:34
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 18:12:05
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 17:11:58
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 16:13:08
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 15:12:11
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 14:13:43
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 13:12:01
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 12:14:19
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 11:30:36
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 10:40:55
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 09:40:06
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 08:38:40
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 07:12:28
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 06:12:06
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 05:12:15
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 04:12:29
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 03:12:08
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 02:14:31
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 01:12:01
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/14 00:13:14
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 23:12:12
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 22:12:29
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 21:20:46
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 20:17:24
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 19:12:20
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 18:12:57
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 17:12:40
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 16:14:57
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 15:12:33
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 14:15:22
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 13:12:13
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 12:17:51
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 11:33:29
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 10:42:18
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 09:40:08
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 08:39:59
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 07:13:35
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 06:12:02
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 05:12:01
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 04:12:42
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 03:12:23
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 02:14:38
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 01:12:18
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/13 00:13:07
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 23:12:33
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 22:12:21
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 21:21:18
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 20:17:37
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 19:12:29
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 18:13:06
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 17:12:42
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 16:15:24
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 15:12:52
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 14:15:45
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 13:12:48
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 12:17:39
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 11:32:40
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 10:42:22
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 09:40:36
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 08:40:03
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 07:12:23
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 06:12:21
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 05:12:21
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 04:13:18
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 03:12:05
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 02:14:30
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 01:12:20
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/12 00:13:48
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 23:12:36
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 22:12:16
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 21:21:34
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 20:18:08
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 19:11:58
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 18:12:47
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 17:13:10
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 16:15:10
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 15:12:49
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 14:15:35
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 13:13:05
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 12:19:04
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 11:33:19
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 10:42:24
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 09:40:18
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 08:39:51
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 07:11:59
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 06:12:03
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 05:12:14
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 04:12:55
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 03:11:43
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 02:14:28
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 01:12:07
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/11 00:14:05
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 23:12:09
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 22:12:32
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 21:21:58
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 20:18:28
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 19:12:09
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 18:12:30
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 17:13:17
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 16:15:23
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 15:12:45
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 14:15:35
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 13:12:52
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 12:18:27
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 11:33:51
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 10:42:55
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 09:40:42
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 08:39:55
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 07:12:16
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 06:12:28
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 05:12:15
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 04:13:04
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 03:12:01
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 02:14:45
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 01:12:19
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/10 00:13:38
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/9 23:12:27
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/9 22:12:42
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/9 21:21:25
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/9 20:17:49
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/9 19:12:09
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/9 18:13:06
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/9 17:13:37
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 23:12:00
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 22:12:00
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 21:17:18
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 20:15:38
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 19:11:37
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 18:11:51
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 17:11:52
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 16:13:19
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 15:11:51
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 14:14:02
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 13:12:23
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 12:19:30
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 11:37:11
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 10:47:06
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 09:40:33
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 08:43:41
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 07:12:15
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 06:12:03
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 05:12:01
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 04:12:10
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 03:11:26
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 02:13:00
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 01:11:40
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/8 00:12:10
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 23:12:03
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 22:11:55
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 21:17:03
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 20:15:54
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 19:11:32
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 18:12:23
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 17:12:02
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 16:12:59
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 15:11:46
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 14:14:03
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 13:12:00
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 12:14:18
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 11:31:12
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 10:41:13
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 09:39:58
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 08:39:00
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 07:12:08
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 06:12:10
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 05:11:57
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 04:12:54
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 03:11:56
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 02:15:01
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 01:12:17
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/7 00:13:42
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 23:12:00
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 22:12:19
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 21:20:13
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 20:17:17
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 19:11:58
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 18:12:43
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 17:12:24
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 16:14:48
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 15:12:21
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 14:15:35
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 13:12:59
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 12:17:26
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 11:32:44
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 10:41:54
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 09:40:02
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 08:39:37
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 07:12:22
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 06:12:20
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 05:12:07
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 04:12:09
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 03:11:55
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 01:12:10
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/6 00:13:20
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 23:12:55
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 22:12:17
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 21:20:47
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 20:17:53
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 19:12:34
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 18:13:14
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 17:13:12
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 16:15:08
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 15:13:08
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 14:15:41
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 13:12:44
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 12:18:11
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 11:33:16
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 10:41:59
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 09:40:04
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 08:39:45
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 07:12:11
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 06:12:04
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 05:12:15
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 04:12:12
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 03:12:01
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 02:14:28
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 01:12:20
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/5 00:13:20
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 23:26:39
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 22:12:33
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 21:21:56
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 20:17:29
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 19:12:15
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 18:13:01
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 17:12:34
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 16:15:10
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 15:12:41
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 14:15:21
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 13:12:44
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 12:17:27
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 11:32:59
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 10:42:06
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 09:40:09
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 08:39:56
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 07:12:08
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 06:12:55
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 05:12:08
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 04:13:00
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 03:11:37
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 02:14:56
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 01:12:34
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/4 00:14:50
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 23:12:51
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 22:12:48
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 21:21:29
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 20:17:41
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 19:12:18
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 18:12:51
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 17:13:22
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 16:15:16
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 15:12:45
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 14:15:09
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 13:12:52
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 12:17:03
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 11:32:15
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 10:42:08
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 09:40:05
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 08:40:20
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 07:12:14
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 06:12:14
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 05:12:14
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 04:12:31
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 03:11:37
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 02:14:29
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 01:12:12
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/3 00:13:25
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 23:12:28
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 22:12:06
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 21:21:25
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 20:17:41
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 19:11:53
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 18:12:46
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 17:13:14
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 16:15:43
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 15:13:06
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 14:16:00
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 13:13:00
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 12:19:15
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 11:36:35
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 10:44:20
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 09:40:47
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 08:41:25
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 07:11:57
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 06:11:57
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 05:11:37
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 04:12:14
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 03:11:41
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 02:12:59
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 01:11:37
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/2 00:12:13
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 23:11:51
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 22:11:52
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 21:17:27
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 20:16:01
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 19:11:33
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 18:11:59
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 17:11:54
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 16:12:56
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 15:11:52
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 14:14:07
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 13:12:40
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 12:23:39
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 11:41:10
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 10:53:32
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 09:40:41
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 08:48:15
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 07:11:51
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 06:11:57
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 05:12:08
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 04:12:01
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 03:11:15
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 02:12:53
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 01:11:47
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/6/1 00:12:10
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/5/31 23:12:04
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/5/31 22:11:33
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/5/31 21:18:00
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/5/31 20:15:44
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/5/31 19:11:40
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/5/31 18:11:47
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/5/31 17:11:54
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf
+// Ruleset - Direct Connection
+// Last updated: 2025/5/31 16:30:55
+// DOMAIN: 17
+// DOMAIN-SUFFIX: 155
+// DOMAIN-KEYWORD: 10
+// PROCESS-NAME: 38
+// USER-AGENT: 1
+// Total: 221
+// This file contains domains and process that should not be proxied and accessed directly
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/my_direct.conf
+//  - https://ruleset.skk.moe/List/non_ip/direct.conf

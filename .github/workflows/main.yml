@@ -571,3 +571,105 @@ jobs:
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "📝 提示: 完整的构建日志请查看 Actions 运行记录" >> $GITHUB_STEP_SUMMARY
 
+  deploy:
+    name: 网站构建和部署
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    
+    needs: main_build
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 创建 RAM 磁盘构建目录
+        id: build_dir
+        run: |
+          # 创建RAM磁盘目录
+          RAM_DIR="/dev/shm/esdeath_build"
+          sudo mkdir -p $RAM_DIR
+          sudo chmod 777 $RAM_DIR
+          echo "临时构建目录: $RAM_DIR"
+          echo "dir=$RAM_DIR" >> $GITHUB_OUTPUT
+
+      - name: 构建网站
+        run: |
+          echo "开始构建网站..."
+          
+          # 设置环境变量指定 RAM 磁盘为输出目录
+          export OUTPUT_DIR="${{ steps.build_dir.outputs.dir }}"
+          export RAM_DIR="${{ steps.build_dir.outputs.dir }}"
+          export CI=true
+          
+          # 执行构建命令（现在包含网站生成）
+          npm run build
+
+      - name: 验证构建结果
+        run: |
+          OUTPUT_DIR="${{ steps.build_dir.outputs.dir }}"
+          
+          # 验证构建结果
+          if [ ! -d "$OUTPUT_DIR" ] || [ -z "$(ls -A $OUTPUT_DIR)" ]; then
+            echo "❌ 构建失败：输出目录为空"
+            exit 1
+          fi
+          
+          # 确保有 index.html
+          if [ ! -f "$OUTPUT_DIR/index.html" ]; then
+            echo "❌ 构建失败：缺少 index.html"
+            exit 1
+          fi
+          
+          echo "✅ 构建验证通过"
+          echo "📁 构建目录内容："
+          ls -la $OUTPUT_DIR
+          
+          # 输出构建统计
+          echo ""
+          echo "📊 构建统计："
+          echo "  - 规则文件: $(find $OUTPUT_DIR -name "*.list" 2>/dev/null | wc -l || echo "0") 个"
+          echo "  - 模块文件: $(find $OUTPUT_DIR -name "*.sgmodule" 2>/dev/null | wc -l || echo "0") 个"
+          echo "  - 脚本文件: $(find $OUTPUT_DIR -name "*.js" 2>/dev/null | wc -l || echo "0") 个"
+          echo "  - 总大小: $(du -sh $OUTPUT_DIR | cut -f1)"
+
+      - name: 设置 GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上传部署文件
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ steps.build_dir.outputs.dir }}
+
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        
+      - name: 部署成功通知
+        if: success()
+        run: |
+          echo "✅ 部署成功！" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 访问地址: ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "📅 部署时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
+          echo "📦 Git Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+

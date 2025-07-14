@@ -1,0 +1,6 @@
+// Ruleset - Direct Emby Connections
+// Last updated: 2025/6/18 13:12:57
+// Total: 0
+// This file contains rules for Emby servers that can be accessed directly from Mainland China without proxy
+// Data sources:
+//  - https://github.com/h05n/-/raw/main/直连emby

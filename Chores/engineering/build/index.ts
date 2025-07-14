@@ -6,6 +6,20 @@ import { optimizeAllRules } from './scripts/optimize-all-rules.js';
 import picocolors from 'picocolors';
 import process from 'node:process';
 
+// 动态导入网站构建模块
+async function buildWebsite(span: any) {
+  try {
+    // 动态导入避免编译时依赖问题
+    const { buildWebPage } = await import('./scripts/build-web-page.js');
+    console.log('🌐 生成网站...');
+    await buildWebPage();
+    console.log('✅ 网站生成完成');
+  } catch (error) {
+    console.error('❌ 网站生成失败:', error);
+    throw error;
+  }
+}
+
 // 主构建函数
 async function main() {
   console.log(picocolors.bold(picocolors.cyan('🚀 开始构建 Esdeath 规则集...')));
@@ -34,11 +48,15 @@ async function main() {
     await optimizeAllRules(rootSpan);
 
     // 4. 后验证阶段
-    console.log(picocolors.yellow('\n✅ 步骤 4/5: 验证输出...'));
+    console.log(picocolors.yellow('\n✅ 步骤 4/6: 验证输出...'));
     await validateAllRules(rootSpan, { postBuild: true });
 
-    // 5. 生成报告
-    console.log(picocolors.yellow('\n📊 步骤 5/5: 生成构建报告...'));
+    // 5. 网站生成阶段
+    console.log(picocolors.yellow('\n🌐 步骤 5/6: 生成网站...'));
+    await buildWebsite(rootSpan);
+
+    // 6. 生成报告
+    console.log(picocolors.yellow('\n📊 步骤 6/6: 生成构建报告...'));
 
     // 停止性能追踪
     rootSpan.stop();

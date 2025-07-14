@@ -1,0 +1,98 @@
+DOMAIN,ai.google.dev
+DOMAIN-SUFFIX,zed.dev
+DOMAIN,aida.googleapis.com
+DOMAIN-SUFFIX,geller-pa.googleapis.com
+DOMAIN-SUFFIX,generativelanguage.googleapis.com
+DOMAIN-SUFFIX,proactivebackend-pa.googleapis.com
+DOMAIN-SUFFIX,aistudio.google.com
+DOMAIN,alkalicore-pa.clients6.google.com
+DOMAIN,waa-pa.clients6.google.com
+DOMAIN-SUFFIX,bard.google.com
+DOMAIN-SUFFIX,gemini.google.com
+DOMAIN,jules.google.com
+DOMAIN-SUFFIX,makersuite.google.com
+DOMAIN-SUFFIX,apis.google.com
+DOMAIN,api.github.com
+DOMAIN-SUFFIX,githubcopilot.com
+DOMAIN,api.statsig.com
+DOMAIN,apple-relay.apple.com
+DOMAIN,guzzoni.apple.com
+DOMAIN-SUFFIX,smoot.apple.com
+DOMAIN,apple-relay.cloudflare.com
+DOMAIN,cp4.cloudflare.com
+DOMAIN,gateway.ai.cloudflare.com
+DOMAIN,apple-relay.fastly-edge.com
+DOMAIN,copilot-proxy.githubusercontent.com
+DOMAIN,copilot.microsoft.com
+DOMAIN-SUFFIX,deepmind.com
+DOMAIN,imagine.meta.com
+DOMAIN,pplx-res.cloudinary.com
+DOMAIN-SUFFIX,oaistatic.com
+DOMAIN,sydney.bing.com
+DOMAIN,www.bing.com
+DOMAIN-SUFFIX,ai.com
+DOMAIN-SUFFIX,anthropic.com
+DOMAIN-SUFFIX,augment.com
+DOMAIN-SUFFIX,augmentcode.com
+DOMAIN-SUFFIX,chat.com
+DOMAIN-SUFFIX,chatgpt.com
+DOMAIN-SUFFIX,claudeusercontent.com
+DOMAIN-SUFFIX,codeium.com
+DOMAIN-SUFFIX,codeiumdata.com
+DOMAIN-SUFFIX,cursor-cdn.com
+DOMAIN-SUFFIX,cursor.com
+DOMAIN-SUFFIX,cursorapi.com
+DOMAIN-SUFFIX,grok.com
+DOMAIN-SUFFIX,groq.com
+DOMAIN-SUFFIX,microsoftonline.com
+DOMAIN-SUFFIX,oaiusercontent.com
+DOMAIN-SUFFIX,perplexity.com
+DOMAIN-SUFFIX,poe.com
+DOMAIN-SUFFIX,sora.com
+DOMAIN-SUFFIX,windsurf.com
+DOMAIN,api-iam.intercom.io
+DOMAIN,o33249.ingest.sentry.io
+DOMAIN-SUFFIX,x.ai
+DOMAIN-SUFFIX,mistral.ai
+DOMAIN-SUFFIX,claude.ai
+DOMAIN-SUFFIX,dify.ai
+DOMAIN-SUFFIX,grazie.ai
+DOMAIN-SUFFIX,jasper.ai
+DOMAIN-SUFFIX,jetbrains.ai
+DOMAIN-SUFFIX,meta.ai
+DOMAIN-SUFFIX,openart.ai
+DOMAIN-SUFFIX,openrouter.ai
+DOMAIN-SUFFIX,perplexity.ai
+DOMAIN-SUFFIX,pplx.ai
+DOMAIN-SUFFIX,trae.ai
+DOMAIN-SUFFIX,grazie.aws.intellij.net
+DOMAIN-SUFFIX,livekit.cloud
+DOMAIN-SUFFIX,deepmind.google
+DOMAIN-SUFFIX,generativeai.google
+DOMAIN,th1s_rule5et_1s_m4d3_by_5ukk4w_ruleset.skk.moe
+DOMAIN,trae-api-sg.mchost.guru
+DOMAIN-SUFFIX,clipdrop.co
+DOMAIN-SUFFIX,cursor.sh
+DOMAIN-SUFFIX,diabrowser.engineering
+DOMAIN-KEYWORD,alkalimakersuite-pa.clients6.google.com
+DOMAIN-KEYWORD,labs.google
+DOMAIN-KEYWORD,notebooklm.google
+DOMAIN-KEYWORD,openai
+DOMAIN-KEYWORD,openaiapi
+DOMAIN-KEYWORD,openaicom
+// Ruleset - AIGC Services
+// Last updated: 2025/7/14 02:59:22
+// DOMAIN: 49
+// DOMAIN-SUFFIX: 57
+// DOMAIN-KEYWORD: 6
+// IP-CIDR: 1
+// IP-CIDR6: 1
+// Total: 114
+// This file contains rules for AI services including OpenAI, Google Gemini, Claude, Perplexity and other generative AI platforms
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/ai.conf
+//  - https://kelee.one/Tool/Loon/Lsr/AI.lsr
+//  - https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/AI.list
+//  - https://github.com/dler-io/Rules/raw/main/Surge/Surge%203/Provider/AI%20Suite.list
+IP-CIDR,160.79.104.0/23,no-resolve
+IP-CIDR6,2607:6bc0::/48,no-resolve

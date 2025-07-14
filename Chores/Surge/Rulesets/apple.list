@@ -1,0 +1,106 @@
+DOMAIN,api.smoot.apple.cn
+DOMAIN-SUFFIX,apple.com.cn
+DOMAIN-SUFFIX,icloud.com.cn
+DOMAIN-SUFFIX,apple-dns.net
+DOMAIN-SUFFIX,adcdownload.apple.com.akadns.net
+DOMAIN-SUFFIX,cds.apple.com.akadns.net
+DOMAIN-SUFFIX,clientflow.apple.com.akadns.net
+DOMAIN-SUFFIX,configuration.apple.com.akadns.net
+DOMAIN-SUFFIX,mesu-cdn.apple.com.akadns.net
+DOMAIN-SUFFIX,mesu-china.apple.com.akadns.net
+DOMAIN-SUFFIX,ocsp-lb.apple.com.akadns.net
+DOMAIN-SUFFIX,ocsp2-lb.apple.com.akadns.net
+DOMAIN-SUFFIX,stocks-sparkline-lb.apple.com.akadns.net
+DOMAIN-SUFFIX,store.storeimages.apple.com.akadns.net
+DOMAIN-SUFFIX,swcatalog-cdn.apple.com.akadns.net
+DOMAIN-SUFFIX,swdist.apple.com.akadns.net
+DOMAIN-SUFFIX,swscan-cdn.apple.com.akadns.net
+DOMAIN-SUFFIX,weather-data.apple.com.akadns.net
+DOMAIN-SUFFIX,cl1-cdn.origin-apple.com.akadns.net
+DOMAIN-SUFFIX,cl3-cdn.origin-apple.com.akadns.net
+DOMAIN-SUFFIX,cl4-cdn.origin-apple.com.akadns.net
+DOMAIN-SUFFIX,cl5-cdn.origin-apple.com.akadns.net
+DOMAIN-SUFFIX,dd-cdn.origin-apple.com.akadns.net
+DOMAIN-SUFFIX,iphone-ld.origin-apple.com.akadns.net
+DOMAIN-SUFFIX,oscdn.origin-apple.com.akadns.net
+DOMAIN-SUFFIX,valid.origin-apple.com.akadns.net
+DOMAIN-SUFFIX,gspe19-2-cn-ssl.ls-apple.com.akadns.net
+DOMAIN-SUFFIX,gspe19-cn.ls-apple.com.akadns.net
+DOMAIN-SUFFIX,icloud-cdn.icloud.com.akadns.net
+DOMAIN-SUFFIX,push-apple.com.akadns.net
+DOMAIN-SUFFIX,itunes-apple.com.akadns.net
+DOMAIN-SUFFIX,pancake.cdn-apple.com.akadns.net
+DOMAIN-SUFFIX,updates-http.cdn-apple.com.akadns.net
+DOMAIN-SUFFIX,gsp4-cn.ls.apple.com.edgekey.net.globalredir.akadns.net
+DOMAIN-SUFFIX,images.apple.com.edgekey.net.globalredir.akadns.net
+DOMAIN-SUFFIX,store.apple.com.edgekey.net.globalredir.akadns.net
+DOMAIN-SUFFIX,www.apple.com.edgekey.net.globalredir.akadns.net
+DOMAIN-SUFFIX,prod-support.apple-support.akadns.net
+DOMAIN-SUFFIX,support-china.apple-support.akadns.net
+DOMAIN-SUFFIX,store.apple.com.edgekey.net
+DOMAIN-SUFFIX,apple.com
+DOMAIN-SUFFIX,icloud.com
+DOMAIN-SUFFIX,a1.mzstatic.com
+DOMAIN-SUFFIX,a2.mzstatic.com
+DOMAIN-SUFFIX,a3.mzstatic.com
+DOMAIN-SUFFIX,a4.mzstatic.com
+DOMAIN-SUFFIX,a5.mzstatic.com
+DOMAIN-SUFFIX,apps.mzstatic.com
+DOMAIN-SUFFIX,is1-ssl.mzstatic.com
+DOMAIN-SUFFIX,is1.mzstatic.com
+DOMAIN-SUFFIX,is2-ssl.mzstatic.com
+DOMAIN-SUFFIX,is2.mzstatic.com
+DOMAIN-SUFFIX,is3-ssl.mzstatic.com
+DOMAIN-SUFFIX,is3.mzstatic.com
+DOMAIN-SUFFIX,is4-ssl.mzstatic.com
+DOMAIN-SUFFIX,is4.mzstatic.com
+DOMAIN-SUFFIX,is5-ssl.mzstatic.com
+DOMAIN-SUFFIX,is5.mzstatic.com
+DOMAIN-SUFFIX,s.mzstatic.com
+DOMAIN-SUFFIX,aaplimg.com
+DOMAIN-SUFFIX,cdn-apple.com
+DOMAIN-SUFFIX,apple-cloudkit.com
+DOMAIN-SUFFIX,apple-mapkit.com
+DOMAIN-SUFFIX,appstore.com
+DOMAIN-SUFFIX,icloud-content.com
+DOMAIN-SUFFIX,itunes.com
+DOMAIN-SUFFIX,me.com
+DOMAIN-SUFFIX,organicfruitapps.com
+DOMAIN,th1s_rule5et_1s_m4d3_by_5ukk4w_ruleset.skk.moe
+DOMAIN-SUFFIX,apple.co
+DOMAIN-SUFFIX,apple.news
+DOMAIN-SUFFIX,appsto.re
+PROCESS-NAME,CoreLocationAgent
+PROCESS-NAME,WeatherWidget
+PROCESS-NAME,apsd
+PROCESS-NAME,com.apple.Maps
+PROCESS-NAME,com.apple.geod
+PROCESS-NAME,findmydevice-user-agent
+PROCESS-NAME,fmfd
+PROCESS-NAME,mapspushd
+PROCESS-NAME,netbiosd
+PROCESS-NAME,trustd
+// Ruleset - Apple Services
+// Last updated: 2025/7/14 14:04:38
+// DOMAIN: 9
+// DOMAIN-SUFFIX: 185
+// IP-CIDR: 10
+// PROCESS-NAME: 10
+// Total: 214
+// This file contains rules for Apple services, including services operated in mainland China (iCloud.com.cn, Apple Maps China, etc).
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/apple_services.conf
+//  - https://ruleset.skk.moe/List/non_ip/apple_cn.conf
+//  - https://ruleset.skk.moe/List/domainset/apple_cdn.conf
+//  - https://ruleset.skk.moe/List/ip/apple_services.conf
+//  - https://ruleset.skk.moe/List/domainset/icloud_private_relay.conf
+IP-CIDR,17.0.0.0/8,no-resolve
+IP-CIDR,63.92.224.0/19,no-resolve
+IP-CIDR,65.199.22.0/23,no-resolve
+IP-CIDR,139.178.128.0/18,no-resolve
+IP-CIDR,144.178.0.0/19,no-resolve
+IP-CIDR,144.178.36.0/22,no-resolve
+IP-CIDR,144.178.48.0/20,no-resolve
+IP-CIDR,192.35.50.0/24,no-resolve
+IP-CIDR,198.183.17.0/24,no-resolve
+IP-CIDR,205.180.175.0/24,no-resolve

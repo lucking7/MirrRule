@@ -1,0 +1,94 @@
+DOMAIN-SUFFIX,office.net
+DOMAIN-SUFFIX,acompli.net
+DOMAIN-SUFFIX,asp.net
+DOMAIN-SUFFIX,azure.net
+DOMAIN-SUFFIX,azureedge.net
+DOMAIN-SUFFIX,cloudapp.net
+DOMAIN-SUFFIX,edgesuite.net
+DOMAIN-SUFFIX,live.net
+DOMAIN-SUFFIX,msappproxy.net
+DOMAIN-SUFFIX,msauth.net
+DOMAIN-SUFFIX,msauthimages.net
+DOMAIN-SUFFIX,msecnd.net
+DOMAIN-SUFFIX,msedge.net
+DOMAIN-SUFFIX,msft.net
+DOMAIN-SUFFIX,msftauth.net
+DOMAIN-SUFFIX,msftauthimages.net
+DOMAIN-SUFFIX,officeppe.net
+DOMAIN-SUFFIX,onenote.net
+DOMAIN-SUFFIX,phonefactor.net
+DOMAIN-SUFFIX,trafficmanager.net
+DOMAIN-SUFFIX,virtualearth.net
+DOMAIN-SUFFIX,windows-ppe.net
+DOMAIN-SUFFIX,windows.net
+DOMAIN,th1s_rule5et_1s_m4d3_by_5ukk4w_ruleset.skk.moe
+DOMAIN-SUFFIX,aadrm.com
+DOMAIN-SUFFIX,acompli.com
+DOMAIN-SUFFIX,aspnetcdn.com
+DOMAIN-SUFFIX,assets-yammer.com
+DOMAIN-SUFFIX,azure.com
+DOMAIN-SUFFIX,azurerms.com
+DOMAIN-SUFFIX,bing.com
+DOMAIN-SUFFIX,cloudappsecurity.com
+DOMAIN-SUFFIX,cn.windowssearch.com
+DOMAIN-SUFFIX,windowsupdate.com
+DOMAIN-SUFFIX,docs.com
+DOMAIN-SUFFIX,live.com
+DOMAIN-SUFFIX,lync.com
+DOMAIN-SUFFIX,msftidentity.com
+DOMAIN-SUFFIX,msidentity.com
+DOMAIN-SUFFIX,msn.com
+DOMAIN-SUFFIX,msocdn.com
+DOMAIN-SUFFIX,msocsp.com
+DOMAIN-SUFFIX,o365weve.com
+DOMAIN-SUFFIX,oaspapps.com
+DOMAIN-SUFFIX,office.com
+DOMAIN-SUFFIX,office365.com
+DOMAIN-SUFFIX,omniroot.com
+DOMAIN-SUFFIX,onedrive.com
+DOMAIN-SUFFIX,onenote.com
+DOMAIN-SUFFIX,outlook.com
+DOMAIN-SUFFIX,outlookmobile.com
+DOMAIN-SUFFIX,public-trust.com
+DOMAIN-SUFFIX,sfbassets.com
+DOMAIN-SUFFIX,sharepoint.com
+DOMAIN-SUFFIX,sharepointonline.com
+DOMAIN-SUFFIX,skype.com
+DOMAIN-SUFFIX,skypeassets.com
+DOMAIN-SUFFIX,skypeforbusiness.com
+DOMAIN-SUFFIX,sway-cdn.com
+DOMAIN-SUFFIX,sway-extensions.com
+DOMAIN-SUFFIX,sway.com
+DOMAIN-SUFFIX,uservoice.com
+DOMAIN-SUFFIX,visualstudio.com
+DOMAIN-SUFFIX,windows.com
+DOMAIN-SUFFIX,windowsazure.com
+DOMAIN-SUFFIX,wunderlist.com
+DOMAIN-SUFFIX,xbox.com
+DOMAIN-SUFFIX,xboxlive.com
+DOMAIN-SUFFIX,xboxservices.com
+DOMAIN-SUFFIX,yammer.com
+DOMAIN-SUFFIX,yammerusercontent.com
+DOMAIN-SUFFIX,aka.ms
+DOMAIN-SUFFIX,appcenter.ms
+DOMAIN-SUFFIX,aria.ms
+DOMAIN-SUFFIX,clarity.ms
+DOMAIN-SUFFIX,gfx.ms
+DOMAIN-SUFFIX,mstea.ms
+DOMAIN-SUFFIX,onestore.ms
+DOMAIN-SUFFIX,sfx.ms
+DOMAIN-SUFFIX,staffhub.ms
+DOMAIN-SUFFIX,svc.ms
+DOMAIN-KEYWORD,1drv
+DOMAIN-KEYWORD,hotmail
+DOMAIN-KEYWORD,microsoft
+// Ruleset - Microsoft Services
+// Last updated: 2025/7/14 14:04:38
+// DOMAIN: 4
+// DOMAIN-SUFFIX: 96
+// DOMAIN-KEYWORD: 3
+// Total: 103
+// This file contains rules for Microsoft services, including services operated in mainland China (Microsoft 365, Microsoft Teams, etc).
+// Data sources:
+//  - https://ruleset.skk.moe/List/non_ip/microsoft.conf
+//  - https://ruleset.skk.moe/List/non_ip/microsoft_cdn.conf
