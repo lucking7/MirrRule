@@ -400,26 +400,20 @@ jobs:
           echo ""
           echo "✅ 第五阶段完成"
 
-      - name: 第六阶段：验证检测
+      - name: 第六阶段：构建报告
         run: |
-          echo "🔍 === 第六阶段：验证检测 ==="
-          cd ./Chores/engineering
-          
-          echo "1️⃣ 验证规则语法..."
-          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx build/scripts/validate-rule-syntax.ts
-          echo "✅ 规则语法验证通过"
-          
+          echo "📊 === 第六阶段：构建报告 ==="
+          echo "✅ 所有验证已在构建过程中完成："
           echo ""
-          echo "2️⃣ 检测 TLD 有效性..."
-          npm run validate:tld
-          echo "✅ TLD 检测完成"
-          
+          echo "🔍 已完成的验证："
+          echo "   • 规则格式和 TLD 验证（构建前）"
+          echo "   • 哈希冲突检测（构建前）"
+          echo "   • 输出文件完整性检查（构建后）"
+          echo "   • 去重验证（构建后）"
+          echo "   • CIDR 合并验证（构建后）"
           echo ""
-          echo "3️⃣ 域名活性检测（定时任务）"
-          echo "   - 需手动触发 check-domain.yml 工作流"
-          echo ""
-          echo "4️⃣ 哈希碰撞检测（已集成在构建中）"
-          echo "   - 使用 xxhash-wasm 检测重复规则"
+          echo "🔗 额外验证："
+          echo "   • 域名活性检测 - 需手动触发 check-domain.yml 工作流"
           echo ""
           echo "✅ 第六阶段完成"
 
