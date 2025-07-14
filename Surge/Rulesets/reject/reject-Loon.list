@@ -1,9 +1,9 @@
 # Sukka's Surge Reject Rules - Optimized
 # NOTE: This file has been optimized and merged in-place
-# Total Rules: 9109
+# Total Rules: 9118
 # Domain Optimization: 1305 rules merged
 # IP Optimization: 0 CIDRs merged
-# Last Updated: 2025-07-14T12:04:50.032Z
+# Last Updated: 2025-07-14T15:04:03.244Z
 
 DOMAIN-SUFFIX,miaozhen.com
 DOMAIN-SUFFIX,getui.com
@@ -5617,6 +5617,15 @@ DOMAIN-SUFFIX,kn.zzdahan.com
 DOMAIN-SUFFIX,b4xuj.zzhhts.com
 DOMAIN-SUFFIX,zjm.zzmmkj.com
 DOMAIN-SUFFIX,yao.zzsdjq.com
+DOMAIN-SUFFIX,ppezijkacga.com
+DOMAIN-SUFFIX,kreopbkabsit.com
+DOMAIN-SUFFIX,admiitad.com
+DOMAIN-SUFFIX,thelifeandmore.com
+DOMAIN-SUFFIX,fractionfridgejudiciary.com
+DOMAIN-SUFFIX,ocponcphaafb.com
+DOMAIN-SUFFIX,tapwhigwy.com
+DOMAIN-SUFFIX,ahqovxli.com
+DOMAIN-SUFFIX,fipabtomqok.com
 DOMAIN-SUFFIX,getui.net
 DOMAIN-SUFFIX,1rtb.net
 DOMAIN,webproxy-advp.iad-apple.com.akadns.net
