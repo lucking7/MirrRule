@@ -404,6 +404,6 @@ export async function mergeRejectRules(): Promise<boolean> {
 }
 
 // 如果直接运行该脚本
-if (import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'))) {
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'))) {
   mergeRejectRules().catch(console.error);
 }

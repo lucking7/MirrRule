@@ -166,7 +166,7 @@ export const buildCommon = task(
 });
 
 // 如果直接运行此脚本
-if (import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'))) {
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'))) {
   const rootSpan = createSpan('build-common');
   buildCommon(rootSpan).finally(() => {
     rootSpan.stop();

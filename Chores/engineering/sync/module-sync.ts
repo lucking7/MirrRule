@@ -760,7 +760,7 @@ export async function mirrorAll() {
 
 // 如果直接运行该脚本，执行mirrorAll函数
 // ES 模块中通过检查 import.meta.url 是否与 process.argv[1] 的 URL 相匹配来判断
-if (import.meta.url.endsWith(process.argv[1].replace('file:', ''))) {
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace('file:', ''))) {
   mirrorAll().catch(error => {
     console.error('镜像同步出错:', error);
     process.exit(1);

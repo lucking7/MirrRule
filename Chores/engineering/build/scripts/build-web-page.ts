@@ -1561,10 +1561,4 @@ async function dirExists(dirPath: string): Promise<boolean> {
   }
 }
 
-// 导出主函数供其他模块使用
-export { main as buildWebPage };
-
-// 如果直接运行此脚本
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
-}
+main();
