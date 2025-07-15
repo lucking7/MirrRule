@@ -336,44 +336,214 @@ jobs:
           echo "   - Source/non_ip: 非IP规则集"
           echo "✅ 第二阶段完成"
 
-      - name: 第三阶段：构建规则集和网站
-        id: build-all
+      - name: 第三阶段：规则验证
+        id: validate-rules
         run: |
-          echo "🏗️  === 第三阶段：构建规则集和网站 ==="
+          echo "🔍 === 第三阶段：规则验证 ==="
           echo ""
           
-          # 设置输出目录为当前目录，避免"输出目录为空"错误
+          cd ./Chores/engineering
+          
+          echo "📋 执行预构建验证..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx -e "
+          import { validateAllRules } from './build/scripts/validate-all-rules.js';
+          import { createSpan } from './build/trace/index.js';
+          (async () => {
+            const span = createSpan('validate-phase');
+            await validateAllRules(span);
+            span.stop();
+          })();
+          "
+          
+          cd ../..
+          echo "✅ 第三阶段完成"
+
+      - name: 第四阶段：增量构建检测
+        id: incremental-check
+        run: |
+          echo "🔄 === 第四阶段：增量构建检测 ==="
+          echo ""
+          
+          # 创建或读取上次构建的哈希文件
+          HASH_FILE=".cache/build-hashes.json"
+          mkdir -p .cache
+          
+          if [ -f "$HASH_FILE" ]; then
+            echo "📊 发现上次构建记录，执行增量构建检测..."
+            cp "$HASH_FILE" "$HASH_FILE.old"
+          else
+            echo "🆕 首次构建，将执行完整构建..."
+            echo "{}" > "$HASH_FILE"
+          fi
+          
+          # 计算当前文件哈希
+          echo "📝 计算文件哈希..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx -e "
+          import { createHash } from 'crypto';
+          import { readFileSync, writeFileSync, existsSync } from 'fs';
+          import { glob } from 'glob';
+          
+          async function calculateHashes() {
+            const files = await glob(['Surge/Rulesets/**/*.list', 'Source/**/*'], { nodir: true });
+            const hashes = {};
+            
+            for (const file of files) {
+              try {
+                const content = readFileSync(file);
+                const hash = createHash('sha256').update(content).digest('hex');
+                hashes[file] = hash;
+              } catch (e) {
+                console.error(\`Error hashing \${file}:\`, e.message);
+              }
+            }
+            
+            writeFileSync('.cache/build-hashes.json', JSON.stringify(hashes, null, 2));
+            
+            // 比较变化
+            if (existsSync('.cache/build-hashes.json.old')) {
+              const oldHashes = JSON.parse(readFileSync('.cache/build-hashes.json.old', 'utf-8'));
+              const changed = [];
+              const added = [];
+              const deleted = [];
+              
+              for (const file in hashes) {
+                if (!oldHashes[file]) {
+                  added.push(file);
+                } else if (oldHashes[file] !== hashes[file]) {
+                  changed.push(file);
+                }
+              }
+              
+              for (const file in oldHashes) {
+                if (!hashes[file]) {
+                  deleted.push(file);
+                }
+              }
+              
+              console.log(\`\n📊 文件变化统计:\`);
+              console.log(\`  - 新增: \${added.length} 个\`);
+              console.log(\`  - 修改: \${changed.length} 个\`);
+              console.log(\`  - 删除: \${deleted.length} 个\`);
+              
+              if (changed.length > 0 || added.length > 0 || deleted.length > 0) {
+                console.log(\`\n需要重新构建的文件:\`);
+                [...changed, ...added].slice(0, 10).forEach(f => console.log(\`  - \${f}\`));
+                if ([...changed, ...added].length > 10) {
+                  console.log(\`  ... 还有 \${[...changed, ...added].length - 10} 个文件\`);
+                }
+                
+                // 保存变化列表
+                writeFileSync('.cache/changed-files.json', JSON.stringify({ changed, added, deleted }));
+              } else {
+                console.log(\`\n✅ 没有文件变化，可以跳过构建\`);
+                writeFileSync('.cache/changed-files.json', JSON.stringify({ changed: [], added: [], deleted: [] }));
+              }
+            }
+          }
+          
+          calculateHashes();
+          "
+          
+          echo "✅ 第四阶段完成"
+
+      - name: 第五阶段：构建规则集
+        id: build-rules
+        run: |
+          echo "🏗️  === 第五阶段：构建规则集 ==="
+          echo ""
+          
+          cd ./Chores/engineering
+          
+          # 检查是否需要构建
+          if [ -f "../.cache/changed-files.json" ]; then
+            changed_count=$(jq '.changed | length' ../.cache/changed-files.json)
+            added_count=$(jq '.added | length' ../.cache/changed-files.json)
+            deleted_count=$(jq '.deleted | length' ../.cache/changed-files.json)
+            
+            if [ "$changed_count" -eq 0 ] && [ "$added_count" -eq 0 ] && [ "$deleted_count" -eq 0 ]; then
+              echo "📋 没有文件变化，跳过构建..."
+              echo "skip_build=true" >> $GITHUB_OUTPUT
+              cd ../..
+              echo "✅ 第五阶段完成（跳过）"
+              exit 0
+            fi
+          fi
+          
+          echo "📋 执行规则集构建..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx -e "
+          import { buildCommon } from './build/scripts/build-common.js';
+          import { buildMixedRuleset } from './build/scripts/build-mixed-ruleset.js';
+          import { createSpan } from './build/trace/index.js';
+          (async () => {
+            const span = createSpan('build-phase');
+            await Promise.all([
+              buildCommon(span),
+              buildMixedRuleset(span)
+            ]);
+            span.stop();
+          })();
+          "
+          
+          cd ../..
+          echo "skip_build=false" >> $GITHUB_OUTPUT
+          echo "✅ 第五阶段完成"
+
+      - name: 第六阶段：规则优化
+        id: optimize-rules
+        if: steps.build-rules.outputs.skip_build != 'true'
+        run: |
+          echo "⚡ === 第六阶段：规则优化 ==="
+          echo ""
+          
+          cd ./Chores/engineering
+          
+          echo "📋 执行规则优化..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx -e "
+          import { optimizeAllRules } from './build/scripts/optimize-all-rules.js';
+          import { createSpan } from './build/trace/index.js';
+          (async () => {
+            const span = createSpan('optimize-phase');
+            await optimizeAllRules(span);
+            span.stop();
+          })();
+          "
+          
+          cd ../..
+          echo "✅ 第六阶段完成"
+
+      - name: 第七阶段：构建网站
+        id: build-website
+        run: |
+          echo "🌐 === 第七阶段：构建网站 ==="
+          echo ""
+          
+          # 设置输出目录
           export OUTPUT_DIR="$(pwd)/public"
           mkdir -p public
           
-          echo "📋 执行主构建脚本..."
-          cd ./Chores/engineering
-          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx build/index.ts
-          cd ../..
-          
-          echo ""
-          echo "🌐 构建网站..."
+          echo "📋 构建网站..."
           NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/build/scripts/build-web-page.ts
           
           # 验证构建结果
           if [ ! -f "public/index.html" ]; then
             echo "⚠️  网站构建可能未完成，创建基础页面..."
-            echo "<h1>Esdeath Rules</h1>" > public/index.html
+            echo '<!DOCTYPE html><html><head><title>Esdeath Rules</title></head><body><h1>Esdeath Rules</h1></body></html>' > public/index.html
           fi
           
-          echo "✅ 第三阶段完成"
+          echo "✅ 第七阶段完成"
 
-      - name: 第四阶段：构建报告和统计
+      - name: 第八阶段：构建报告和统计
         id: build-report
         run: |
-          echo "📊 === 第四阶段：构建报告和统计 ==="
+          echo "📊 === 第八阶段：构建报告和统计 ==="
           echo ""
           
           echo "✅ 构建流程已完成："
-          echo "   • 规则预验证（TLD、哈希冲突检测）"
-          echo "   • 规则集分类（纯域名、纯IP、混合）"
+          echo "   • 规则验证（TLD、哈希冲突检测）"
+          echo "   • 增量构建检测（文件哈希对比）"
+          echo "   • 规则集构建（分类处理）"
           echo "   • 智能优化（tldts规范化、CIDR合并、去重）"
-          echo "   • 输出验证（完整性、去重效果、CIDR合并效果）"
+          echo "   • 网站构建（生成静态页面）"
           echo ""
           
           # 统计文件数量
@@ -386,11 +556,45 @@ jobs:
           echo "   • 规则集文件: ${ruleset_count} 个"
           echo "   • 脚本文件: ${script_count} 个"
           echo ""
-          echo "✅ 第四阶段完成"
+          
+          # 增量构建统计
+          if [ -f ".cache/changed-files.json" ]; then
+            changed_count=$(jq '.changed | length' .cache/changed-files.json)
+            added_count=$(jq '.added | length' .cache/changed-files.json)
+            deleted_count=$(jq '.deleted | length' .cache/changed-files.json)
+            
+            echo "🔄 增量构建统计："
+            echo "   • 修改文件: ${changed_count} 个"
+            echo "   • 新增文件: ${added_count} 个"
+            echo "   • 删除文件: ${deleted_count} 个"
+            echo ""
+          fi
+          
+          echo "✅ 第八阶段完成"
 
-      - name: 第五阶段：部署准备
+      - name: 后验证检查
+        if: steps.build-rules.outputs.skip_build != 'true'
         run: |
-          echo "🚀 === 第五阶段：部署准备 ==="
+          echo "🔍 执行构建后验证..."
+          
+          cd ./Chores/engineering
+          
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx -e "
+          import { validateAllRules } from './build/scripts/validate-all-rules.js';
+          import { createSpan } from './build/trace/index.js';
+          (async () => {
+            const span = createSpan('post-validate-phase');
+            await validateAllRules(span, { postBuild: true });
+            span.stop();
+          })();
+          "
+          
+          cd ../..
+          echo "✅ 后验证完成"
+
+      - name: 第九阶段：部署准备
+        run: |
+          echo "🚀 === 第九阶段：部署准备 ==="
           echo ""
           
           echo "📁 输出文件组织："
@@ -411,7 +615,7 @@ jobs:
             echo "Git Commit: ${{ github.sha }}" >> public/deploy-info.txt
           fi
           
-          echo "✅ 第五阶段完成"
+          echo "✅ 第九阶段完成"
           
       - name: 上传网站文件
         if: success() && github.ref == 'refs/heads/main'
@@ -421,9 +625,9 @@ jobs:
           path: public/
           retention-days: 1
 
-      - name: 第六阶段：Git提交和推送
+      - name: 第十阶段：Git提交和推送
         run: |
-          echo "📤 === 第六阶段：Git提交和推送 ==="
+          echo "📤 === 第十阶段：Git提交和推送 ==="
           echo "1️⃣ 准备 Git 提交..."
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
@@ -509,10 +713,14 @@ jobs:
           echo "|------|------|------|" >> $GITHUB_STEP_SUMMARY
           echo "| 第一阶段 | 外部规则和模块获取 | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "| 第二阶段 | 源文件组织和预处理 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| 第三阶段 | 构建规则集和网站 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| 第四阶段 | 构建报告和统计 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| 第五阶段 | 部署准备 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| 第六阶段 | Git提交和推送 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第三阶段 | 规则验证 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第四阶段 | 增量构建检测 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第五阶段 | 构建规则集 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第六阶段 | 规则优化 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第七阶段 | 构建网站 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第八阶段 | 构建报告和统计 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第九阶段 | 部署准备 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第十阶段 | Git提交和推送 | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           echo "### 📊 构建统计" >> $GITHUB_STEP_SUMMARY
