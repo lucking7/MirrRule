@@ -5,6 +5,13 @@ import { validateDomainAlive } from './validate-domain-alive.js';
 import picocolors from 'picocolors';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
+import {
+  PUBLIC_DIR,
+  OUTPUT_SURGE_DIR,
+  OUTPUT_RULESETS_DIR,
+  OUTPUT_MODULES_DIR,
+  SURGE_DIR,
+} from '../constants/dir.js';
 
 interface ValidationOptions {
   postBuild?: boolean; // 是否是构建后验证
@@ -109,7 +116,14 @@ async function validateOutputIntegrity(span: Span) {
   const childSpan = span.traceChild('validate-output-integrity');
 
   try {
-    const outputDirs = ['Surge/Rulesets', 'Surge/Domainset', 'List'];
+    // 使用正确的输出目录路径
+    const outputDirs = [
+      OUTPUT_SURGE_DIR, // Surge 输出目录
+      OUTPUT_RULESETS_DIR, // List 输出目录
+      OUTPUT_MODULES_DIR, // Modules 输出目录
+      path.join(SURGE_DIR, 'Rulesets'), // 源目录中的 Surge/Rulesets（用于开发环境）
+      path.join(SURGE_DIR, 'Domainset'), // 源目录中的 Surge/Domainset（用于开发环境）
+    ];
 
     let totalFiles = 0;
     let totalSize = 0;
@@ -123,10 +137,15 @@ async function validateOutputIntegrity(span: Span) {
       ) {
         const files = await fs.readdir(dir);
         for (const file of files) {
-          const stat = await fs.stat(path.join(dir, file));
-          if (stat.isFile()) {
-            totalFiles++;
-            totalSize += stat.size;
+          const filePath = path.join(dir, file);
+          try {
+            const stat = await fs.stat(filePath);
+            if (stat.isFile()) {
+              totalFiles++;
+              totalSize += stat.size;
+            }
+          } catch (error) {
+            // 忽略单个文件错误，继续处理其他文件
           }
         }
       }
@@ -171,20 +190,29 @@ async function validateCIDRMerge(span: Span) {
     const ipFiles = ['china-ipv4.txt', 'china-ipv6.txt', 'telegram-ipv4.txt'];
     let mergedCount = 0;
 
+    // 尝试在多个可能的输出目录中查找文件
+    const possibleDirs = [OUTPUT_RULESETS_DIR, 'List'];
+
     for (const file of ipFiles) {
-      const filePath = path.join('List', file);
-      if (
-        await fs
-          .access(filePath)
-          .then(() => true)
-          .catch(() => false)
-      ) {
-        const content = await fs.readFile(filePath, 'utf-8');
-        const lines = content.trim().split('\n');
-        // 简单检查是否包含 CIDR 格式
-        const cidrLines = lines.filter(line => line.includes('/'));
-        if (cidrLines.length > 0) {
-          mergedCount += cidrLines.length;
+      let found = false;
+
+      for (const dir of possibleDirs) {
+        const filePath = path.join(dir, file);
+        if (
+          await fs
+            .access(filePath)
+            .then(() => true)
+            .catch(() => false)
+        ) {
+          const content = await fs.readFile(filePath, 'utf-8');
+          const lines = content.trim().split('\n');
+          // 简单检查是否包含 CIDR 格式
+          const cidrLines = lines.filter(line => line.includes('/'));
+          if (cidrLines.length > 0) {
+            mergedCount += cidrLines.length;
+          }
+          found = true;
+          break;
         }
       }
     }
