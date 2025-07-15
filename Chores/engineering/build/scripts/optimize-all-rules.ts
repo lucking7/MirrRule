@@ -8,6 +8,7 @@ import { readFileByLine } from '../lib/fetch-text-by-line.js';
 import { merge as mergeCidr } from 'fast-cidr-tools';
 import { HostnameSmolTrie } from '../../lib/trie.js';
 import { fdir as Fdir } from 'fdir';
+import { SURGE_DIR } from '../constants/dir.js';
 
 interface OptimizationStats {
   totalFiles: number;
@@ -94,7 +95,7 @@ async function optimizeIPRules(parentSpan: Span) {
   const span = parentSpan.traceChild('optimize-ip-rules');
 
   try {
-    const rulesetDir = 'Surge/Rulesets';
+    const rulesetDir = path.join(SURGE_DIR, 'Rulesets');
     const stats = {
       totalFiles: 0,
       optimizedFiles: 0,
@@ -223,7 +224,7 @@ async function optimizeDomainRules(parentSpan: Span) {
   const span = parentSpan.traceChild('optimize-domain-rules');
 
   try {
-    const rulesetDir = 'Surge/Rulesets';
+    const rulesetDir = path.join(SURGE_DIR, 'Rulesets');
     const stats = {
       totalFiles: 0,
       optimizedFiles: 0,
