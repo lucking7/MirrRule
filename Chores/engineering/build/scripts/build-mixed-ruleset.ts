@@ -15,7 +15,7 @@ export async function buildMixedRuleset(parentSpan: Span) {
     console.log(picocolors.blue('📦 构建规则集（含类型判定）...'));
 
     // 递归扫描 Surge/Rulesets 目录及所有子目录
-    const rulesetDir = path.resolve('Surge/Rulesets');
+    const rulesetDir = path.resolve('../../Surge/Rulesets');
 
     async function findRulesetFiles(dir: string): Promise<string[]> {
       const files: string[] = [];
