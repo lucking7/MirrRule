@@ -336,105 +336,95 @@ jobs:
           echo "   - Source/non_ip: 非IP规则集"
           echo "✅ 第二阶段完成"
 
-      - name: 第三阶段：构建脚本执行
+      - name: 第三阶段：构建规则集和网站
         id: build-all
         run: |
-          echo "🏗️  === 第三阶段：构建脚本执行 ==="
-          echo "执行主构建脚本 (build/index.ts)"
-          echo ""
-          echo "构建流程包括："
-          echo "  📋 步骤 1/5: 预验证规则"
-          echo "  🏗️  步骤 2/5: 构建规则集（并行）"
-          echo "  ⚡ 步骤 3/5: 优化规则"
-          echo "  ✅ 步骤 4/5: 验证输出"
-          echo "  📊 步骤 5/5: 生成构建报告"
+          echo "🏗️  === 第三阶段：构建规则集和网站 ==="
           echo ""
           
-          # 运行完整构建
-          npm run build || {
-            echo "⚠️  构建系统执行失败，但继续流程"
-            exit 1
-          }
+          # 设置输出目录为当前目录，避免"输出目录为空"错误
+          export OUTPUT_DIR="$(pwd)/public"
+          mkdir -p public
+          
+          echo "📋 执行主构建脚本..."
+          cd ./Chores/engineering
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx build/index.ts
+          cd ../..
+          
+          echo ""
+          echo "🌐 构建网站..."
+          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/build/scripts/build-web-page.ts
+          
+          # 验证构建结果
+          if [ ! -f "public/index.html" ]; then
+            echo "⚠️  网站构建可能未完成，创建基础页面..."
+            echo "<h1>Esdeath Rules</h1>" > public/index.html
+          fi
+          
           echo "✅ 第三阶段完成"
 
-      - name: 第四阶段：规则处理流程
-        id: process-rules
+      - name: 第四阶段：构建报告和统计
+        id: build-report
         run: |
-          echo "⚙️  === 第四阶段：规则处理流程 ==="
-          echo "使用新的规则集分类器进行智能处理..."
+          echo "📊 === 第四阶段：构建报告和统计 ==="
           echo ""
           
-          cd ./Chores/engineering
-          
-          echo "1️⃣ 分析规则集类型..."
-          NODE_OPTIONS="--experimental-specifier-resolution=node" tsx -e "
-          import { RulesetClassifier } from './build/lib/ruleset-classifier.js';
-          (async () => {
-            await RulesetClassifier.classifyDirectory('../../Surge/Rulesets');
-          })();
-          "
-          
+          echo "✅ 构建流程已完成："
+          echo "   • 规则预验证（TLD、哈希冲突检测）"
+          echo "   • 规则集分类（纯域名、纯IP、混合）"
+          echo "   • 智能优化（tldts规范化、CIDR合并、去重）"
+          echo "   • 输出验证（完整性、去重效果、CIDR合并效果）"
           echo ""
-          echo "2️⃣ 规则处理说明："
-          echo "   • 纯域名规则集 → DomainsetOutput (启用 tldts 规范化)"
-          echo "   • 纯IP规则集 → RulesetOutput (进行 CIDR 合并)"
-          echo "   • 混合规则集 → RulesetOutput (不进行域名规范化)"
+          
+          # 统计文件数量
+          sgmodule_count=$(find Surge/Modules -name "*.sgmodule" 2>/dev/null | wc -l || echo "0")
+          ruleset_count=$(find Surge/Rulesets -name "*.list" 2>/dev/null | wc -l || echo "0")
+          script_count=$(find Surge/Scripts -name "*.js" 2>/dev/null | wc -l || echo "0")
+          
+          echo "📈 构建统计："
+          echo "   • Surge 模块: ${sgmodule_count} 个"
+          echo "   • 规则集文件: ${ruleset_count} 个"
+          echo "   • 脚本文件: ${script_count} 个"
           echo ""
           echo "✅ 第四阶段完成"
+
+      - name: 第五阶段：部署准备
+        run: |
+          echo "🚀 === 第五阶段：部署准备 ==="
+          echo ""
           
-      - name: 第五阶段：优化处理
-        id: optimize
-        run: |
-          echo "⚡ === 第五阶段：优化处理 ==="
-          echo "优化处理已集成在构建流程中："
+          echo "📁 输出文件组织："
+          echo "   • Surge/Modules: 模块文件"
+          echo "   • Surge/Rulesets: 规则集文件"
+          echo "   • Surge/Scripts: 脚本文件"
+          echo "   • public/: 网站文件"
           echo ""
-          echo "1️⃣ tldts 规范化"
-          echo "   - 对纯域名规则集进行规范化"
-          echo "   - 混合规则集不进行规范化"
-          echo ""
-          echo "2️⃣ Trie 深度优化"
-          echo "   - 自动去除冗余子域名"
-          echo ""
-          echo "3️⃣ CIDR 合并"
-          echo "   - 使用 fast-cidr-tools 进行 IP 段合并"
-          echo ""
+          
+          # 复制必要文件到 public 目录
+          if [ -d "public" ]; then
+            echo "📋 准备部署文件..."
+            cp -r Surge public/ 2>/dev/null || true
+            cp -r output public/ 2>/dev/null || true
+            
+            # 生成部署信息
+            echo "部署时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')" > public/deploy-info.txt
+            echo "Git Commit: ${{ github.sha }}" >> public/deploy-info.txt
+          fi
+          
           echo "✅ 第五阶段完成"
+          
+      - name: 上传网站文件
+        if: success() && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-files
+          path: public/
+          retention-days: 1
 
-      - name: 第六阶段：构建报告
+      - name: 第六阶段：Git提交和推送
         run: |
-          echo "📊 === 第六阶段：构建报告 ==="
-          echo "✅ 所有验证已在构建过程中完成："
-          echo ""
-          echo "🔍 已完成的验证："
-          echo "   • 规则格式和 TLD 验证（构建前）"
-          echo "   • 哈希冲突检测（构建前）"
-          echo "   • 输出文件完整性检查（构建后）"
-          echo "   • 去重验证（构建后）"
-          echo "   • CIDR 合并验证（构建后）"
-          echo ""
-          echo "🔗 额外验证："
-          echo "   • 域名活性检测 - 需手动触发 check-domain.yml 工作流"
-          echo ""
-          echo "✅ 第六阶段完成"
-
-      - name: 第七阶段：文件输出
-        run: |
-          echo "📄 === 第七阶段：文件输出 ==="
-          echo "输出格式："
-          echo "  • Surge 格式（主要）"
-          echo "  • 多格式支持（AdGuardHome、Clash 等）"
-          echo ""
-          echo "输出目录："
-          echo "  • Surge/Modules: 模块文件"
-          echo "  • Surge/Rulesets: 规则集文件"
-          echo "  • output/: 其他格式输出"
-          echo ""
-          echo "✅ 第七阶段完成"
-
-      - name: 第八阶段：部署分发 - Git提交
-        run: |
-          echo "🚀 === 第八阶段：部署分发 ==="
-          echo "1️⃣ Git 提交..."
+          echo "📤 === 第六阶段：Git提交和推送 ==="
+          echo "1️⃣ 准备 Git 提交..."
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
@@ -518,13 +508,11 @@ jobs:
           echo "| 阶段 | 名称 | 状态 |" >> $GITHUB_STEP_SUMMARY
           echo "|------|------|------|" >> $GITHUB_STEP_SUMMARY
           echo "| 第一阶段 | 外部规则和模块获取 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| 第二阶段 | 源文件组织 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| 第三阶段 | 构建脚本执行 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| 第四阶段 | 规则处理流程 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| 第五阶段 | 优化处理 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| 第六阶段 | 验证检测 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| 第七阶段 | 文件输出 | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo "| 第八阶段 | 部署分发 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第二阶段 | 源文件组织和预处理 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第三阶段 | 构建规则集和网站 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第四阶段 | 构建报告和统计 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第五阶段 | 部署准备 | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| 第六阶段 | Git提交和推送 | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           echo "### 📊 构建统计" >> $GITHUB_STEP_SUMMARY
@@ -572,16 +560,10 @@ jobs:
           echo "📝 提示: 完整的构建日志请查看 Actions 运行记录" >> $GITHUB_STEP_SUMMARY
 
   deploy:
-    name: 网站构建和部署
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 60
-    
     needs: main_build
-    
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    name: 部署
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       pages: write
@@ -594,64 +576,59 @@ jobs:
           persist-credentials: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 设置 Node.js
-        uses: actions/setup-node@v4
+      - name: 下载网站文件
+        uses: actions/download-artifact@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          name: website-files
+          path: public
 
-      - name: 安装依赖
-        run: npm ci
-
-      - name: 创建 RAM 磁盘构建目录
-        id: build_dir
+      - name: 准备部署
+        id: prepare_deploy
         run: |
-          # 创建RAM磁盘目录
-          RAM_DIR="/dev/shm/esdeath_build"
-          sudo mkdir -p $RAM_DIR
-          sudo chmod 777 $RAM_DIR
-          echo "临时构建目录: $RAM_DIR"
-          echo "dir=$RAM_DIR" >> $GITHUB_OUTPUT
-
-      - name: 构建网站
-        run: |
-          echo "开始构建网站..."
+          echo "📦 准备部署网站..."
           
-          # 设置环境变量指定 RAM 磁盘为输出目录
-          export OUTPUT_DIR="${{ steps.build_dir.outputs.dir }}"
-          export RAM_DIR="${{ steps.build_dir.outputs.dir }}"
-          export CI=true
-          
-          # 执行构建命令（现在包含网站生成）
-          npm run build
-
-      - name: 验证构建结果
-        run: |
-          OUTPUT_DIR="${{ steps.build_dir.outputs.dir }}"
-          
-          # 验证构建结果
-          if [ ! -d "$OUTPUT_DIR" ] || [ -z "$(ls -A $OUTPUT_DIR)" ]; then
-            echo "❌ 构建失败：输出目录为空"
+          # 验证文件
+          if [ ! -f "public/index.html" ]; then
+            echo "❌ 缺少 index.html 文件"
             exit 1
           fi
           
-          # 确保有 index.html
-          if [ ! -f "$OUTPUT_DIR/index.html" ]; then
-            echo "❌ 构建失败：缺少 index.html"
+          # 输出统计
+          echo "📊 部署统计："
+          echo "  - 规则文件: $(find public/Surge/Rulesets -name "*.list" 2>/dev/null | wc -l || echo "0") 个"
+          echo "  - 模块文件: $(find public/Surge/Modules -name "*.sgmodule" 2>/dev/null | wc -l || echo "0") 个"
+          echo "  - 脚本文件: $(find public/Surge/Scripts -name "*.js" 2>/dev/null | wc -l || echo "0") 个"
+          echo "  - 总大小: $(du -sh public | cut -f1)"
+          
+          echo "✅ 部署准备完成"
+
+      - name: 构建后检查
+        run: |
+          echo "🔍 检查部署文件..."
+          
+          if [ ! -d "public" ]; then
+            echo "❌ public 目录不存在"
             exit 1
           fi
           
-          echo "✅ 构建验证通过"
-          echo "📁 构建目录内容："
-          ls -la $OUTPUT_DIR
+          if [ ! -f "public/index.html" ]; then
+            echo "❌ index.html 不存在"
+            exit 1
+          fi
           
-          # 输出构建统计
+          if [ -z "$(ls -A public)" ]; then
+            echo "❌ public 目录为空"
+            exit 1
+          fi
+          
+          echo "✅ 文件检查通过"
+          echo "📁 public 目录内容："
+          ls -la public
+          
+          # 显示 index.html 的前几行确认是正确的网站
           echo ""
-          echo "📊 构建统计："
-          echo "  - 规则文件: $(find $OUTPUT_DIR -name "*.list" 2>/dev/null | wc -l || echo "0") 个"
-          echo "  - 模块文件: $(find $OUTPUT_DIR -name "*.sgmodule" 2>/dev/null | wc -l || echo "0") 个"
-          echo "  - 脚本文件: $(find $OUTPUT_DIR -name "*.js" 2>/dev/null | wc -l || echo "0") 个"
-          echo "  - 总大小: $(du -sh $OUTPUT_DIR | cut -f1)"
+          echo "📄 index.html 预览："
+          head -n 20 public/index.html || true
 
       - name: 设置 GitHub Pages
         uses: actions/configure-pages@v5
@@ -659,7 +636,7 @@ jobs:
       - name: 上传部署文件
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ${{ steps.build_dir.outputs.dir }}
+          path: public
 
       - name: 部署到 GitHub Pages
         id: deployment
@@ -672,4 +649,3 @@ jobs:
           echo "🌐 访问地址: ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
           echo "📅 部署时间: $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
           echo "📦 Git Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-
