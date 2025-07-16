@@ -1,7 +1,7 @@
 #########################################
 # Sukka's Ruleset - Speedtest Domains
-# Last Updated: 2025-07-15T12:51:38.391Z
-# Size: 1227
+# Last Updated: 2025-07-16T12:52:06.468Z
+# Size: 1228
 # License: AGPL 3.0
 # Homepage: https://ruleset.skk.moe
 # GitHub: https://github.com/SukkaW/Surge
@@ -50,6 +50,7 @@ DOMAIN,sg.st.spacecore.pro
 DOMAIN,ny.st.spacecore.pro
 DOMAIN,de.st.spacecore.pro
 DOMAIN,au.st.spacecore.pro
+DOMAIN,fr-1.node.delton.ovh
 DOMAIN-SUFFIX,measurement-lab.org
 DOMAIN,speed.lax-1.serverforge.org
 DOMAIN-SUFFIX,backend.librespeed.org
