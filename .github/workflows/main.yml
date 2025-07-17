@@ -28,11 +28,6 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: write
-      pages: write      # GitHub Pages 部署权限
-      id-token: write   # OIDC 令牌权限
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
 
     services:
       docker:
@@ -522,17 +517,30 @@ jobs:
           echo "🌐 === 第七阶段：构建网站 ==="
           echo ""
           
-          # 设置输出目录
-          export OUTPUT_DIR="$(pwd)/public"
+          # 创建最终输出目录
           mkdir -p public
           
           echo "📋 构建网站..."
+          # 使用内置的 RAM 机制，不覆盖 OUTPUT_DIR
           NODE_OPTIONS="--experimental-specifier-resolution=node" tsx Chores/engineering/build/scripts/build-web-page.ts
+          
+          # 复制 RAM 构建结果到 public 目录
+          if [ -d "/dev/shm/esdeath" ]; then
+            echo "📁 从 RAM 磁盘复制构建结果..."
+            cp -r /dev/shm/esdeath/* public/ 2>/dev/null || true
+          fi
           
           # 验证构建结果
           if [ ! -f "public/index.html" ]; then
-            echo "⚠️  网站构建可能未完成，创建基础页面..."
-            echo '<!DOCTYPE html><html><head><title>Esdeath Rules</title></head><body><h1>Esdeath Rules</h1></body></html>' > public/index.html
+            echo "⚠️ 网站构建失败，创建基础页面..."
+            echo '<!DOCTYPE html><html><head><title>Esdeath Rules</title></head><body><h1>Esdeath Rules</h1><p>网站构建失败，请检查构建日志。</p></body></html>' > public/index.html
+          else
+            echo "✅ 网站构建成功，发现 index.html"
+            # 显示文件大小信息
+            echo "📄 构建结果统计："
+            echo "   - index.html: $(stat -c%s public/index.html 2>/dev/null || echo "未知") 字节"
+            echo "   - 总文件数: $(find public -type f 2>/dev/null | wc -l || echo "0") 个"
+            echo "   - 总大小: $(du -sh public 2>/dev/null | cut -f1 || echo "未知")"
           fi
           
           echo "✅ 第七阶段完成"
@@ -843,19 +851,37 @@ jobs:
           echo "📄 index.html 预览："
           head -n 20 public/index.html || true
 
-      - name: 设置 GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: 上传部署文件
+      - name: 上传构建产物
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
           path: public
 
+  # GitHub Pages 部署作业
+  deploy:
+    name: 部署到 GitHub Pages
+    # 只在主分支运行，且构建作业成功
+    if: github.ref == 'refs/heads/main'
+    needs: main_build
+    runs-on: ubuntu-latest
+    
+    # 设置必要权限
+    permissions:
+      pages: write      # 部署到 Pages 的权限
+      id-token: write   # 验证部署来源的 OIDC 令牌权限
+    
+    # 指定 GitHub Pages 环境
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: 设置 GitHub Pages
+        uses: actions/configure-pages@v5
+      
       - name: 部署到 GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
         
       - name: 部署成功通知
         if: success()
