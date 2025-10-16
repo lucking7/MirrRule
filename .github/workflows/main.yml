@@ -267,7 +267,7 @@ jobs:
           if ! git diff --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add public/Plugins/
+            git add -f public/Plugins/
             git commit -m "🔄 转换插件 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
             git push
           fi
@@ -302,11 +302,11 @@ jobs:
 
       - name: Commit changes
         run: |
-          git add -N public/Modules/Merged/
+          git add -N -f public/Modules/Merged/
           if ! git diff --quiet --exit-code public/Modules/Merged/; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add public/Modules/Merged/
+            git add -f public/Modules/Merged/
             git commit -m "🎯 合并模块 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
             git push
           fi
@@ -340,7 +340,7 @@ jobs:
           if ! git diff --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add public/Mirror/
+            git add -f public/Mirror/
             git commit -m "🪞 同步镜像 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
             git push
           fi
@@ -398,11 +398,11 @@ jobs:
 
       - name: Commit changes
         run: |
-          git add -N public/Rules/
+          git add -N -f public/Rules/
           if ! git diff --quiet --exit-code public/Rules/; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add public/Rules/
+            git add -f public/Rules/
             git commit -m "🔄 转换规则 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
             git push
           fi
@@ -436,11 +436,11 @@ jobs:
 
       - name: Commit changes
         run: |
-          git add -N public/Rules/Merged/
+          git add -N -f public/Rules/Merged/
           if ! git diff --quiet --exit-code public/Rules/Merged/; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add public/Rules/Merged/
+            git add -f public/Rules/Merged/
             git commit -m "🔀 合并规则 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
             git push
           fi
