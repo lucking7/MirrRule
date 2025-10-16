@@ -63,8 +63,8 @@ importers:
         specifier: 3.0.0
         version: 3.0.0
       null-prototype-object:
-        specifier: ^1.2.2
-        version: 1.2.2
+        specifier: ^1.2.4
+        version: 1.2.4
       picocolors:
         specifier: ^1.1.1
         version: 1.1.1
@@ -1399,8 +1399,8 @@ packages:
     resolution: {integrity: sha512-OhYaY5sDsIka7H7AtijtI9jwGYLyl29eQn/W623DiN/MIv5sUqc4g7BIDThX+gb7di9f6xK02nkp8sdfFWZLTg==}
     engines: {node: '>=10'}
 
-  null-prototype-object@1.2.2:
-    resolution: {integrity: sha512-JhzIvS2Z8GKpDO5E/Usry9EGP8gznHSyPVY9a4Uv98OnkbYSe4qvge97/DeDdejICnb7YTW7fSvbcMSKCuVrMA==}
+  null-prototype-object@1.2.4:
+    resolution: {integrity: sha512-HUSE2enIcEfprnXC6MC9q+C/BzUYG9GwWrlMcNfePxA9Wwz0hR+XbIY2Y6MPJHA3ckC2lEQI8yVtG17uqY/2qw==}
     engines: {node: '>= 20'}
 
   once@1.4.0:
@@ -2951,7 +2951,7 @@ snapshots:
     dependencies:
       semver: 7.7.2
 
-  null-prototype-object@1.2.2: {}
+  null-prototype-object@1.2.4: {}
 
   once@1.4.0:
     dependencies:
