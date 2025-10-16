@@ -1,0 +1,518 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  schedule:
+    # 每天 05:00 和 17:00 UTC 执行完整构建
+    - cron: '0 5,17 * * *'
+    # 每 2 小时执行规则转换
+    - cron: '0 */2 * * *'
+    # 每小时的 5, 30, 55 分执行镜像同步
+    - cron: '5,30,55 * * * *'
+    # 每小时的 10, 35 分执行插件转换
+    - cron: '10,35 * * * *'
+  workflow_dispatch:
+    inputs:
+      task:
+        description: '执行任务 (all/build/convert-plugins/merge-modules/mirror-sync/rule-conversion/rule-merge/deploy)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - build
+          - convert-plugins
+          - merge-modules
+          - mirror-sync
+          - rule-conversion
+          - rule-merge
+          - deploy
+      deploy_target:
+        description: '部署目标 (all/github/cloudflare)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - github
+          - cloudflare
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================
+  # 准备阶段：确定需要执行的任务
+  # ============================================
+  prepare:
+    name: Prepare Tasks
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.decide.outputs.should_build }}
+      should_convert_plugins: ${{ steps.decide.outputs.should_convert_plugins }}
+      should_merge_modules: ${{ steps.decide.outputs.should_merge_modules }}
+      should_mirror_sync: ${{ steps.decide.outputs.should_mirror_sync }}
+      should_rule_conversion: ${{ steps.decide.outputs.should_rule_conversion }}
+      should_rule_merge: ${{ steps.decide.outputs.should_rule_merge }}
+      should_deploy: ${{ steps.decide.outputs.should_deploy }}
+      deploy_target: ${{ steps.decide.outputs.deploy_target }}
+    steps:
+      - name: Decide tasks to run
+        id: decide
+        run: |
+          TASK="${{ github.event.inputs.task || 'auto' }}"
+          IS_SCHEDULE="${{ github.event_name == 'schedule' }}"
+          IS_PUSH="${{ github.event_name == 'push' }}"
+          IS_PR="${{ github.event_name == 'pull_request' }}"
+          CRON="${{ github.event.schedule }}"
+          
+          # 默认值
+          BUILD="false"
+          CONVERT_PLUGINS="false"
+          MERGE_MODULES="false"
+          MIRROR_SYNC="false"
+          RULE_CONVERSION="false"
+          RULE_MERGE="false"
+          DEPLOY="false"
+          DEPLOY_TARGET="${{ github.event.inputs.deploy_target || 'all' }}"
+          
+          # 手动触发
+          if [ "$TASK" = "all" ] || [ "$TASK" = "build" ]; then BUILD="true"; fi
+          if [ "$TASK" = "all" ] || [ "$TASK" = "convert-plugins" ]; then CONVERT_PLUGINS="true"; fi
+          if [ "$TASK" = "all" ] || [ "$TASK" = "merge-modules" ]; then MERGE_MODULES="true"; fi
+          if [ "$TASK" = "all" ] || [ "$TASK" = "mirror-sync" ]; then MIRROR_SYNC="true"; fi
+          if [ "$TASK" = "all" ] || [ "$TASK" = "rule-conversion" ]; then RULE_CONVERSION="true"; fi
+          if [ "$TASK" = "all" ] || [ "$TASK" = "rule-merge" ]; then RULE_MERGE="true"; fi
+          if [ "$TASK" = "all" ] || [ "$TASK" = "deploy" ]; then DEPLOY="true"; fi
+          
+          # 定时任务
+          if [ "$IS_SCHEDULE" = "true" ]; then
+            case "$CRON" in
+              "0 5,17 * * *")
+                # 完整构建
+                BUILD="true"
+                DEPLOY="true"
+                ;;
+              "0 */2 * * *")
+                # 规则转换
+                RULE_CONVERSION="true"
+                ;;
+              "5,30,55 * * * *")
+                # 镜像同步
+                MIRROR_SYNC="true"
+                ;;
+              "10,35 * * * *")
+                # 插件转换
+                CONVERT_PLUGINS="true"
+                ;;
+            esac
+          fi
+          
+          # Push 触发
+          if [ "$IS_PUSH" = "true" ] && [ "$IS_SCHEDULE" != "true" ]; then
+            BUILD="true"
+            DEPLOY="true"
+          fi
+          
+          # PR 触发
+          if [ "$IS_PR" = "true" ]; then
+            BUILD="true"
+            DEPLOY="false"
+          fi
+          
+          echo "should_build=$BUILD" >> $GITHUB_OUTPUT
+          echo "should_convert_plugins=$CONVERT_PLUGINS" >> $GITHUB_OUTPUT
+          echo "should_merge_modules=$MERGE_MODULES" >> $GITHUB_OUTPUT
+          echo "should_mirror_sync=$MIRROR_SYNC" >> $GITHUB_OUTPUT
+          echo "should_rule_conversion=$RULE_CONVERSION" >> $GITHUB_OUTPUT
+          echo "should_rule_merge=$RULE_MERGE" >> $GITHUB_OUTPUT
+          echo "should_deploy=$DEPLOY" >> $GITHUB_OUTPUT
+          echo "should_deploy=$DEPLOY_TARGET" >> $GITHUB_OUTPUT
+          
+          echo "📋 Tasks to run:"
+          echo "  Build: $BUILD"
+          echo "  Convert Plugins: $CONVERT_PLUGINS"
+          echo "  Merge Modules: $MERGE_MODULES"
+          echo "  Mirror Sync: $MIRROR_SYNC"
+          echo "  Rule Conversion: $RULE_CONVERSION"
+          echo "  Rule Merge: $RULE_MERGE"
+          echo "  Deploy: $DEPLOY (target: $DEPLOY_TARGET)"
+
+  # ============================================
+  # 核心构建任务
+  # ============================================
+  build:
+    name: Build
+    needs: prepare
+    if: needs.prepare.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      
+      - uses: pnpm/action-setup@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+          cache: "pnpm"
+      
+      - name: Setup build directory
+        id: build-dir
+        run: |
+          echo "dir=public" >> $GITHUB_OUTPUT
+          mkdir -p public
+      
+      - name: Get current date
+        id: date
+        run: |
+          echo "date=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+          echo "year=$(date +'%Y')" >> $GITHUB_OUTPUT
+          echo "month=$(date +'%m')" >> $GITHUB_OUTPUT
+          echo "day=$(date +'%d')" >> $GITHUB_OUTPUT
+      
+      - name: Restore cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache
+          key: ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
+          restore-keys: |
+            ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-
+            ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-
+            ${{ runner.os }}-build-v3-
+      
+      - run: pnpm install --frozen-lockfile
+      
+      - run: pnpm run build
+        env:
+          PUBLIC_DIR: ${{ steps.build-dir.outputs.dir }}
+      
+      - name: Verify build output
+        run: |
+          if [ ! -d "${{ steps.build-dir.outputs.dir }}" ]; then
+            echo "❌ Build directory not found"
+            exit 1
+          fi
+          if [ ! "$(ls -A ${{ steps.build-dir.outputs.dir }})" ]; then
+            echo "❌ Build directory is empty"
+            exit 1
+          fi
+          echo "✅ Build output verified"
+      
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact-${{ github.sha }}
+          path: ${{ steps.build-dir.outputs.dir }}
+          retention-days: 1
+          compression-level: 4
+      
+      - name: Save cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache
+          key: ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
+
+  # ============================================
+  # 插件转换任务
+  # ============================================
+  convert-plugins:
+    name: Convert Plugins
+    needs: prepare
+    if: needs.prepare.outputs.should_convert_plugins == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    services:
+      script-hub:
+        image: xream/script-hub:latest
+        ports:
+          - 9100:9100
+          - 9101:9101
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+      
+      - run: pnpm install --frozen-lockfile
+      
+      - name: Configure Script-Hub
+        run: |
+          echo "127.0.0.1 script.hub" | sudo tee -a /etc/hosts
+          for i in {1..20}; do
+            if curl -f -s http://script.hub:9101/ > /dev/null 2>&1; then
+              echo "✓ Script-Hub ready"
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
+      
+      - run: pnpm run convert-plugins --wait-service
+        env:
+          CI: true
+      
+      - name: Commit changes
+        run: |
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add public/Plugins/
+            git commit -m "🔄 转换插件 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+            git push
+          fi
+
+  # ============================================
+  # 模块合并任务
+  # ============================================
+  merge-modules:
+    name: Merge Modules
+    needs: prepare
+    if: needs.prepare.outputs.should_merge_modules == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Prepare directories
+        run: |
+          mkdir -p public/Modules/{Original,Merged}
+
+      - run: pnpm run merge-modules
+        env:
+          CI: true
+
+      - name: Commit changes
+        run: |
+          git add -N public/Modules/Merged/
+          if ! git diff --quiet --exit-code public/Modules/Merged/; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add public/Modules/Merged/
+            git commit -m "🎯 合并模块 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+            git push
+          fi
+
+  # ============================================
+  # 镜像同步任务
+  # ============================================
+  mirror-sync:
+    name: Mirror Sync
+    needs: prepare
+    if: needs.prepare.outputs.should_mirror_sync == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm run node ./Build/sync-mirrors.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit changes
+        run: |
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add public/Mirror/
+            git commit -m "🪞 同步镜像 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+            git push
+          fi
+
+  # ============================================
+  # 规则转换任务
+  # ============================================
+  rule-conversion:
+    name: Rule Conversion
+    needs: prepare
+    if: needs.prepare.outputs.should_rule_conversion == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - name: Get date
+        id: date
+        run: |
+          echo "year=$(date +'%Y')" >> $GITHUB_OUTPUT
+          echo "month=$(date +'%m')" >> $GITHUB_OUTPUT
+          echo "day=$(date +'%d')" >> $GITHUB_OUTPUT
+
+      - name: Restore cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .cache
+            public/Rules/.meta
+          key: ${{ runner.os }}-rules-v1-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
+          restore-keys: |
+            ${{ runner.os }}-rules-v1-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-
+            ${{ runner.os }}-rules-v1-
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm run node ./Build/convert-rules.ts --platform=all --category=all
+        env:
+          CI: true
+
+      - name: Save cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .cache
+            public/Rules/.meta
+          key: ${{ runner.os }}-rules-v1-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
+
+      - name: Commit changes
+        run: |
+          git add -N public/Rules/
+          if ! git diff --quiet --exit-code public/Rules/; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add public/Rules/
+            git commit -m "🔄 转换规则 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+            git push
+          fi
+
+  # ============================================
+  # 规则合并任务
+  # ============================================
+  rule-merge:
+    name: Rule Merge
+    needs: [prepare, rule-conversion]
+    if: |
+      always() &&
+      needs.prepare.outputs.should_rule_merge == 'true' &&
+      (needs.rule-conversion.result == 'success' || needs.rule-conversion.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm run node ./Build/merge-rules.ts --strategy=smart
+        env:
+          CI: true
+
+      - name: Commit changes
+        run: |
+          git add -N public/Rules/Merged/
+          if ! git diff --quiet --exit-code public/Rules/Merged/; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add public/Rules/Merged/
+            git commit -m "🔀 合并规则 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+            git push
+          fi
+
+  # ============================================
+  # 部署到 Cloudflare Pages
+  # ============================================
+  deploy-cloudflare:
+    name: Deploy to Cloudflare Pages
+    needs: [prepare, build]
+    if: |
+      needs.prepare.outputs.should_deploy == 'true' &&
+      (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'cloudflare') &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-artifact-${{ github.sha }}
+          path: public
+
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy public --project-name=nrrule --commit-dirty=true --branch=main
+          wranglerVersion: '3.114.12'
+
+  # ============================================
+  # 部署到 GitHub Repository
+  # ============================================
+  deploy-github:
+    name: Deploy to GitHub Repository
+    needs: [prepare, build]
+    if: |
+      needs.prepare.outputs.should_deploy == 'true' &&
+      (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'github') &&
+      github.ref == 'refs/heads/main' &&
+      secrets.GIT_TOKEN != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-artifact-${{ github.sha }}
+          path: public
+
+      - name: Deploy to NRRule Repository
+        continue-on-error: true
+        run: |
+          gh repo unarchive lucking7/NRRule --yes || true
+
+          git clone --filter=tree:0 --no-tags \
+            https://${GH_USER}:${GH_TOKEN}@github.com/lucking7/NRRule.git \
+            ./deploy-git
+
+          cd ./deploy-git
+          git config user.email "${GH_EMAIL}"
+          git config user.name "${GH_USER}"
+
+          rm -rf ./*
+          cp -rf ../public/* ./
+
+          git add --all .
+          git commit -m "deploy: ${{ github.repository }}@${{ github.sha }}"
+          git push --quiet --force origin HEAD:main
+
+          cd ..
+          rm -rf ./deploy-git
+
+          gh repo archive lucking7/NRRule --yes || true
+        env:
+          GH_EMAIL: ${{ secrets.GIT_EMAIL }}
+          GH_USER: ${{ secrets.GIT_USER }}
+          GH_TOKEN: ${{ secrets.GIT_TOKEN }}
+
