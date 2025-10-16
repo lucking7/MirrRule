@@ -84,7 +84,7 @@
     "@types/punycode": "^2.1.4",
     "eslint": "^9.34.0",
     "eslint-config-sukka": "^6.23.1",
-    "eslint-formatter-sukka": "^6.23.1",
+    "eslint-formatter-sukka": "^7.3.5",
     "tinyexec": "^1.0.1",
     "typescript": "^5.9.2",
     "why-is-node-running": "^3.2.2"
