@@ -228,6 +228,7 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.should_convert_plugins == 'true'
     runs-on: ubuntu-latest
+    continue-on-error: true  # Script-Hub 服务可能不稳定，允许失败
     permissions:
       contents: write
     services:
