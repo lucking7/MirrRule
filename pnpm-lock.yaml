@@ -24,8 +24,8 @@ importers:
         specifier: ^0.0.8
         version: 0.0.8
       better-sqlite3:
-        specifier: ^12.2.0
-        version: 12.2.0
+        specifier: ^12.4.1
+        version: 12.4.1
       ci-info:
         specifier: ^4.3.0
         version: 4.3.0
@@ -819,8 +819,8 @@ packages:
   better-sqlite3@11.10.0:
     resolution: {integrity: sha512-EwhOpyXiOEL/lKzHz9AW1msWFNzGc/z+LzeB3/jnFJpxu+th2yqvzsSWas1v9jgs9+xiXJcD5A8CJxAG2TaghQ==}
 
-  better-sqlite3@12.2.0:
-    resolution: {integrity: sha512-eGbYq2CT+tos1fBwLQ/tkBt9J5M3JEHjku4hbvQUePCckkvVf14xWj+1m7dGoK81M/fOjFT7yM9UMeKT/+vFLQ==}
+  better-sqlite3@12.4.1:
+    resolution: {integrity: sha512-3yVdyZhklTiNrtg+4WqHpJpFDd+WHTg2oM7UcR80GqL05AOV0xEJzc6qNvFYoEtE+hRp1n9MpN6/+4yhlGkDXQ==}
     engines: {node: 20.x || 22.x || 23.x || 24.x}
 
   bindings@1.5.0:
@@ -915,8 +915,8 @@ packages:
   defu@6.1.4:
     resolution: {integrity: sha512-mEQCMmwJu317oSz8CwdIOdwf3xMif1ttiM8LTufzc3g6kR+9Pe236twL8j3IYT1F7GfRgGcW6MWxzZjLIkuHIg==}
 
-  detect-libc@2.0.4:
-    resolution: {integrity: sha512-3UDv+G9CsCKO1WKMGw9fwq/SWJYbI0c5Y7LU1AXYoDdbhE2AHQ6N6Nb34sG8Fj7T5APy8qXDCKuuIHd1BR0tVA==}
+  detect-libc@2.1.2:
+    resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
 
   dns2@https://codeload.github.com/lsongdev/node-dns/tar.gz/3adb7e91b3101c0e4f43ebaca3a568269ea04d11:
@@ -1395,8 +1395,8 @@ packages:
   natural-compare@1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
 
-  node-abi@3.75.0:
-    resolution: {integrity: sha512-OhYaY5sDsIka7H7AtijtI9jwGYLyl29eQn/W623DiN/MIv5sUqc4g7BIDThX+gb7di9f6xK02nkp8sdfFWZLTg==}
+  node-abi@3.78.0:
+    resolution: {integrity: sha512-E2wEyrgX/CqvicaQYU3Ze1PFGjc4QYPGsjUrlYkqAE0WjHEZwgOsGMPMzkMse4LjJbDmaEuDX3CM036j5K2DSQ==}
     engines: {node: '>=10'}
 
   null-prototype-object@1.2.2:
@@ -1525,6 +1525,11 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  semver@7.7.3:
+    resolution: {integrity: sha512-SdsKMrI9TdgjdweUSR9MweHA4EJ8YxHn8DFaDisvhVlUOe4BF1tLD7GAj0lIqWVl+dPb/rExr0Btby5loQm20Q==}
+    engines: {node: '>=10'}
+    hasBin: true
+
   shebang-command@2.0.0:
     resolution: {integrity: sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==}
     engines: {node: '>=8'}
@@ -1592,8 +1597,8 @@ packages:
     resolution: {integrity: sha512-Re10+NauLTMCudc7T5WLFLAwDhQ0JWdrMK+9B2M8zR5hRExKmsRDCBA7/aV/pNJFltmBFO5BAMlQFi/vq3nKOg==}
     engines: {node: '>=6'}
 
-  tar-fs@2.1.3:
-    resolution: {integrity: sha512-090nwYJDmlhwFwEW3QQl+vaNnxsO2yVsd45eTKRBzSzu+hlb1w2K9inVq5b0ngXuLVqQ4ApvsUHHnu/zQNkWAg==}
+  tar-fs@2.1.4:
+    resolution: {integrity: sha512-mDAjwmZdh7LTT6pNleZ05Yt65HC3E+NiQzl672vQG38jIrehtJk/J3mNwIg+vShQPcLF/LV7CMnDW6vjj6sfYQ==}
 
   tar-fs@3.1.0:
     resolution: {integrity: sha512-5Mty5y/sOF1YWj1J6GiBodjlDc05CUR8PKXrsnFAiSG0xA+GHeWLovaZPYUDXkH/1iKRf2+M5+OrRgzC7O9b7w==}
@@ -2341,7 +2346,7 @@ snapshots:
       bindings: 1.5.0
       prebuild-install: 7.1.3
 
-  better-sqlite3@12.2.0:
+  better-sqlite3@12.4.1:
     dependencies:
       bindings: 1.5.0
       prebuild-install: 7.1.3
@@ -2429,7 +2434,7 @@ snapshots:
 
   defu@6.1.4: {}
 
-  detect-libc@2.0.4: {}
+  detect-libc@2.1.2: {}
 
   dns2@https://codeload.github.com/lsongdev/node-dns/tar.gz/3adb7e91b3101c0e4f43ebaca3a568269ea04d11: {}
 
@@ -2947,9 +2952,9 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
-  node-abi@3.75.0:
+  node-abi@3.78.0:
     dependencies:
-      semver: 7.7.2
+      semver: 7.7.3
 
   null-prototype-object@1.2.2: {}
 
@@ -3019,17 +3024,17 @@ snapshots:
 
   prebuild-install@7.1.3:
     dependencies:
-      detect-libc: 2.0.4
+      detect-libc: 2.1.2
       expand-template: 2.0.3
       github-from-package: 0.0.0
       minimist: 1.2.8
       mkdirp-classic: 0.5.3
       napi-build-utils: 2.0.0
-      node-abi: 3.75.0
+      node-abi: 3.78.0
       pump: 3.0.3
       rc: 1.2.8
       simple-get: 4.0.1
-      tar-fs: 2.1.3
+      tar-fs: 2.1.4
       tunnel-agent: 0.6.0
 
   prelude-ls@1.2.1: {}
@@ -3096,6 +3101,8 @@ snapshots:
 
   semver@7.7.2: {}
 
+  semver@7.7.3: {}
+
   shebang-command@2.0.0:
     dependencies:
       shebang-regex: 3.0.0
@@ -3157,7 +3164,7 @@ snapshots:
 
   tapable@2.2.2: {}
 
-  tar-fs@2.1.3:
+  tar-fs@2.1.4:
     dependencies:
       chownr: 1.1.4
       mkdirp-classic: 0.5.3
