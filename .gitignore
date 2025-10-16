@@ -1,0 +1,11 @@
+.DS_Store
+node_modules
+.clinic
+.wireit
+.cache
+public
+tmp.*
+.BUILD_FINISHED
+
+# 测试/演示用规则输出目录(非生产)
+public/Rules/

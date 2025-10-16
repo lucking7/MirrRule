@@ -1,0 +1,118 @@
+{
+  "platforms": {
+    "github-pages": {
+      "name": "GitHub Pages",
+      "description": "针对 GitHub Pages 优化的构建配置",
+      "env": {
+        "BUILD_TARGET": "github-pages",
+        "ENABLE_JEKYLL": "true",
+        "ENABLE_COMPRESSION": "true",
+        "OUTPUT_FORMAT": "static"
+      },
+      "features": {
+        "jekyll_support": true,
+        "custom_domain": false,
+        "seo_optimization": true,
+        "minification": true
+      },
+      "optimizations": {
+        "compress_html": true,
+        "compress_css": true,
+        "compress_js": true,
+        "generate_sitemap": true,
+        "generate_robots_txt": true
+      }
+    },
+    "cloudflare-pages": {
+      "name": "Cloudflare Pages",
+      "description": "针对 Cloudflare Pages 和 Edge 优化的构建配置",
+      "env": {
+        "BUILD_TARGET": "cloudflare-pages",
+        "ENABLE_EDGE_OPTIMIZATION": "true",
+        "ENABLE_COMPRESSION": "true",
+        "OUTPUT_FORMAT": "edge"
+      },
+      "features": {
+        "edge_functions": true,
+        "workers_integration": true,
+        "cdn_optimization": true,
+        "cache_control": true
+      },
+      "optimizations": {
+        "edge_caching": true,
+        "brotli_compression": true,
+        "http2_push": true,
+        "preload_resources": true,
+        "lazy_loading": true
+      }
+    },
+    "nrrule-repo": {
+      "name": "NRRule Repository",
+      "description": "针对 GitHub 仓库存储优化的构建配置",
+      "env": {
+        "BUILD_TARGET": "nrrule-repo",
+        "ENABLE_COMPRESSION": "true",
+        "OPTIMIZE_FOR_CDN": "true",
+        "OUTPUT_FORMAT": "raw"
+      },
+      "features": {
+        "raw_files": true,
+        "cdn_friendly": true,
+        "git_lfs_support": false,
+        "archive_support": true
+      },
+      "optimizations": {
+        "file_deduplication": true,
+        "size_optimization": true,
+        "format_normalization": true,
+        "metadata_generation": true
+      }
+    }
+  },
+  "common": {
+    "cache_strategy": {
+      "pnpm_store": true,
+      "node_modules": false,
+      "build_cache": true,
+      "cache_ttl_days": 7
+    },
+    "build_steps": {
+      "pre_build": [
+        "echo '🔍 Checking build environment...'",
+        "node --version",
+        "pnpm --version"
+      ],
+      "post_build": [
+        "echo '✅ Build completed'",
+        "du -sh public/",
+        "find public/ -type f | wc -l"
+      ]
+    },
+    "error_handling": {
+      "continue_on_error": false,
+      "retry_count": 3,
+      "timeout_minutes": 30
+    }
+  },
+  "deployment": {
+    "github-pages": {
+      "artifact_retention_days": 1,
+      "compression_level": 6,
+      "include_hidden_files": false
+    },
+    "cloudflare-pages": {
+      "project_name": "nrrule",
+      "branch_mapping": {
+        "production": "main",
+        "staging": "staging"
+      },
+      "wrangler_version": "3.114.12"
+    },
+    "nrrule-repo": {
+      "repository": "lucking7/NRRule",
+      "branch": "main",
+      "auto_archive": true,
+      "force_push": true
+    }
+  }
+}

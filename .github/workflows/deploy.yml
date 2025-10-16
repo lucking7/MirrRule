@@ -1,0 +1,366 @@
+name: Deploy
+
+on:
+  # 主构建工作流成功后触发
+  workflow_run:
+    workflows: ["Build"]
+    types:
+      - completed
+    branches: [main, master]
+  
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      target:
+        description: '部署目标 (all/github/cloudflare)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - github
+          - cloudflare
+      environment:
+        description: '部署环境 (production/staging)'
+        required: false
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  prepare:
+    name: Prepare Deployment
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+      deploy_target: ${{ steps.check.outputs.target }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      
+      - name: Check deployment conditions
+        id: check
+        run: |
+          # 检查是否应该部署
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "target=${{ github.event.inputs.target || 'all' }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.workflow_run.conclusion }}" == "success" ]]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "target=all" >> $GITHUB_OUTPUT
+          else
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+            echo "target=none" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-github-pages:
+    name: Deploy to GitHub Pages
+    needs: prepare
+    if: needs.prepare.outputs.should_deploy == 'true' && (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'github')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build for GitHub Pages
+        run: |
+          echo "🏗️ Building for GitHub Pages..."
+          pnpm run build
+        env:
+          # GitHub Pages 特定环境变量
+          BUILD_TARGET: github-pages
+          ENABLE_JEKYLL: true
+
+      - name: Add Jekyll configuration
+        run: |
+          echo "---" > public/_config.yml
+          echo "permalink: pretty" >> public/_config.yml
+          echo "exclude: ['.meta', '*.md']" >> public/_config.yml
+
+          # 添加 CNAME 文件（如果有自定义域名）
+          # echo "rules.example.com" > public/CNAME
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './public'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Verify deployment
+        run: |
+          echo "✅ Deployed to GitHub Pages"
+          echo "🔗 URL: ${{ steps.deployment.outputs.page_url }}"
+
+  deploy-cloudflare:
+    name: Deploy to Cloudflare Pages
+    needs: prepare
+    if: |
+      needs.prepare.outputs.should_deploy == 'true' &&
+      (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'cloudflare') &&
+      vars.CLOUDFLARE_ACCOUNT_ID != ''
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build for Cloudflare Pages
+        run: |
+          echo "🏗️ Building for Cloudflare Pages..."
+          pnpm run build
+        env:
+          # Cloudflare Pages 特定环境变量
+          BUILD_TARGET: cloudflare-pages
+          ENABLE_EDGE_OPTIMIZATION: true
+          CF_ENVIRONMENT: ${{ github.event.inputs.environment || 'production' }}
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy public --project-name=nrrule --commit-dirty=true --branch=${{ github.event.inputs.environment || 'production' }}
+          wranglerVersion: '3.114.12'
+
+      - name: Verify deployment
+        run: |
+          echo "✅ Deployed to Cloudflare Pages"
+          PROJECT_NAME="nrrule"
+          if [[ "${{ github.event.inputs.environment }}" == "staging" ]]; then
+            echo "🔗 URL: https://staging.$PROJECT_NAME.pages.dev"
+          else
+            echo "🔗 URL: https://$PROJECT_NAME.pages.dev"
+          fi
+
+  deploy-to-nrrule:
+    name: Deploy to NRRule Repository
+    needs: prepare
+    if: |
+      needs.prepare.outputs.should_deploy == 'true' &&
+      (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'github') &&
+      secrets.GIT_TOKEN != ''
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build for NRRule Repository
+        run: |
+          echo "🏗️ Building for NRRule Repository..."
+          pnpm run build
+        env:
+          # NRRule 特定环境变量
+          BUILD_TARGET: nrrule-repo
+          ENABLE_COMPRESSION: true
+          OPTIMIZE_FOR_CDN: true
+
+      - name: Deploy to NRRule Repository
+        continue-on-error: true
+        run: |
+          echo "📤 Deploying to NRRule Repository..."
+
+          # 解除归档状态（如果仓库被归档）
+          echo "🔓 Unarchiving repository..."
+          gh repo unarchive lucking7/NRRule --yes || echo "⚠️ Repository is not archived or unarchive failed"
+
+          git clone --filter=tree:0 --no-tags \
+            https://${GH_USER}:${GH_TOKEN}@github.com/lucking7/NRRule.git \
+            ./deploy-git
+
+          cd ./deploy-git
+
+          git config --global push.default matching
+          git config --global user.email "${GH_EMAIL}"
+          git config --global user.name "${GH_USER}"
+
+          rm -rf ./*
+          cp -rf ../public/* ./
+
+          echo "# NRRule - 规则集部署仓库" > README.md
+          echo "" >> README.md
+          echo "本仓库由 GitHub Actions 自动部署，包含构建好的规则集文件。" >> README.md
+          echo "" >> README.md
+          echo "## 📦 内容" >> README.md
+          echo "" >> README.md
+          echo "- **List/**: 规则列表文件" >> README.md
+          echo "- **Modules/**: Surge 模块文件" >> README.md
+          echo "- **Mirror/**: 镜像同步的规则文件" >> README.md
+          echo "" >> README.md
+          echo "## 🔗 源代码" >> README.md
+          echo "" >> README.md
+          echo "源代码仓库: https://github.com/${{ github.repository }}" >> README.md
+          echo "" >> README.md
+          echo "## 📅 最后更新" >> README.md
+          echo "" >> README.md
+          echo "- **时间**: $(date +'%Y-%m-%d %H:%M:%S UTC')" >> README.md
+          echo "- **提交**: ${{ github.sha }}" >> README.md
+
+          git add --all .
+          git commit -m "Deploy: https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
+          git push --quiet --force origin HEAD:main
+
+          cd ..
+          rm -rf ./deploy-git
+
+          # 归档仓库以节省空间
+          echo "🔒 Archiving repository..."
+          gh repo archive lucking7/NRRule --yes || echo "⚠️ Archive failed"
+
+          echo "✅ Deployed to NRRule Repository"
+          echo "🔗 URL: https://github.com/lucking7/NRRule"
+        env:
+          GH_EMAIL: ${{ secrets.GIT_EMAIL }}
+          GH_USER: ${{ secrets.GIT_USER }}
+          GH_TOKEN: ${{ secrets.GIT_TOKEN }}
+
+  notify:
+    name: Deployment Notification
+    needs: [prepare, deploy-github-pages, deploy-cloudflare, deploy-to-nrrule]
+    if: always() && needs.prepare.outputs.should_deploy == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Generate deployment summary
+        run: |
+          echo "## 📦 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Deployment Status:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # GitHub Pages 状态
+          if [[ "${{ needs.deploy-github-pages.result }}" == "success" ]]; then
+            echo "- ✅ GitHub Pages: **Deployed**" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.deploy-github-pages.result }}" == "skipped" ]]; then
+            echo "- ⏭️ GitHub Pages: Skipped" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ GitHub Pages: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Cloudflare Pages 状态
+          if [[ "${{ needs.deploy-cloudflare.result }}" == "success" ]]; then
+            echo "- ✅ Cloudflare Pages: **Deployed**" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.deploy-cloudflare.result }}" == "skipped" ]]; then
+            echo "- ⏭️ Cloudflare Pages: Skipped" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ Cloudflare Pages: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # NRRule Repository 状态
+          if [[ "${{ needs.deploy-to-nrrule.result }}" == "success" ]]; then
+            echo "- ✅ NRRule Repository: **Deployed**" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.deploy-to-nrrule.result }}" == "skipped" ]]; then
+            echo "- ⏭️ NRRule Repository: Skipped" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ NRRule Repository: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployment Details:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time**: $(date +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY

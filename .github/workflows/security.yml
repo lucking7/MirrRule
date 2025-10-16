@@ -1,0 +1,330 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    # 每周日凌晨 2 点运行
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 依赖漏洞扫描
+  dependency-scan:
+    name: 依赖漏洞扫描
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js 环境
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+          cache: "pnpm"
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: npm audit 安全审计
+        id: npm_audit
+        run: |
+          echo "🔍 运行 npm audit..."
+
+          # 运行 audit 并保存结果
+          pnpm audit --json > audit-results.json || true
+
+          # 解析结果
+          VULNERABILITIES=$(cat audit-results.json | jq '.metadata.vulnerabilities | to_entries | map("\(.key): \(.value)") | join(", ")')
+          TOTAL=$(cat audit-results.json | jq '.metadata.vulnerabilities | add')
+
+          echo "发现漏洞总数: $TOTAL"
+          echo "漏洞详情: $VULNERABILITIES"
+
+          # 保存到输出
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "vulnerabilities=$VULNERABILITIES" >> $GITHUB_OUTPUT
+
+          # 检查是否有高危或严重漏洞
+          CRITICAL=$(cat audit-results.json | jq '.metadata.vulnerabilities.critical // 0')
+          HIGH=$(cat audit-results.json | jq '.metadata.vulnerabilities.high // 0')
+
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            echo "::error::发现 $CRITICAL 个严重漏洞和 $HIGH 个高危漏洞!"
+            echo "has_critical=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_critical=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 上传 audit 结果
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-results
+          path: audit-results.json
+          retention-days: 30
+
+      - name: 生成审计报告
+        if: always()
+        run: |
+          echo "## 🔒 依赖安全审计" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- 发现漏洞总数: **${{ steps.npm_audit.outputs.total }}**" >> $GITHUB_STEP_SUMMARY
+          echo "- 漏洞分布: ${{ steps.npm_audit.outputs.vulnerabilities }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.npm_audit.outputs.has_critical }}" == "true" ]; then
+            echo "⚠️ **警告**: 发现高危或严重漏洞,请立即修复!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ 未发现高危或严重漏洞" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 检查严重漏洞
+        if: steps.npm_audit.outputs.has_critical == 'true'
+        run: |
+          echo "::error::发现高危或严重安全漏洞,请使用 'pnpm audit fix' 修复"
+          # 注意: 不要在这里直接 exit 1,允许继续其他扫描
+          # exit 1
+
+  # License 合规检查
+  license-check:
+    name: License 合规检查
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js 环境
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+          cache: "pnpm"
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 安装 license-checker
+        run: npm install -g license-checker
+
+      - name: 检查 License
+        id: license_check
+        run: |
+          echo "🔍 检查依赖 License..."
+
+          # 允许的 License 列表
+          ALLOWED_LICENSES="MIT;Apache-2.0;BSD-3-Clause;BSD-2-Clause;ISC;0BSD;Python-2.0;CC0-1.0;Unlicense"
+
+          # 运行 license-checker
+          license-checker --production --onlyAllow "$ALLOWED_LICENSES" --json > licenses.json || true
+
+          # 检查是否有不合规的 License
+          NON_COMPLIANT=$(license-checker --production --json | jq '[.[] | select(.licenses | test("MIT|Apache-2.0|BSD-3-Clause|BSD-2-Clause|ISC|0BSD|Python-2.0|CC0-1.0|Unlicense") | not)] | length')
+
+          echo "不合规的依赖数量: $NON_COMPLIANT"
+          echo "non_compliant=$NON_COMPLIANT" >> $GITHUB_OUTPUT
+
+          if [ "$NON_COMPLIANT" -gt 0 ]; then
+            echo "::warning::发现 $NON_COMPLIANT 个依赖使用了不在白名单中的 License"
+            license-checker --production --json | jq '[.[] | select(.licenses | test("MIT|Apache-2.0|BSD-3-Clause|BSD-2-Clause|ISC|0BSD|Python-2.0|CC0-1.0|Unlicense") | not)]'
+          fi
+
+      - name: 上传 License 报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-report
+          path: licenses.json
+          retention-days: 30
+
+      - name: 生成 License 报告
+        if: always()
+        run: |
+          echo "## 📜 License 合规检查" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.license_check.outputs.non_compliant }}" -eq 0 ]; then
+            echo "✅ 所有依赖的 License 均符合要求" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ 发现 **${{ steps.license_check.outputs.non_compliant }}** 个依赖使用了不在白名单中的 License" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "请检查这些依赖的 License 是否可以接受,或考虑替换。" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Secret 扫描
+  secret-scan:
+    name: Secret 扫描
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 完整历史以扫描所有提交
+
+      - name: 检测敏感信息
+        run: |
+          echo "🔍 扫描敏感信息和私钥..."
+
+          # 检测常见的敏感信息模式
+          PATTERNS=(
+            "private.*key"
+            "api.*key"
+            "secret"
+            "password"
+            "token"
+            "-----BEGIN.*PRIVATE KEY-----"
+            "aws_access_key_id"
+            "aws_secret_access_key"
+          )
+
+          FOUND_SECRETS=0
+
+          for pattern in "${PATTERNS[@]}"; do
+            # 在代码中搜索 (排除 node_modules, .git, public)
+            MATCHES=$(git grep -i -E "$pattern" -- ':!node_modules/*' ':!.git/*' ':!public/*' ':!pnpm-lock.yaml' ':!*.lock' || true)
+
+            if [ -n "$MATCHES" ]; then
+              echo "::warning::检测到可能的敏感信息: $pattern"
+              echo "$MATCHES" | while IFS= read -r line; do
+                file=$(echo "$line" | cut -d: -f1)
+                echo "::warning file=$file::可能包含敏感信息: $pattern"
+              done
+              FOUND_SECRETS=$((FOUND_SECRETS + 1))
+            fi
+          done
+
+          echo "found_secrets=$FOUND_SECRETS" >> $GITHUB_OUTPUT
+
+      - name: 检查环境变量文件
+        run: |
+          echo "🔍 检查环境变量文件..."
+
+          # 检查是否有 .env 文件被提交
+          ENV_FILES=$(find . -type f -name ".env*" -not -path "./node_modules/*" -not -path "./.git/*" || true)
+
+          if [ -n "$ENV_FILES" ]; then
+            echo "::warning::发现环境变量文件被提交:"
+            echo "$ENV_FILES"
+
+            while IFS= read -r file; do
+              if [ -f "$file" ]; then
+                echo "::warning file=$file::不应提交环境变量文件到版本控制"
+              fi
+            done <<< "$ENV_FILES"
+          fi
+
+      - name: 生成 Secret 扫描报告
+        run: |
+          echo "## 🔐 Secret 扫描结果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Secret 扫描完成" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**提示**: 如果发现敏感信息,请立即从代码中移除并更换密钥。" >> $GITHUB_STEP_SUMMARY
+
+  # 代码安全扫描 (CodeQL)
+  codeql-scan:
+    name: CodeQL 代码安全扫描
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript']
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 初始化 CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+
+      - name: 自动构建
+        uses: github/codeql-action/autobuild@v3
+
+      - name: 执行 CodeQL 分析
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"
+
+  # 安全扫描汇总
+  security-summary:
+    name: 安全扫描汇总
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, license-check, secret-scan, codeql-scan]
+    if: always()
+
+    steps:
+      - name: 生成安全汇总报告
+        run: |
+          echo "## 🛡️ 安全扫描汇总" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          DEPENDENCY_SCAN="${{ needs.dependency-scan.result }}"
+          LICENSE_CHECK="${{ needs.license-check.result }}"
+          SECRET_SCAN="${{ needs.secret-scan.result }}"
+          CODEQL_SCAN="${{ needs.codeql-scan.result }}"
+
+          echo "### 各项扫描结果:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$DEPENDENCY_SCAN" == "success" ]; then
+            echo "- ✅ 依赖漏洞扫描: 通过" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ⚠️ 依赖漏洞扫描: 发现问题" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "$LICENSE_CHECK" == "success" ]; then
+            echo "- ✅ License 合规检查: 通过" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ⚠️ License 合规检查: 发现问题" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "$SECRET_SCAN" == "success" ]; then
+            echo "- ✅ Secret 扫描: 通过" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ⚠️ Secret 扫描: 发现问题" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "$CODEQL_SCAN" == "success" ]; then
+            echo "- ✅ CodeQL 代码扫描: 通过" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ⚠️ CodeQL 代码扫描: 发现问题" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 建议:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. 定期运行安全扫描 (每周)" >> $GITHUB_STEP_SUMMARY
+          echo "2. 及时修复高危和严重漏洞" >> $GITHUB_STEP_SUMMARY
+          echo "3. 保持依赖更新到最新安全版本" >> $GITHUB_STEP_SUMMARY
+          echo "4. 定期检查 GitHub Security Advisories" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # 注意: 安全扫描发现问题时不强制失败,允许继续构建
+          # 但会在 Summary 中显示警告
+          echo "📊 完整报告请查看上方各项扫描的详细输出" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,133 @@
+# Pre-commit Hooks 配置
+# 安装: pip install pre-commit
+# 启用: pre-commit install
+# 运行: pre-commit run --all-files
+
+repos:
+  # 基础文件检查
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # 尾随空格清理
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+
+      # 文件末尾确保有换行符
+      - id: end-of-file-fixer
+        exclude: \.min\.(js|css)$
+
+      # 检查 YAML 文件语法
+      - id: check-yaml
+        args: [--safe]
+
+      # 检查 JSON 文件语法
+      - id: check-json
+
+      # 检查大文件 (>5MB)
+      - id: check-added-large-files
+        args: ['--maxkb=5120']
+
+      # 检查文件名冲突 (大小写)
+      - id: check-case-conflict
+
+      # 检查合并冲突标记
+      - id: check-merge-conflict
+
+      # 检测私钥
+      - id: detect-private-key
+
+      # 检查可执行文件是否有 shebang
+      - id: check-executables-have-shebangs
+
+      # 检查符号链接是否损坏
+      - id: check-symlinks
+
+      # 修复混合行尾符
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # Prettier - 代码格式化
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        types_or: [css, javascript, jsx, typescript, tsx, json, yaml, markdown]
+        exclude: |
+          (?x)^(
+            pnpm-lock.yaml|
+            public/.*|
+            \.cache/.*|
+            node_modules/.*
+          )$
+        additional_dependencies:
+          - prettier@3.1.0
+          - prettier-plugin-packagejson@2.4.7
+
+  # ESLint - JavaScript/TypeScript 代码检查
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v8.56.0
+    hooks:
+      - id: eslint
+        files: \.[jt]sx?$
+        types: [file]
+        args: [--fix, --max-warnings=0]
+        additional_dependencies:
+          - eslint@9.34.0
+          - eslint-config-sukka@6.23.1
+          - eslint-formatter-sukka@6.23.1
+          - '@eslint-sukka/node@6.23.1'
+
+  # Markdown 链接检查
+  - repo: https://github.com/tcort/markdown-link-check
+    rev: v3.12.1
+    hooks:
+      - id: markdown-link-check
+        args: [--quiet, --config, .markdown-link-check.json]
+        files: \.md$
+
+  # 本地自定义 hooks
+  - repo: local
+    hooks:
+      # TypeScript 类型检查
+      - id: typescript-check
+        name: TypeScript 类型检查
+        entry: npx tsc --noEmit
+        language: system
+        types: [typescript, tsx]
+        pass_filenames: false
+
+      # 规则文件格式检查
+      - id: check-rule-files
+        name: 检查规则文件格式
+        entry: bash -c 'for file in "$@"; do if [ -f "$file" ]; then if grep -q $'"'"'\r'"'"' "$file"; then echo "错误: $file 包含 CRLF 行尾符"; exit 1; fi; fi; done' --
+        language: system
+        files: \.list$
+
+      # 检查敏感信息
+      - id: check-secrets
+        name: 检查敏感信息
+        entry: bash -c 'if git diff --cached --name-only | grep -E "\.env|secret|credential|key\.json"; then echo "警告: 尝试提交敏感文件"; exit 1; fi'
+        language: system
+        pass_filenames: false
+        stages: [commit]
+
+      # 构建脚本语法检查
+      - id: check-build-scripts
+        name: 检查构建脚本
+        entry: npx tsc --noEmit
+        language: system
+        files: ^Build/.*\.ts$
+        pass_filenames: false
+
+# 默认阶段
+default_stages: [commit]
+
+# 需要明确语言版本的 hooks
+default_language_version:
+  python: python3
+  node: system
+
+# 跳过某些 hooks (如需要)
+# 使用: SKIP=eslint git commit -m "message"
+# ci:
+#   skip: []

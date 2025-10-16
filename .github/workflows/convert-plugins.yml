@@ -1,0 +1,101 @@
+name: Convert Plugins
+
+on:
+  # 定时触发：每小时的 10, 35 分
+  schedule:
+    - cron: '10,35 * * * *'
+  
+  # 手动触发
+  workflow_dispatch:
+  
+  # Push 到 main 分支时触发
+  push:
+    branches: [main]
+    paths:
+      - 'Build/lib/plugin-converter/**'
+      - 'Build/convert-plugins.ts'
+      - '.github/workflows/convert-plugins.yml'
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    # 启动 Script-Hub Docker 服务
+    services:
+      script-hub:
+        image: xream/script-hub:latest
+        ports:
+          - 9100:9100
+          - 9101:9101
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure hosts for Script-Hub
+        run: |
+          # 添加 script.hub 到 hosts 文件
+          echo "127.0.0.1 script.hub" | sudo tee -a /etc/hosts
+          cat /etc/hosts
+
+      - name: Wait for Script-Hub service
+        run: |
+          echo "Waiting for Script-Hub to be ready..."
+          for i in {1..20}; do
+            if curl -f -s http://script.hub:9101/ > /dev/null 2>&1; then
+              echo "✓ Script-Hub is ready"
+              exit 0
+            fi
+            echo "Retry $i/20..."
+            sleep 5
+          done
+          echo "::error ::Script-Hub service not ready"
+          exit 1
+
+      - name: Run plugin conversion
+        env:
+          CI: true
+        run: pnpm run convert-plugins --wait-service
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          DATE="$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+          
+          git add public/Plugins/
+          git commit -m "🔄 Converted plugins at $DATE (UTC+8)"
+          git push origin main
+
+      - name: No changes detected
+        if: steps.check_changes.outputs.has_changes != 'true'
+        run: echo "✅ No changes detected - plugins are up to date"
+

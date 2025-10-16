@@ -1,0 +1,417 @@
+---
+description: 前端开发的专业vibe coding规则，基于React + TypeScript + Tailwind CSS + shadcn/ui技术栈
+alwaysApply: false
+---
+
+# 前端 Vibe Coding 规则 v1.0
+
+专业级前端开发规范，基于现代 React 生态系统的最佳实践。
+
+## 1. 核心技术栈（强制要求）
+
+### 必用技术栈
+
+- **React 18+** + **TypeScript 5+**：严格类型检查，禁用 `any`
+- **Tailwind CSS**：原子化 CSS，禁止内联样式和传统 CSS
+- **shadcn/ui**：组件库优先选择，保持设计系统一致性
+- **lucide-react**：图标库，统一图标风格
+- **Framer Motion**：动效库，提升用户体验
+- **Recharts**：图表组件，数据可视化
+- **字体系统**：Inter（主要）、Geist（代码）、Manrope（标题）
+
+### 包管理器
+
+- **强制使用 pnpm**：`pnpm install` / `pnpm add` / `pnpm dev`
+
+## 2. 项目结构规范
+
+```
+src/
+├── components/
+│   ├── ui/           # shadcn/ui 组件
+│   ├── layout/       # 布局组件
+│   ├── forms/        # 表单组件
+│   └── charts/       # 图表组件
+├── hooks/            # 自定义 hooks
+├── lib/             # 工具函数和配置
+├── types/           # TypeScript 类型定义
+├── styles/          # 全局样式
+└── utils/           # 通用工具函数
+```
+
+## 3. 代码质量标准（量化指标）
+
+### TypeScript 要求
+
+- **类型覆盖率 ≥ 95%**
+- **禁用 `any`**，使用 `unknown` 或具体类型
+- **Props 接口必须导出**：`export interface ComponentNameProps`
+- **泛型优先**：`<T extends Record<string, unknown>>`
+
+### 组件开发规范
+
+```tsx
+// ✅ 标准组件模板
+interface ButtonProps {
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+  children: React.ReactNode;
+  className?: string;
+}
+
+export const Button: React.FC<ButtonProps> = ({
+  variant = 'default',
+  size = 'default',
+  children,
+  className,
+  ...props
+}) => {
+  return (
+    <motion.button
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      className={cn(buttonVariants({ variant, size }), className)}
+      {...props}
+    >
+      {children}
+    </motion.button>
+  );
+};
+```
+
+### shadcn/ui 集成规范
+
+- **初始化**：`npx shadcn-ui@latest init`
+- **组件添加**：`npx shadcn-ui@latest add button`
+- **自定义主题**：修改 `tailwind.config.js` 和 `globals.css`
+- **组件扩展**：继承 shadcn/ui 基础组件，添加项目特定功能
+
+## 4. 样式系统规范
+
+### Tailwind CSS 最佳实践
+
+```tsx
+// ✅ 使用 Tailwind 类名
+<div className="flex items-center justify-between p-4 bg-background border rounded-lg shadow-sm">
+
+// ✅ 响应式设计
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+// ✅ 暗色模式支持
+<div className="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+
+// ❌ 禁止内联样式
+<div style={{ padding: '16px', backgroundColor: 'white' }}>
+```
+
+### 设计令牌系统
+
+```css
+/* tailwind.config.js */
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+      },
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+        mono: ['Geist Mono', 'monospace'],
+        heading: ['Manrope', 'sans-serif'],
+      },
+    },
+  },
+}
+```
+
+### 字体使用规范
+
+- **正文内容**：`font-sans` (Inter)
+- **代码展示**：`font-mono` (Geist)
+- **标题文字**：`font-heading` (Manrope)
+
+## 5. 动效系统规范
+
+### Framer Motion 标准模式
+
+```tsx
+// ✅ 页面进入动画
+const pageVariants = {
+  initial: { opacity: 0, y: 20 },
+  in: { opacity: 1, y: 0 },
+  out: { opacity: 0, y: -20 }
+}
+
+// ✅ 列表动画
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+}
+
+// ✅ 交互反馈
+<motion.button
+  whileHover={{ scale: 1.05 }}
+  whileTap={{ scale: 0.95 }}
+  transition={{ type: "spring", stiffness: 400, damping: 17 }}
+>
+```
+
+### 动效性能指标
+
+- **动画持续时间 ≤ 300ms**
+- **使用 `transform` 和 `opacity`**，避免触发重排
+- **移动端适配**：`prefers-reduced-motion` 媒体查询
+
+## 6. 图表系统规范
+
+### Recharts 标准配置
+
+```tsx
+// ✅ 响应式图表模板
+<ResponsiveContainer width="100%" height={400}>
+  <LineChart data={data}>
+    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+    <XAxis dataKey="name" tick={{ fontSize: 12 }} className="text-muted-foreground" />
+    <YAxis tick={{ fontSize: 12 }} className="text-muted-foreground" />
+    <Tooltip
+      contentStyle={{
+        backgroundColor: 'hsl(var(--background))',
+        border: '1px solid hsl(var(--border))',
+        borderRadius: '6px',
+      }}
+    />
+    <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} />
+  </LineChart>
+</ResponsiveContainer>
+```
+
+## 7. Icons 使用规范
+
+### lucide-react 标准用法
+
+```tsx
+import { Search, Plus, Settings, ChevronRight } from 'lucide-react'
+
+// ✅ 标准尺寸
+<Search className="h-4 w-4" />        // 小图标
+<Settings className="h-5 w-5" />      // 中等图标
+<Plus className="h-6 w-6" />          // 大图标
+
+// ✅ 带颜色状态
+<Search className="h-4 w-4 text-muted-foreground" />
+<Plus className="h-4 w-4 text-primary" />
+```
+
+## 8. 性能优化要求
+
+### 代码分割和懒加载
+
+```tsx
+// ✅ 路由级别代码分割
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Analytics = lazy(() => import('./pages/Analytics'))
+
+// ✅ 组件级别懒加载
+const Chart = lazy(() => import('./components/Chart'))
+
+// ✅ Suspense 包装
+<Suspense fallback={<Skeleton />}>
+  <Chart data={chartData} />
+</Suspense>
+```
+
+### 状态管理规范
+
+- **本地状态**：`useState` + `useReducer`
+- **服务器状态**：React Query / SWR
+- **全局状态**：Zustand（轻量）或 Redux Toolkit（复杂）
+
+## 9. 工具链配置
+
+### 必需的开发工具
+
+```json
+// package.json 依赖规范
+{
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "typescript": "^5.0.0",
+    "tailwindcss": "^3.3.0",
+    "eslint": "^8.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "prettier": "^3.0.0",
+    "prettier-plugin-tailwindcss": "^0.5.0"
+  }
+}
+```
+
+### ESLint + Prettier 配置
+
+```json
+// .eslintrc.json
+{
+  "extends": ["next/core-web-vitals", "@typescript-eslint/recommended"],
+  "rules": {
+    "@typescript-eslint/no-unused-vars": "error",
+    "@typescript-eslint/no-explicit-any": "error"
+  }
+}
+```
+
+## 10. 质量检查指标
+
+### 构建前检查清单
+
+- ✅ TypeScript 编译无错误：`tsc --noEmit`
+- ✅ ESLint 检查通过：`eslint src/ --ext .ts,.tsx`
+- ✅ Prettier 格式化：`prettier --write src/`
+- ✅ 构建成功：`pnpm build`
+- ✅ 包大小检查：主要 chunk ≤ 500KB
+
+### 运行时性能指标
+
+- **LCP ≤ 2.5s**（最大内容绘制）
+- **FID ≤ 100ms**（首次输入延迟）
+- **CLS ≤ 0.1**（累积布局偏移）
+- **Bundle size ≤ 1MB**（gzipped）
+
+## 11. 组件开发最佳实践
+
+### 组件设计原则
+
+1. **单一职责**：每个组件只做一件事
+2. **可组合性**：通过 props 和 children 支持组合
+3. **可访问性**：支持键盘导航，ARIA 属性
+4. **响应式**：支持移动端和桌面端
+
+### 表单组件规范
+
+```tsx
+// ✅ 使用 react-hook-form + zod
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+const formSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
+export const LoginForm: React.FC = () => {
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+  });
+
+  return (
+    <Form {...form}>
+      <FormField
+        control={form.control}
+        name="email"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Email</FormLabel>
+            <FormControl>
+              <Input placeholder="email@example.com" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </Form>
+  );
+};
+```
+
+## 12. 项目初始化模板
+
+### 快速启动命令
+
+```bash
+# 1. 创建项目
+pnpm create next-app@latest my-app --typescript --tailwind --eslint
+
+# 2. 安装依赖
+cd my-app
+pnpm add lucide-react framer-motion recharts
+pnpm add -D @types/node
+
+# 3. 初始化 shadcn/ui
+npx shadcn-ui@latest init
+
+# 4. 添加基础组件
+npx shadcn-ui@latest add button input form label
+```
+
+### 目录结构初始化
+
+```bash
+mkdir -p src/{components/{ui,layout,forms,charts},hooks,lib,types,styles,utils}
+```
+
+## 13. 违规处理和自检
+
+### 代码审查检查点
+
+- ❌ **发现 `any` 类型** → 立即替换为具体类型
+- ❌ **发现内联样式** → 转换为 Tailwind 类名
+- ❌ **发现裸露的 DOM 操作** → 使用 React ref 和副作用
+- ❌ **发现硬编码颜色** → 使用设计令牌
+- ❌ **发现非 shadcn 组件** → 优先使用 shadcn/ui
+
+### 性能监控
+
+- 使用 `pnpm build-analyze` 分析 bundle 大小
+- 使用 Chrome DevTools 监控运行时性能
+- 定期运行 Lighthouse 评估
+
+## 14. 部署和环境配置
+
+### 环境变量管理
+
+```bash
+# .env.local
+NEXT_PUBLIC_API_URL=https://api.example.com
+DATABASE_URL=postgresql://...
+```
+
+### Vercel 部署优化
+
+```json
+// next.config.js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    domains: ['example.com'],
+  },
+  experimental: {
+    optimizeCss: true,
+  },
+}
+
+module.exports = nextConfig
+```
+
+---
+
+## 执行优先级
+
+1. **TypeScript 严格模式** (最高优先级)
+2. **shadcn/ui 组件优先**
+3. **Tailwind CSS 原子化**
+4. **性能优化**
+5. **用户体验动效**
+6. **代码质量工具链**
+
+通过遵循这套规范，确保构建现代、高性能、可维护的 React 应用程序。

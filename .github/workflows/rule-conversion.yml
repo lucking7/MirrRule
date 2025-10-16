@@ -1,0 +1,174 @@
+name: Rule Conversion
+
+on:
+  # 定时触发：每 2 小时执行一次
+  schedule:
+    - cron: '0 */2 * * *'
+  
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: '目标平台 (all/surge/clash/quantumultx/shadowrocket)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - surge
+          - clash
+          - quantumultx
+          - shadowrocket
+      category:
+        description: '规则类别 (all/ad-block/privacy/streaming/social)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - ad-block
+          - privacy
+          - streaming
+          - social
+  
+  # Push 到相关文件时触发
+  push:
+    branches: [main, master]
+    paths:
+      - 'Build/lib/cross-platform-rule-parser.ts'
+      - 'Build/lib/rule-conversion/**'
+      - 'Build/convert-rules.ts'
+      - '.github/workflows/rule-conversion.yml'
+
+# 并发控制
+concurrency:
+  group: rule-conversion-${{ github.event.inputs.platform || 'all' }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  convert:
+    name: Convert Rules for ${{ github.event.inputs.platform || 'all' }} platforms
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Get current date
+        id: date
+        run: |
+          echo "date=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+          echo "year=$(date +'%Y')" >> $GITHUB_OUTPUT
+          echo "month=$(date +'%m')" >> $GITHUB_OUTPUT
+          echo "day=$(date +'%d')" >> $GITHUB_OUTPUT
+
+      - name: Restore conversion cache
+        uses: actions/cache/restore@v4
+        id: cache-conversion
+        with:
+          path: |
+            .cache
+            public/Rules/.meta
+          key: ${{ runner.os }}-rule-conversion-v1-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
+          restore-keys: |
+            ${{ runner.os }}-rule-conversion-v1-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-
+            ${{ runner.os }}-rule-conversion-v1-${{ steps.date.outputs.year }}-
+            ${{ runner.os }}-rule-conversion-v1-
+
+      - name: Run rule conversion
+        env:
+          CI: true
+          PLATFORM: ${{ github.event.inputs.platform || 'all' }}
+          CATEGORY: ${{ github.event.inputs.category || 'all' }}
+        run: |
+          echo "📋 Converting rules for platform: $PLATFORM, category: $CATEGORY"
+          pnpm run node ./Build/convert-rules.ts --platform=$PLATFORM --category=$CATEGORY
+
+      - name: Verify output
+        run: |
+          if [ ! -d "public/Rules" ]; then
+            echo "❌ Rules directory not found"
+            exit 1
+          fi
+          
+          echo "📊 Generated rule files:"
+          find public/Rules -type f -name "*.list" -o -name "*.yaml" -o -name "*.txt" | head -20
+          
+          echo ""
+          echo "📈 Statistics:"
+          echo "- Surge rules: $(find public/Rules/Surge -type f 2>/dev/null | wc -l)"
+          echo "- Clash rules: $(find public/Rules/Clash -type f 2>/dev/null | wc -l)"
+          echo "- QuantumultX rules: $(find public/Rules/QuantumultX -type f 2>/dev/null | wc -l)"
+          echo "- Shadowrocket rules: $(find public/Rules/Shadowrocket -type f 2>/dev/null | wc -l)"
+
+      - name: Save conversion cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .cache
+            public/Rules/.meta
+          key: ${{ runner.os }}-rule-conversion-v1-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git add -N public/Rules/
+          if git diff --quiet --exit-code public/Rules/; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "✅ No changes detected"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "🔄 Changes detected in rule files"
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          DATE="$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+          PLATFORM="${{ github.event.inputs.platform || 'all' }}"
+          CATEGORY="${{ github.event.inputs.category || 'all' }}"
+          
+          git add public/Rules/
+          git commit -m "🔄 转换规则 [$PLATFORM/$CATEGORY] - $DATE (UTC+8)"
+          git push origin ${{ github.ref_name }}
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: converted-rules-${{ github.run_number }}
+          path: public/Rules/
+          retention-days: 7
