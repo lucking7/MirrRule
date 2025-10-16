@@ -132,7 +132,7 @@ jobs:
           echo "should_rule_conversion=$RULE_CONVERSION" >> $GITHUB_OUTPUT
           echo "should_rule_merge=$RULE_MERGE" >> $GITHUB_OUTPUT
           echo "should_deploy=$DEPLOY" >> $GITHUB_OUTPUT
-          echo "should_deploy=$DEPLOY_TARGET" >> $GITHUB_OUTPUT
+          echo "deploy_target=$DEPLOY_TARGET" >> $GITHUB_OUTPUT
           
           echo "📋 Tasks to run:"
           echo "  Build: $BUILD"
