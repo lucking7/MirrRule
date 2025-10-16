@@ -75,8 +75,8 @@ importers:
         specifier: ^3.1.0
         version: 3.1.0
       tldts:
-        specifier: ^7.0.12
-        version: 7.0.12
+        specifier: ^7.0.17
+        version: 7.0.17
       tldts-experimental:
         specifier: ^7.0.12
         version: 7.0.12
@@ -1618,11 +1618,14 @@ packages:
   tldts-core@7.0.12:
     resolution: {integrity: sha512-3K76aXywJFduGRsOYoY5JzINLs/WMlOkeDwPL+8OCPq2Rh39gkSDtWAxdJQlWjpun/xF/LHf29yqCi6VC/rHDA==}
 
+  tldts-core@7.0.17:
+    resolution: {integrity: sha512-DieYoGrP78PWKsrXr8MZwtQ7GLCUeLxihtjC1jZsW1DnvSMdKPitJSe8OSYDM2u5H6g3kWJZpePqkp43TfLh0g==}
+
   tldts-experimental@7.0.12:
     resolution: {integrity: sha512-riDDp/JrJJuh/2GV1Tgg6OnOwcWlgleBKi4/xkhd0DW7tvvmNjmWXCh2nj7Z2G1k9S/AGN4RiiPRbvhGJUCxeg==}
 
-  tldts@7.0.12:
-    resolution: {integrity: sha512-M9ZQBPp6FyqhMcl233vHYyYRkxXOA1SKGlnq13S0mJdUhRSwr2w6I8rlchPL73wBwRlyIZpFvpu2VcdSMWLYXw==}
+  tldts@7.0.17:
+    resolution: {integrity: sha512-Y1KQBgDd/NUc+LfOtKS6mNsC9CCaH+m2P1RoIZy7RAPo3C3/t8X45+zgut31cRZtZ3xKPjfn3TkGTrctC2TQIQ==}
     hasBin: true
 
   to-regex-range@5.0.1:
@@ -2442,7 +2445,7 @@ snapshots:
       dns2: https://codeload.github.com/lsongdev/node-dns/tar.gz/3adb7e91b3101c0e4f43ebaca3a568269ea04d11
       foxts: 3.12.0
       punycode: 2.3.1
-      tldts: 7.0.12
+      tldts: 7.0.17
     transitivePeerDependencies:
       - supports-color
 
@@ -3201,13 +3204,15 @@ snapshots:
 
   tldts-core@7.0.12: {}
 
+  tldts-core@7.0.17: {}
+
   tldts-experimental@7.0.12:
     dependencies:
       tldts-core: 7.0.12
 
-  tldts@7.0.12:
+  tldts@7.0.17:
     dependencies:
-      tldts-core: 7.0.12
+      tldts-core: 7.0.17
 
   to-regex-range@5.0.1:
     dependencies:
