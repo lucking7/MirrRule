@@ -42,8 +42,8 @@ importers:
         specifier: ^0.1.6
         version: 0.1.6
       fast-cidr-tools:
-        specifier: ^0.3.2
-        version: 0.3.2
+        specifier: ^0.3.3
+        version: 0.3.3
       fast-fifo:
         specifier: ^1.3.2
         version: 1.3.2
@@ -1132,8 +1132,8 @@ packages:
     resolution: {integrity: sha512-XYfuKMvj4O35f/pOXLObndIRvyQ+/+6AhODh+OKWj9S9498pHHn/IMszH+gt0fBCRWMNfk1ZSp5x3AifmnI2vg==}
     engines: {node: '>=6'}
 
-  fast-cidr-tools@0.3.2:
-    resolution: {integrity: sha512-hH8m1zjBer5VxrFG3dCEIMGEu/hDs/2scCH0vCJqce5ujCEBmZYlCejfZ4IFYTCt1YQard/uXmMzNBs9SR3/qg==}
+  fast-cidr-tools@0.3.3:
+    resolution: {integrity: sha512-x1aw5J3ztGm8+EWTNwV2fB0bollLTqgBAL6pMSKBpc7SN+Ti5tkaUtBn63jxt10VWV3C+PTWTLyqDw8WfB1NWA==}
     engines: {node: '>=16'}
 
   fast-deep-equal@3.1.3:
@@ -1197,6 +1197,9 @@ packages:
 
   foxts@3.12.0:
     resolution: {integrity: sha512-9yPxs9AAxpn+dDesm8gnKGE5I6hKe7YhfAvIzfxGjg5UYpoctzep4FEQV8EkJj8XBW4sCPLOfnt6SH4eBApqew==}
+
+  foxts@4.5.0:
+    resolution: {integrity: sha512-1eWQ9TCj/F9NFYE0nZ3ou/84/Mk6qZioxYYkDMuinSeg/MZ6kb5SkXkjHJB68W3ESopmJRxdqpFigPjow86t1Q==}
 
   fs-constants@1.0.0:
     resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
@@ -2728,7 +2731,9 @@ snapshots:
 
   expand-template@2.0.3: {}
 
-  fast-cidr-tools@0.3.2: {}
+  fast-cidr-tools@0.3.3:
+    dependencies:
+      foxts: 4.5.0
 
   fast-deep-equal@3.1.3: {}
 
@@ -2783,6 +2788,11 @@ snapshots:
   flatted@3.3.3: {}
 
   foxts@3.12.0:
+    dependencies:
+      fast-escape-html: 1.1.0
+      fast-escape-regexp: 1.0.1
+
+  foxts@4.5.0:
     dependencies:
       fast-escape-html: 1.1.0
       fast-escape-regexp: 1.0.1
