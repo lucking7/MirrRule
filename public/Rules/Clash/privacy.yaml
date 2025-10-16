@@ -1,0 +1,5 @@
+# privacy Rules
+payload:
+  - '+.google-analytics.com'
+  - '+.facebook.com/tr'
+  - 'tracking'

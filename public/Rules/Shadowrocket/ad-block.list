@@ -1,0 +1,5 @@
+DOMAIN-SUFFIX,doubleclick.net
+DOMAIN-SUFFIX,googleadservices.com
+DOMAIN-SUFFIX,googlesyndication.com
+DOMAIN-KEYWORD,adserver
+IP-CIDR,117.177.248.0/24

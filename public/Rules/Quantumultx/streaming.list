@@ -1,0 +1,4 @@
+HOST-SUFFIX,netflix.com,PROXY
+HOST-SUFFIX,nflxvideo.net,PROXY
+HOST-SUFFIX,youtube.com,PROXY
+HOST-KEYWORD,spotify,PROXY

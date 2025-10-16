@@ -1,0 +1,4 @@
+# general Rules
+payload:
+  - '+.cn'
+  - 'china'

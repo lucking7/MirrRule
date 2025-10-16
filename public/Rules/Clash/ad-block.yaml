@@ -1,0 +1,7 @@
+# ad-block Rules
+payload:
+  - '+.doubleclick.net'
+  - '+.googleadservices.com'
+  - '+.googlesyndication.com'
+  - 'adserver'
+  - '117.177.248.0/24'

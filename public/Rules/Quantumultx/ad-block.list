@@ -1,0 +1,5 @@
+HOST-SUFFIX,doubleclick.net,PROXY
+HOST-SUFFIX,googleadservices.com,PROXY
+HOST-SUFFIX,googlesyndication.com,PROXY
+HOST-KEYWORD,adserver,PROXY
+IP-CIDR,117.177.248.0/24,PROXY
