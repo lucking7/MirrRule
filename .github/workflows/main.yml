@@ -465,7 +465,7 @@ jobs:
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy public --project-name=nrrule --commit-dirty=true --branch=main
           wranglerVersion: '3.114.12'
 
@@ -478,8 +478,7 @@ jobs:
     if: |
       needs.prepare.outputs.should_deploy == 'true' &&
       (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'github') &&
-      github.ref == 'refs/heads/main' &&
-      secrets.GIT_TOKEN != ''
+      github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
