@@ -250,16 +250,31 @@ jobs:
       - name: Configure Script-Hub
         run: |
           echo "127.0.0.1 script.hub" | sudo tee -a /etc/hosts
-          for i in {1..20}; do
+          echo "⏳ 等待 Script-Hub 服务启动..."
+          for i in {1..30}; do
             if curl -f -s http://script.hub:9101/ > /dev/null 2>&1; then
-              echo "✓ Script-Hub ready"
+              echo "✓ Script-Hub 服务就绪 (尝试 $i/30)"
+              # 额外等待确保服务完全稳定
+              sleep 3
               exit 0
             fi
+            echo "  尝试 $i/30 失败，等待 5 秒后重试..."
             sleep 5
           done
+          echo "❌ Script-Hub 服务启动超时"
           exit 1
-      
-      - run: pnpm run convert-plugins --wait-service
+
+      - name: Convert plugins with retry
+        run: |
+          # 增加超时时间到 600 秒
+          pnpm run convert-plugins --wait-service --timeout 600 || {
+            echo "⚠️ 首次转换失败，等待 10 秒后重试..."
+            sleep 10
+            pnpm run convert-plugins --wait-service --timeout 600 || {
+              echo "❌ 两次转换都失败，可能是 Script-Hub 服务问题"
+              exit 1
+            }
+          }
         env:
           CI: true
       
@@ -270,6 +285,7 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add -f public/Plugins/
             git commit -m "🔄 转换插件 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+            git pull --rebase origin main || true
             git push
           fi
 
@@ -309,6 +325,7 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add -f public/Modules/Merged/
             git commit -m "🎯 合并模块 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+            git pull --rebase origin main || true
             git push
           fi
 
@@ -343,6 +360,7 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add -f public/Mirror/
             git commit -m "🪞 同步镜像 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+            git pull --rebase origin main || true
             git push
           fi
 
@@ -405,6 +423,7 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add -f public/Rules/
             git commit -m "🔄 转换规则 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+            git pull --rebase origin main || true
             git push
           fi
 
@@ -443,6 +462,7 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add -f public/Rules/Merged/
             git commit -m "🔀 合并规则 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+            git pull --rebase origin main || true
             git push
           fi
 
