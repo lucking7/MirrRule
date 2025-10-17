@@ -495,17 +495,38 @@ jobs:
   # ============================================
   deploy-github:
     name: Deploy to GitHub Repository
-    needs: [prepare, build]
+    needs: [prepare, build, convert-plugins, merge-modules, mirror-sync, rule-conversion, rule-merge]
     if: |
       needs.prepare.outputs.should_deploy == 'true' &&
       (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'github') &&
       github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      # 从源仓库 checkout 完整内容，而不是下载 artifact
+      - uses: actions/checkout@v4
         with:
-          name: build-artifact-${{ github.sha }}
-          path: public
+          ref: main
+          fetch-depth: 1
+
+      # 确保所有任务的更改都已同步
+      - name: Pull latest changes
+        run: |
+          git pull origin main
+
+      # 验证 public 目录内容
+      - name: Verify public directory
+        run: |
+          echo "📁 Public 目录内容："
+          ls -la public/ || echo "⚠️ public 目录不存在"
+          echo ""
+          echo "📊 文件统计："
+          echo "  Modules: $(find public/Modules -type f 2>/dev/null | wc -l) 个文件"
+          echo "  Scripts: $(find public/Scripts -type f 2>/dev/null | wc -l) 个文件"
+          echo "  Rules: $(find public/Rules -type f 2>/dev/null | wc -l) 个文件"
+          echo "  List: $(find public/List -type f 2>/dev/null | wc -l) 个文件"
+          echo "  Mirror: $(find public/Mirror -type f 2>/dev/null | wc -l) 个文件"
+          echo "  Plugins: $(find public/Plugins -type f 2>/dev/null | wc -l) 个文件"
+          echo "  GeoIP: $(find public/GeoIP -type f 2>/dev/null | wc -l) 个文件"
 
       - name: Deploy to NRRule Repository
         continue-on-error: true
