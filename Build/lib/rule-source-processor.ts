@@ -16,17 +16,14 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 interface ProcessorStats {
-  filesProcessed: number,
-  rulesMerged: number,
-  processingTime: number,
-  errors: Array<{ file: string, error: string }>
+  filesProcessed: number;
+  rulesMerged: number;
+  processingTime: number;
+  errors: Array<{ file: string; error: string }>;
 }
 
 export class RuleSourceProcessor {
-  constructor(
-    private readonly span: Span,
-    private readonly outputDir = 'public'
-  ) {}
+  constructor(private readonly span: Span, private readonly outputDir = 'public') {}
 
   /**
    * 处理规则组 - 下载并生成多平台输出
@@ -37,12 +34,12 @@ export class RuleSourceProcessor {
       filesProcessed: 0,
       rulesMerged: 0,
       processingTime: 0,
-      errors: []
+      errors: [],
     };
 
     for (const group of groups) {
       try {
-        await this.span.traceChildAsync(`process group: ${group.name}`, async (groupSpan) => {
+        await this.span.traceChildAsync(`process group: ${group.name}`, async groupSpan => {
           console.log(`📦 处理规则组: ${group.name}`);
 
           if (!group.files || group.files.length === 0) {
@@ -53,7 +50,11 @@ export class RuleSourceProcessor {
           for (const fileConfig of group.files) {
             try {
               // 下载规则文件
-              const rules = await groupSpan.traceChild('download').traceAsyncFn(() => fetchAssets(fileConfig.url, fileConfig.fallbackUrls || null, true));
+              const rules = await groupSpan
+                .traceChild('download')
+                .traceAsyncFn(() =>
+                  fetchAssets(fileConfig.url, fileConfig.fallbackUrls || null, true)
+                );
 
               // 确定输出路径
               const outputPath = path.join(this.outputDir, fileConfig.path);
@@ -67,11 +68,19 @@ export class RuleSourceProcessor {
                 group.defaultPolicy === undefined ? null : group.defaultPolicy
               );
 
+              // 设置标题和描述
+              output
+                .withTitle(group.name)
+                .withDescription([
+                  group.description || `Rules for ${group.name}`,
+                  `Source: ${fileConfig.url}`,
+                ]);
+
               // 添加规则
               output.addRules(rules);
 
               // 输出文件
-              await output.done();
+              await output.write();
 
               stats.filesProcessed++;
               stats.rulesMerged += rules.length;
@@ -80,7 +89,7 @@ export class RuleSourceProcessor {
               const errorMsg = error instanceof Error ? error.message : String(error);
               stats.errors.push({
                 file: fileConfig.path,
-                error: errorMsg
+                error: errorMsg,
               });
               console.error(`  ❌ ${fileConfig.path}: ${errorMsg}`);
             }
@@ -90,7 +99,7 @@ export class RuleSourceProcessor {
         const errorMsg = error instanceof Error ? error.message : String(error);
         stats.errors.push({
           file: group.name,
-          error: errorMsg
+          error: errorMsg,
         });
         console.error(`❌ 规则组 ${group.name} 失败: ${errorMsg}`);
       }
@@ -109,19 +118,21 @@ export class RuleSourceProcessor {
       filesProcessed: 0,
       rulesMerged: 0,
       processingTime: 0,
-      errors: []
+      errors: [],
     };
 
     for (const ruleConfig of rules) {
       try {
-        await this.span.traceChildAsync(`process special: ${ruleConfig.name}`, async (ruleSpan) => {
+        await this.span.traceChildAsync(`process special: ${ruleConfig.name}`, async ruleSpan => {
           console.log(`🔄 处理特殊规则: ${ruleConfig.name}`);
 
           // 下载所有源文件
           const allRules: string[] = [];
           for (const sourceUrl of ruleConfig.sourceFiles) {
             try {
-              const rules = await ruleSpan.traceChild('download').traceAsyncFn(() => fetchAssets(sourceUrl, null, true));
+              const rules = await ruleSpan
+                .traceChild('download')
+                .traceAsyncFn(() => fetchAssets(sourceUrl, null, true));
               allRules.push(...rules);
             } catch (error) {
               const errorMsg = error instanceof Error ? error.message : String(error);
@@ -143,11 +154,19 @@ export class RuleSourceProcessor {
             ruleConfig.defaultPolicy === undefined ? null : ruleConfig.defaultPolicy
           );
 
+          // 设置标题和描述
+          output
+            .withTitle(ruleConfig.name)
+            .withDescription([
+              ruleConfig.description || `Rules for ${ruleConfig.name}`,
+              `Merged from ${ruleConfig.sourceFiles.length} sources`,
+            ]);
+
           // 添加规则（会自动去重）
           output.addRules(allRules);
 
           // 输出文件
-          await output.done();
+          await output.write();
 
           stats.filesProcessed++;
           stats.rulesMerged += allRules.length;
@@ -171,7 +190,7 @@ export class RuleSourceProcessor {
         const errorMsg = error instanceof Error ? error.message : String(error);
         stats.errors.push({
           file: ruleConfig.targetFile,
-          error: errorMsg
+          error: errorMsg,
         });
         console.error(`❌ 特殊规则 ${ruleConfig.name} 失败: ${errorMsg}`);
       }
