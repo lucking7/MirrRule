@@ -1,0 +1,11 @@
+# Merged Rules - ALL
+# Strategy: smart
+# Generated: 2025-10-17T07:04:17.668Z
+# Total: 6 rules
+
+DOMAIN,example-ad.com
+DOMAIN-SUFFIX,doubleclick.net
+DOMAIN-SUFFIX,googleadservices.com
+DOMAIN-KEYWORD,adserver
+IP-CIDR,117.177.248.0/24
+GEOIP,CN

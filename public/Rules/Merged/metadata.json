@@ -1,0 +1,37 @@
+{
+  "version": "2.0.0",
+  "generatedAt": "2025-10-17T07:04:17.676Z",
+  "strategy": "smart",
+  "statistics": {
+    "total": 6,
+    "categories": {
+      "all": 6,
+      "domain": 4,
+      "ip": 1,
+      "keyword": 1,
+      "geo": 1
+    }
+  },
+  "files": [
+    {
+      "name": "merged-all.list",
+      "count": 6
+    },
+    {
+      "name": "merged-domain.list",
+      "count": 4
+    },
+    {
+      "name": "merged-ip.list",
+      "count": 1
+    },
+    {
+      "name": "merged-keyword.list",
+      "count": 1
+    },
+    {
+      "name": "merged-geo.list",
+      "count": 1
+    }
+  ]
+}
