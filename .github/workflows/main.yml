@@ -104,9 +104,11 @@ jobs:
                 DEPLOY="true"
                 ;;
               "0 */2 * * *")
-                # 规则转换和合并
+                # 规则转换和合并 - 需要执行 Build
                 RULE_CONVERSION="true"
                 RULE_MERGE="true"
+                BUILD="true"
+                DEPLOY="true"
                 ;;
               "5,30,55 * * * *")
                 # 镜像同步
@@ -384,7 +386,7 @@ jobs:
           fi
 
   # ============================================
-  # 规则转换任务 - 已集成在 Build 任务中,此任务仅用于独立触发
+  # 规则转换任务
   # ============================================
   rule-conversion:
     name: Rule Conversion
@@ -394,13 +396,61 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Skip - Integrated in Build
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - name: Get date
+        id: date
         run: |
-          echo "⏭️ 规则转换功能已集成在 Build 任务中"
-          echo "此任务仅用于定时触发标记,实际转换在 Build 中完成"
+          echo "year=$(date +'%Y')" >> $GITHUB_OUTPUT
+          echo "month=$(date +'%m')" >> $GITHUB_OUTPUT
+          echo "day=$(date +'%d')" >> $GITHUB_OUTPUT
+
+      - name: Restore cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .cache
+            public/Rules/.meta
+          key: ${{ runner.os }}-rules-v1-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
+          restore-keys: |
+            ${{ runner.os }}-rules-v1-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-
+            ${{ runner.os }}-rules-v1-
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build (includes rule conversion)
+        run: pnpm run build
+        env:
+          CI: true
+
+      - name: Save cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .cache
+            public/Rules/.meta
+          key: ${{ runner.os }}-rules-v1-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
+
+      - name: Commit changes
+        run: |
+          git add -N -f public/
+          if ! git diff --quiet --exit-code public/; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -f public/
+            git commit -m "🔄 规则转换 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+            git pull --rebase origin main || true
+            git push
+          fi
 
   # ============================================
-  # 规则合并任务 - 已集成在 Build 任务中,此任务仅用于独立触发
+  # 规则合并任务
   # ============================================
   rule-merge:
     name: Rule Merge
@@ -413,10 +463,39 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Skip - Integrated in Build
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Pull latest changes
         run: |
-          echo "⏭️ 规则合并功能已集成在 Build 任务中"
-          echo "此任务仅用于定时触发标记,实际合并在 Build 中完成"
+          git pull origin main || true
+
+      - name: Build (includes rule merge)
+        run: pnpm run build
+        env:
+          CI: true
+
+      - name: Commit changes
+        run: |
+          git add -N -f public/
+          if ! git diff --quiet --exit-code public/; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -f public/
+            git commit -m "🔀 规则合并 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+            git pull --rebase origin main || true
+            git push
+          fi
 
   # ============================================
   # 部署到 Cloudflare Pages
