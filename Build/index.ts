@@ -7,6 +7,7 @@ import { task } from './trace';
 import { createSpan } from './trace';
 import { printTraceResult, whyIsNodeRunning } from './trace';
 import { downloadPreviousBuild } from './download-previous-build';
+import { downloadGeoIP } from './download-geoip';
 import { CACHE_DIR, ROOT_DIR } from './constants/dir';
 
 /**
@@ -47,6 +48,9 @@ export const buildRuleset = task(
   // 预热：下载上次构建产物（若 public 为空）
   // 注释掉以避免下载旧的目录结构
   // await downloadPreviousBuild(span);
+
+  // 下载 GeoIP MMDB 文件（独立模块）
+  await downloadGeoIP(span);
 
   // 处理规则源配置 - 完全使用标准化输出策略系统
   await span.traceChildAsync('unified rule processing system', async span => {
@@ -90,7 +94,7 @@ export const buildRuleset = task(
       console.log('✅ 规则组处理完成:', {
         成功: groupStats.filesProcessed,
         错误: groupStats.errors.length,
-        耗时: `${(groupStats.processingTime / 1000).toFixed(1)}s`
+        耗时: `${(groupStats.processingTime / 1000).toFixed(1)}s`,
       });
 
       // 统一处理特殊规则（多源合并+多平台输出）
@@ -100,7 +104,7 @@ export const buildRuleset = task(
         成功: ruleStats.filesProcessed,
         合并规则: ruleStats.rulesMerged,
         错误: ruleStats.errors.length,
-        耗时: `${(ruleStats.processingTime / 1000).toFixed(1)}s`
+        耗时: `${(ruleStats.processingTime / 1000).toFixed(1)}s`,
       });
 
       // 处理错误汇总
@@ -208,7 +212,7 @@ export function createRuleProcessor() {
       } finally {
         span.stop();
       }
-    }
+    },
   };
 }
 

@@ -113,8 +113,14 @@ export const CrossPlatformRuleParser = {
   smartConvertToRuleSet(rule: string): string {
     const trimmed = rule.trim();
 
-    // 保留注释行
-    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('!')) {
+    // 保留注释行 - 支持 #、!、//、; 四种格式
+    if (
+      !trimmed ||
+      trimmed.startsWith('#') ||
+      trimmed.startsWith('!') ||
+      trimmed.startsWith('//') ||
+      trimmed.startsWith(';')
+    ) {
       return rule;
     }
 
@@ -167,7 +173,7 @@ export const CrossPlatformRuleParser = {
     const result: RuleValidationResult = {
       isValid: true,
       errors: [],
-      warnings: []
+      warnings: [],
     };
 
     const parsed = this.parseRule(rule, platform);
@@ -191,7 +197,7 @@ export const CrossPlatformRuleParser = {
       total: rules.length,
       byPlatform: {},
       byType: {},
-      byPolicy: {}
+      byPolicy: {},
     };
 
     rules.forEach(rule => {
@@ -243,10 +249,7 @@ export const CrossPlatformRuleParser = {
    * @param targetPlatform - 目标平台
    * @returns 清理后的策略类型
    */
-  cleanupPolicyName(
-    policy: any,
-    targetPlatform: ProxyPlatform
-  ): any {
+  cleanupPolicyName(policy: any, targetPlatform: ProxyPlatform): any {
     return RuleConverter.cleanupPolicyName(policy, targetPlatform);
   },
 
@@ -258,7 +261,7 @@ export const CrossPlatformRuleParser = {
    */
   isValidDomain(domain: string): boolean {
     return WildcardAnalyzer.isValidDomain(domain);
-  }
+  },
 };
 
 // 导出类型定义
@@ -267,7 +270,7 @@ export type {
   RuleValidationResult,
   WildcardAnalysis,
   RuleStats,
-  ParameterValidationResult
+  ParameterValidationResult,
 } from './types';
 
 // 导出子模块（供高级用户使用）

@@ -11,11 +11,12 @@ import { ProxyPlatform } from '../constants/rule-formats';
 import {
   createStrategiesForTargets,
   DEFAULT_PLATFORM_CONFIG,
-  PLATFORM_POLICY_SUPPORT
+  PLATFORM_POLICY_SUPPORT,
 } from './platform-config';
 import type { SupportedPlatform } from './platform-config';
 import type { RuleGroup, FileConfig, SpecialRuleConfig } from './rule-source-types';
 import { cleanPolicy } from '../core/parsers/policy-cleaner';
+import { RuleValidator } from '../utils/validation/validators';
 
 export class EnhancedFileOutput extends FileOutput {
   private readonly platformConfig = DEFAULT_PLATFORM_CONFIG;
@@ -24,7 +25,19 @@ export class EnhancedFileOutput extends FileOutput {
   private readonly stats = {
     inputDomains: 0,
     inputCIDRs: 0,
-    inputOthers: 0
+    inputOthers: 0,
+  };
+
+  // 🔧 配置参数
+  private readonly config: {
+    keepComments: boolean;
+    keepEmptyLines: boolean;
+    keepInlineComments: boolean;
+    formatConversion: boolean;
+    applyNoResolve: boolean;
+    validate: boolean;
+    dedup: boolean;
+    sort: boolean;
   };
 
   constructor(
@@ -32,9 +45,22 @@ export class EnhancedFileOutput extends FileOutput {
     id: string,
     private readonly ruleType: 'domainset' | 'non_ip' | 'ip' | 'mixed', // 支持混合类型
     private readonly targets: SupportedPlatform[] = ['surge'],
-    private readonly defaultPolicy: string | null = null // 默认无策略
+    private readonly defaultPolicy: string | null = null, // 默认无策略
+    config?: Partial<FileConfig> // 🔧 接受完整配置
   ) {
     super(span, id);
+
+    // 🔧 应用配置（带默认值）
+    this.config = {
+      keepComments: config?.keepComments ?? false,
+      keepEmptyLines: config?.keepEmptyLines ?? false,
+      keepInlineComments: config?.keepInlineComments ?? false,
+      formatConversion: config?.formatConversion ?? true,
+      applyNoResolve: config?.applyNoResolve ?? false,
+      validate: config?.validate ?? false,
+      dedup: config?.dedup ?? true,
+      sort: config?.sort ?? true,
+    };
 
     // 根据配置的目标平台创建strategies
     this.strategies = createStrategiesForTargets(targets, ruleType);
@@ -44,17 +70,54 @@ export class EnhancedFileOutput extends FileOutput {
    * 智能添加规则 - 自动分发到 Trie/Set（自动去重+懒惰合并）
    */
   public addRawRule(rule: string): this {
-    const trimmed = rule.trim();
+    let trimmed = rule.trim();
 
-    // 空行和注释直接跳过
-    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('!')) {
+    // 🔧 1. 空行处理
+    if (!trimmed) {
+      if (this.config.keepEmptyLines) {
+        // 保留空行（直接添加到其他规则集合）
+        this.otherRules.add('');
+      }
       return this;
     }
 
-    // 移除策略（如果需要）- 使用统一清理器
-    const processedRule = this.defaultPolicy === null
-      ? cleanPolicy(trimmed)
-      : trimmed;
+    // 🔧 2. 注释处理 - 使用 RuleValidator (支持 #、!、//、; 四种格式)
+    if (RuleValidator.isComment(trimmed)) {
+      if (this.config.keepComments) {
+        // 保留注释（直接添加到其他规则集合）
+        this.otherRules.add(trimmed);
+      }
+      return this;
+    }
+
+    // 🔧 3. 行内注释处理 (仅支持 // 格式)
+    if (!this.config.keepInlineComments) {
+      trimmed = RuleValidator.removeInlineComment(trimmed);
+    }
+
+    // 🔧 4. 格式转换 - 智能平台检测和转换
+    let normalizedRule = trimmed;
+    if (this.config.formatConversion) {
+      // 支持 QuantumultX (HOST, HOST-SUFFIX), Clash (+.domain), Domain-set (.domain), 纯文本等
+      normalizedRule = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.SURGE);
+    }
+
+    // 🔧 5. 规则验证
+    if (this.config.validate) {
+      if (!RuleValidator.isValidRule(normalizedRule)) {
+        // 跳过无效规则
+        return this;
+      }
+    }
+
+    // 🔧 6. 应用 no-resolve 参数
+    if (this.config.applyNoResolve) {
+      normalizedRule = this.applyNoResolveParameter(normalizedRule);
+    }
+
+    // 🔧 7. 移除策略（如果需要）- 使用统一清理器
+    const processedRule =
+      this.defaultPolicy === null ? cleanPolicy(normalizedRule) : normalizedRule;
 
     // 🔑 智能分发到不同容器（自动去重）
     const ruleType = this.detectRuleType(processedRule);
@@ -75,7 +138,12 @@ export class EnhancedFileOutput extends FileOutput {
         const suffix = this.extractDomain(processedRule);
         if (suffix) {
           const lineFromDot = suffix.startsWith('.');
-          this.domainTrie.add(lineFromDot ? suffix.slice(1) : suffix, true, null, lineFromDot ? 1 : 0);
+          this.domainTrie.add(
+            lineFromDot ? suffix.slice(1) : suffix,
+            true,
+            null,
+            lineFromDot ? 1 : 0
+          );
           if (process.env.DEBUG) this.stats.inputDomains++;
         }
         break;
@@ -190,7 +258,7 @@ export class EnhancedFileOutput extends FileOutput {
       'IP-ASN': 'ip-asn',
       'USER-AGENT': 'user-agent',
       'PROCESS-NAME': 'process-name',
-      'URL-REGEX': 'url-regex'
+      'URL-REGEX': 'url-regex',
     };
 
     return typeMap[type] || 'other';
@@ -202,6 +270,34 @@ export class EnhancedFileOutput extends FileOutput {
   private extractDomain(rule: string): string {
     const parts = rule.split(',');
     return parts[1]?.trim() || '';
+  }
+
+  /**
+   * 🔧 为 IP 规则自动添加 no-resolve 参数
+   */
+  private applyNoResolveParameter(rule: string): string {
+    const trimmed = rule.trim();
+    const upperRule = trimmed.toUpperCase();
+
+    // 检测是否为 IP 类规则
+    const isIpRule =
+      upperRule.startsWith('IP-CIDR,') ||
+      upperRule.startsWith('IP-CIDR6,') ||
+      upperRule.startsWith('GEOIP,') ||
+      upperRule.startsWith('IP-ASN,') ||
+      upperRule.startsWith('SRC-IP-CIDR,');
+
+    if (!isIpRule) {
+      return rule;
+    }
+
+    // 检查是否已经包含 no-resolve 参数
+    if (upperRule.includes('NO-RESOLVE')) {
+      return rule;
+    }
+
+    // 添加 no-resolve 参数
+    return `${trimmed},no-resolve`;
   }
 
   /**
@@ -221,8 +317,11 @@ export class EnhancedFileOutput extends FileOutput {
     if (process.env.DEBUG) {
       // 获取优化后的数量
       const outputDomains = this.countTrieNodes();
-      const outputCIDRs = this.ipcidr.size + this.ipcidrNoResolve.size
-        + this.ipcidr6.size + this.ipcidr6NoResolve.size;
+      const outputCIDRs =
+        this.ipcidr.size +
+        this.ipcidrNoResolve.size +
+        this.ipcidr6.size +
+        this.ipcidr6NoResolve.size;
 
       console.log(`📊 规则统计 [${this.id}]:`);
       console.log(`  域名: ${this.stats.inputDomains} 条输入`);
@@ -259,9 +358,9 @@ export class EnhancedFileOutput extends FileOutput {
     const targets = ('targets' in config ? config.targets || ['surge'] : ['surge']) as any;
     const defaultPolicy =
       'defaultPolicy' in config
-        ? (config.defaultPolicy === undefined
+        ? config.defaultPolicy === undefined
           ? null
-          : config.defaultPolicy)
+          : config.defaultPolicy
         : null;
 
     // 默认使用混合类型，让Strategy智能判断

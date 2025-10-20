@@ -1,203 +1,148 @@
 /**
  * Loon输出策略
- * 支持生成Loon代理客户端兼容的规则文件格式
+ * 完整实现 BaseWriteStrategy，支持生成Loon代理客户端兼容的规则文件格式
  *
- * 重构记录：使用共享验证器替代重复的验证逻辑
+ * 参考：Surge-master-4 的简洁实现
  */
 
+import { appendSetElementsToArray } from 'foxts/append-set-elements-to-array';
 import { BaseWriteStrategy } from './base';
+import { noop } from 'foxts/noop';
+import { withBannerArray } from '../../../lib/misc';
+import { OUTPUT_LOON_DIR } from '../../../constants/dir';
 import { MARKER_DOMAIN } from '../../../constants/description';
-import { CrossPlatformRuleParser } from '../../parsers';
-import { ProxyPlatform } from '../../../constants/rule-formats';
-import { DomainValidator, IPValidator, RuleValidator } from '../../../utils/validation/validators';
 
 /**
  * Loon域名集合输出策略
- * 注意：此类是不完整的实现，继承关系已移除以修复编译错误
  */
-export class LoonDomainSet {
+export class LoonDomainSet extends BaseWriteStrategy {
+  public readonly name = 'loon domainset';
+
+  readonly fileExtension = 'list' as const;
+  readonly type = 'domainset' as const;
+
   protected result: string[] = [MARKER_DOMAIN];
 
-  protected processLine(line: string): void {
-    const trimmed = line.trim();
-
-    // 使用共享验证器跳过注释和空行
-    if (RuleValidator.shouldSkipLine(trimmed)) {
-      return;
-    }
-
-    // 转换为Loon格式
-    const converted = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.LOON);
-    
-    // 对于域名集合，只保留域名部分
-    if (converted.startsWith('DOMAIN,')) {
-      const domain = converted.split(',')[1];
-      if (domain) {
-        this.result.push(domain);
-      }
-    } else if (converted.startsWith('DOMAIN-SUFFIX,')) {
-      const domain = converted.split(',')[1];
-      if (domain) {
-        this.result.push(domain);
-      }
-    }
+  constructor(public readonly outputDir = OUTPUT_LOON_DIR) {
+    super(outputDir);
   }
+
+  withPadding = withBannerArray;
+
+  writeDomain(domain: string): void {
+    this.result.push(domain);
+  }
+
+  writeDomainSuffix(domain: string): void {
+    this.result.push(domain);
+  }
+
+  // Loon Domain Set 不支持其他规则类型
+  writeDomainKeywords = noop;
+  writeDomainWildcard = noop;
+  writeUserAgents = noop;
+  writeProcessNames = noop;
+  writeProcessPaths = noop;
+  writeUrlRegexes = noop;
+  writeIpCidrs = noop;
+  writeIpCidr6s = noop;
+  writeGeoip = noop;
+  writeIpAsns = noop;
+  writeSourceIpCidrs = noop;
+  writeSourcePorts = noop;
+  writeDestinationPorts = noop;
+  writeProtocols = noop;
+  writeOtherRules = noop;
 }
 
 /**
  * Loon规则集输出策略
- * 注意：此类是不完整的实现，继承关系已移除以修复编译错误
  */
-export class LoonRuleSet {
+export class LoonRuleSet extends BaseWriteStrategy {
+  public readonly name = 'loon ruleset';
+
+  readonly fileExtension = 'list' as const;
+
   protected result: string[] = [`DOMAIN,${MARKER_DOMAIN}`];
 
-  protected processLine(line: string): void {
-    const trimmed = line.trim();
+  constructor(
+    public readonly type: 'ip' | 'non_ip',
+    public readonly outputDir = OUTPUT_LOON_DIR
+  ) {
+    super(outputDir);
+  }
 
-    // 使用共享验证器跳过注释和空行
-    if (RuleValidator.shouldSkipLine(trimmed)) {
-      return;
-    }
+  withPadding = withBannerArray;
 
-    // 转换为Loon格式
-    const converted = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.LOON);
-    
-    if (converted && converted !== trimmed) {
-      this.result.push(converted);
-    } else {
-      // 如果无法转换，尝试基础格式处理
-      const processed = this.processBasicRule(trimmed);
-      if (processed) {
-        this.result.push(processed);
-      }
+  writeDomain(domain: string): void {
+    this.result.push('DOMAIN,' + domain);
+  }
+
+  writeDomainSuffix(domain: string): void {
+    this.result.push('DOMAIN-SUFFIX,' + domain);
+  }
+
+  writeDomainKeywords(keyword: Set<string>): void {
+    appendSetElementsToArray(this.result, keyword, i => `DOMAIN-KEYWORD,${i}`);
+  }
+
+  writeDomainWildcard = noop; // Loon 不支持 DOMAIN-WILDCARD
+
+  writeUserAgents(userAgent: Set<string>): void {
+    appendSetElementsToArray(this.result, userAgent, i => `USER-AGENT,${i}`);
+  }
+
+  writeProcessNames = noop; // Loon 不支持 PROCESS-NAME
+
+  writeProcessPaths(processPath: Set<string>): void {
+    appendSetElementsToArray(this.result, processPath, i => `PROCESS-PATH,${i}`);
+  }
+
+  writeUrlRegexes(urlRegex: Set<string>): void {
+    appendSetElementsToArray(this.result, urlRegex, i => `URL-REGEX,${i}`);
+  }
+
+  writeIpCidrs(ipCidr: string[], noResolve: boolean): void {
+    for (let i = 0, len = ipCidr.length; i < len; i++) {
+      this.result.push(`IP-CIDR,${ipCidr[i]}${noResolve ? ',no-resolve' : ''}`);
     }
   }
 
-  /**
-   * 处理基础规则格式
-   * 重构：使用共享验证器替代私有验证方法
-   */
-  private processBasicRule(rule: string): string | null {
-    // 处理纯域名
-    if (DomainValidator.isDomainLike(rule)) {
-      return `DOMAIN,${rule}`;
-    }
-
-    // 处理域名后缀 (.example.com)
-    if (DomainValidator.isDomainSuffix(rule)) {
-      const domain = rule.substring(1);
-      return `DOMAIN-SUFFIX,${domain}`;
-    }
-
-    // 处理IP CIDR
-    const ipType = IPValidator.getIpType(rule);
-    if (ipType === 'ipv6') {
-      return `IP-CIDR6,${rule}`;
-    } else if (ipType === 'ipv4') {
-      return `IP-CIDR,${rule}`;
-    }
-
-    return null;
-  }
-
-}
-
-/**
- * Loon配置文件输出策略
- */
-export class LoonConfig  {
-  protected result: string[] = [
-    '[General]',
-    'ipv6 = true',
-    'dns-server = system',
-    'allow-wifi-access = false',
-    'wifi-access-http-port = 7222',
-    'wifi-access-socks5-port = 7221',
-    'proxy-test-url = http://www.gstatic.com/generate_204',
-    'test-timeout = 3',
-    '',
-    '[Host]',
-    `${MARKER_DOMAIN} = reject`,
-    '',
-    '[Proxy]',
-    '',
-    '[Remote Proxy]',
-    '',
-    '[Proxy Group]',
-    '',
-    '[Rule]'
-  ];
-
-  protected processLine(line: string): void {
-    const trimmed = line.trim();
-
-    // 使用共享验证器跳过注释和空行
-    if (RuleValidator.shouldSkipLine(trimmed)) {
-      return;
-    }
-
-    // 转换为Loon格式
-    const converted = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.LOON);
-    
-    if (converted) {
-      this.result.push(converted);
+  writeIpCidr6s(ipCidr6: string[], noResolve: boolean): void {
+    for (let i = 0, len = ipCidr6.length; i < len; i++) {
+      this.result.push(`IP-CIDR6,${ipCidr6[i]}${noResolve ? ',no-resolve' : ''}`);
     }
   }
-}
 
-/**
- * Loon插件输出策略
- */
-export class LoonPlugin  {
-  protected result: string[] = [
-    '#!name=Generated Rules',
-    '#!desc=Auto-generated rules for Loon',
-    '#!author=SukkaW',
-    '#!homepage=https://ruleset.skk.moe',
-    '#!icon=https://raw.githubusercontent.com/SukkaW/Surge/master/icon.png',
-    '',
-    '[Rule]'
-  ];
-
-  protected processLine(line: string): void {
-    const trimmed = line.trim();
-
-    // 使用共享验证器跳过注释和空行
-    if (RuleValidator.shouldSkipLine(trimmed)) {
-      return;
-    }
-
-    // 转换为Loon格式
-    const converted = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.LOON);
-    
-    if (converted) {
-      this.result.push(converted);
-    }
+  writeGeoip(geoip: Set<string>, noResolve: boolean): void {
+    appendSetElementsToArray(
+      this.result,
+      geoip,
+      i => `GEOIP,${i}${noResolve ? ',no-resolve' : ''}`
+    );
   }
-}
 
-/**
- * Loon重写规则输出策略
- */
-export class LoonRewrite  {
-  protected result: string[] = [
-    '#!name=Generated Rewrite Rules',
-    '#!desc=Auto-generated rewrite rules for Loon',
-    '#!author=SukkaW',
-    '#!homepage=https://ruleset.skk.moe',
-    '',
-    '[Rewrite]'
-  ];
-
-  protected processLine(line: string): void {
-    const trimmed = line.trim();
-
-    // 使用共享验证器跳过注释和空行
-    if (RuleValidator.shouldSkipLine(trimmed)) {
-      return;
-    }
-
-    // 对于重写规则，保持原格式
-    this.result.push(trimmed);
+  writeIpAsns(asns: Set<string>, noResolve: boolean): void {
+    appendSetElementsToArray(
+      this.result,
+      asns,
+      i => `IP-ASN,${i}${noResolve ? ',no-resolve' : ''}`
+    );
   }
+
+  writeSourceIpCidrs = noop; // Loon 不支持 SRC-IP-CIDR
+
+  writeSourcePorts(sourcePorts: Set<string>): void {
+    appendSetElementsToArray(this.result, sourcePorts, i => `SRC-PORT,${i}`);
+  }
+
+  writeDestinationPorts(destPorts: Set<string>): void {
+    appendSetElementsToArray(this.result, destPorts, i => `DEST-PORT,${i}`);
+  }
+
+  writeProtocols(protocols: Set<string>): void {
+    appendSetElementsToArray(this.result, protocols, i => `PROTOCOL,${i}`);
+  }
+
+  writeOtherRules = noop;
 }

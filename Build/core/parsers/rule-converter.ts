@@ -15,7 +15,7 @@ import {
   POLICY_TO_PLATFORM_MAPPING,
   PLATFORM_LOGICAL_SUPPORT,
   PLATFORM_PARAMETER_SUPPORT,
-  STRATEGY_CLEANUP_CONFIG
+  STRATEGY_CLEANUP_CONFIG,
 } from '../../constants/rule-formats';
 import type { ParsedRule } from './types';
 import { RuleValidator } from './rule-validator';
@@ -46,10 +46,7 @@ export class RuleConverter {
   /**
    * 转换逻辑规则
    */
-  private static convertLogicalRule(
-    parsedRule: ParsedRule,
-    targetPlatform: ProxyPlatform
-  ): string {
+  private static convertLogicalRule(parsedRule: ParsedRule, targetPlatform: ProxyPlatform): string {
     const supportedOperators = PLATFORM_LOGICAL_SUPPORT[targetPlatform] || [];
 
     if (!parsedRule.logicalOperator || !supportedOperators.includes(parsedRule.logicalOperator)) {
@@ -60,12 +57,16 @@ export class RuleConverter {
     }
 
     const operatorMapping = parsedRule.logicalOperator
-      ? RULE_TO_PLATFORM_MAPPING[parsedRule.logicalOperator as unknown as keyof typeof RULE_TO_PLATFORM_MAPPING]
+      ? RULE_TO_PLATFORM_MAPPING[
+          parsedRule.logicalOperator as unknown as keyof typeof RULE_TO_PLATFORM_MAPPING
+        ]
       : undefined;
     if (operatorMapping) {
       const targetOperator = operatorMapping[targetPlatform];
       if (targetOperator && parsedRule.subRules && parsedRule.subRules.length > 0) {
-        const convertedSubRules = parsedRule.subRules.map(subRule => this.convertToTargetPlatform(subRule, targetPlatform));
+        const convertedSubRules = parsedRule.subRules.map(subRule =>
+          this.convertToTargetPlatform(subRule, targetPlatform)
+        );
         return `${targetOperator},${convertedSubRules.join(',')}`;
       }
     }
@@ -76,10 +77,7 @@ export class RuleConverter {
   /**
    * 转换普通规则
    */
-  private static convertNormalRule(
-    parsedRule: ParsedRule,
-    targetPlatform: ProxyPlatform
-  ): string {
+  private static convertNormalRule(parsedRule: ParsedRule, targetPlatform: ProxyPlatform): string {
     const ruleMapping = RULE_TO_PLATFORM_MAPPING[parsedRule.type];
     const policyMapping = POLICY_TO_PLATFORM_MAPPING[parsedRule.policy || PolicyType.REJECT];
 
@@ -166,7 +164,9 @@ export class RuleConverter {
   private static convertLogicalRuleToRuleSet(parsedRule: ParsedRule): string {
     // 保留逻辑规则，但移除策略，递归处理子规则
     if (parsedRule.subRules && parsedRule.subRules.length > 0) {
-      const convertedSubRules = parsedRule.subRules.map(subRule => this.convertToRuleSetPayload(subRule));
+      const convertedSubRules = parsedRule.subRules.map(subRule =>
+        this.convertToRuleSetPayload(subRule)
+      );
       // 逻辑规则格式：操作符,((子规则1),(子规则2))
       return `${parsedRule.logicalOperator},((${convertedSubRules.join('),(')}))`;
     }
@@ -194,8 +194,15 @@ export class RuleConverter {
   static smartConvertToRuleSet(rule: string): string {
     const trimmed = rule.trim();
 
-    // 保留注释行
-    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('!')) {
+    // 保留注释行 - 注意: 这里不导入 RuleValidator 避免循环依赖
+    // RuleConverter 被 CrossPlatformRuleParser 使用,而 RuleValidator 在 utils 中
+    if (
+      !trimmed ||
+      trimmed.startsWith('#') ||
+      trimmed.startsWith('!') ||
+      trimmed.startsWith('//') ||
+      trimmed.startsWith(';')
+    ) {
       return rule;
     }
 
@@ -272,8 +279,10 @@ export class RuleConverter {
     const policyStr = typeof policy === 'string' ? policy : policy;
 
     // 如果是自定义策略组，根据平台决定是否清理
-    if (this.isCustomPolicyGroup(policyStr) // 对于不支持自定义策略组的平台，转换为PROXY
-      && (targetPlatform === ProxyPlatform.CLASH || targetPlatform === ProxyPlatform.SINGBOX)) {
+    if (
+      this.isCustomPolicyGroup(policyStr) && // 对于不支持自定义策略组的平台，转换为PROXY
+      (targetPlatform === ProxyPlatform.CLASH || targetPlatform === ProxyPlatform.SINGBOX)
+    ) {
       return PolicyType.PROXY;
     }
 
@@ -298,7 +307,7 @@ export class RuleConverter {
       'REJECT-IMG',
       'REJECT-DICT',
       'REJECT-ARRAY',
-      'PROXY'
+      'PROXY',
     ];
     return standardPolicies.includes(policy);
   }

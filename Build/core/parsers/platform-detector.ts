@@ -29,8 +29,14 @@ export class PlatformDetector {
   static detectPlatform(rule: string): ProxyPlatform | null {
     const trimmed = rule.trim();
 
-    // 跳过注释和空行
-    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('!')) {
+    // 跳过注释和空行 - 支持 #、!、//、; 四种格式
+    if (
+      !trimmed ||
+      trimmed.startsWith('#') ||
+      trimmed.startsWith('!') ||
+      trimmed.startsWith('//') ||
+      trimmed.startsWith(';')
+    ) {
       return null;
     }
 
@@ -111,8 +117,8 @@ export class PlatformDetector {
    */
   private static isClashRule(rule: string): boolean {
     return (
-      /^(domain|domain-suffix|domain-keyword|ip-cidr|ip-cidr6|geoip|ip-asn)\s*,/i.test(rule)
-      && !rule.includes('REJECT')
+      /^(domain|domain-suffix|domain-keyword|ip-cidr|ip-cidr6|geoip|ip-asn)\s*,/i.test(rule) &&
+      !rule.includes('REJECT')
     );
   }
 }

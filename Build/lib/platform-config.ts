@@ -6,11 +6,11 @@ export type SupportedPlatform = 'surge' | 'clash' | 'singbox' | 'loon' | 'quantu
 
 export interface PlatformConfig {
   /** 启用的目标平台（默认仅Surge） */
-  targets: SupportedPlatform[],
+  targets: SupportedPlatform[];
   /** 全局默认策略 */
-  globalDefaultPolicy: 'DIRECT' | 'REJECT' | 'PROXY',
+  globalDefaultPolicy: 'DIRECT' | 'REJECT' | 'PROXY';
   /** 每个平台的输出目录配置 */
-  outputDirs: Record<SupportedPlatform, string>
+  outputDirs: Record<SupportedPlatform, string>;
 }
 
 export const DEFAULT_PLATFORM_CONFIG: PlatformConfig = {
@@ -22,8 +22,8 @@ export const DEFAULT_PLATFORM_CONFIG: PlatformConfig = {
     singbox: 'sing-box',
     loon: 'Loon',
     'quantumult-x': 'QuantumultX',
-    adguard: 'AdGuardHome'
-  }
+    adguard: 'AdGuardHome',
+  },
 };
 
 /**
@@ -35,40 +35,66 @@ export function createStrategiesForTargets(
   outputBaseDir = 'public'
 ): any[] {
   const strategies: any[] = [];
+  const path = require('path');
 
   // 使用静态导入避免动态加载问题
   try {
     for (const target of targets) {
+      // 🔧 计算每个平台的完整输出目录
+      const platformDir = DEFAULT_PLATFORM_CONFIG.outputDirs[target];
+      const fullOutputDir = path.join(outputBaseDir, platformDir);
+
       switch (target) {
         case 'surge':
           const SurgeModule = require('../core/output/writing-strategy/surge');
           if (SurgeModule?.SurgeRuleSet) {
-            strategies.push(new SurgeModule.SurgeRuleSet());
+            // 🔧 传递 type 和 outputDir 参数
+            strategies.push(new SurgeModule.SurgeRuleSet('mixed', fullOutputDir));
           }
           break;
         case 'clash':
           const ClashModule = require('../core/output/writing-strategy/clash');
           if (ClashModule?.ClashClassicRuleSet) {
-            strategies.push(new ClashModule.ClashClassicRuleSet());
+            strategies.push(new ClashModule.ClashClassicRuleSet(fullOutputDir));
           }
           break;
         case 'singbox':
           const SingboxModule = require('../core/output/writing-strategy/singbox');
           if (SingboxModule?.SingboxSource) {
-            strategies.push(new SingboxModule.SingboxSource());
+            strategies.push(new SingboxModule.SingboxSource(fullOutputDir));
           }
           break;
-        // 暂时只启用核心平台，避免导入错误
-        default:
+        case 'loon':
+          const LoonModule = require('../core/output/writing-strategy/loon');
+          if (LoonModule?.LoonRuleSet) {
+            strategies.push(new LoonModule.LoonRuleSet('non_ip', fullOutputDir));
+          }
+          break;
+        case 'quantumult-x':
+          const QXModule = require('../core/output/writing-strategy/quantumult-x');
+          if (QXModule?.QuantumultXRuleSet) {
+            strategies.push(new QXModule.QuantumultXRuleSet('non_ip', fullOutputDir));
+          }
+          break;
+        case 'adguard':
+          // AdGuard 暂未实现
           console.log(`⚠\uFE0F 平台 ${target} 暂未完全集成，跳过`);
+          break;
+        default:
+          console.log(`⚠\uFE0F 未知平台 ${target}，跳过`);
       }
     }
   } catch (error) {
-    console.warn('⚠\uFE0F 创建策略时出错，回退到仅Surge:', error instanceof Error ? error.message : String(error));
+    console.warn(
+      '⚠\uFE0F 创建策略时出错，回退到仅Surge:',
+      error instanceof Error ? error.message : String(error)
+    );
     // 回退到安全的Surge策略
     const SurgeModule = require('../core/output/writing-strategy/surge');
     if (SurgeModule?.SurgeRuleSet) {
-      strategies.push(new SurgeModule.SurgeRuleSet());
+      const path = require('path');
+      const fullOutputDir = path.join(outputBaseDir, DEFAULT_PLATFORM_CONFIG.outputDirs.surge);
+      strategies.push(new SurgeModule.SurgeRuleSet('mixed', fullOutputDir));
     }
   }
 
@@ -84,5 +110,5 @@ export const PLATFORM_POLICY_SUPPORT: Record<SupportedPlatform, boolean> = {
   singbox: false, // 不支持策略组
   loon: true, // 支持策略组
   'quantumult-x': true, // 支持策略组
-  adguard: false // 不支持策略组
+  adguard: false, // 不支持策略组
 };

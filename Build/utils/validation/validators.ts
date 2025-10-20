@@ -84,8 +84,7 @@ export class IPValidator {
    * IPv6地址正则表达式（支持CIDR）
    * 匹配格式：2001:db8::1 或 2001:db8::/32
    */
-  private static readonly IPV6_CIDR_REGEX =
-    /^([\da-f]{1,4}:){2,7}[\da-f]{1,4}(\/\d{1,3})?$/i;
+  private static readonly IPV6_CIDR_REGEX = /^([\da-f]{1,4}:){2,7}[\da-f]{1,4}(\/\d{1,3})?$/i;
 
   /**
    * 检查字符串是否为IPv4 CIDR格式
@@ -169,8 +168,7 @@ export class URLValidator {
    * URL正则表达式
    * 匹配标准URL格式
    */
-  private static readonly URL_REGEX =
-    /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(:\d+)?(\/.*)?$/i;
+  private static readonly URL_REGEX = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(:\d+)?(\/.*)?$/i;
 
   /**
    * 检查字符串是否为有效的URL格式
@@ -219,6 +217,12 @@ export const RuleValidator = {
   /**
    * 检查字符串是否为注释行
    *
+   * 支持的注释格式:
+   * - # - 井号注释 (最常见)
+   * - ! - 感叹号注释 (AdBlock 格式)
+   * - // - 双斜杠注释 (C/JavaScript 风格)
+   * - ; - 分号注释 (INI/配置文件风格)
+   *
    * @param line - 待检查的字符串
    * @returns 如果是注释返回true，否则返回false
    *
@@ -226,14 +230,42 @@ export const RuleValidator = {
    * ```typescript
    * RuleValidator.isComment('# This is a comment'); // true
    * RuleValidator.isComment('! AdBlock comment'); // true
+   * RuleValidator.isComment('// JavaScript comment'); // true
+   * RuleValidator.isComment('; INI comment'); // true
    * RuleValidator.isComment('DOMAIN,example.com'); // false
    * ```
    */
   isComment(line: string): boolean {
     const trimmed = line.trim();
-    return trimmed.startsWith('#')
-      || trimmed.startsWith('!')
-      || trimmed.startsWith('//');
+    return (
+      trimmed.startsWith('#') ||
+      trimmed.startsWith('!') ||
+      trimmed.startsWith('//') ||
+      trimmed.startsWith(';')
+    );
+  },
+
+  /**
+   * 移除行内注释 (仅支持 // 格式)
+   *
+   * @param line - 待处理的字符串
+   * @returns 移除行内注释后的字符串
+   *
+   * @example
+   * ```typescript
+   * RuleValidator.removeInlineComment('DOMAIN,example.com // comment');
+   * // 'DOMAIN,example.com'
+   * RuleValidator.removeInlineComment('DOMAIN,example.com # not removed');
+   * // 'DOMAIN,example.com # not removed'
+   * ```
+   */
+  removeInlineComment(line: string): string {
+    const commentIndex = line.indexOf('//');
+    if (commentIndex === -1) {
+      return line;
+    }
+    // 移除 // 及其后面的所有内容
+    return line.substring(0, commentIndex).trim();
   },
 
   /**
@@ -272,9 +304,9 @@ export const RuleValidator = {
    * ```
    */
   parseRule(line: string): {
-    type: string,
-    value: string,
-    params?: string
+    type: string;
+    value: string;
+    params?: string;
   } | null {
     const trimmed = line.trim();
 
@@ -291,9 +323,75 @@ export const RuleValidator = {
     return {
       type: parts[0].toUpperCase(),
       value: parts[1],
-      params: parts.length > 2 ? parts.slice(2).join(',') : undefined
+      params: parts.length > 2 ? parts.slice(2).join(',') : undefined,
     };
-  }
+  },
+
+  /**
+   * 验证规则格式是否有效
+   *
+   * @param line - 规则行字符串
+   * @returns 如果是有效规则返回true，否则返回false
+   *
+   * @example
+   * ```typescript
+   * RuleValidator.isValidRule('DOMAIN,example.com'); // true
+   * RuleValidator.isValidRule('DOMAIN-SUFFIX,example.com'); // true
+   * RuleValidator.isValidRule('IP-CIDR,192.168.1.0/24'); // true
+   * RuleValidator.isValidRule('INVALID'); // false
+   * RuleValidator.isValidRule('# comment'); // false
+   * ```
+   */
+  isValidRule(line: string): boolean {
+    const trimmed = line.trim();
+
+    // 跳过注释和空行
+    if (this.shouldSkipLine(trimmed)) {
+      return false;
+    }
+
+    // 解析规则
+    const parsed = this.parseRule(trimmed);
+    if (!parsed) {
+      return false;
+    }
+
+    // 验证规则类型
+    const validTypes = [
+      'DOMAIN',
+      'DOMAIN-SUFFIX',
+      'DOMAIN-KEYWORD',
+      'DOMAIN-WILDCARD',
+      'IP-CIDR',
+      'IP-CIDR6',
+      'GEOIP',
+      'IP-ASN',
+      'USER-AGENT',
+      'URL-REGEX',
+      'PROCESS-NAME',
+      'PROCESS-PATH',
+      'SRC-IP-CIDR',
+      'SRC-PORT',
+      'DST-PORT',
+      'DEST-PORT',
+      'PROTOCOL',
+      'NETWORK',
+      'AND',
+      'OR',
+      'NOT',
+    ];
+
+    if (!validTypes.includes(parsed.type)) {
+      return false;
+    }
+
+    // 验证值不为空
+    if (!parsed.value || parsed.value.length === 0) {
+      return false;
+    }
+
+    return true;
+  },
 };
 
 /**
@@ -315,8 +413,7 @@ export const Validator = {
    * Validator.identifyType('2001:db8::/32'); // 'ipv6'
    * ```
    */
-  identifyType(text: string):
-    'domain' | 'domain-suffix' | 'ipv4' | 'ipv6' | 'url' | 'unknown' {
+  identifyType(text: string): 'domain' | 'domain-suffix' | 'ipv4' | 'ipv6' | 'url' | 'unknown' {
     // 检查域名后缀
     if (DomainValidator.isDomainSuffix(text)) {
       return 'domain-suffix';
@@ -347,9 +444,9 @@ export const Validator = {
    * @returns 规范化后的文本和类型信息
    */
   validateAndNormalize(text: string): {
-    normalized: string,
-    type: string,
-    isValid: boolean
+    normalized: string;
+    type: string;
+    isValid: boolean;
   } {
     const type = this.identifyType(text);
     const isValid = type !== 'unknown';
@@ -360,5 +457,5 @@ export const Validator = {
     }
 
     return { normalized, type, isValid };
-  }
+  },
 };

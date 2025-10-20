@@ -5,6 +5,7 @@
 
 import type { ParsedSection, SectionType } from './types';
 import { cleanPolicy } from '../../core/parsers/policy-cleaner';
+import { RuleValidator } from '../../utils/validation/validators';
 
 /**
  * Section 解析器类
@@ -37,7 +38,7 @@ export class SectionParser {
         sections.push({
           type,
           content: this.cleanContent(sectionContent, type),
-          header
+          header,
         });
       }
     }
@@ -90,12 +91,13 @@ export class SectionParser {
         .join('\n');
     }
 
-    // 移除注释和空行
+    // 🔧 统一注释处理 - 使用 RuleValidator (支持 #、!、//、; 四种格式)
     cleaned = cleaned
       .split('\n')
-      .filter((line) => {
+      .filter(line => {
         const trimmed = line.trim();
-        return trimmed && !trimmed.startsWith('#');
+        // 使用统一的注释检测
+        return trimmed && !RuleValidator.isComment(trimmed);
       })
       .join('\n');
 
@@ -114,7 +116,7 @@ export class SectionParser {
     return match[1]
       .replaceAll('%APPEND%', '')
       .split(',')
-      .map((h) => h.trim())
+      .map(h => h.trim())
       .filter(Boolean);
   }
 }

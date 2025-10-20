@@ -1,6 +1,0 @@
-# streaming Rules
-payload:
-  - '+.netflix.com'
-  - '+.nflxvideo.net'
-  - '+.youtube.com'
-  - 'spotify'

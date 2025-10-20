@@ -1,6 +1,0 @@
-# Merged Rules - IP
-# Strategy: smart
-# Generated: 2025-10-17T11:35:40.980Z
-# Total: 1 rules
-
-IP-CIDR,117.177.248.0/24

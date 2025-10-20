@@ -11,7 +11,8 @@
 import type { Span } from '../trace';
 import { fetchAssets } from '../utils/network/fetch-assets';
 import { EnhancedFileOutput } from './enhanced-file-output';
-import type { RuleGroup, SpecialRuleConfig, FileConfig } from './rule-source-types';
+import type { RuleGroup, SpecialRuleConfig } from './rule-source-types';
+import { applyDefaultConfig } from './rule-sources';
 import path from 'node:path';
 import fs from 'node:fs';
 
@@ -56,23 +57,28 @@ export class RuleSourceProcessor {
                   fetchAssets(fileConfig.url, fileConfig.fallbackUrls || null, true)
                 );
 
-              // 确定输出路径
-              const outputPath = path.join(this.outputDir, fileConfig.path);
+              // 🔧 应用默认配置
+              const mergedConfig = applyDefaultConfig(fileConfig);
 
-              // 创建增强输出器
+              // 🔧 提取文件名（不带扩展名）作为 ID,并转换为小写
+              const fileExt = path.extname(fileConfig.path);
+              const fileName = path.basename(fileConfig.path, fileExt).toLowerCase();
+
+              // 🔧 创建增强输出器 - 传递完整配置
               const output = new EnhancedFileOutput(
                 groupSpan,
-                path.basename(fileConfig.path, '.list'),
+                fileName, // 使用不带扩展名的文件名
                 'mixed',
                 (group.targets as any) || ['surge'],
-                group.defaultPolicy === undefined ? null : group.defaultPolicy
+                group.defaultPolicy === undefined ? null : group.defaultPolicy,
+                mergedConfig // 🔧 传递合并后的配置参数
               );
 
               // 设置标题和描述
               output
-                .withTitle(group.name)
+                .withTitle(fileConfig.title || group.name)
                 .withDescription([
-                  group.description || `Rules for ${group.name}`,
+                  fileConfig.description || group.description || `Rules for ${group.name}`,
                   `Source: ${fileConfig.url}`,
                 ]);
 
@@ -145,13 +151,23 @@ export class RuleSourceProcessor {
             return;
           }
 
-          // 创建增强输出器
+          // 🔧 应用默认配置
+          const mergedConfig = applyDefaultConfig(ruleConfig);
+
+          // 🔧 从 targetFile 提取文件名(不含扩展名和路径)
+          // 例如: 'List/reject.list' → 'reject'
+          const fileName = ruleConfig.targetFile
+            ? path.basename(ruleConfig.targetFile, path.extname(ruleConfig.targetFile))
+            : ruleConfig.name.toLowerCase();
+
+          // 🔧 创建增强输出器 - 使用 targetFile 中的文件名
           const output = new EnhancedFileOutput(
             ruleSpan,
-            ruleConfig.name,
+            fileName,
             'mixed',
             (ruleConfig.targets as any) || ['surge'],
-            ruleConfig.defaultPolicy === undefined ? null : ruleConfig.defaultPolicy
+            ruleConfig.defaultPolicy === undefined ? null : ruleConfig.defaultPolicy,
+            mergedConfig // 🔧 传递合并后的配置参数
           );
 
           // 设置标题和描述

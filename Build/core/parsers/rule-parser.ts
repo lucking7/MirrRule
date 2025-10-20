@@ -17,7 +17,7 @@ import {
   PLATFORM_RULE_MAPPING,
   PLATFORM_POLICY_MAPPING,
   DEFAULT_POLICIES,
-  PLATFORM_LOGICAL_SUPPORT
+  PLATFORM_LOGICAL_SUPPORT,
 } from '../../constants/rule-formats';
 import type { ParsedRule } from './types';
 import { PlatformDetector } from './platform-detector';
@@ -38,8 +38,14 @@ export class RuleParser {
   static parseRule(rule: string, targetPlatform?: ProxyPlatform): ParsedRule | null {
     const trimmed = rule.trim();
 
-    // 跳过注释和空行
-    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('!')) {
+    // 跳过注释和空行 - 支持 #、!、//、; 四种格式
+    if (
+      !trimmed ||
+      trimmed.startsWith('#') ||
+      trimmed.startsWith('!') ||
+      trimmed.startsWith('//') ||
+      trimmed.startsWith(';')
+    ) {
       return null;
     }
 
@@ -114,7 +120,7 @@ export class RuleParser {
       options,
       raw: originalRule,
       platform: detectedPlatform,
-      isLogical: false
+      isLogical: false,
     };
   }
 
@@ -127,9 +133,9 @@ export class RuleParser {
     ruleType: RuleType,
     value: string
   ): {
-    policy: PolicyType | undefined,
-    parameters: RuleParameter[],
-    options: string[]
+    policy: PolicyType | undefined;
+    parameters: RuleParameter[];
+    options: string[];
   } {
     let policy: PolicyType | undefined;
     let parameters: RuleParameter[] = [];
@@ -180,8 +186,8 @@ export class RuleParser {
    * 解析额外参数
    */
   private static parseExtraParameters(extraParts: string[]): {
-    parameters: RuleParameter[],
-    options: string[]
+    parameters: RuleParameter[];
+    options: string[];
   } {
     const parameters: RuleParameter[] = [];
     const options: string[] = [];
@@ -228,7 +234,7 @@ export class RuleParser {
       'tracker',
       'analytics',
       'doubleclick',
-      'googleads'
+      'googleads',
     ];
     if (adKeywords.some(keyword => lowerValue.includes(keyword))) {
       return PolicyType.REJECT;
@@ -284,7 +290,7 @@ export class RuleParser {
       platform,
       isLogical: true,
       logicalOperator: operatorStr,
-      subRules
+      subRules,
     };
   }
 

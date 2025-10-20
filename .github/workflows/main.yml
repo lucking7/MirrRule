@@ -522,7 +522,6 @@ jobs:
           echo "📊 文件统计："
           echo "  Modules: $(find public/Modules -type f 2>/dev/null | wc -l) 个文件"
           echo "  Scripts: $(find public/Scripts -type f 2>/dev/null | wc -l) 个文件"
-          echo "  Rules: $(find public/Rules -type f 2>/dev/null | wc -l) 个文件"
           echo "  List: $(find public/List -type f 2>/dev/null | wc -l) 个文件"
           echo "  Mirror: $(find public/Mirror -type f 2>/dev/null | wc -l) 个文件"
           echo "  Plugins: $(find public/Plugins -type f 2>/dev/null | wc -l) 个文件"
