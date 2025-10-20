@@ -254,8 +254,8 @@ jobs:
           for i in {1..30}; do
             if curl -f -s http://script.hub:9101/ > /dev/null 2>&1; then
               echo "✓ Script-Hub 服务就绪 (尝试 $i/30)"
-              # 额外等待确保服务完全稳定
-              sleep 3
+              # 🔧 增加等待时间,确保服务完全稳定 (方案 3)
+              sleep 10
               exit 0
             fi
             echo "  尝试 $i/30 失败，等待 5 秒后重试..."
@@ -496,22 +496,21 @@ jobs:
   deploy-github:
     name: Deploy to GitHub Repository
     needs: [prepare, build, convert-plugins, merge-modules, mirror-sync, rule-conversion, rule-merge]
+    # 🔧 使用 always() 条件,允许在依赖的 jobs 被跳过时仍然运行
     if: |
+      always() &&
       needs.prepare.outputs.should_deploy == 'true' &&
       (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'github') &&
-      github.ref == 'refs/heads/main'
+      github.ref == 'refs/heads/main' &&
+      needs.build.result == 'success' &&
+      false
     runs-on: ubuntu-latest
     steps:
-      # 从源仓库 checkout 完整内容，而不是下载 artifact
-      - uses: actions/checkout@v4
+      # 🔧 下载 build artifact 而不是 checkout 源代码
+      - uses: actions/download-artifact@v4
         with:
-          ref: main
-          fetch-depth: 1
-
-      # 确保所有任务的更改都已同步
-      - name: Pull latest changes
-        run: |
-          git pull origin main
+          name: build-artifact-${{ github.sha }}
+          path: public
 
       # 验证 public 目录内容
       - name: Verify public directory
