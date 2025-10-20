@@ -68,7 +68,8 @@ export class QuantumultXRuleSet extends BaseWriteStrategy {
   protected result: string[] = [`host, ${MARKER_DOMAIN}, REJECT`];
 
   constructor(
-    public readonly type: 'ip' | 'non_ip',
+    /** 🔧 规则类型参数 - 设为空字符串以避免创建子目录 */
+    public readonly type: '' | 'ip' | 'non_ip',
     public readonly outputDir = OUTPUT_QUANTUMULT_X_DIR
   ) {
     super(outputDir);
@@ -113,19 +114,11 @@ export class QuantumultXRuleSet extends BaseWriteStrategy {
   }
 
   writeGeoip(geoip: Set<string>, noResolve: boolean): void {
-    appendSetElementsToArray(
-      this.result,
-      geoip,
-      i => `geoip, ${i}, REJECT`
-    );
+    appendSetElementsToArray(this.result, geoip, i => `geoip, ${i}, REJECT`);
   }
 
   writeIpAsns(asns: Set<string>, noResolve: boolean): void {
-    appendSetElementsToArray(
-      this.result,
-      asns,
-      i => `ip-asn, ${i}, REJECT`
-    );
+    appendSetElementsToArray(this.result, asns, i => `ip-asn, ${i}, REJECT`);
   }
 
   writeSourceIpCidrs = noop; // QuantumultX 不支持 SRC-IP-CIDR

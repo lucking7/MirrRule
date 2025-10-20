@@ -43,10 +43,11 @@ export class EnhancedFileOutput extends FileOutput {
   constructor(
     span: Span,
     id: string,
-    private readonly ruleType: 'domainset' | 'non_ip' | 'ip' | 'mixed', // 支持混合类型
+    private readonly ruleType: 'domainset' | 'non_ip' | 'ip' | 'mixed' | '', // 🔧 支持空字符串，取消分类
     private readonly targets: SupportedPlatform[] = ['surge'],
     private readonly defaultPolicy: string | null = null, // 默认无策略
-    config?: Partial<FileConfig> // 🔧 接受完整配置
+    config?: Partial<FileConfig>, // 🔧 接受完整配置
+    private readonly outputBaseDir = 'public' // 🔧 添加输出基础目录参数
   ) {
     super(span, id);
 
@@ -62,8 +63,9 @@ export class EnhancedFileOutput extends FileOutput {
       sort: config?.sort ?? true,
     };
 
-    // 根据配置的目标平台创建strategies
-    this.strategies = createStrategiesForTargets(targets, ruleType);
+    // 🔧 根据配置的目标平台创建strategies - 传递正确的输出基础目录
+    // 注意: strategies 的 type 已在 createStrategiesForTargets 中设为空字符串
+    this.strategies = createStrategiesForTargets(targets, outputBaseDir);
   }
 
   /**

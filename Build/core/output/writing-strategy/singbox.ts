@@ -48,8 +48,8 @@ export class SingboxSource extends BaseWriteStrategy {
   }
 
   constructor(
-    /** Since sing-box only have one format that does not reflect type, we need to specify it */
-    public type: 'domainset' | 'non_ip' | 'ip' /* | (string & {}) */,
+    /** 🔧 规则类型参数 - 设为空字符串以避免创建子目录 */
+    public type: '' | 'domainset' | 'non_ip' | 'ip' /* | (string & {}) */,
     public readonly outputDir = OUTPUT_SINGBOX_DIR
   ) {
     super(outputDir);

@@ -48,32 +48,36 @@ export function createStrategiesForTargets(
         case 'surge':
           const SurgeModule = require('../core/output/writing-strategy/surge');
           if (SurgeModule?.SurgeRuleSet) {
-            // 🔧 传递 type 和 outputDir 参数
-            strategies.push(new SurgeModule.SurgeRuleSet('mixed', fullOutputDir));
+            // 🔧 type 设为空字符串，避免创建子目录
+            strategies.push(new SurgeModule.SurgeRuleSet('', fullOutputDir));
           }
           break;
         case 'clash':
           const ClashModule = require('../core/output/writing-strategy/clash');
           if (ClashModule?.ClashClassicRuleSet) {
-            strategies.push(new ClashModule.ClashClassicRuleSet(fullOutputDir));
+            // 🔧 type 设为空字符串，避免创建子目录
+            strategies.push(new ClashModule.ClashClassicRuleSet('', fullOutputDir));
           }
           break;
         case 'singbox':
           const SingboxModule = require('../core/output/writing-strategy/singbox');
           if (SingboxModule?.SingboxSource) {
-            strategies.push(new SingboxModule.SingboxSource(fullOutputDir));
+            // 🔧 type 设为空字符串，避免创建子目录
+            strategies.push(new SingboxModule.SingboxSource('', fullOutputDir));
           }
           break;
         case 'loon':
           const LoonModule = require('../core/output/writing-strategy/loon');
           if (LoonModule?.LoonRuleSet) {
-            strategies.push(new LoonModule.LoonRuleSet('non_ip', fullOutputDir));
+            // 🔧 type 设为空字符串，避免创建子目录
+            strategies.push(new LoonModule.LoonRuleSet('', fullOutputDir));
           }
           break;
         case 'quantumult-x':
           const QXModule = require('../core/output/writing-strategy/quantumult-x');
           if (QXModule?.QuantumultXRuleSet) {
-            strategies.push(new QXModule.QuantumultXRuleSet('non_ip', fullOutputDir));
+            // 🔧 type 设为空字符串，避免创建子目录
+            strategies.push(new QXModule.QuantumultXRuleSet('', fullOutputDir));
           }
           break;
         case 'adguard':
@@ -94,7 +98,8 @@ export function createStrategiesForTargets(
     if (SurgeModule?.SurgeRuleSet) {
       const path = require('path');
       const fullOutputDir = path.join(outputBaseDir, DEFAULT_PLATFORM_CONFIG.outputDirs.surge);
-      strategies.push(new SurgeModule.SurgeRuleSet('mixed', fullOutputDir));
+      // 🔧 type 设为空字符串，避免创建子目录
+      strategies.push(new SurgeModule.SurgeRuleSet('', fullOutputDir));
     }
   }
 

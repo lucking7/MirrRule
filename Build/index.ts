@@ -4,11 +4,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { task } from './trace';
-import { createSpan } from './trace';
 import { printTraceResult, whyIsNodeRunning } from './trace';
-import { downloadPreviousBuild } from './download-previous-build';
 import { downloadGeoIP } from './download-geoip';
-import { CACHE_DIR, ROOT_DIR } from './constants/dir';
+import { ROOT_DIR } from './constants/dir';
 
 /**
  * 规则生成系统主入口
@@ -17,7 +15,7 @@ import { CACHE_DIR, ROOT_DIR } from './constants/dir';
 export const buildRuleset = task(
   require.main === module,
   __filename
-)(async (span, onCleanup) => {
+)(async span => {
   console.log('Version:', process.version);
   console.log(`OS: ${os.type()} ${os.release()} ${os.arch()}`);
   console.log(`Node.js: ${process.versions.node}`);
@@ -44,10 +42,6 @@ export const buildRuleset = task(
   }
 
   console.log('🚀 开始构建规则集...');
-
-  // 预热：下载上次构建产物（若 public 为空）
-  // 注释掉以避免下载旧的目录结构
-  // await downloadPreviousBuild(span);
 
   // 下载 GeoIP MMDB 文件（独立模块）
   await downloadGeoIP(span);
@@ -125,7 +119,7 @@ export const buildRuleset = task(
   console.log('✅ 规则集构建完成！');
 
   // 构建前端网页
-  await span.traceChildAsync('build web page', async span => {
+  await span.traceChildAsync('build web page', async () => {
     console.log('🌐 开始构建前端网页...');
 
     try {
@@ -146,98 +140,3 @@ export const buildRuleset = task(
   printTraceResult(span.traceResult);
   await whyIsNodeRunning();
 });
-
-/**
- * 创建规则处理器
- * 提供基于现有框架的规则处理功能
- */
-export function createRuleProcessor() {
-  return {
-    /**
-     * 处理域名规则 - 复用现有去重工具
-     */
-    async processDomainRules(domains: string[]) {
-      const span = createSpan('process domain rules');
-
-      try {
-        console.log(`处理 ${domains.length} 个域名规则`);
-
-        // 复用现有去重工具
-        const dedupeModule = require('./tools-dedupe-src.js');
-        const { createDedupeTools } = dedupeModule;
-        const dedupeTools = createDedupeTools();
-        const dedupedDomains = dedupeTools.dedupeArray(domains);
-
-        console.log(`去重后剩余 ${dedupedDomains.length} 个域名规则`);
-
-        return dedupedDomains;
-      } finally {
-        span.stop();
-      }
-    },
-
-    /**
-     * 处理IP规则 - 复用现有CIDR合并逻辑
-     */
-    async processIpRules(ips: string[]) {
-      const span = createSpan('process ip rules');
-
-      try {
-        console.log(`处理 ${ips.length} 个IP规则`);
-
-        // 这里可以添加IP CIDR合并逻辑
-        // 复用 Build/lib/rules/base.ts 中的 mergeCidr 功能
-
-        return ips;
-      } finally {
-        span.stop();
-      }
-    },
-
-    /**
-     * 生成输出文件 - 复用现有writing-strategy
-     */
-    async generateOutput(rules: any[], format: string) {
-      const span = createSpan('generate output');
-
-      try {
-        console.log(`生成 ${format} 格式的输出文件`);
-
-        // 复用现有的writing-strategy
-        // 可以根据format选择对应的策略：
-        // - surge: SurgeRuleSet
-        // - clash: ClashClassicRuleSet
-        // - singbox: SingboxSource
-        // - surfboard: SurfboardRuleSet
-      } finally {
-        span.stop();
-      }
-    },
-  };
-}
-
-/**
- * 创建配置文件示例
- */
-export async function createExampleConfig(outputPath = './rule-sources.example.ts') {
-  const span = createSpan('create example config');
-
-  try {
-    const { RuleSourceConfigLoader } = await import('./lib/rule-source-config-loader.js' as any);
-    const configLoader = new RuleSourceConfigLoader(span);
-
-    await configLoader.createExampleConfig(outputPath);
-    console.log(`示例配置文件已创建: ${outputPath}`);
-  } finally {
-    span.stop();
-  }
-}
-
-/**
- * 如果直接运行此文件，执行构建任务
- * 注意：task() 函数在 require.main === module 为 true 时会自动执行，
- * 因此不需要手动调用 buildRuleset()
- */
-// if (require.main === module) {
-//   buildRuleset();
-// }

@@ -204,7 +204,8 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
   protected result: string[] = [`DOMAIN,${MARKER_DOMAIN}`];
 
   constructor(
-    public readonly type: 'ip' | 'non_ip' /* | (string & {}) */,
+    /** 🔧 规则类型参数 - 设为空字符串以避免创建子目录 */
+    public readonly type: '' | 'ip' | 'non_ip' /* | (string & {}) */,
     public readonly outputDir = OUTPUT_CLASH_DIR
   ) {
     super(outputDir);

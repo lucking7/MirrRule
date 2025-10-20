@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: '执行任务 (all/build/convert-plugins/merge-modules/mirror-sync/rule-conversion/rule-merge/deploy)'
+        description: '执行任务 (all/build/convert-plugins/merge-modules/mirror-sync/deploy)'
         required: false
         default: 'all'
         type: choice
@@ -28,8 +28,6 @@ on:
           - convert-plugins
           - merge-modules
           - mirror-sync
-          - rule-conversion
-          - rule-merge
           - deploy
       deploy_target:
         description: '部署目标 (all/github/cloudflare)'
@@ -57,8 +55,6 @@ jobs:
       should_convert_plugins: ${{ steps.decide.outputs.should_convert_plugins }}
       should_merge_modules: ${{ steps.decide.outputs.should_merge_modules }}
       should_mirror_sync: ${{ steps.decide.outputs.should_mirror_sync }}
-      should_rule_conversion: ${{ steps.decide.outputs.should_rule_conversion }}
-      should_rule_merge: ${{ steps.decide.outputs.should_rule_merge }}
       should_deploy: ${{ steps.decide.outputs.should_deploy }}
       deploy_target: ${{ steps.decide.outputs.deploy_target }}
     steps:
@@ -70,26 +66,22 @@ jobs:
           IS_PUSH="${{ github.event_name == 'push' }}"
           IS_PR="${{ github.event_name == 'pull_request' }}"
           CRON="${{ github.event.schedule }}"
-          
+
           # 默认值
           BUILD="false"
           CONVERT_PLUGINS="false"
           MERGE_MODULES="false"
           MIRROR_SYNC="false"
-          RULE_CONVERSION="false"
-          RULE_MERGE="false"
           DEPLOY="false"
           DEPLOY_TARGET="${{ github.event.inputs.deploy_target || 'all' }}"
-          
+
           # 手动触发
           if [ "$TASK" = "all" ] || [ "$TASK" = "build" ]; then BUILD="true"; fi
           if [ "$TASK" = "all" ] || [ "$TASK" = "convert-plugins" ]; then CONVERT_PLUGINS="true"; fi
           if [ "$TASK" = "all" ] || [ "$TASK" = "merge-modules" ]; then MERGE_MODULES="true"; fi
           if [ "$TASK" = "all" ] || [ "$TASK" = "mirror-sync" ]; then MIRROR_SYNC="true"; fi
-          if [ "$TASK" = "all" ] || [ "$TASK" = "rule-conversion" ]; then RULE_CONVERSION="true"; fi
-          if [ "$TASK" = "all" ] || [ "$TASK" = "rule-merge" ]; then RULE_MERGE="true"; fi
           if [ "$TASK" = "all" ] || [ "$TASK" = "deploy" ]; then DEPLOY="true"; fi
-          
+
           # 定时任务
           if [ "$IS_SCHEDULE" = "true" ]; then
             case "$CRON" in
@@ -98,15 +90,11 @@ jobs:
                 CONVERT_PLUGINS="true"
                 MERGE_MODULES="true"
                 MIRROR_SYNC="true"
-                RULE_CONVERSION="true"
-                RULE_MERGE="true"
                 BUILD="true"
                 DEPLOY="true"
                 ;;
               "0 */2 * * *")
-                # 规则转换和合并 - 需要执行 Build
-                RULE_CONVERSION="true"
-                RULE_MERGE="true"
+                # 规则更新 - 仅执行 Build
                 BUILD="true"
                 DEPLOY="true"
                 ;;
@@ -120,57 +108,43 @@ jobs:
                 ;;
             esac
           fi
-          
+
           # Push 触发 - 执行完整流程
           if [ "$IS_PUSH" = "true" ] && [ "$IS_SCHEDULE" != "true" ]; then
             CONVERT_PLUGINS="true"
             MERGE_MODULES="true"
             MIRROR_SYNC="true"
-            RULE_CONVERSION="true"
-            RULE_MERGE="true"
             BUILD="true"
             DEPLOY="true"
           fi
-          
+
           # PR 触发
           if [ "$IS_PR" = "true" ]; then
             BUILD="true"
             DEPLOY="false"
           fi
-          
+
           echo "should_build=$BUILD" >> $GITHUB_OUTPUT
           echo "should_convert_plugins=$CONVERT_PLUGINS" >> $GITHUB_OUTPUT
           echo "should_merge_modules=$MERGE_MODULES" >> $GITHUB_OUTPUT
           echo "should_mirror_sync=$MIRROR_SYNC" >> $GITHUB_OUTPUT
-          echo "should_rule_conversion=$RULE_CONVERSION" >> $GITHUB_OUTPUT
-          echo "should_rule_merge=$RULE_MERGE" >> $GITHUB_OUTPUT
           echo "should_deploy=$DEPLOY" >> $GITHUB_OUTPUT
           echo "deploy_target=$DEPLOY_TARGET" >> $GITHUB_OUTPUT
-          
+
           echo "📋 Tasks to run:"
           echo "  Build: $BUILD"
           echo "  Convert Plugins: $CONVERT_PLUGINS"
           echo "  Merge Modules: $MERGE_MODULES"
           echo "  Mirror Sync: $MIRROR_SYNC"
-          echo "  Rule Conversion: $RULE_CONVERSION"
-          echo "  Rule Merge: $RULE_MERGE"
           echo "  Deploy: $DEPLOY (target: $DEPLOY_TARGET)"
 
   # ============================================
-  # 核心构建任务 - 在所有转换/合并任务完成后执行
+  # 核心构建任务 - 包含规则转换和合并
   # ============================================
   build:
     name: Build
-    needs: [prepare, convert-plugins, merge-modules, mirror-sync, rule-conversion, rule-merge]
-    # 🔧 使用 always() 允许在某些转换任务被跳过时仍然运行
-    if: |
-      always() &&
-      needs.prepare.outputs.should_build == 'true' &&
-      (needs.convert-plugins.result == 'success' || needs.convert-plugins.result == 'skipped') &&
-      (needs.merge-modules.result == 'success' || needs.merge-modules.result == 'skipped') &&
-      (needs.mirror-sync.result == 'success' || needs.mirror-sync.result == 'skipped') &&
-      (needs.rule-conversion.result == 'success' || needs.rule-conversion.result == 'skipped') &&
-      (needs.rule-merge.result == 'success' || needs.rule-merge.result == 'skipped')
+    needs: prepare
+    if: needs.prepare.outputs.should_build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -386,118 +360,6 @@ jobs:
           fi
 
   # ============================================
-  # 规则转换任务
-  # ============================================
-  rule-conversion:
-    name: Rule Conversion
-    needs: prepare
-    if: needs.prepare.outputs.should_rule_conversion == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
-
-      - name: Get date
-        id: date
-        run: |
-          echo "year=$(date +'%Y')" >> $GITHUB_OUTPUT
-          echo "month=$(date +'%m')" >> $GITHUB_OUTPUT
-          echo "day=$(date +'%d')" >> $GITHUB_OUTPUT
-
-      - name: Restore cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            .cache
-            public/Rules/.meta
-          key: ${{ runner.os }}-rules-v1-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
-          restore-keys: |
-            ${{ runner.os }}-rules-v1-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-
-            ${{ runner.os }}-rules-v1-
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Build (includes rule conversion)
-        run: pnpm run build
-        env:
-          CI: true
-
-      - name: Save cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            .cache
-            public/Rules/.meta
-          key: ${{ runner.os }}-rules-v1-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
-
-      - name: Commit changes
-        run: |
-          git add -N -f public/
-          if ! git diff --quiet --exit-code public/; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add -f public/
-            git commit -m "🔄 规则转换 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
-            git pull --rebase origin main || true
-            git push
-          fi
-
-  # ============================================
-  # 规则合并任务
-  # ============================================
-  rule-merge:
-    name: Rule Merge
-    needs: [prepare, rule-conversion]
-    if: |
-      always() &&
-      needs.prepare.outputs.should_rule_merge == 'true' &&
-      (needs.rule-conversion.result == 'success' || needs.rule-conversion.result == 'skipped')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Pull latest changes
-        run: |
-          git pull origin main || true
-
-      - name: Build (includes rule merge)
-        run: pnpm run build
-        env:
-          CI: true
-
-      - name: Commit changes
-        run: |
-          git add -N -f public/
-          if ! git diff --quiet --exit-code public/; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add -f public/
-            git commit -m "🔀 规则合并 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
-            git pull --rebase origin main || true
-            git push
-          fi
-
-  # ============================================
   # 部署到 Cloudflare Pages
   # ============================================
   deploy-cloudflare:
@@ -526,15 +388,12 @@ jobs:
   # ============================================
   deploy-github:
     name: Deploy to GitHub Repository
-    needs: [prepare, build, convert-plugins, merge-modules, mirror-sync, rule-conversion, rule-merge]
-    # 🔧 使用 always() 条件,允许在依赖的 jobs 被跳过时仍然运行
+    needs: [prepare, build]
     if: |
-      always() &&
       needs.prepare.outputs.should_deploy == 'true' &&
       (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'github') &&
       github.ref == 'refs/heads/main' &&
-      needs.build.result == 'success' &&
-      false
+      needs.build.result == 'success'
     runs-on: ubuntu-latest
     steps:
       # 🔧 下载 build artifact 而不是 checkout 源代码

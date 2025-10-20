@@ -61,8 +61,8 @@ export class SurgeRuleSet extends BaseWriteStrategy {
   protected result: string[] = [];
 
   constructor(
-    /** Surge RULE-SET can be both ip or non_ip, so this needs to be specified */
-    public readonly type: 'ip' | 'non_ip' | (string & {}),
+    /** 🔧 规则类型参数 - 设为空字符串以避免创建子目录 */
+    public readonly type: '' | 'ip' | 'non_ip' | (string & {}),
     public readonly outputDir = OUTPUT_SURGE_DIR
   ) {
     super(outputDir);
