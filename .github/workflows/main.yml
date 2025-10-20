@@ -94,13 +94,19 @@ jobs:
           if [ "$IS_SCHEDULE" = "true" ]; then
             case "$CRON" in
               "0 5,17 * * *")
-                # 完整构建
+                # 完整构建 - 执行所有任务
+                CONVERT_PLUGINS="true"
+                MERGE_MODULES="true"
+                MIRROR_SYNC="true"
+                RULE_CONVERSION="true"
+                RULE_MERGE="true"
                 BUILD="true"
                 DEPLOY="true"
                 ;;
               "0 */2 * * *")
-                # 规则转换
+                # 规则转换和合并
                 RULE_CONVERSION="true"
+                RULE_MERGE="true"
                 ;;
               "5,30,55 * * * *")
                 # 镜像同步
@@ -113,8 +119,13 @@ jobs:
             esac
           fi
           
-          # Push 触发
+          # Push 触发 - 执行完整流程
           if [ "$IS_PUSH" = "true" ] && [ "$IS_SCHEDULE" != "true" ]; then
+            CONVERT_PLUGINS="true"
+            MERGE_MODULES="true"
+            MIRROR_SYNC="true"
+            RULE_CONVERSION="true"
+            RULE_MERGE="true"
             BUILD="true"
             DEPLOY="true"
           fi
@@ -144,12 +155,20 @@ jobs:
           echo "  Deploy: $DEPLOY (target: $DEPLOY_TARGET)"
 
   # ============================================
-  # 核心构建任务
+  # 核心构建任务 - 在所有转换/合并任务完成后执行
   # ============================================
   build:
     name: Build
-    needs: prepare
-    if: needs.prepare.outputs.should_build == 'true'
+    needs: [prepare, convert-plugins, merge-modules, mirror-sync, rule-conversion, rule-merge]
+    # 🔧 使用 always() 允许在某些转换任务被跳过时仍然运行
+    if: |
+      always() &&
+      needs.prepare.outputs.should_build == 'true' &&
+      (needs.convert-plugins.result == 'success' || needs.convert-plugins.result == 'skipped') &&
+      (needs.merge-modules.result == 'success' || needs.merge-modules.result == 'skipped') &&
+      (needs.mirror-sync.result == 'success' || needs.mirror-sync.result == 'skipped') &&
+      (needs.rule-conversion.result == 'success' || needs.rule-conversion.result == 'skipped') &&
+      (needs.rule-merge.result == 'success' || needs.rule-merge.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
