@@ -90,7 +90,7 @@ export const ruleGroups: RuleGroup[] = [
     name: 'Reject',
     description: 'Ad blocking and privacy protection rules',
     defaultPolicy: null, // 无策略，生成纯拦截规则
-    targets: ['surge', 'clash', 'singbox', 'loon', 'quantumult-x', 'adguard'], // 广告拦截支持全平台
+    targets: ['surge', 'clash', 'singbox', 'loon', 'quantumult-x'], // 广告拦截支持多平台
     files: [
       applyDefaultConfig({
         path: 'List/reject-qx.list',
@@ -126,7 +126,7 @@ export const ruleGroups: RuleGroup[] = [
     name: 'Direct',
     description: 'Rules for direct connection without proxy',
     defaultPolicy: 'DIRECT',
-    targets: ['surge', 'clash', 'singbox'],
+    targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
       applyDefaultConfig({
         path: 'List/direct-qx.list',
@@ -138,7 +138,7 @@ export const ruleGroups: RuleGroup[] = [
     name: 'Domestic',
     description: 'China mainland services and websites',
     defaultPolicy: null, // 无策略，纯规则格式
-    targets: ['surge', 'clash', 'singbox'],
+    targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
       applyDefaultConfig({
         path: 'List/wechat.list',
@@ -148,6 +148,7 @@ export const ruleGroups: RuleGroup[] = [
   },
   {
     name: 'CDN',
+    targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
       applyDefaultConfig({
         path: 'List/download_global.list',
@@ -161,6 +162,7 @@ export const ruleGroups: RuleGroup[] = [
   },
   {
     name: 'CN-IPCIDR',
+    targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
       applyDefaultConfig({
         path: 'List/china_ip.list',
@@ -187,6 +189,7 @@ export const ruleGroups: RuleGroup[] = [
   },
   {
     name: 'Extra',
+    targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
       applyDefaultConfig({
         path: 'List/speedtest_china.list',
@@ -239,6 +242,7 @@ export const ruleGroups: RuleGroup[] = [
   },
   {
     name: 'Google',
+    targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
       applyDefaultConfig({
         path: 'List/google.list',
@@ -248,6 +252,7 @@ export const ruleGroups: RuleGroup[] = [
   },
   {
     name: 'Github',
+    targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
       applyDefaultConfig({
         path: 'List/github.list',
@@ -266,6 +271,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/domainset/download.conf',
       'https://ruleset.skk.moe/List/non_ip/download.conf',
     ],
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 🔧 添加多平台支持
     dedup: true,
     sort: true,
     keepComments: false,
@@ -286,6 +292,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/cdn.conf',
       'https://ruleset.skk.moe/List/ip/cdn.conf',
     ],
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 🔧 添加多平台支持
     dedup: true,
     sort: true,
     keepComments: false,
@@ -309,7 +316,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://github.com/dler-io/Rules/raw/main/Surge/Surge%203/Provider/AI%20Suite.list',
     ],
     defaultPolicy: null, // 无策略，纯RULE-SET格式
-    targets: ['surge', 'clash', 'singbox'], // 多平台支持
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持
     dedup: true,
     sort: true,
     keepComments: false,
@@ -331,6 +338,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/ip/apple_services.conf',
       'https://ruleset.skk.moe/List/domainset/icloud_private_relay.conf',
     ],
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 🔧 添加多平台支持
     dedup: true,
     sort: true,
     keepComments: false,
@@ -351,6 +359,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/microsoft.conf',
       'https://ruleset.skk.moe/List/non_ip/microsoft_cdn.conf',
     ],
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 🔧 添加多平台支持
     dedup: true,
     sort: true,
     keepComments: false,
@@ -375,6 +384,7 @@ export const specialRules: SpecialRuleConfig[] = [
       // 'https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/master/anti-ad-surge.txt',
       // 'https://raw.githubusercontent.com/Cats-Team/AdRules/main/adrules.list',
     ],
+    targets: ['surge', 'clash', 'singbox', 'loon', 'quantumult-x'], // 多平台支持
     dedup: true,
     sort: true,
     formatConversion: true, // 启用格式转换,将 domain-set 格式(.example.com)转换为 rule-set 格式(DOMAIN-SUFFIX,example.com)
@@ -395,7 +405,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/my_reject.conf',
     ],
     defaultPolicy: 'REJECT', // 明确指定拒绝策略
-    targets: ['surge', 'clash', 'singbox', 'loon', 'quantumult-x', 'adguard'], // 全平台支持
+    targets: ['surge', 'clash', 'singbox', 'loon', 'quantumult-x'], // 多平台支持
     dedup: true,
     sort: true,
     keepComments: false,
@@ -418,6 +428,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/ip/cdn.conf',
       'https://ruleset.skk.moe/List/domainset/cdn.conf',
     ],
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 🔧 添加多平台支持
     dedup: true,
     sort: false,
     formatConversion: true, // 启用格式转换,处理 domainset 格式
@@ -437,6 +448,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://github.com/forevergooe/Rules/raw/master/Surge/Emby.list',
       'https://github.com/Repcz/Tool/raw/X/Surge/Custom/Emby.list',
     ],
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 🔧 添加多平台支持
     dedup: true,
     sort: false,
     keepComments: true,
@@ -457,6 +469,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/neteasemusic.conf',
       'https://ruleset.skk.moe/List/ip/neteasemusic.conf',
     ],
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 🔧 添加多平台支持
     dedup: true,
     sort: true,
     deleteSourceFiles: true,
@@ -473,6 +486,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/stream.conf',
       'https://ruleset.skk.moe/List/ip/stream.conf',
     ],
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 🔧 添加多平台支持
     header: {
       enable: true,
       title: 'Ruleset - Global Streaming Services',
@@ -487,6 +501,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/domestic.conf',
       'https://ruleset.skk.moe/List/ip/domestic.conf',
     ],
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 🔧 添加多平台支持
     dedup: true,
     sort: true,
     keepComments: false,
@@ -505,6 +520,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/ip/telegram.conf',
       'https://ruleset.skk.moe/List/ip/telegram_asn.conf',
     ],
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 🔧 添加多平台支持
     dedup: true,
     sort: true,
     header: {
@@ -520,6 +536,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/my_direct.conf',
       'https://ruleset.skk.moe/List/non_ip/direct.conf',
     ],
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 🔧 添加多平台支持
     dedup: true,
     sort: true,
     header: {
@@ -536,6 +553,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/lan.conf',
       'https://ruleset.skk.moe/List/ip/lan.conf',
     ],
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 🔧 添加多平台支持
     dedup: true,
     sort: false,
     header: {

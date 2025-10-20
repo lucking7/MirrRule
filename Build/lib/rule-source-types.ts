@@ -8,35 +8,35 @@
  */
 export interface FileConfig {
   /** 文件保存路径（相对于输出目录） */
-  path: string,
+  path: string;
   /** 文件下载URL */
-  url: string,
+  url: string;
   /** 备用下载URL列表 */
-  fallbackUrls?: string[],
+  fallbackUrls?: string[];
   /** 是否允许空文件 */
-  allowEmpty?: boolean,
+  allowEmpty?: boolean;
   /** 文件标题 */
-  title?: string,
+  title?: string;
   /** 文件描述 */
-  description?: string,
+  description?: string;
   /** 是否启用去重 */
-  dedup?: boolean,
+  dedup?: boolean;
   /** 是否启用排序 */
-  sort?: boolean,
+  sort?: boolean;
   /** 是否保留注释（行首注释） */
-  keepComments?: boolean,
+  keepComments?: boolean;
   /** 是否保留行内注释（优先级高于 keepComments，仅对 // 格式的行内注释生效） */
-  keepInlineComments?: boolean,
+  keepInlineComments?: boolean;
   /** 是否保留空行 */
-  keepEmptyLines?: boolean,
+  keepEmptyLines?: boolean;
   /** 是否为IP规则添加no-resolve参数 */
-  applyNoResolve?: boolean,
+  applyNoResolve?: boolean;
   /** 是否启用格式转换 (.domain.com → DOMAIN-SUFFIX,domain.com) */
-  formatConversion?: boolean,
+  formatConversion?: boolean;
   /** 头部信息配置 */
-  header?: HeaderConfig,
+  header?: HeaderConfig;
   /** 默认策略组（null时会移除规则中的策略,生成纯规则格式） */
-  defaultPolicy?: 'DIRECT' | 'REJECT' | 'PROXY' | string | null
+  defaultPolicy?: 'DIRECT' | 'REJECT' | 'PROXY' | string | null;
 }
 
 /**
@@ -45,17 +45,17 @@ export interface FileConfig {
  */
 export interface RuleGroup {
   /** 组名称 */
-  name: string,
+  name: string;
   /** 组内文件列表 */
-  files: FileConfig[],
+  files: FileConfig[];
   /** 是否启用此组 */
-  enabled?: boolean,
+  enabled?: boolean;
   /** 组描述 */
-  description?: string,
+  description?: string;
   /** 组级默认策略（覆盖全局默认，null表示无策略） */
-  defaultPolicy?: 'DIRECT' | 'REJECT' | 'PROXY' | string | null,
+  defaultPolicy?: 'DIRECT' | 'REJECT' | 'PROXY' | string | null;
   /** 目标平台列表（默认仅Surge） */
-  targets?: Array<'surge' | 'clash' | 'singbox' | 'surfboard' | 'loon' | 'quantumult-x' | 'adguard'>
+  targets?: Array<'surge' | 'clash' | 'singbox' | 'surfboard' | 'loon' | 'quantumult-x'>;
 }
 
 /**
@@ -63,17 +63,17 @@ export interface RuleGroup {
  */
 export interface HeaderConfig {
   /** 是否启用头部信息 */
-  enable: boolean,
+  enable: boolean;
   /** 自定义标题 */
-  title?: string,
+  title?: string;
   /** 自定义描述信息 */
-  description?: string,
+  description?: string;
   /** 自定义许可证信息 */
-  license?: string,
+  license?: string;
   /** 自定义主页URL */
-  homepage?: string,
+  homepage?: string;
   /** 过期时间（小时） */
-  expires?: number
+  expires?: number;
 }
 
 /**
@@ -82,37 +82,37 @@ export interface HeaderConfig {
  */
 export interface SpecialRuleConfig {
   /** 规则名称 */
-  name: string,
+  name: string;
   /** 目标文件路径 */
-  targetFile: string,
+  targetFile: string;
   /** 源文件URL列表 */
-  sourceFiles: string[],
+  sourceFiles: string[];
   /** 是否启用去重 */
-  dedup?: boolean,
+  dedup?: boolean;
   /** 是否启用排序 */
-  sort?: boolean,
+  sort?: boolean;
   /** 是否保留注释（行首注释） */
-  keepComments?: boolean,
+  keepComments?: boolean;
   /** 是否保留行内注释（优先级高于 keepComments，仅对 // 格式的行内注释生效） */
-  keepInlineComments?: boolean,
+  keepInlineComments?: boolean;
   /** 是否保留空行 */
-  keepEmptyLines?: boolean,
+  keepEmptyLines?: boolean;
   /** 是否为IP规则添加no-resolve参数 */
-  applyNoResolve?: boolean,
+  applyNoResolve?: boolean;
   /** 是否启用格式转换 (.domain.com → DOMAIN-SUFFIX,domain.com) */
-  formatConversion?: boolean,
+  formatConversion?: boolean;
   /** 合并后是否删除源文件 */
-  deleteSourceFiles?: boolean,
+  deleteSourceFiles?: boolean;
   /** 头部信息配置 */
-  header?: HeaderConfig,
+  header?: HeaderConfig;
   /** 是否启用此规则 */
-  enabled?: boolean,
+  enabled?: boolean;
   /** 规则描述 */
-  description?: string,
+  description?: string;
   /** 默认策略组（可设为null表示无策略，null时会移除规则中的策略） */
-  defaultPolicy?: 'DIRECT' | 'REJECT' | 'PROXY' | string | null,
+  defaultPolicy?: 'DIRECT' | 'REJECT' | 'PROXY' | string | null;
   /** 目标平台列表（默认仅Surge） */
-  targets?: Array<'surge' | 'clash' | 'singbox' | 'surfboard' | 'loon' | 'quantumult-x' | 'adguard'>
+  targets?: Array<'surge' | 'clash' | 'singbox' | 'surfboard' | 'loon' | 'quantumult-x'>;
 }
 
 /**
@@ -120,20 +120,20 @@ export interface SpecialRuleConfig {
  */
 export interface RuleSourceConfig {
   /** 规则组列表 */
-  ruleGroups: RuleGroup[],
+  ruleGroups: RuleGroup[];
   /** 特殊规则合并配置列表 */
-  specialRules: SpecialRuleConfig[],
+  specialRules: SpecialRuleConfig[];
   /** 全局配置 */
   globalConfig?: {
     /** 输出根目录 */
-    outputDir?: string,
+    outputDir?: string;
     /** 并发下载数量限制 */
-    concurrency?: number,
+    concurrency?: number;
     /** 默认重试次数 */
-    retryCount?: number,
+    retryCount?: number;
     /** 默认超时时间（毫秒） */
-    timeout?: number
-  }
+    timeout?: number;
+  };
 }
 
 /**
@@ -141,25 +141,25 @@ export interface RuleSourceConfig {
  */
 export interface ProcessingStats {
   /** 处理的文件数量 */
-  filesProcessed: number,
+  filesProcessed: number;
   /** 下载的文件数量 */
-  filesDownloaded?: number,
+  filesDownloaded?: number;
   /** 处理的规则数量 */
-  rulesProcessed?: number,
+  rulesProcessed?: number;
   /** 合并的规则数量 */
-  rulesMerged?: number,
+  rulesMerged?: number;
   /** 去重移除的规则数量 */
-  rulesDeduped?: number,
+  rulesDeduped?: number;
   /** 总文件大小（字节） */
-  totalSize?: number,
+  totalSize?: number;
   /** 处理耗时（毫秒） */
-  processingTime: number,
+  processingTime: number;
   /** 错误列表 */
   errors: Array<{
-    file: string,
-    error: string,
-    url?: string
-  }>
+    file: string;
+    error: string;
+    url?: string;
+  }>;
 }
 
 /**
@@ -175,7 +175,7 @@ export enum FileType {
   /** IP列表文件 */
   IPLIST = 'iplist',
   /** 未知类型 */
-  UNKNOWN = 'unknown'
+  UNKNOWN = 'unknown',
 }
 
 /**
@@ -183,15 +183,15 @@ export enum FileType {
  */
 export interface ProcessingOptions {
   /** 是否启用详细日志 */
-  verbose?: boolean,
+  verbose?: boolean;
   /** 是否强制重新下载 */
-  forceDownload?: boolean,
+  forceDownload?: boolean;
   /** 是否跳过验证 */
-  skipValidation?: boolean,
+  skipValidation?: boolean;
   /** 自定义输出目录 */
-  outputDir?: string,
+  outputDir?: string;
   /** 并发限制 */
-  concurrency?: number
+  concurrency?: number;
 }
 
 /**
@@ -199,15 +199,15 @@ export interface ProcessingOptions {
  */
 export interface RuleLine {
   /** 原始行内容 */
-  raw: string,
+  raw: string;
   /** 处理后的内容 */
-  processed: string | null,
+  processed: string | null;
   /** 行类型 */
-  type: 'comment' | 'empty' | 'rule' | 'directive',
+  type: 'comment' | 'empty' | 'rule' | 'directive';
   /** 是否为IP规则 */
-  isIpRule?: boolean,
+  isIpRule?: boolean;
   /** 来源文件URL */
-  source?: string
+  source?: string;
 }
 
 /**
@@ -215,15 +215,15 @@ export interface RuleLine {
  */
 export interface MergeResult {
   /** 合并后的规则行 */
-  lines: string[],
+  lines: string[];
   /** 统计信息 */
   stats: {
-    totalLines: number,
-    ruleLines: number,
-    commentLines: number,
-    emptyLines: number,
-    duplicatesRemoved: number
-  },
+    totalLines: number;
+    ruleLines: number;
+    commentLines: number;
+    emptyLines: number;
+    duplicatesRemoved: number;
+  };
   /** 数据源列表 */
-  sources: string[]
+  sources: string[];
 }

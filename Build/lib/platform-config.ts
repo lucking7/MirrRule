@@ -2,7 +2,7 @@
  * 平台矩阵配置 - 可开关的多平台支持
  */
 
-export type SupportedPlatform = 'surge' | 'clash' | 'singbox' | 'loon' | 'quantumult-x' | 'adguard';
+export type SupportedPlatform = 'surge' | 'clash' | 'singbox' | 'loon' | 'quantumult-x';
 
 export interface PlatformConfig {
   /** 启用的目标平台（默认仅Surge） */
@@ -22,7 +22,6 @@ export const DEFAULT_PLATFORM_CONFIG: PlatformConfig = {
     singbox: 'sing-box',
     loon: 'Loon',
     'quantumult-x': 'QuantumultX',
-    adguard: 'AdGuardHome',
   },
 };
 
@@ -80,10 +79,6 @@ export function createStrategiesForTargets(
             strategies.push(new QXModule.QuantumultXRuleSet('', fullOutputDir));
           }
           break;
-        case 'adguard':
-          // AdGuard 暂未实现
-          console.log(`⚠\uFE0F 平台 ${target} 暂未完全集成，跳过`);
-          break;
         default:
           console.log(`⚠\uFE0F 未知平台 ${target}，跳过`);
       }
@@ -115,5 +110,4 @@ export const PLATFORM_POLICY_SUPPORT: Record<SupportedPlatform, boolean> = {
   singbox: false, // 不支持策略组
   loon: true, // 支持策略组
   'quantumult-x': true, // 支持策略组
-  adguard: false, // 不支持策略组
 };

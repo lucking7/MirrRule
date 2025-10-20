@@ -4,7 +4,6 @@ import { waitWithAbort } from 'foxts/wait';
 import { nullthrow } from 'foxts/guard';
 import { TextLineStream } from 'foxts/text-line-stream';
 import { ProcessLineStream } from '../../lib/process-line';
-import { AdGuardFilterIgnoreUnsupportedLinesStream } from '../../lib/parse-filter/filters';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 
 // eslint-disable-next-line sukka/unicorn/custom-error-definition -- typescript is better
@@ -16,8 +15,10 @@ class CustomAbortError extends Error {
 const reusedCustomAbortError = new CustomAbortError();
 
 export async function fetchAssets(
-  url: string, fallbackUrls: null | undefined | string[] | readonly string[],
-  processLine = false, allowEmpty = false, filterAdGuardUnsupportedLines = false
+  url: string,
+  fallbackUrls: null | undefined | string[] | readonly string[],
+  processLine = false,
+  allowEmpty = false
 ) {
   const controller = new AbortController();
 
@@ -43,9 +44,6 @@ export async function fetchAssets(
     if (processLine) {
       stream = stream.pipeThrough(new ProcessLineStream());
     }
-    if (filterAdGuardUnsupportedLines) {
-      stream = stream.pipeThrough(new AdGuardFilterIgnoreUnsupportedLinesStream());
-    }
     const arr = await Array.fromAsync(stream);
 
     if (arr.length < 1 && !allowEmpty) {
@@ -62,9 +60,6 @@ export async function fetchAssets(
     return primaryPromise;
   }
   return Promise.any(
-    appendArrayInPlace(
-      [primaryPromise],
-      fallbackUrls.map(createFetchFallbackPromise)
-    )
+    appendArrayInPlace([primaryPromise], fallbackUrls.map(createFetchFallbackPromise))
   );
 }

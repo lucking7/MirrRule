@@ -97,7 +97,44 @@ export const CrossPlatformRuleParser = {
    * @returns 转换后的规则字符串
    */
   smartConvert(rule: string, targetPlatform: ProxyPlatform): string {
-    const parsed = this.parseRule(rule, targetPlatform);
+    const trimmed = rule.trim();
+
+    // 🔧 预处理 domainset 格式规则（Surge domain-set 专用格式）
+    // 格式1: .example.com → DOMAIN-SUFFIX,example.com
+    // 格式2: example.com（纯域名，不含逗号）→ DOMAIN,example.com
+    if (!trimmed.includes(',')) {
+      // 以点开头的域名后缀格式
+      if (trimmed.startsWith('.')) {
+        const domain = trimmed.slice(1);
+        if (domain && WildcardAnalyzer.isValidDomain(domain)) {
+          // 转换为标准 DOMAIN-SUFFIX 格式后再解析
+          const normalized = `DOMAIN-SUFFIX,${domain}`;
+          const parsed = this.parseRule(normalized, targetPlatform);
+          if (parsed) {
+            return this.convertToTargetPlatform(parsed, targetPlatform);
+          }
+        }
+      }
+      // 纯域名格式（不含逗号、不以点/数字开头、不是注释）
+      else if (
+        !trimmed.startsWith('#') &&
+        !trimmed.startsWith('!') &&
+        !trimmed.startsWith('//') &&
+        !trimmed.startsWith(';') &&
+        !/^\d/.test(trimmed) && // 不以数字开头（排除 IP）
+        WildcardAnalyzer.isValidDomain(trimmed)
+      ) {
+        // 转换为标准 DOMAIN 格式后再解析
+        const normalized = `DOMAIN,${trimmed}`;
+        const parsed = this.parseRule(normalized, targetPlatform);
+        if (parsed) {
+          return this.convertToTargetPlatform(parsed, targetPlatform);
+        }
+      }
+    }
+
+    // 常规解析流程
+    const parsed = this.parseRule(trimmed, targetPlatform);
     if (!parsed) {
       return rule;
     }

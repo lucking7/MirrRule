@@ -64,7 +64,7 @@ export class RuleSourceProcessor {
               const fileExt = path.extname(fileConfig.path);
               const fileName = path.basename(fileConfig.path, fileExt).toLowerCase();
 
-              // 🔧 创建增强输出器 - 传递完整配置
+              // 🔧 创建增强输出器 - 传递完整配置和输出基础目录
               // 🔧 ruleType 设为空字符串，取消规则分类，避免创建子目录
               const output = new EnhancedFileOutput(
                 groupSpan,
@@ -72,7 +72,8 @@ export class RuleSourceProcessor {
                 '', // 🔧 空字符串，不创建基于规则类型的子目录
                 (group.targets as any) || ['surge'],
                 group.defaultPolicy === undefined ? null : group.defaultPolicy,
-                mergedConfig // 🔧 传递合并后的配置参数
+                mergedConfig, // 🔧 传递合并后的配置参数
+                this.outputDir // 🔧 传递输出基础目录 (public)
               );
 
               // 设置标题和描述
@@ -161,7 +162,7 @@ export class RuleSourceProcessor {
             ? path.basename(ruleConfig.targetFile, path.extname(ruleConfig.targetFile))
             : ruleConfig.name.toLowerCase();
 
-          // 🔧 创建增强输出器 - 使用 targetFile 中的文件名
+          // 🔧 创建增强输出器 - 使用 targetFile 中的文件名并传递输出基础目录
           // 🔧 ruleType 设为空字符串，取消规则分类，避免创建子目录
           const output = new EnhancedFileOutput(
             ruleSpan,
@@ -169,7 +170,8 @@ export class RuleSourceProcessor {
             '', // 🔧 空字符串，不创建基于规则类型的子目录
             (ruleConfig.targets as any) || ['surge'],
             ruleConfig.defaultPolicy === undefined ? null : ruleConfig.defaultPolicy,
-            mergedConfig // 🔧 传递合并后的配置参数
+            mergedConfig, // 🔧 传递合并后的配置参数
+            this.outputDir // 🔧 传递输出基础目录 (public)
           );
 
           // 设置标题和描述
