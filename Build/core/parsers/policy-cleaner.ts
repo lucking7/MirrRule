@@ -44,6 +44,49 @@ export function cleanPolicy(rule: string): string {
     return rule;
   }
 
+  // 🔧 特殊处理：逻辑规则（AND/OR/NOT）
+  // 格式：AND,((规则1),(规则2)),策略
+  const firstComma = trimmed.indexOf(',');
+  if (firstComma !== -1) {
+    const ruleType = trimmed.substring(0, firstComma).trim().toUpperCase();
+
+    if (ruleType === 'AND' || ruleType === 'OR' || ruleType === 'NOT') {
+      // 这是逻辑规则，需要找到最后的 )) 来定位策略
+      const lastDoubleParen = trimmed.lastIndexOf('))');
+
+      if (lastDoubleParen !== -1) {
+        // 找到闭合括号后的部分
+        const afterParens = trimmed.substring(lastDoubleParen + 2).trim();
+
+        // 如果闭合括号后有逗号，说明后面是策略或参数
+        if (afterParens.startsWith(',')) {
+          const remaining = afterParens.substring(1).trim();
+          const remainingParts = remaining.split(',').map(p => p.trim());
+          const allowedParams: string[] = [];
+
+          // 只保留允许的参数
+          for (const part of remainingParts) {
+            const partLower = part.toLowerCase();
+            if (ALLOWED_PARAMETERS.includes(partLower as any)) {
+              allowedParams.push(part);
+            }
+          }
+
+          // 构建结果：逻辑规则部分 + 允许的参数
+          const logicalPart = trimmed.substring(0, lastDoubleParen + 2);
+          if (allowedParams.length > 0) {
+            return `${logicalPart},${allowedParams.join(',')}`;
+          }
+          return logicalPart;
+        }
+      }
+
+      // 没有找到完整的逻辑规则结构，返回原规则
+      return rule;
+    }
+  }
+
+  // 常规规则处理
   const parts = rule.split(',').map(p => p.trim());
 
   // 规则至少需要 2 部分：规则类型,值
