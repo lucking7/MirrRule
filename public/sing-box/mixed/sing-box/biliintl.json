@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "rules": [
+    {
+      "domain": [
+        "7h1s_rul35et_i5_mad3_by_5ukk4w-ruleset.skk.moe",
+        "upos-bstar1-mirrorakam.akamaized.net",
+        "upos-bstar-mirrorakam.akamaized.net",
+        "apm-misaka.biliapi.net",
+        "this_ruleset_is_made_by_sukkaw.ruleset.skk.moe"
+      ],
+      "domain_suffix": [
+        "7h1s_rul35et_i5_mad3_by_5ukk4w-ruleset.skk.moe",
+        "biliintl.com",
+        "bilibili.tv"
+      ]
+    }
+  ]
+}

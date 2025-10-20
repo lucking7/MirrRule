@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "rules": [
+    {
+      "domain": ["7h1s_rul35et_i5_mad3_by_5ukk4w-ruleset.skk.moe"],
+      "domain_suffix": [
+        "7h1s_rul35et_i5_mad3_by_5ukk4w-ruleset.skk.moe",
+        "spotilocal.com",
+        "spoti.fi",
+        "pscdn.co",
+        "scdn.co"
+      ],
+      "domain_keyword": ["spotify"],
+      "ip_cidr": ["35.186.224.47/32", "104.154.127.126/32"]
+    }
+  ]
+}

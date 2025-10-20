@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "rules": [
+    {
+      "domain": [
+        "7h1s_rul35et_i5_mad3_by_5ukk4w-ruleset.skk.moe",
+        "upos-hz-mirrorakam.akamaized.net",
+        "grpc.biliapi.net",
+        "app.biliapi.net",
+        "api.biliapi.net",
+        "www.bilibili.com",
+        "app.bilibili.com",
+        "api.bilibili.com",
+        "m.bilibili.com",
+        "app.biliapi.com",
+        "api.biliapi.com",
+        "cache.video.iqiyi.com",
+        "mobileso.bz.mgtv.com"
+      ],
+      "domain_suffix": [
+        "7h1s_rul35et_i5_mad3_by_5ukk4w-ruleset.skk.moe",
+        "api.mgtv.com"
+      ],
+      "domain_keyword": ["cn-hk-eq-bcache-"],
+      "ip_cidr": ["116.211.202.206/32", "116.211.202.216/32"]
+    }
+  ]
+}

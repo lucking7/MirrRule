@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "rules": [
+    {
+      "domain": [
+        "7h1s_rul35et_i5_mad3_by_5ukk4w-ruleset.skk.moe",
+        "d27xxe7juh1us6.cloudfront.net",
+        "d25xi40x97liuc.cloudfront.net",
+        "d22qjgkvxw22r6.cloudfront.net",
+        "d1v5ir2lpwr8os.cloudfront.net",
+        "dmqdd6hw24ucf.cloudfront.net",
+        "avodmp4s3ww-a.akamaihd.net",
+        "fls-na.amazon.com",
+        "atv-ps.amazon.com",
+        "www.amazon.com"
+      ],
+      "domain_suffix": [
+        "7h1s_rul35et_i5_mad3_by_5ukk4w-ruleset.skk.moe",
+        "aiv-delivery.net",
+        "aiv-cdn.net",
+        "pv-cdn.net",
+        "media-amazon.com",
+        "amazonvideo.com",
+        "primevideo.com"
+      ],
+      "domain_keyword": ["avoddashs"]
+    }
+  ]
+}
