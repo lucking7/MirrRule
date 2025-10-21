@@ -7,14 +7,14 @@ on:
       - master
   pull_request:
   schedule:
-    # 每天 05:00 和 17:00 UTC 执行完整构建
+    # 每天 05:00 和 17:00 UTC 执行完整构建 (2 次/天)
     - cron: '0 5,17 * * *'
-    # 每 2 小时执行规则转换
-    - cron: '0 */2 * * *'
-    # 每小时的 5, 30, 55 分执行镜像同步
-    - cron: '5,30,55 * * * *'
-    # 每小时的 10, 35 分执行插件转换
-    - cron: '10,35 * * * *'
+    # 每 4 小时执行规则转换 (6 次/天，从 12 次优化)
+    - cron: '0 */4 * * *'
+    # 每天 3 次镜像同步 (从每小时 3 次优化为每天 3 次，减少 96%)
+    - cron: '0 6,14,22 * * *'
+    # 每天 2 次插件转换 (从每小时 2 次优化为每天 2 次，减少 96%)
+    - cron: '30 7,19 * * *'
   workflow_dispatch:
     inputs:
       task:
@@ -98,24 +98,24 @@ jobs:
           if [ "$IS_SCHEDULE" = "true" ]; then
             case "$CRON" in
               "0 5,17 * * *")
-                # 完整构建 - 执行所有任务
+                # 完整构建 - 执行所有任务 (每天 2 次)
                 CONVERT_PLUGINS="true"
                 MERGE_MODULES="true"
                 MIRROR_SYNC="true"
                 BUILD="true"
                 DEPLOY="true"
                 ;;
-              "0 */2 * * *")
-                # 规则更新 - 仅执行 Build
+              "0 */4 * * *")
+                # 规则更新 - 仅执行 Build (每 4 小时，6 次/天)
                 BUILD="true"
                 DEPLOY="true"
                 ;;
-              "5,30,55 * * * *")
-                # 镜像同步
+              "0 6,14,22 * * *")
+                # 镜像同步 (每天 3 次: 06:00, 14:00, 22:00 UTC)
                 MIRROR_SYNC="true"
                 ;;
-              "10,35 * * * *")
-                # 插件转换
+              "30 7,19 * * *")
+                # 插件转换 (每天 2 次: 07:30, 19:30 UTC)
                 CONVERT_PLUGINS="true"
                 ;;
             esac
