@@ -61,10 +61,16 @@ jobs:
       - name: Decide tasks to run
         id: decide
         run: |
-          TASK="${{ github.event.inputs.task || 'auto' }}"
+          # 🔧 修复: 正确处理空字符串的情况
+          TASK="${{ github.event.inputs.task }}"
+          if [ -z "$TASK" ]; then
+            TASK="all"
+          fi
+
           IS_SCHEDULE="${{ github.event_name == 'schedule' }}"
           IS_PUSH="${{ github.event_name == 'push' }}"
           IS_PR="${{ github.event_name == 'pull_request' }}"
+          IS_WORKFLOW_DISPATCH="${{ github.event_name == 'workflow_dispatch' }}"
           CRON="${{ github.event.schedule }}"
 
           # 默认值
@@ -73,14 +79,20 @@ jobs:
           MERGE_MODULES="false"
           MIRROR_SYNC="false"
           DEPLOY="false"
-          DEPLOY_TARGET="${{ github.event.inputs.deploy_target || 'all' }}"
 
-          # 手动触发
-          if [ "$TASK" = "all" ] || [ "$TASK" = "build" ]; then BUILD="true"; fi
-          if [ "$TASK" = "all" ] || [ "$TASK" = "convert-plugins" ]; then CONVERT_PLUGINS="true"; fi
-          if [ "$TASK" = "all" ] || [ "$TASK" = "merge-modules" ]; then MERGE_MODULES="true"; fi
-          if [ "$TASK" = "all" ] || [ "$TASK" = "mirror-sync" ]; then MIRROR_SYNC="true"; fi
-          if [ "$TASK" = "all" ] || [ "$TASK" = "deploy" ]; then DEPLOY="true"; fi
+          DEPLOY_TARGET="${{ github.event.inputs.deploy_target }}"
+          if [ -z "$DEPLOY_TARGET" ]; then
+            DEPLOY_TARGET="all"
+          fi
+
+          # 手动触发 - 根据 task 参数决定
+          if [ "$IS_WORKFLOW_DISPATCH" = "true" ]; then
+            if [ "$TASK" = "all" ] || [ "$TASK" = "build" ]; then BUILD="true"; fi
+            if [ "$TASK" = "all" ] || [ "$TASK" = "convert-plugins" ]; then CONVERT_PLUGINS="true"; fi
+            if [ "$TASK" = "all" ] || [ "$TASK" = "merge-modules" ]; then MERGE_MODULES="true"; fi
+            if [ "$TASK" = "all" ] || [ "$TASK" = "mirror-sync" ]; then MIRROR_SYNC="true"; fi
+            if [ "$TASK" = "all" ] || [ "$TASK" = "deploy" ]; then DEPLOY="true"; fi
+          fi
 
           # 定时任务
           if [ "$IS_SCHEDULE" = "true" ]; then
@@ -131,6 +143,15 @@ jobs:
           echo "should_deploy=$DEPLOY" >> $GITHUB_OUTPUT
           echo "deploy_target=$DEPLOY_TARGET" >> $GITHUB_OUTPUT
 
+          echo "📋 Trigger Information:"
+          echo "  Event: ${{ github.event_name }}"
+          echo "  Task: $TASK"
+          echo "  Is Schedule: $IS_SCHEDULE"
+          echo "  Is Push: $IS_PUSH"
+          echo "  Is PR: $IS_PR"
+          echo "  Is Workflow Dispatch: $IS_WORKFLOW_DISPATCH"
+          echo "  Cron: $CRON"
+          echo ""
           echo "📋 Tasks to run:"
           echo "  Build: $BUILD"
           echo "  Convert Plugins: $CONVERT_PLUGINS"
