@@ -465,7 +465,7 @@ export const PLATFORM_LOGICAL_SUPPORT: Record<ProxyPlatform, LogicalOperator[]> 
   [ProxyPlatform.LOON]: [LogicalOperator.AND, LogicalOperator.OR, LogicalOperator.NOT],
   [ProxyPlatform.QUANTUMULT_X]: [LogicalOperator.AND, LogicalOperator.OR],
   [ProxyPlatform.CLASH]: [LogicalOperator.AND, LogicalOperator.OR, LogicalOperator.NOT], // Clash.Meta/mihomo支持
-  [ProxyPlatform.SINGBOX]: [],
+  [ProxyPlatform.SINGBOX]: [LogicalOperator.AND, LogicalOperator.OR, LogicalOperator.NOT], // sing-box 支持逻辑规则
 };
 
 /**

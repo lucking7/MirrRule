@@ -11,6 +11,8 @@ import { noop } from 'foxts/noop';
 import { withBannerArray } from '../../../lib/misc';
 import { OUTPUT_LOON_DIR } from '../../../constants/dir';
 import { MARKER_DOMAIN } from '../../../constants/description';
+import { CrossPlatformRuleParser } from '../../parsers';
+import { ProxyPlatform } from '../../../constants/rule-formats';
 
 /**
  * Loon域名集合输出策略
@@ -145,5 +147,22 @@ export class LoonRuleSet extends BaseWriteStrategy {
     appendSetElementsToArray(this.result, protocols, i => `PROTOCOL,${i}`);
   }
 
-  writeOtherRules = noop;
+  /**
+   * 处理其他规则（包括逻辑规则 AND/OR/NOT）
+   * 将 Surge 格式的规则转换为 Loon 格式
+   */
+  writeOtherRules(rules: string[]): void {
+    for (const rule of rules) {
+      const trimmed = rule.trim();
+      if (!trimmed || trimmed.startsWith('#')) {
+        // 保留注释和空行
+        this.result.push(trimmed);
+        continue;
+      }
+
+      // 🔧 使用 CrossPlatformRuleParser 将 Surge 格式转换为 Loon 格式
+      const converted = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.LOON);
+      this.result.push(converted);
+    }
+  }
 }

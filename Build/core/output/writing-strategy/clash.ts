@@ -7,6 +7,8 @@ import { OUTPUT_CLASH_DIR } from '../../../constants/dir';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { MARKER_DOMAIN } from '../../../constants/description';
 import { RuleValidator } from '../../../utils/validation/validators';
+import { CrossPlatformRuleParser } from '../../parsers';
+import { ProxyPlatform } from '../../../constants/rule-formats';
 
 export class ClashDomainSet extends BaseWriteStrategy {
   public readonly name = 'clash domainset';
@@ -190,8 +192,9 @@ export class ClashIPSet extends BaseWriteStrategy {
         this.result.push(`# ${trimmed} (Clash不支持)`);
         break;
       default:
-        // 其他规则，尝试保持
-        this.result.push(trimmed);
+        // 其他规则（包括逻辑规则 AND/OR/NOT），转换为 Clash 格式
+        const converted = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.CLASH);
+        this.result.push(converted);
     }
   }
 }
@@ -308,5 +311,22 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
     }
   }
 
-  writeOtherRules = noop;
+  /**
+   * 处理其他规则（包括逻辑规则 AND/OR/NOT）
+   * 将 Surge 格式的规则转换为 Clash 格式
+   */
+  writeOtherRules(rules: string[]): void {
+    for (const rule of rules) {
+      const trimmed = rule.trim();
+      if (!trimmed || trimmed.startsWith('#')) {
+        // 保留注释和空行
+        this.result.push(trimmed);
+        continue;
+      }
+
+      // 🔧 使用 CrossPlatformRuleParser 将 Surge 格式转换为 Clash 格式
+      const converted = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.CLASH);
+      this.result.push(converted);
+    }
+  }
 }

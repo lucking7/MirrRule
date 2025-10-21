@@ -248,6 +248,9 @@ export const RuleValidator = {
   /**
    * 移除行内注释 (仅支持 // 格式)
    *
+   * 🔧 修复：避免截断 URL 中的 //（如 http://、https://）
+   * 只有当 // 前面是空白字符（空格/Tab）时才认为是注释
+   *
    * @param line - 待处理的字符串
    * @returns 移除行内注释后的字符串
    *
@@ -255,17 +258,50 @@ export const RuleValidator = {
    * ```typescript
    * RuleValidator.removeInlineComment('DOMAIN,example.com // comment');
    * // 'DOMAIN,example.com'
-   * RuleValidator.removeInlineComment('DOMAIN,example.com # not removed');
-   * // 'DOMAIN,example.com # not removed'
+   * RuleValidator.removeInlineComment('URL-REGEX,^http://www.example.com');
+   * // 'URL-REGEX,^http://www.example.com' (不截断)
+   * RuleValidator.removeInlineComment('URL-REGEX,^http://example.com // comment');
+   * // 'URL-REGEX,^http://example.com'
    * ```
    */
   removeInlineComment(line: string): string {
-    const commentIndex = line.indexOf('//');
-    if (commentIndex === -1) {
-      return line;
+    // 🔍 查找所有 // 的位置
+    let commentIndex = -1;
+    let searchIndex = 0;
+
+    while (searchIndex < line.length) {
+      const slashIndex = line.indexOf('//', searchIndex);
+
+      // 没有找到 //
+      if (slashIndex === -1) {
+        break;
+      }
+
+      // 检查 // 前面的字符
+      if (slashIndex === 0) {
+        // // 在字符串开头，这是注释
+        commentIndex = slashIndex;
+        break;
+      }
+
+      const charBefore = line[slashIndex - 1];
+
+      // 如果 // 前面是空白字符（空格、tab），认为是注释
+      if (charBefore === ' ' || charBefore === '\t') {
+        commentIndex = slashIndex;
+        break;
+      }
+
+      // 否则，继续查找下一个 //
+      searchIndex = slashIndex + 2;
     }
-    // 移除 // 及其后面的所有内容
-    return line.substring(0, commentIndex).trim();
+
+    // 如果找到了注释，移除注释部分
+    if (commentIndex !== -1) {
+      return line.substring(0, commentIndex).trim();
+    }
+
+    return line;
   },
 
   /**

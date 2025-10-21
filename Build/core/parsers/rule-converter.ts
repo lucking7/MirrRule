@@ -56,18 +56,19 @@ export class RuleConverter {
         : parsedRule.raw;
     }
 
-    const operatorMapping = parsedRule.logicalOperator
-      ? RULE_TO_PLATFORM_MAPPING[
-          parsedRule.logicalOperator as unknown as keyof typeof RULE_TO_PLATFORM_MAPPING
-        ]
-      : undefined;
+    // 🔧 修复：直接使用 parsedRule.type 来查找映射
+    // parsedRule.type 在 parseLogicalRule 中被设置为逻辑操作符（AND/OR/NOT）
+    const operatorMapping = RULE_TO_PLATFORM_MAPPING[parsedRule.type];
+
     if (operatorMapping) {
       const targetOperator = operatorMapping[targetPlatform];
+
       if (targetOperator && parsedRule.subRules && parsedRule.subRules.length > 0) {
         const convertedSubRules = parsedRule.subRules.map(subRule =>
           this.convertToTargetPlatform(subRule, targetPlatform)
         );
-        return `${targetOperator},${convertedSubRules.join(',')}`;
+        // 🔧 修复：生成正确的逻辑规则格式 AND,((子规则1),(子规则2))
+        return `${targetOperator},((${convertedSubRules.join('),(')}))`;
       }
     }
 

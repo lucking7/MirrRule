@@ -262,11 +262,12 @@ export class RuleParser {
     const operatorStr = parts[0].toUpperCase() as LogicalOperator;
     const subRuleText = parts.slice(1).join(',').trim();
 
-    // 检查平台是否支持该逻辑操作符
-    const supportedOperators = PLATFORM_LOGICAL_SUPPORT[platform] || [];
-    if (!supportedOperators.includes(operatorStr)) {
-      return null;
-    }
+    // 🔧 移除平台支持检查 - 解析阶段应该解析所有逻辑规则
+    // 转换阶段会在 convertLogicalRule 中检查目标平台是否支持
+    // const supportedOperators = PLATFORM_LOGICAL_SUPPORT[platform] || [];
+    // if (!supportedOperators.includes(operatorStr)) {
+    //   return null;
+    // }
 
     // 解析子规则
     const subRules = this.parseSubRules(subRuleText, operatorStr);
@@ -372,14 +373,49 @@ export class RuleParser {
 
   /**
    * 解析嵌套逻辑规则
+   *
+   * 处理格式: ((rule1),(rule2),(rule3))
+   * 例如: ((DOMAIN-KEYWORD,chatgpt-async-webps-prod-),(DOMAIN-SUFFIX,webpubsub.azure.com))
    */
   private static parseNestedLogicalRule(text: string): ParsedRule[] {
     const rules: ParsedRule[] = [];
 
-    // 简化实现：递归解析嵌套结构
-    const subRule = this.parseRule(text);
-    if (subRule) {
-      rules.push(subRule);
+    // 移除前导/尾随空格
+    const trimmed = text.trim();
+
+    // 检查是否为嵌套格式 ((...)(...))
+    if (!trimmed.startsWith('((') || !trimmed.endsWith('))')) {
+      // 不是嵌套格式，尝试直接解析
+      const subRule = this.parseRule(trimmed);
+      if (subRule) {
+        rules.push(subRule);
+      }
+      return rules;
+    }
+
+    // 移除外层括号: ((rule1),(rule2)) → (rule1),(rule2)
+    const inner = trimmed.slice(2, -2);
+
+    // 按 ),( 分割子规则
+    const subRuleTexts = inner.split('),(');
+
+    // 解析每个子规则
+    for (const subRuleText of subRuleTexts) {
+      // 移除前导/尾随括号和空格
+      let cleaned = subRuleText.trim();
+      if (cleaned.startsWith('(')) {
+        cleaned = cleaned.slice(1);
+      }
+      if (cleaned.endsWith(')')) {
+        cleaned = cleaned.slice(0, -1);
+      }
+      cleaned = cleaned.trim();
+
+      // 解析子规则
+      const subRule = this.parseRule(cleaned);
+      if (subRule) {
+        rules.push(subRule);
+      }
     }
 
     return rules;
