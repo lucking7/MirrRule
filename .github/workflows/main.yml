@@ -168,6 +168,9 @@ jobs:
     if: needs.prepare.outputs.should_build == 'true'
     runs-on: ubuntu-latest
     steps:
+      # 🚀 网络性能优化
+      - uses: smorimoto/tune-github-hosted-runner-network@v1
+
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
@@ -224,7 +227,7 @@ jobs:
       
       - uses: actions/upload-artifact@v4
         with:
-          name: build-artifact-${{ github.sha }}
+          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
           path: ${{ steps.build-dir.outputs.dir }}
           retention-days: 1
           compression-level: 4
@@ -381,6 +384,44 @@ jobs:
           fi
 
   # ============================================
+  # PR 差异对比 - 预览构建变更
+  # ============================================
+  diff-deployment-on-pr:
+    name: Diff Build Output
+    needs: [prepare, build]
+    if: |
+      github.event_name == 'pull_request' &&
+      needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
+          path: public
+
+      - name: Compare with production
+        run: |
+          echo "📥 Downloading production build..."
+          git clone --filter=tree:0 --no-tags \
+            https://github.com/lucking7/NRRule.git ./deploy-git
+
+          cd ./deploy-git
+          echo "📊 Comparing changes..."
+          rm -rf ./*
+          cp -rf ../public/* ./
+
+          echo ""
+          echo "📈 File statistics:"
+          git --no-pager diff --stat
+
+          echo ""
+          echo "📝 Detailed changes (first 500 lines):"
+          git --no-pager diff --minimal | head -500
+
+          echo ""
+          echo "✅ Diff complete"
+
+  # ============================================
   # 部署到 Cloudflare Pages
   # ============================================
   deploy-cloudflare:
@@ -394,7 +435,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: build-artifact-${{ github.sha }}
+          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
           path: public
 
       - uses: cloudflare/wrangler-action@v3
@@ -420,7 +461,7 @@ jobs:
       # 🔧 下载 build artifact 而不是 checkout 源代码
       - uses: actions/download-artifact@v4
         with:
-          name: build-artifact-${{ github.sha }}
+          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
           path: public
 
       # 验证 public 目录内容
