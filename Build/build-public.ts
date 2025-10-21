@@ -19,16 +19,20 @@ const priorityOrder: Record<'default' | (string & {}), number> = {
   non_ip: 20,
   ip: 30,
   List: 40,
-  Surge: 50,
-  Clash: 60,
-  'sing-box': 70,
-  Surfboard: 80,
-  LegacyClashPremium: 81,
-  Modules: 90,
-  Script: 100,
-  Mock: 110,
-  Assets: 120,
-  Internal: 130,
+  Loon: 50,
+  QuantumultX: 60,
+  Clash: 70,
+  'sing-box': 80,
+  GEOIP: 90,
+  GeoIP: 90,
+  Surge: 100,
+  Surfboard: 110,
+  LegacyClashPremium: 111,
+  Modules: 120,
+  Script: 130,
+  Mock: 140,
+  Assets: 150,
+  Internal: 160,
   default: Number.MAX_VALUE
 };
 
@@ -266,9 +270,9 @@ function generateHtml(tree: TreeTypeArray) {
             --mark-color: #543a26;
             --modal-overlay-background-color: rgba(213, 220, 226, 0.8);
             --loading-spinner-opacity: 0.5;
-            --icon-folder: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23415462' stroke-width='1.5' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.06-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.38a1.5 1.5 0 0 1-1.06-.44Z'/%3E%3C/svg%3E");
-            --icon-file: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23415462' stroke-width='1.5' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 14.25v-2.63a3.38 3.38 0 0 0-3.38-3.37h-1.5a1.13 1.13 0 0 1-1.12-1.13v-1.5a3.38 3.38 0 0 0-3.38-3.37H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.62c-.62 0-1.12.5-1.12 1.13v17.25c0 .62.5 1.12 1.13 1.12h12.75c.62 0 1.12-.5 1.12-1.13v-9.37a9 9 0 0 0-9-9Z'/%3E%3C/svg%3E");
-            --icon-folder-open: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23415462' stroke-width='1.5' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M3.75 9.78c.11-.02.23-.03.34-.03h15.82c.11 0 .23 0 .34.03m-16.5 0a2.25 2.25 0 0 0-1.88 2.54l.85 6a2.25 2.25 0 0 0 2.23 1.93h14.1a2.25 2.25 0 0 0 2.23-1.93l.85-6a2.25 2.25 0 0 0-1.88-2.54m-16.5 0V6A2.25 2.25 0 0 1 6 3.75h3.88a1.5 1.5 0 0 1 1.06.44l2.12 2.12a1.5 1.5 0 0 0 1.06.44H18A2.25 2.25 0 0 1 20.25 9v.78'/%3E%3C/svg%3E");
+            --icon-folder: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23415462' d='M9.52 3a2 2 0 0 1 1.442.614l.12.137L12.48 5.5H20a2 2 0 0 1 1.995 1.85L22 7.5V19a2 2 0 0 1-1.85 1.995L20 21H4a2 2 0 0 1-1.995-1.85L2 19V5a2 2 0 0 1 1.85-1.995L4 3zM20 11H4v8h16zM9.52 5H4v4h16V7.5h-7.52a2 2 0 0 1-1.442-.614l-.12-.137z'/%3E%3C/svg%3E");
+            --icon-file: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23415462' d='M13.586 2a2 2 0 0 1 1.284.467l.13.119L19.414 7a2 2 0 0 1 .578 1.238l.008.176V20a2 2 0 0 1-1.85 1.995L18 22H6a2 2 0 0 1-1.995-1.85L4 20V4a2 2 0 0 1 1.85-1.995L6 2zM12 4H6v16h12V10h-4.5A1.5 1.5 0 0 1 12 8.5zm2 .414V8h3.586z'/%3E%3C/svg%3E");
+            --icon-folder-open: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23415462' d='M5 3a2 2 0 0 0-2 2v4.129a1.5 1.5 0 0 0-.861 1.665l1.72 8.598A2 2 0 0 0 5.819 21H18.18a2 2 0 0 0 1.961-1.608l1.72-8.598A1.5 1.5 0 0 0 21 9.13V7.5a2 2 0 0 0-2-2h-6.52l-1.399-1.75A2 2 0 0 0 9.52 3zm14.78 8H4.22l1.6 8h12.36zM5 9h14V7.5h-6.52a2 2 0 0 1-1.561-.75L9.519 5H5z'/%3E%3C/svg%3E");
             color-scheme: light;
           }
 
@@ -300,9 +304,9 @@ function generateHtml(tree: TreeTypeArray) {
               --mark-color: #11191f;
               --modal-overlay-background-color: rgba(36, 51, 62, 0.9);
               --loading-spinner-opacity: 0.5;
-              --icon-folder: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='%23bbc6ce' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'%3E%3Cpath d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/%3E%3C/svg%3E");
-              --icon-file: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23bbc6ce' stroke-width='1.5' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 14.25v-2.63a3.38 3.38 0 0 0-3.38-3.37h-1.5a1.13 1.13 0 0 1-1.12-1.13v-1.5a3.38 3.38 0 0 0-3.38-3.37H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.62c-.62 0-1.12.5-1.12 1.13v17.25c0 .62.5 1.12 1.13 1.12h12.75c.62 0 1.12-.5 1.12-1.13v-9.37a9 9 0 0 0-9-9Z'/%3E%3C/svg%3E");
-              --icon-folder-open: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23bbc6ce' stroke-width='1.5' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M3.75 9.78c.11-.02.23-.03.34-.03h15.82c.11 0 .23 0 .34.03m-16.5 0a2.25 2.25 0 0 0-1.88 2.54l.85 6a2.25 2.25 0 0 0 2.23 1.93h14.1a2.25 2.25 0 0 0 2.23-1.93l.85-6a2.25 2.25 0 0 0-1.88-2.54m-16.5 0V6A2.25 2.25 0 0 1 6 3.75h3.88a1.5 1.5 0 0 1 1.06.44l2.12 2.12a1.5 1.5 0 0 0 1.06.44H18A2.25 2.25 0 0 1 20.25 9v.78'/%3E%3C/svg%3E");
+              --icon-folder: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23bbc6ce' d='M9.52 3a2 2 0 0 1 1.442.614l.12.137L12.48 5.5H20a2 2 0 0 1 1.995 1.85L22 7.5V19a2 2 0 0 1-1.85 1.995L20 21H4a2 2 0 0 1-1.995-1.85L2 19V5a2 2 0 0 1 1.85-1.995L4 3zM20 11H4v8h16zM9.52 5H4v4h16V7.5h-7.52a2 2 0 0 1-1.442-.614l-.12-.137z'/%3E%3C/svg%3E");
+              --icon-file: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23bbc6ce' d='M13.586 2a2 2 0 0 1 1.284.467l.13.119L19.414 7a2 2 0 0 1 .578 1.238l.008.176V20a2 2 0 0 1-1.85 1.995L18 22H6a2 2 0 0 1-1.995-1.85L4 20V4a2 2 0 0 1 1.85-1.995L6 2zM12 4H6v16h12V10h-4.5A1.5 1.5 0 0 1 12 8.5zm2 .414V8h3.586z'/%3E%3C/svg%3E");
+              --icon-folder-open: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23bbc6ce' d='M5 3a2 2 0 0 0-2 2v4.129a1.5 1.5 0 0 0-.861 1.665l1.72 8.598A2 2 0 0 0 5.819 21H18.18a2 2 0 0 0 1.961-1.608l1.72-8.598A1.5 1.5 0 0 0 21 9.13V7.5a2 2 0 0 0-2-2h-6.52l-1.399-1.75A2 2 0 0 0 9.52 3zm14.78 8H4.22l1.6 8h12.36zM5 9h14V7.5h-6.52a2 2 0 0 1-1.561-.75L9.519 5H5z'/%3E%3C/svg%3E");
               color-scheme: dark;
             }
           }
@@ -705,16 +709,54 @@ function generateHtml(tree: TreeTypeArray) {
         <main class="container">
           <h1>Luck Ruleset Server</h1>
           <p>
-            Made by <a href="https://github.com/lucking7">Luck</a> |
-            <a href="https://github.com/lucking7/esdeath">Source @ GitHub</a> | Licensed under
+            Made by <a href="https://github.com/lucking7"><svg style="display:inline-block;width:1em;height:1em;vertical-align:middle;margin-right:4px;fill:#F77E2D" viewBox="0 0 24 24"><path d="M12 2a1 1 0 0 1 1 1v1.522a2.501 2.501 0 0 1 2.89 4.003l-.355.354l.707.707l.354-.354a2.5 2.5 0 1 1 0 3.536l-.354-.354l-.707.707l.354.354a2.5 2.5 0 0 1-1.14 4.188a1 1 0 0 1-.25.203V21a1 1 0 1 1-2 0v-3h-1v3a1 1 0 1 1-2 0v-3.134a1 1 0 0 1-.248-.203a2.5 2.5 0 0 1-1.14-4.188l.353-.354l-.707-.707l-.353.354a2.5 2.5 0 1 1 0-3.536l.353.354l.707-.707l-.353-.354A2.5 2.5 0 0 1 11 4.522V3a1 1 0 0 1 1-1m2.121 12.536l-.707.707l.354.353a.5.5 0 1 0 .707-.707zm-4.242 0l-.354.353a.5.5 0 1 0 .707.707l.354-.353zm-4.597-3.89a.5.5 0 0 0 .708.708L6.343 11l-.353-.354a.5.5 0 0 0-.708 0m12.728 0l-.353.354l.353.354a.5.5 0 1 0 0-.707M9.525 6.405a.5.5 0 0 0 0 .707l.354.354l.707-.708l-.354-.353a.5.5 0 0 0-.707 0m4.95 0a.5.5 0 0 0-.638-.058l-.07.058l-.353.353l.707.708l.354-.354a.5.5 0 0 0 0-.707"/></svg>Luck</a> |
+            <a href="https://github.com/lucking7/esdeath"><svg style="display:inline-block;width:1em;height:1em;vertical-align:middle;margin-right:4px;fill:currentColor" viewBox="0 0 24 24"><path d="M6.315 6.176c-.25-.638-.24-1.367-.129-2.034a6.8 6.8 0 0 1 2.12 1.07c.28.214.647.283.989.18A9.3 9.3 0 0 1 12 5c.961 0 1.874.14 2.703.391c.342.104.709.034.988-.18a6.8 6.8 0 0 1 2.119-1.07c.111.667.12 1.396-.128 2.033c-.15.384-.075.826.208 1.14C18.614 8.117 19 9.04 19 10c0 2.114-1.97 4.187-5.134 4.818c-.792.158-1.101 1.155-.495 1.726c.389.366.629.882.629 1.456v3a1 1 0 0 0 2 0v-3c0-.57-.12-1.112-.334-1.603C18.683 15.35 21 12.993 21 10c0-1.347-.484-2.585-1.287-3.622c.21-.82.191-1.646.111-2.28c-.071-.568-.17-1.312-.57-1.756c-.595-.659-1.58-.271-2.28-.032a9 9 0 0 0-2.125 1.045A11.4 11.4 0 0 0 12 3c-.994 0-1.953.125-2.851.356a9 9 0 0 0-2.125-1.045c-.7-.24-1.686-.628-2.281.031c-.408.452-.493 1.137-.566 1.719l-.005.038c-.08.635-.098 1.462.112 2.283C3.484 7.418 3 8.654 3 10c0 2.992 2.317 5.35 5.334 6.397A4 4 0 0 0 8 17.98l-.168.034c-.717.099-1.176.01-1.488-.122c-.76-.322-1.152-1.133-1.63-1.753c-.298-.385-.732-.866-1.398-1.088a1 1 0 0 0-.632 1.898c.558.186.944 1.142 1.298 1.566c.373.448.869.916 1.58 1.218c.682.29 1.483.393 2.438.276V21a1 1 0 0 0 2 0v-3c0-.574.24-1.09.629-1.456c.607-.572.297-1.568-.495-1.726C6.969 14.187 5 12.114 5 10c0-.958.385-1.881 1.108-2.684c.283-.314.357-.756.207-1.14"/></svg>Source @ GitHub</a> | <svg style="display:inline-block;width:1em;height:1em;vertical-align:middle;margin-right:4px;fill:currentColor" viewBox="0 0 24 24"><path d="M18 10a4 4 0 0 1 3 6.646v4.192a1.1 1.1 0 0 1-1.592.984L18 21.118l-1.408.704A1.1 1.1 0 0 1 15 20.838v-4.192A4 4 0 0 1 18 10m2-6a2 2 0 0 1 2 2v2a1 1 0 1 1-2 0V6H4v12h8a1 1 0 1 1 0 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm-1 13.874a4 4 0 0 1-2 0v1.508l.553-.276a1 1 0 0 1 .894 0l.553.276zM18 12a2 2 0 1 0 0 4a2 2 0 0 0 0-4m-9 1a1 1 0 0 1 .117 1.993L9 15H7a1 1 0 0 1-.117-1.993L7 13zm4-4a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2z"/></svg>Licensed under
             <a href="/LICENSE" target="_blank">AGPL-3.0</a>
           </p>
-          <p>Last Build: ${new Date().toISOString()}</p>
-          <br />
+          <p>Last Build: ${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Singapore', hour12: false })}</p>
+          <div style="position:relative;margin:1.5rem 0">
+            <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:20px;height:20px;fill:var(--muted-color);pointer-events:none" viewBox="0 0 24 24"><path d="M10.5 2a8.5 8.5 0 1 0 5.262 15.176l3.652 3.652a1 1 0 0 0 1.414-1.414l-3.652-3.652A8.5 8.5 0 0 0 10.5 2M4 10.5a6.5 6.5 0 1 1 13 0a6.5 6.5 0 0 1-13 0"/></svg>
+            <input type="text" id="search-input" placeholder="搜索文件和文件夹..." style="width:100%;padding:0.75rem 0.75rem 0.75rem 2.75rem;border:2px solid var(--muted-border-color);border-radius:var(--border-radius);font-family:var(--font-family);font-size:var(--font-size);background-color:var(--background-color);color:var(--color);transition:border-color 0.2s" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--muted-border-color)'" />
+          </div>
           <ul class="tree">
             ${treeHtml(tree, 0, closedRootFolders)}
           </ul>
         </main>
+        <script>
+          (function() {
+            const searchInput = document.getElementById('search-input');
+            const treeItems = document.querySelectorAll('.tree li');
+
+            searchInput.addEventListener('input', function(e) {
+              const query = e.target.value.toLowerCase().trim();
+
+              if (!query) {
+                treeItems.forEach(li => li.style.display = '');
+                return;
+              }
+
+              treeItems.forEach(li => {
+                const text = li.textContent.toLowerCase();
+                const shouldShow = text.includes(query);
+                li.style.display = shouldShow ? '' : 'none';
+
+                // Show parent folders if child matches
+                if (shouldShow && li.classList.contains('file')) {
+                  let parent = li.parentElement;
+                  while (parent && parent.tagName === 'UL') {
+                    const parentLi = parent.closest('li.folder');
+                    if (parentLi) {
+                      parentLi.style.display = '';
+                      const details = parentLi.querySelector('details');
+                      if (details) details.open = true;
+                    }
+                    parent = parent.parentElement;
+                  }
+                }
+              });
+            });
+          })();
+        </script>
       </body>
     </html>
   `;
