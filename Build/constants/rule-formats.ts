@@ -514,7 +514,7 @@ export const STRATEGY_CLEANUP_CONFIG: Record<
   [RuleType.GEOIP]: {
     requiresPolicy: true,
     cleanupMode: 'keep',
-    description: 'GeoIP规则需要保留策略',
+    description: 'GEOIP规则需要保留策略',
   },
   [RuleType.IP_ASN]: {
     requiresPolicy: true,

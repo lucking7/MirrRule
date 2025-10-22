@@ -1,8 +1,8 @@
 /**
- * GeoIP MMDB 文件下载模块
+ * GEOIP MMDB 文件下载模块
  *
  * 职责：
- * - 下载 GeoIP MMDB 二进制数据库文件
+ * - 下载 GEOIP MMDB 二进制数据库文件
  * - 不做任何修改或转换,直接保存原始文件
  */
 
@@ -15,10 +15,10 @@ import { $$fetch } from './utils/network/fetch-retry';
 import { mkdirp } from './lib/misc';
 
 /**
- * GeoIP 文件配置
+ * GEOIP 文件配置
  */
-export interface GeoIPFile {
-  /** 输出路径(相对于 public 目录),例如: 'GeoIP/geoip2-cn.mmdb' */
+export interface GEOIPFile {
+  /** 输出路径(相对于 public 目录),例如: 'GEOIP/geoip2-cn.mmdb' */
   path: string;
   /** 下载 URL */
   url: string;
@@ -27,37 +27,37 @@ export interface GeoIPFile {
 }
 
 /**
- * GeoIP MMDB 文件配置列表
+ * GEOIP MMDB 文件配置列表
  * 这些文件是二进制数据库文件,不需要规则转换处理
- * 直接下载到 public/GeoIP/ 目录
+ * 直接下载到 public/GEOIP/ 目录
  */
-export const geoipFiles: GeoIPFile[] = [
+export const geoipFiles: GEOIPFile[] = [
   {
-    path: 'GeoIP/geoip2-cn.mmdb',
+    path: 'GEOIP/geoip2-cn.mmdb',
     url: 'https://github.com/Hackl0us/GeoIP2-CN/raw/release/Country.mmdb',
-    description: 'GeoIP2 中国 IP 数据库 (Hackl0us)',
+    description: 'GEOIP2 中国 IP 数据库 (Hackl0us)',
   },
   {
-    path: 'GeoIP/chnroutes2.mmdb',
+    path: 'GEOIP/chnroutes2.mmdb',
     url: 'https://raw.githubusercontent.com/soffchen/GeoIP2-CN/release/Country.mmdb',
-    description: 'GeoIP2 中国路由数据库 (soffchen)',
+    description: 'GEOIP2 中国路由数据库 (soffchen)',
   },
   {
-    path: 'GeoIP/ipinfo.mmdb',
+    path: 'GEOIP/ipinfo.mmdb',
     url: 'https://github.com/xream/geoip/releases/latest/download/ipinfo.country.mmdb',
     description: 'IPInfo 国家数据库',
   },
   {
-    path: 'GeoIP/ip2.mmdb',
+    path: 'GEOIP/ip2.mmdb',
     url: 'https://github.com/xream/geoip/releases/latest/download/ip2location.country.mmdb',
     description: 'IP2Location 国家数据库',
   },
 ];
 
 /**
- * 下载 GeoIP MMDB 文件
+ * 下载 GEOIP MMDB 文件
  */
-export const downloadGeoIP = task(
+export const downloadGEOIP = task(
   require.main === module,
   __filename
 )(async span => {
@@ -70,7 +70,7 @@ export const downloadGeoIP = task(
     total: files.length,
   };
 
-  console.log(picocolors.cyan(`\n🌍 开始下载 ${stats.total} 个 GeoIP MMDB 文件...\n`));
+  console.log(picocolors.cyan(`\n🌍 开始下载 ${stats.total} 个 GEOIP MMDB 文件...\n`));
 
   for (const file of files) {
     await span.traceChildAsync(`download: ${file.path}`, async () => {
@@ -107,7 +107,7 @@ export const downloadGeoIP = task(
     });
   }
 
-  console.log(picocolors.cyan('\n📊 GeoIP 下载统计:'));
+  console.log(picocolors.cyan('\n📊 GEOIP 下载统计:'));
   console.log(picocolors.green(`  ✅ 成功: ${stats.success}`));
   if (stats.failed > 0) {
     console.log(picocolors.red(`  ❌ 失败: ${stats.failed}`));

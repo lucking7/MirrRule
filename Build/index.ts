@@ -5,7 +5,7 @@ import path from 'node:path';
 
 import { task } from './trace';
 import { printTraceResult, whyIsNodeRunning } from './trace';
-import { downloadGeoIP } from './download-geoip';
+import { downloadGEOIP } from './download-geoip';
 import { ROOT_DIR } from './constants/dir';
 
 /**
@@ -43,8 +43,8 @@ export const buildRuleset = task(
 
   console.log('🚀 开始构建规则集...');
 
-  // 下载 GeoIP MMDB 文件（独立模块）
-  await downloadGeoIP(span);
+  // 下载 GEOIP MMDB 文件（独立模块）
+  await downloadGEOIP(span);
 
   // 处理规则源配置 - 完全使用标准化输出策略系统
   await span.traceChildAsync('unified rule processing system', async span => {

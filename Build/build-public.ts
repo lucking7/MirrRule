@@ -24,7 +24,7 @@ const priorityOrder: Record<'default' | (string & {}), number> = {
   Clash: 70,
   'sing-box': 80,
   GEOIP: 90,
-  GeoIP: 90,
+  GEOIP: 90,
   Surge: 100,
   Surfboard: 110,
   LegacyClashPremium: 111,
@@ -723,6 +723,9 @@ function generateHtml(tree: TreeTypeArray) {
             background-size: 75% auto;
           }
 
+          .tree li.folder > details > summary {
+            font-family: 'Iowan Old Style', 'Palatino Linotype', 'URW Palladio L', P052, serif;
+          }
           .tree li.folder > details > summary::before {
             z-index: 1;
 
@@ -745,7 +748,7 @@ function generateHtml(tree: TreeTypeArray) {
       <body>
         <main class="container">
           <h1>Luck Ruleset Server</h1>
-          <div style="display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:0.5rem 1rem;margin:1rem 0;font-size:0.9rem;color:var(--muted-color)">
+          <div style="display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:0.5rem 1rem;margin:1rem 0;font-size:0.9rem;color:var(--muted-color)">
             <span style="display:inline-flex;align-items:center;gap:0.25rem;white-space:nowrap">Made by <a href="https://github.com/lucking7" style="display:inline-flex;align-items:center;gap:0.25rem"><svg style="display:inline-block;width:1em;height:1em;vertical-align:-0.125em;fill:#F77E2D" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2a1 1 0 0 1 1 1v1.522a2.501 2.501 0 0 1 2.89 4.003l-.355.354l.707.707l.354-.354a2.5 2.5 0 1 1 0 3.536l-.354-.354l-.707.707l.354.354a2.5 2.5 0 0 1-1.14 4.188a1 1 0 0 1-.25.203V21a1 1 0 1 1-2 0v-3h-1v3a1 1 0 1 1-2 0v-3.134a1 1 0 0 1-.248-.203a2.5 2.5 0 0 1-1.14-4.188l.353-.354l-.707-.707l-.353.354a2.5 2.5 0 1 1 0-3.536l.353.354l.707-.707l-.353-.354A2.5 2.5 0 0 1 11 4.522V3a1 1 0 0 1 1-1m2.121 12.536l-.707.707l.354.353a.5.5 0 1 0 .707-.707zm-4.242 0l-.354.353a.5.5 0 1 0 .707.707l.354-.353zm-4.597-3.89a.5.5 0 0 0 .708.708L6.343 11l-.353-.354a.5.5 0 0 0-.708 0m12.728 0l-.353.354l.353.354a.5.5 0 1 0 0-.707M9.525 6.405a.5.5 0 0 0 0 .707l.354.354l.707-.708l-.354-.353a.5.5 0 0 0-.707 0m4.95 0a.5.5 0 0 0-.638-.058l-.07.058l-.353.353l.707.708l.354-.354a.5.5 0 0 0 0-.707"/></svg>Luck</a></span>
             <span style="color:var(--muted-color);user-select:none" aria-hidden="true">•</span>
             <span style="display:inline-flex;align-items:center;gap:0.25rem;white-space:nowrap"><a href="https://github.com/lucking7/esdeath" style="display:inline-flex;align-items:center;gap:0.25rem">Source @ GitHub</a></span>
@@ -758,11 +761,11 @@ function generateHtml(tree: TreeTypeArray) {
             const gmtPlus8 = new Date(now.getTime() + (offset - now.getTimezoneOffset()) * 60000);
             return gmtPlus8.toISOString().replace('Z', '+08:00');
           })()}</p>
-          <div style="position:relative;margin:var(--spacing-6) 0;max-width:600px">
-            <svg id="search-icon" style="position:absolute;left:var(--spacing-4);top:50%;transform:translateY(-50%);width:20px;height:20px;fill:var(--muted-color);pointer-events:none;transition:fill 0.2s" viewBox="0 0 24 24"><path d="M10.5 2a8.5 8.5 0 1 0 5.262 15.176l3.652 3.652a1 1 0 0 0 1.414-1.414l-3.652-3.652A8.5 8.5 0 0 0 10.5 2M4 10.5a6.5 6.5 0 1 1 13 0a6.5 6.5 0 0 1-13 0"/></svg>
-            <input type="text" id="search-input" placeholder="搜索文件和文件夹..." style="width:100%;padding:var(--spacing-3) var(--spacing-4);padding-left:3rem;padding-right:3rem;border:2px solid var(--muted-border-color);border-radius:20px;font-family:var(--font-family);font-size:var(--font-size);background-color:var(--background-color);color:var(--color);transition:all 0.2s;outline:none" />
-            <button id="clear-btn" style="display:none;position:absolute;right:var(--spacing-4);top:50%;transform:translateY(-50%);background:transparent;border:none;padding:0;cursor:pointer;width:20px;height:20px;border-radius:16px" aria-label="清除搜索">
-              <svg style="width:20px;height:20px;fill:var(--muted-color);transition:fill 0.2s;border-radius:16px" viewBox="0 0 24 24"><path d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2m0 2a8 8 0 1 0 0 16a8 8 0 0 0 0-16M9.879 8.464L12 10.586l2.121-2.122a1 1 0 1 1 1.415 1.415l-2.122 2.12l2.122 2.122a1 1 0 0 1-1.415 1.415L12 13.414l-2.121 2.122a1 1 0 0 1-1.415-1.415L10.586 12L8.465 9.879a1 1 0 0 1 1.414-1.415"/></svg>
+          <div style="position:relative;margin:var(--spacing-6) 0;max-width:720px;width:100%">
+            <svg id="search-icon" style="position:absolute;left:var(--spacing-4);top:50%;transform:translateY(-50%);width:18px;height:18px;fill:var(--muted-color);pointer-events:none;transition:fill 0.2s" viewBox="0 0 24 24"><path d="M10.5 2a8.5 8.5 0 1 0 5.262 15.176l3.652 3.652a1 1 0 0 0 1.414-1.414l-3.652-3.652A8.5 8.5 0 0 0 10.5 2M4 10.5a6.5 6.5 0 1 1 13 0a6.5 6.5 0 0 1-13 0"/></svg>
+            <input type="text" id="search-input" placeholder="搜索文件和文件夹..." style="width:100%;padding:var(--spacing-2) var(--spacing-4);padding-left:3rem;padding-right:3rem;border:2px solid var(--muted-border-color);border-radius:12px;font-family:var(--font-family);font-size:var(--font-size);background-color:var(--background-color);color:var(--color);transition:all 0.2s;outline:none;box-shadow:0 1px 3px rgba(0,0,0,0.05)" />
+            <button id="clear-btn" style="display:none;position:absolute;right:var(--spacing-4);top:50%;transform:translateY(-50%);background:transparent;border:none;padding:0;cursor:pointer;width:18px;height:18px;border-radius:16px" aria-label="清除搜索">
+              <svg style="width:18px;height:18px;fill:var(--muted-color);transition:fill 0.2s;border-radius:16px" viewBox="0 0 24 24"><path d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2m0 2a8 8 0 1 0 0 16a8 8 0 0 0 0-16M9.879 8.464L12 10.586l2.121-2.122a1 1 0 1 1 1.415 1.415l-2.122 2.12l2.122 2.122a1 1 0 0 1-1.415 1.415L12 13.414l-2.121 2.122a1 1 0 0 1-1.415-1.415L10.586 12L8.465 9.879a1 1 0 0 1 1.414-1.415"/></svg>
             </button>
           </div>
           <div id="search-result-count" style="margin:calc(var(--spacing-2) * -1) 0 var(--spacing-4) 0;font-size:var(--text-sm);color:var(--muted-color);min-height:1.3125rem"></div>

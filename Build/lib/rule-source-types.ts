@@ -166,7 +166,7 @@ export interface ProcessingStats {
  * 文件类型枚举
  */
 export enum FileType {
-  /** GeoIP数据库文件 */
+  /** GEOIP数据库文件 */
   GEODB = 'geodb',
   /** 规则列表文件 */
   RULELIST = 'rulelist',

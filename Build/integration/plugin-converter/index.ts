@@ -18,7 +18,7 @@ import {
   extractScriptUrls,
   filterUnmirroredScripts,
   replaceScriptUrls,
-  getScriptStats
+  getScriptStats,
 } from './script-extractor';
 import { mirrorScripts, printMirrorSummary } from './script-mirror';
 import type { ConversionResult } from './types';
@@ -105,12 +105,30 @@ export async function convertAndMirrorPlugins(waitForService = false): Promise<C
     return [];
   }
 
-  const plugins = pluginsResult;
-  const stats = getPluginStats(plugins);
+  const allPlugins = pluginsResult;
+  const allStats = getPluginStats(allPlugins);
 
-  console.log(picocolors.green(`✓ Found ${stats.total} plugins`));
-  console.log(picocolors.gray(`  - .plugin: ${stats.byExtension.plugin}`));
-  console.log(picocolors.gray(`  - .lpx: ${stats.byExtension.lpx}`));
+  console.log(picocolors.green(`✓ Found ${allStats.total} plugins`));
+  console.log(picocolors.gray(`  - .plugin: ${allStats.byExtension.plugin}`));
+  console.log(picocolors.gray(`  - .lpx: ${allStats.byExtension.lpx}`));
+
+  // 🔧 临时方案: 跳过 .lpx 加密插件（kelee.one 返回 403）
+  const plugins = allPlugins.filter(p => p.extension === 'plugin');
+
+  if (plugins.length === 0) {
+    console.log(picocolors.yellow('\n⚠️ 所有插件都是 .lpx 加密格式，kelee.one 返回 403 Forbidden'));
+    console.log(picocolors.yellow('⚠️ 无法转换加密插件，跳过转换'));
+    return [];
+  }
+
+  if (plugins.length < allPlugins.length) {
+    console.log(
+      picocolors.yellow(
+        `\n⚠️ 跳过 ${allPlugins.length - plugins.length} 个 .lpx 加密插件（源站访问受限）`
+      )
+    );
+    console.log(picocolors.cyan(`✓ 将转换 ${plugins.length} 个 .plugin 格式插件`));
+  }
 
   // 2. 转换插件
   console.log(picocolors.cyan('\n[Step 2/4] Converting plugins to sgmodule...\n'));
@@ -140,7 +158,7 @@ export async function convertAndMirrorPlugins(waitForService = false): Promise<C
         pluginName: plugin.name,
         success: true,
         outputPath,
-        scripts
+        scripts,
       });
 
       allScripts.push(content);
@@ -149,7 +167,7 @@ export async function convertAndMirrorPlugins(waitForService = false): Promise<C
         pluginName: plugin.name,
         success: false,
         scripts: [],
-        error: content.error
+        error: content.error,
       });
     }
   }
