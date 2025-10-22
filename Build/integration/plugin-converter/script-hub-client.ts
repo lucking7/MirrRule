@@ -48,42 +48,6 @@ export function buildConversionUrl(plugin: PluginInfo, config: ConversionConfig)
 }
 
 /**
- * 下载 .lpx 文件内容（使用 Surge Mac UA 绕过 403）
- *
- * @param url - .lpx 文件 URL
- * @returns 文件内容或错误
- */
-async function downloadLpxFile(url: string): Promise<string | { error: string }> {
-  try {
-    const response = await $$fetch(url, {
-      headers: {
-        'User-Agent': 'Surge Mac/2985',
-        Accept: '*/*',
-      },
-    });
-
-    if (!response.ok) {
-      return {
-        error: `HTTP ${response.status}: ${response.statusText}`,
-      };
-    }
-
-    const content = await response.text();
-
-    if (!content || content.trim().length === 0) {
-      return {
-        error: 'Empty file content',
-      };
-    }
-
-    return content;
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    return { error: errorMsg };
-  }
-}
-
-/**
  * 调用 Script-Hub API 转换插件
  *
  * @param plugin - 插件信息
@@ -97,79 +61,17 @@ export async function convertPlugin(
     targetType: 'surge-module',
   }
 ): Promise<string | { error: string }> {
-  console.log(picocolors.gray(`[Convert] ${plugin.name}`));
+  console.log(picocolors.gray(`[Convert] ${plugin.name} (${plugin.extension})`));
 
-  // 🔧 特殊处理: .lpx 文件需要先下载再转换
-  if (plugin.extension === 'lpx') {
-    console.log(picocolors.gray(`  下载 .lpx 文件: ${plugin.url}`));
-
-    const lpxContent = await downloadLpxFile(plugin.url);
-
-    if (typeof lpxContent !== 'string') {
-      console.log(picocolors.red(`[Convert] ✗ ${plugin.name}: ${lpxContent.error}`));
-      return lpxContent;
-    }
-
-    console.log(picocolors.green(`  ✓ 下载成功 (${lpxContent.length} 字节)`));
-
-    // 使用本地文本内容转换
-    const encodedContent = encodeURIComponent(lpxContent);
-    const url = `${
-      SCRIPT_HUB_CONFIG.baseUrl
-    }/convert/_start_/http://local.text/_end_/${encodeURIComponent(plugin.name)}.sgmodule?type=${
-      config.sourceType
-    }&target=${config.targetType}&localtext=${encodedContent}`;
-
-    console.log(picocolors.gray(`  转换 URL: ${url.substring(0, 100)}...`));
-
-    try {
-      const response = await $$fetch(url, {
-        ...defaultRequestInit,
-        headers: {
-          'User-Agent': 'Surge Mac/2985',
-          Accept: '*/*',
-        },
-      });
-
-      if (!response.ok) {
-        return {
-          error: `HTTP ${response.status}: ${response.statusText}`,
-        };
-      }
-
-      const content = await response.text();
-
-      if (!content || content.trim().length === 0) {
-        return {
-          error: 'Empty response from Script-Hub',
-        };
-      }
-
-      // 基本验证：检查是否包含 sgmodule 标记
-      if (!content.includes('#!name=') && !content.includes('[Script]')) {
-        return {
-          error: 'Invalid sgmodule format',
-        };
-      }
-
-      console.log(picocolors.green(`[Convert] ✓ ${plugin.name}`));
-      return content;
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.log(picocolors.red(`[Convert] ✗ ${plugin.name}: ${errorMsg}`));
-      return { error: errorMsg };
-    }
-  }
-
-  // 原有逻辑: .plugin 文件直接转换
+  // ✅ 统一处理: 让 Script-Hub 自己下载源文件（.plugin 和 .lpx 都支持）
   const url = buildConversionUrl(plugin, config);
-  console.log(picocolors.gray(`  URL: ${url}`));
+  console.log(picocolors.gray(`  URL: ${url.substring(0, 120)}...`));
 
   try {
     const response = await $$fetch(url, {
       ...defaultRequestInit,
       headers: {
-        'User-Agent': 'Surge Mac/2985',
+        'User-Agent': 'Surge Mac/2985', // Script-Hub 会使用这个 UA 下载源文件
         Accept: '*/*',
       },
     });

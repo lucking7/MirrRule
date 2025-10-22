@@ -112,7 +112,7 @@ export async function convertAndMirrorPlugins(waitForService = false): Promise<C
   console.log(picocolors.gray(`  - .plugin: ${stats.byExtension.plugin}`));
   console.log(picocolors.gray(`  - .lpx: ${stats.byExtension.lpx}`));
   console.log(
-    picocolors.cyan(`\n💡 .lpx 文件将先下载（使用 Surge Mac UA），然后通过 Script-Hub 转换`)
+    picocolors.cyan(`\n💡 Script-Hub 将使用 Surge Mac UA 下载源文件（支持 .plugin 和 .lpx）`)
   );
 
   // 2. 转换插件
