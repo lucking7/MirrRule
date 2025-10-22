@@ -14,59 +14,8 @@ import { MARKER_DOMAIN } from '../../../constants/description';
 import { RuleValidator } from '../../../utils/validation/validators';
 
 /**
- * QuantumultX过滤器输出策略（无策略版本）
- * 适用于生成纯规则列表，不包含 REJECT/PROXY 等策略
- */
-export class QuantumultXFilterSet extends BaseWriteStrategy {
-  public readonly name = 'quantumultx filterset';
-
-  readonly fileExtension = 'list' as const;
-  readonly type = 'domainset' as const;
-
-  // 🔧 移除 MARKER_DOMAIN 水印初始化
-  protected result: string[] = [];
-
-  constructor(public readonly outputDir = OUTPUT_QUANTUMULT_X_DIR) {
-    super(outputDir);
-  }
-
-  withPadding = withBannerArray;
-
-  writeDomain(domain: string): void {
-    // 🔧 过滤 Sukka 规则集水印
-    if (!RuleValidator.isSukkaWatermark(domain)) {
-      this.result.push(domain);
-    }
-  }
-
-  writeDomainSuffix(domain: string): void {
-    // 🔧 过滤 Sukka 规则集水印
-    if (!RuleValidator.isSukkaWatermark(domain)) {
-      this.result.push(domain);
-    }
-  }
-
-  // QuantumultX Filter Set 不支持其他规则类型
-  writeDomainKeywords = noop;
-  writeDomainWildcard = noop;
-  writeUserAgents = noop;
-  writeProcessNames = noop;
-  writeProcessPaths = noop;
-  writeUrlRegexes = noop;
-  writeIpCidrs = noop;
-  writeIpCidr6s = noop;
-  writeGeoip = noop;
-  writeIpAsns = noop;
-  writeSourceIpCidrs = noop;
-  writeSourcePorts = noop;
-  writeDestinationPorts = noop;
-  writeProtocols = noop;
-  writeOtherRules = noop;
-}
-
-/**
  * QuantumultX规则集输出策略
- * 生成完整的 QuantumultX 规则格式（小写规则名）
+ * 生成完整的 QuantumultX 规则格式（带 host, host-suffix 等前缀和 REJECT 策略）
  */
 export class QuantumultXRuleSet extends BaseWriteStrategy {
   public readonly name = 'quantumultx ruleset';

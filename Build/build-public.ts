@@ -716,45 +716,129 @@ function generateHtml(tree: TreeTypeArray) {
             return gmtPlus8.toISOString().replace('Z', '+08:00');
           })()}</p>
           <div style="position:relative;margin:1.5rem 0">
-            <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:20px;height:20px;fill:var(--muted-color);pointer-events:none" viewBox="0 0 24 24"><path d="M10.5 2a8.5 8.5 0 1 0 5.262 15.176l3.652 3.652a1 1 0 0 0 1.414-1.414l-3.652-3.652A8.5 8.5 0 0 0 10.5 2M4 10.5a6.5 6.5 0 1 1 13 0a6.5 6.5 0 0 1-13 0"/></svg>
-            <input type="text" id="search-input" placeholder="搜索文件和文件夹..." style="width:100%;padding:0.75rem 0.75rem 0.75rem 2.75rem;border:2px solid var(--muted-border-color);border-radius:var(--border-radius);font-family:var(--font-family);font-size:var(--font-size);background-color:var(--background-color);color:var(--color);transition:border-color 0.2s" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--muted-border-color)'" />
+            <svg id="search-icon" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:20px;height:20px;fill:var(--muted-color);pointer-events:none;transition:fill 0.2s" viewBox="0 0 24 24"><path d="M10.5 2a8.5 8.5 0 1 0 5.262 15.176l3.652 3.652a1 1 0 0 0 1.414-1.414l-3.652-3.652A8.5 8.5 0 0 0 10.5 2M4 10.5a6.5 6.5 0 1 1 13 0a6.5 6.5 0 0 1-13 0"/></svg>
+            <input type="text" id="search-input" placeholder="搜索文件和文件夹..." style="width:100%;padding:0.75rem 2.75rem 0.75rem 2.75rem;border:2px solid var(--muted-border-color);border-radius:var(--border-radius);font-family:var(--font-family);font-size:var(--font-size);background-color:var(--background-color);color:var(--color);transition:all 0.2s;outline:none" />
+            <button id="clear-btn" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;padding:0;cursor:pointer;width:20px;height:20px" aria-label="清除搜索">
+              <svg style="width:20px;height:20px;fill:var(--muted-color);transition:fill 0.2s" viewBox="0 0 24 24"><path d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2m0 2a8 8 0 1 0 0 16a8 8 0 0 0 0-16M9.879 8.464L12 10.586l2.121-2.122a1 1 0 1 1 1.415 1.415l-2.122 2.12l2.122 2.122a1 1 0 0 1-1.415 1.415L12 13.414l-2.121 2.122a1 1 0 0 1-1.415-1.415L10.586 12L8.465 9.879a1 1 0 0 1 1.414-1.415"/></svg>
+            </button>
           </div>
+          <div id="search-result-count" style="margin:-0.5rem 0 1rem 0;font-size:0.875rem;color:var(--muted-color);min-height:1.3125rem"></div>
           <ul class="tree">
             ${treeHtml(tree, 0, closedRootFolders)}
           </ul>
+          <div id="empty-state" style="display:none;text-align:center;padding:3rem 1rem;color:var(--muted-color)">
+            <p style="font-size:3rem;margin:0 0 0.5rem 0">🔍</p>
+            <p style="margin:0;font-size:1.125rem">未找到匹配的文件或文件夹</p>
+            <p style="margin:0.5rem 0 0 0;font-size:0.875rem">试试其他关键词</p>
+          </div>
         </main>
         <script>
           (function() {
             const searchInput = document.getElementById('search-input');
+            const searchIcon = document.getElementById('search-icon');
+            const clearBtn = document.getElementById('clear-btn');
+            const resultCount = document.getElementById('search-result-count');
+            const treeContainer = document.querySelector('.tree');
+            const emptyState = document.getElementById('empty-state');
             const treeItems = document.querySelectorAll('.tree li');
 
-            searchInput.addEventListener('input', function(e) {
-              const query = e.target.value.toLowerCase().trim();
+            // 焦点状态样式
+            searchInput.addEventListener('focus', function() {
+              this.style.borderColor = 'var(--primary)';
+              this.style.boxShadow = '0 0 0 4px var(--primary-focus)';
+              searchIcon.style.fill = 'var(--primary)';
+            });
 
-              if (!query) {
+            searchInput.addEventListener('blur', function() {
+              this.style.borderColor = 'var(--muted-border-color)';
+              this.style.boxShadow = 'none';
+              searchIcon.style.fill = 'var(--muted-color)';
+            });
+
+            // Hover 状态
+            searchInput.addEventListener('mouseenter', function() {
+              if (document.activeElement !== this) {
+                this.style.borderColor = 'var(--primary-hover)';
+              }
+            });
+
+            searchInput.addEventListener('mouseleave', function() {
+              if (document.activeElement !== this) {
+                this.style.borderColor = 'var(--muted-border-color)';
+              }
+            });
+
+            // 清除按钮 hover 效果
+            clearBtn.addEventListener('mouseenter', function() {
+              this.querySelector('svg').style.fill = 'var(--primary)';
+            });
+
+            clearBtn.addEventListener('mouseleave', function() {
+              this.querySelector('svg').style.fill = 'var(--muted-color)';
+            });
+
+            // 清除按钮点击事件
+            clearBtn.addEventListener('click', function() {
+              searchInput.value = '';
+              searchInput.focus();
+              performSearch('');
+            });
+
+            // 搜索功能
+            function performSearch(query) {
+              const lowerQuery = query.toLowerCase().trim();
+
+              // 控制清除按钮显示
+              clearBtn.style.display = query ? 'block' : 'none';
+
+              if (!lowerQuery) {
                 treeItems.forEach(li => li.style.display = '');
+                resultCount.textContent = '';
+                treeContainer.style.display = '';
+                emptyState.style.display = 'none';
                 return;
               }
 
+              let matchCount = 0;
+
               treeItems.forEach(li => {
                 const text = li.textContent.toLowerCase();
-                const shouldShow = text.includes(query);
+                const shouldShow = text.includes(lowerQuery);
                 li.style.display = shouldShow ? '' : 'none';
 
-                // Show parent folders if child matches
-                if (shouldShow && li.classList.contains('file')) {
-                  let parent = li.parentElement;
-                  while (parent && parent.tagName === 'UL') {
-                    const parentLi = parent.closest('li.folder');
-                    if (parentLi) {
-                      parentLi.style.display = '';
-                      const details = parentLi.querySelector('details');
-                      if (details) details.open = true;
+                if (shouldShow) {
+                  matchCount++;
+                  // 展开父文件夹
+                  if (li.classList.contains('file')) {
+                    let parent = li.parentElement;
+                    while (parent && parent.tagName === 'UL') {
+                      const parentLi = parent.closest('li.folder');
+                      if (parentLi) {
+                        parentLi.style.display = '';
+                        const details = parentLi.querySelector('details');
+                        if (details) details.open = true;
+                      }
+                      parent = parent.parentElement;
                     }
-                    parent = parent.parentElement;
                   }
                 }
               });
+
+              // 更新结果计数
+              if (matchCount > 0) {
+                resultCount.textContent = \`找到 \${matchCount} 个结果\`;
+                treeContainer.style.display = '';
+                emptyState.style.display = 'none';
+              } else {
+                resultCount.textContent = '';
+                treeContainer.style.display = 'none';
+                emptyState.style.display = 'block';
+              }
+            }
+
+            // 输入事件
+            searchInput.addEventListener('input', function(e) {
+              performSearch(e.target.value);
             });
           })();
         </script>

@@ -16,57 +16,8 @@ import { ProxyPlatform } from '../../../constants/rule-formats';
 import { RuleValidator } from '../../../utils/validation/validators';
 
 /**
- * Loon域名集合输出策略
- */
-export class LoonDomainSet extends BaseWriteStrategy {
-  public readonly name = 'loon domainset';
-
-  readonly fileExtension = 'list' as const;
-  readonly type = 'domainset' as const;
-
-  // 🔧 移除 MARKER_DOMAIN 水印初始化
-  protected result: string[] = [];
-
-  constructor(public readonly outputDir = OUTPUT_LOON_DIR) {
-    super(outputDir);
-  }
-
-  withPadding = withBannerArray;
-
-  writeDomain(domain: string): void {
-    // 🔧 过滤 Sukka 规则集水印
-    if (!RuleValidator.isSukkaWatermark(domain)) {
-      this.result.push(domain);
-    }
-  }
-
-  writeDomainSuffix(domain: string): void {
-    // 🔧 过滤 Sukka 规则集水印
-    if (!RuleValidator.isSukkaWatermark(domain)) {
-      this.result.push(domain);
-    }
-  }
-
-  // Loon Domain Set 不支持其他规则类型
-  writeDomainKeywords = noop;
-  writeDomainWildcard = noop;
-  writeUserAgents = noop;
-  writeProcessNames = noop;
-  writeProcessPaths = noop;
-  writeUrlRegexes = noop;
-  writeIpCidrs = noop;
-  writeIpCidr6s = noop;
-  writeGeoip = noop;
-  writeIpAsns = noop;
-  writeSourceIpCidrs = noop;
-  writeSourcePorts = noop;
-  writeDestinationPorts = noop;
-  writeProtocols = noop;
-  writeOtherRules = noop;
-}
-
-/**
  * Loon规则集输出策略
+ * 生成完整的 Loon 规则格式（带 DOMAIN, DOMAIN-SUFFIX 等前缀）
  */
 export class LoonRuleSet extends BaseWriteStrategy {
   public readonly name = 'loon ruleset';
