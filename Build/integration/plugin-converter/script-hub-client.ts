@@ -18,7 +18,7 @@ const SCRIPT_HUB_CONFIG = {
   port: 9101,
   get baseUrl() {
     return `http://${this.host}:${this.port}`;
-  }
+  },
 } as const;
 
 /**
@@ -48,6 +48,42 @@ export function buildConversionUrl(plugin: PluginInfo, config: ConversionConfig)
 }
 
 /**
+ * 下载 .lpx 文件内容（使用 Surge Mac UA 绕过 403）
+ *
+ * @param url - .lpx 文件 URL
+ * @returns 文件内容或错误
+ */
+async function downloadLpxFile(url: string): Promise<string | { error: string }> {
+  try {
+    const response = await $$fetch(url, {
+      headers: {
+        'User-Agent': 'Surge Mac/2985',
+        Accept: '*/*',
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        error: `HTTP ${response.status}: ${response.statusText}`,
+      };
+    }
+
+    const content = await response.text();
+
+    if (!content || content.trim().length === 0) {
+      return {
+        error: 'Empty file content',
+      };
+    }
+
+    return content;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    return { error: errorMsg };
+  }
+}
+
+/**
  * 调用 Script-Hub API 转换插件
  *
  * @param plugin - 插件信息
@@ -58,12 +94,75 @@ export async function convertPlugin(
   plugin: PluginInfo,
   config: ConversionConfig = {
     sourceType: 'loon-plugin',
-    targetType: 'surge-module'
+    targetType: 'surge-module',
   }
 ): Promise<string | { error: string }> {
-  const url = buildConversionUrl(plugin, config);
-
   console.log(picocolors.gray(`[Convert] ${plugin.name}`));
+
+  // 🔧 特殊处理: .lpx 文件需要先下载再转换
+  if (plugin.extension === 'lpx') {
+    console.log(picocolors.gray(`  下载 .lpx 文件: ${plugin.url}`));
+
+    const lpxContent = await downloadLpxFile(plugin.url);
+
+    if (typeof lpxContent !== 'string') {
+      console.log(picocolors.red(`[Convert] ✗ ${plugin.name}: ${lpxContent.error}`));
+      return lpxContent;
+    }
+
+    console.log(picocolors.green(`  ✓ 下载成功 (${lpxContent.length} 字节)`));
+
+    // 使用本地文本内容转换
+    const encodedContent = encodeURIComponent(lpxContent);
+    const url = `${
+      SCRIPT_HUB_CONFIG.baseUrl
+    }/convert/_start_/http://local.text/_end_/${encodeURIComponent(plugin.name)}.sgmodule?type=${
+      config.sourceType
+    }&target=${config.targetType}&localtext=${encodedContent}`;
+
+    console.log(picocolors.gray(`  转换 URL: ${url.substring(0, 100)}...`));
+
+    try {
+      const response = await $$fetch(url, {
+        ...defaultRequestInit,
+        headers: {
+          'User-Agent': 'Surge Mac/2985',
+          Accept: '*/*',
+        },
+      });
+
+      if (!response.ok) {
+        return {
+          error: `HTTP ${response.status}: ${response.statusText}`,
+        };
+      }
+
+      const content = await response.text();
+
+      if (!content || content.trim().length === 0) {
+        return {
+          error: 'Empty response from Script-Hub',
+        };
+      }
+
+      // 基本验证：检查是否包含 sgmodule 标记
+      if (!content.includes('#!name=') && !content.includes('[Script]')) {
+        return {
+          error: 'Invalid sgmodule format',
+        };
+      }
+
+      console.log(picocolors.green(`[Convert] ✓ ${plugin.name}`));
+      return content;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.log(picocolors.red(`[Convert] ✗ ${plugin.name}: ${errorMsg}`));
+      return { error: errorMsg };
+    }
+  }
+
+  // 原有逻辑: .plugin 文件直接转换
+  const url = buildConversionUrl(plugin, config);
   console.log(picocolors.gray(`  URL: ${url}`));
 
   try {
@@ -71,15 +170,13 @@ export async function convertPlugin(
       ...defaultRequestInit,
       headers: {
         'User-Agent': 'Surge Mac/2985',
-        Accept: '*/*'
-      }
-      // 使用 DNS 解析到本地（如果 Script-Hub 容器在本地运行）
-      // 注意：fetch API 不支持 --resolve 参数，需要确保 DNS 正确配置
+        Accept: '*/*',
+      },
     });
 
     if (!response.ok) {
       return {
-        error: `HTTP ${response.status}: ${response.statusText}`
+        error: `HTTP ${response.status}: ${response.statusText}`,
       };
     }
 
@@ -88,14 +185,14 @@ export async function convertPlugin(
     // 验证内容
     if (!content || content.trim().length === 0) {
       return {
-        error: 'Empty response from Script-Hub'
+        error: 'Empty response from Script-Hub',
       };
     }
 
     // 基本验证：检查是否包含 sgmodule 标记
     if (!content.includes('#!name=') && !content.includes('[Script]')) {
       return {
-        error: 'Invalid sgmodule format'
+        error: 'Invalid sgmodule format',
       };
     }
 
@@ -120,8 +217,8 @@ export async function convertPluginsBatch(
   plugins: PluginInfo[],
   config?: ConversionConfig,
   concurrency = 5
-): Promise<Array<{ plugin: PluginInfo, content: string | { error: string } }>> {
-  const results: Array<{ plugin: PluginInfo, content: string | { error: string } }> = [];
+): Promise<Array<{ plugin: PluginInfo; content: string | { error: string } }>> {
+  const results: Array<{ plugin: PluginInfo; content: string | { error: string } }> = [];
 
   // 分批处理
   for (let i = 0; i < plugins.length; i += concurrency) {
@@ -130,7 +227,7 @@ export async function convertPluginsBatch(
     const batchResults = await Promise.all(
       batch.map(async plugin => ({
         plugin,
-        content: await convertPlugin(plugin, config)
+        content: await convertPlugin(plugin, config),
       }))
     );
 
@@ -149,7 +246,7 @@ export async function checkScriptHubAvailability(): Promise<boolean> {
   try {
     const response = await fetch(`${SCRIPT_HUB_CONFIG.baseUrl}/`, {
       method: 'HEAD',
-      signal: AbortSignal.timeout(5000)
+      signal: AbortSignal.timeout(5000),
     });
 
     return response.ok;
