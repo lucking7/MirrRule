@@ -286,12 +286,23 @@ jobs:
       - name: Convert plugins with retry
         run: |
           # 增加超时时间到 600 秒
+          # 允许部分插件转换失败（Script-Hub 服务可能不稳定）
           pnpm run convert-plugins --wait-service --timeout 600 || {
             echo "⚠️ 首次转换失败，等待 10 秒后重试..."
             sleep 10
             pnpm run convert-plugins --wait-service --timeout 600 || {
-              echo "❌ 两次转换都失败，可能是 Script-Hub 服务问题"
-              exit 1
+              echo "⚠️ 两次转换都失败，可能是 Script-Hub 服务问题"
+              echo "📊 检查是否有成功转换的插件..."
+
+              # 检查是否有成功转换的文件
+              if [ -d "public/Plugins" ] && [ "$(ls -A public/Plugins 2>/dev/null | wc -l)" -gt 0 ]; then
+                echo "✅ 发现 $(ls -A public/Plugins | wc -l) 个成功转换的插件"
+                echo "⚠️ 继续执行，但部分插件可能未转换"
+                exit 0
+              else
+                echo "❌ 没有成功转换的插件，任务失败"
+                exit 1
+              fi
             }
           }
         env:
