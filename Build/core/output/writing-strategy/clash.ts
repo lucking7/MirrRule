@@ -17,7 +17,8 @@ export class ClashDomainSet extends BaseWriteStrategy {
   readonly fileExtension = 'txt';
   readonly type = 'domainset';
 
-  protected result: string[] = [MARKER_DOMAIN];
+  // 🔧 移除 MARKER_DOMAIN 水印初始化
+  protected result: string[] = [];
 
   constructor(public readonly outputDir = OUTPUT_CLASH_DIR) {
     super(outputDir);
@@ -26,11 +27,17 @@ export class ClashDomainSet extends BaseWriteStrategy {
   withPadding = withBannerArray;
 
   writeDomain(domain: string): void {
-    this.result.push(domain);
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.result.push(domain);
+    }
   }
 
   writeDomainSuffix(domain: string): void {
-    this.result.push('+.' + domain);
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.result.push('+.' + domain);
+    }
   }
 
   // 移除noop限制，改为智能兼容处理
@@ -67,12 +74,12 @@ export class ClashDomainSet extends BaseWriteStrategy {
 
   /**
    * Clash智能规则处理 - 自动转换或兼容处理
-   * 重构：使用共享验证器检查注释和空行
+   * 重构：使用共享验证器检查注释、空行和水印
    */
   private processClashRuleIntelligently(rule: string): void {
     const trimmed = rule.trim();
+    // 🔧 跳过注释、空行和水印,不添加到结果中
     if (RuleValidator.shouldSkipLine(trimmed)) {
-      this.result.push(trimmed);
       return;
     }
 
@@ -156,12 +163,12 @@ export class ClashIPSet extends BaseWriteStrategy {
 
   /**
    * ClashRuleSet智能处理混合规则
-   * 重构：使用共享验证器检查注释和空行
+   * 重构：使用共享验证器检查注释、空行和水印
    */
   private processClashRuleSetIntelligently(rule: string): void {
     const trimmed = rule.trim();
+    // 🔧 跳过注释、空行和水印,不添加到结果中
     if (RuleValidator.shouldSkipLine(trimmed)) {
-      this.result.push(trimmed);
       return;
     }
 
@@ -179,6 +186,11 @@ export class ClashIPSet extends BaseWriteStrategy {
       case 'DOMAIN':
       case 'DOMAIN-SUFFIX':
       case 'DOMAIN-KEYWORD':
+        // 🔧 过滤水印域名
+        if (!RuleValidator.isSukkaWatermark(value)) {
+          this.result.push(`${ruleType},${value}${params ? ',' + params : ''}`);
+        }
+        break;
       case 'IP-CIDR':
       case 'IP-CIDR6':
       case 'GEOIP':
@@ -204,7 +216,8 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
 
   readonly fileExtension = 'txt';
 
-  protected result: string[] = [`DOMAIN,${MARKER_DOMAIN}`];
+  // 🔧 移除 MARKER_DOMAIN 水印初始化
+  protected result: string[] = [];
 
   constructor(
     /** 🔧 规则类型参数 - 设为空字符串以避免创建子目录 */
@@ -318,9 +331,9 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
   writeOtherRules(rules: string[]): void {
     for (const rule of rules) {
       const trimmed = rule.trim();
-      if (!trimmed || trimmed.startsWith('#')) {
-        // 保留注释和空行
-        this.result.push(trimmed);
+
+      // 🔧 使用 RuleValidator 统一过滤注释、空行和水印
+      if (RuleValidator.shouldSkipLine(trimmed)) {
         continue;
       }
 

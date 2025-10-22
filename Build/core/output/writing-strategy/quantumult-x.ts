@@ -11,6 +11,7 @@ import { noop } from 'foxts/noop';
 import { withBannerArray } from '../../../lib/misc';
 import { OUTPUT_QUANTUMULT_X_DIR } from '../../../constants/dir';
 import { MARKER_DOMAIN } from '../../../constants/description';
+import { RuleValidator } from '../../../utils/validation/validators';
 
 /**
  * QuantumultX过滤器输出策略（无策略版本）
@@ -22,7 +23,8 @@ export class QuantumultXFilterSet extends BaseWriteStrategy {
   readonly fileExtension = 'list' as const;
   readonly type = 'domainset' as const;
 
-  protected result: string[] = [MARKER_DOMAIN];
+  // 🔧 移除 MARKER_DOMAIN 水印初始化
+  protected result: string[] = [];
 
   constructor(public readonly outputDir = OUTPUT_QUANTUMULT_X_DIR) {
     super(outputDir);
@@ -31,11 +33,17 @@ export class QuantumultXFilterSet extends BaseWriteStrategy {
   withPadding = withBannerArray;
 
   writeDomain(domain: string): void {
-    this.result.push(domain);
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.result.push(domain);
+    }
   }
 
   writeDomainSuffix(domain: string): void {
-    this.result.push(domain);
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.result.push(domain);
+    }
   }
 
   // QuantumultX Filter Set 不支持其他规则类型
@@ -65,7 +73,8 @@ export class QuantumultXRuleSet extends BaseWriteStrategy {
 
   readonly fileExtension = 'list' as const;
 
-  protected result: string[] = [`host, ${MARKER_DOMAIN}, REJECT`];
+  // 🔧 移除 MARKER_DOMAIN 水印初始化
+  protected result: string[] = [];
 
   constructor(
     /** 🔧 规则类型参数 - 设为空字符串以避免创建子目录 */
@@ -78,11 +87,17 @@ export class QuantumultXRuleSet extends BaseWriteStrategy {
   withPadding = withBannerArray;
 
   writeDomain(domain: string): void {
-    this.result.push('host, ' + domain + ', REJECT');
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.result.push('host, ' + domain + ', REJECT');
+    }
   }
 
   writeDomainSuffix(domain: string): void {
-    this.result.push('host-suffix, ' + domain + ', REJECT');
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.result.push('host-suffix, ' + domain + ', REJECT');
+    }
   }
 
   writeDomainKeywords(keyword: Set<string>): void {

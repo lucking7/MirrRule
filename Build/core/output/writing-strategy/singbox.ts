@@ -36,8 +36,9 @@ export class SingboxSource extends BaseWriteStrategy {
   static readonly jsonToLines = (json: unknown): string[] => stringify(json).split('\n');
 
   private readonly singbox: SingboxHeadlessRule = {
-    domain: [MARKER_DOMAIN],
-    domain_suffix: [MARKER_DOMAIN],
+    // 🔧 移除 MARKER_DOMAIN 水印初始化
+    domain: [],
+    domain_suffix: [],
   };
 
   protected get result() {
@@ -58,11 +59,17 @@ export class SingboxSource extends BaseWriteStrategy {
   withPadding = withIdentityContent;
 
   writeDomain(domain: string): void {
-    this.singbox.domain.push(domain);
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.singbox.domain.push(domain);
+    }
   }
 
   writeDomainSuffix(domain: string): void {
-    this.singbox.domain_suffix.push(domain);
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.singbox.domain_suffix.push(domain);
+    }
   }
 
   writeDomainKeywords(keyword: Set<string>): void {
@@ -187,10 +194,16 @@ export class SingboxSource extends BaseWriteStrategy {
 
     switch (ruleType) {
       case 'DOMAIN':
-        this.singbox.domain.push(value);
+        // 🔧 过滤水印域名
+        if (!RuleValidator.isSukkaWatermark(value)) {
+          this.singbox.domain.push(value);
+        }
         break;
       case 'DOMAIN-SUFFIX':
-        this.singbox.domain_suffix.push(value);
+        // 🔧 过滤水印域名
+        if (!RuleValidator.isSukkaWatermark(value)) {
+          this.singbox.domain_suffix.push(value);
+        }
         break;
       case 'DOMAIN-KEYWORD':
         (this.singbox.domain_keyword ??= []).push(value);

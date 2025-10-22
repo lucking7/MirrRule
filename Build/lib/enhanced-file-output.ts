@@ -83,10 +83,11 @@ export class EnhancedFileOutput extends FileOutput {
       return this;
     }
 
-    // 🔧 2. 注释处理 - 使用 RuleValidator (支持 #、!、//、; 四种格式)
-    if (RuleValidator.isComment(trimmed)) {
-      if (this.config.keepComments) {
+    // 🔧 2. 注释和水印处理 - 使用 RuleValidator (支持 #、!、//、; 四种格式 + 水印检测)
+    if (RuleValidator.shouldSkipLine(trimmed)) {
+      if (this.config.keepComments && RuleValidator.isComment(trimmed)) {
         // 保留注释（直接添加到其他规则集合）
+        // 注意: 水印永远不会被保留,即使 keepComments 为 true
         this.otherRules.add(trimmed);
       }
       return this;
@@ -128,7 +129,8 @@ export class EnhancedFileOutput extends FileOutput {
       case 'domain': {
         // DOMAIN,example.com → domainTrie（自动去重）
         const domain = this.extractDomain(processedRule);
-        if (domain) {
+        // 🔧 过滤 Sukka 规则集水印
+        if (domain && !RuleValidator.isSukkaWatermark(domain)) {
           this.domainTrie.add(domain, false);
           if (process.env.DEBUG) this.stats.inputDomains++;
         }
@@ -138,7 +140,8 @@ export class EnhancedFileOutput extends FileOutput {
       case 'domain-suffix': {
         // DOMAIN-SUFFIX,example.com → domainTrie（自动去重+子域名优化）
         const suffix = this.extractDomain(processedRule);
-        if (suffix) {
+        // 🔧 过滤 Sukka 规则集水印
+        if (suffix && !RuleValidator.isSukkaWatermark(suffix)) {
           const lineFromDot = suffix.startsWith('.');
           this.domainTrie.add(
             lineFromDot ? suffix.slice(1) : suffix,

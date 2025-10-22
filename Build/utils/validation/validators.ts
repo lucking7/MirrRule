@@ -315,13 +315,30 @@ export const RuleValidator = {
   },
 
   /**
-   * 检查是否应该跳过该行（注释或空行）
+   * 检查字符串是否为 Sukka 规则集水印
+   *
+   * @param line - 待检查的字符串
+   * @returns 如果是水印返回true，否则返回false
+   */
+  isSukkaWatermark(line: string): boolean {
+    const trimmed = line.trim();
+    // 匹配 Sukka 规则集的水印标记
+    // 格式: 7h1s_rul35et_i5_mad3_by_5ukk4w-ruleset.skk.moe
+    // 或带规则类型: DOMAIN,7h1s_rul35et_i5_mad3_by_5ukk4w-ruleset.skk.moe
+    return (
+      trimmed.includes('7h1s_rul35et_i5_mad3_by_5ukk4w') ||
+      (trimmed.includes('ruleset.skk.moe') && trimmed.includes('7h1s'))
+    );
+  },
+
+  /**
+   * 检查是否应该跳过该行（注释、空行或水印）
    *
    * @param line - 待检查的字符串
    * @returns 如果应该跳过返回true，否则返回false
    */
   shouldSkipLine(line: string): boolean {
-    return this.isEmptyLine(line) || this.isComment(line);
+    return this.isEmptyLine(line) || this.isComment(line) || this.isSukkaWatermark(line);
   },
 
   /**

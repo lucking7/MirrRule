@@ -28,11 +28,17 @@ export class SurgeDomainSet extends BaseWriteStrategy {
   withPadding = withBannerArray;
 
   writeDomain(domain: string): void {
-    this.result.push(domain);
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.result.push(domain);
+    }
   }
 
   writeDomainSuffix(domain: string): void {
-    this.result.push('.' + domain);
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.result.push('.' + domain);
+    }
   }
 
   writeDomainKeywords = noop;
@@ -71,13 +77,19 @@ export class SurgeRuleSet extends BaseWriteStrategy {
   withPadding = withBannerArray;
 
   writeDomain(domain: string): void {
-    // 生成无策略的纯RULE-SET格式
-    this.result.push(BaseWriteStrategy.normalizeSurgeRule(`DOMAIN,${domain}`));
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      // 生成无策略的纯RULE-SET格式
+      this.result.push(BaseWriteStrategy.normalizeSurgeRule(`DOMAIN,${domain}`));
+    }
   }
 
   writeDomainSuffix(domain: string): void {
-    // 生成无策略的纯RULE-SET格式
-    this.result.push(BaseWriteStrategy.normalizeSurgeRule(`DOMAIN-SUFFIX,${domain}`));
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      // 生成无策略的纯RULE-SET格式
+      this.result.push(BaseWriteStrategy.normalizeSurgeRule(`DOMAIN-SUFFIX,${domain}`));
+    }
   }
 
   writeDomainKeywords(keyword: Set<string>): void {

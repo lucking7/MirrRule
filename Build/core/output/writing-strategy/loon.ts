@@ -13,6 +13,7 @@ import { OUTPUT_LOON_DIR } from '../../../constants/dir';
 import { MARKER_DOMAIN } from '../../../constants/description';
 import { CrossPlatformRuleParser } from '../../parsers';
 import { ProxyPlatform } from '../../../constants/rule-formats';
+import { RuleValidator } from '../../../utils/validation/validators';
 
 /**
  * Loon域名集合输出策略
@@ -23,7 +24,8 @@ export class LoonDomainSet extends BaseWriteStrategy {
   readonly fileExtension = 'list' as const;
   readonly type = 'domainset' as const;
 
-  protected result: string[] = [MARKER_DOMAIN];
+  // 🔧 移除 MARKER_DOMAIN 水印初始化
+  protected result: string[] = [];
 
   constructor(public readonly outputDir = OUTPUT_LOON_DIR) {
     super(outputDir);
@@ -32,11 +34,17 @@ export class LoonDomainSet extends BaseWriteStrategy {
   withPadding = withBannerArray;
 
   writeDomain(domain: string): void {
-    this.result.push(domain);
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.result.push(domain);
+    }
   }
 
   writeDomainSuffix(domain: string): void {
-    this.result.push(domain);
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.result.push(domain);
+    }
   }
 
   // Loon Domain Set 不支持其他规则类型
@@ -65,7 +73,8 @@ export class LoonRuleSet extends BaseWriteStrategy {
 
   readonly fileExtension = 'list' as const;
 
-  protected result: string[] = [`DOMAIN,${MARKER_DOMAIN}`];
+  // 🔧 移除 MARKER_DOMAIN 水印初始化
+  protected result: string[] = [];
 
   constructor(
     /** 🔧 规则类型参数 - 设为空字符串以避免创建子目录 */
@@ -78,11 +87,17 @@ export class LoonRuleSet extends BaseWriteStrategy {
   withPadding = withBannerArray;
 
   writeDomain(domain: string): void {
-    this.result.push('DOMAIN,' + domain);
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.result.push('DOMAIN,' + domain);
+    }
   }
 
   writeDomainSuffix(domain: string): void {
-    this.result.push('DOMAIN-SUFFIX,' + domain);
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.result.push('DOMAIN-SUFFIX,' + domain);
+    }
   }
 
   writeDomainKeywords(keyword: Set<string>): void {
@@ -154,9 +169,9 @@ export class LoonRuleSet extends BaseWriteStrategy {
   writeOtherRules(rules: string[]): void {
     for (const rule of rules) {
       const trimmed = rule.trim();
-      if (!trimmed || trimmed.startsWith('#')) {
-        // 保留注释和空行
-        this.result.push(trimmed);
+
+      // 🔧 使用 RuleValidator 统一过滤注释、空行和水印
+      if (RuleValidator.shouldSkipLine(trimmed)) {
         continue;
       }
 

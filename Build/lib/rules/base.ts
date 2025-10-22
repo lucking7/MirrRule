@@ -10,6 +10,7 @@ import { createRetrieKeywordFilter as createKeywordFilter } from 'foxts/retrie';
 import path from 'node:path';
 import { SurgeMitmSgmodule } from '../../core/output/writing-strategy/surge';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
+import { RuleValidator } from '../../utils/validation/validators';
 
 /**
  * Holds the universal rule data (domain, ip, url-regex, etc. etc.)
@@ -109,7 +110,10 @@ export class FileOutput {
   }
 
   addDomain(domain: string) {
-    this.domainTrie.add(domain);
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.domainTrie.add(domain);
+    }
     return this;
   }
 
@@ -117,7 +121,8 @@ export class FileOutput {
     let d: string | null;
     for (let i = 0, len = domains.length; i < len; i++) {
       d = domains[i];
-      if (d !== null) {
+      // 🔧 过滤 Sukka 规则集水印
+      if (d !== null && !RuleValidator.isSukkaWatermark(d)) {
         this.domainTrie.add(d, false, null, 0);
       }
     }
@@ -125,12 +130,16 @@ export class FileOutput {
   }
 
   addDomainSuffix(domain: string, lineFromDot = domain[0] === '.') {
-    this.domainTrie.add(domain, true, null, lineFromDot ? 1 : 0);
+    // 🔧 过滤 Sukka 规则集水印
+    if (!RuleValidator.isSukkaWatermark(domain)) {
+      this.domainTrie.add(domain, true, null, lineFromDot ? 1 : 0);
+    }
     return this;
   }
 
   bulkAddDomainSuffix(domains: string[]) {
     for (let i = 0, len = domains.length; i < len; i++) {
+      // addDomainSuffix 已经包含水印过滤,无需重复检查
       this.addDomainSuffix(domains[i]);
     }
     return this;
@@ -167,12 +176,19 @@ export class FileOutput {
     return this;
   }
 
-  private async addFromDomainsetPromise(source: MaybePromise<AsyncIterable<string> | Iterable<string> | string[]>) {
+  private async addFromDomainsetPromise(
+    source: MaybePromise<AsyncIterable<string> | Iterable<string> | string[]>
+  ) {
     for await (let line of await source) {
       const otherPoundSign = line.lastIndexOf('#');
 
       if (otherPoundSign > 0) {
         line = line.slice(0, otherPoundSign).trimEnd();
+      }
+
+      // 🔧 过滤 Sukka 规则集水印
+      if (RuleValidator.isSukkaWatermark(line)) {
+        continue;
       }
 
       if (line[0] === '.') {
@@ -192,7 +208,9 @@ export class FileOutput {
     return this;
   }
 
-  private async addFromRulesetPromise(source: MaybePromise<AsyncIterable<string> | Iterable<string> | string[]>) {
+  private async addFromRulesetPromise(
+    source: MaybePromise<AsyncIterable<string> | Iterable<string> | string[]>
+  ) {
     for await (let line of await source) {
       const otherPoundSign = line.lastIndexOf('#');
 
@@ -207,10 +225,16 @@ export class FileOutput {
 
       switch (type) {
         case 'DOMAIN':
-          this.domainTrie.add(value, false, null, 0);
+          // 🔧 过滤 Sukka 规则集水印
+          if (!RuleValidator.isSukkaWatermark(value)) {
+            this.domainTrie.add(value, false, null, 0);
+          }
           break;
         case 'DOMAIN-SUFFIX':
-          this.addDomainSuffix(value, false);
+          // 🔧 过滤 Sukka 规则集水印
+          if (!RuleValidator.isSukkaWatermark(value)) {
+            this.addDomainSuffix(value, false);
+          }
           break;
         case 'DOMAIN-KEYWORD':
           this.addDomainKeyword(value);
@@ -288,7 +312,7 @@ export class FileOutput {
     let list: Set<string>;
     if (version === 4) {
       list = noResolve ? this.ipcidrNoResolve : this.ipcidr;
-    } else /* if (version === 6) */ {
+    } /* if (version === 6) */ else {
       list = noResolve ? this.ipcidr6NoResolve : this.ipcidr6;
     }
 
@@ -310,7 +334,7 @@ export class FileOutput {
 
       if (version === 4) {
         list4.add(cidr);
-      } else /* if (version === 6) */ {
+      } /* if (version === 6) */ else {
         list6.add(cidr);
       }
     }
@@ -403,8 +427,7 @@ export class FileOutput {
 
     // We use both DOMAIN-KEYWORD and whitelisted keyword to whitelist DOMAIN and DOMAIN-SUFFIX
     const kwfilter = createKeywordFilter(
-      Array.from(this.domainKeywords)
-        .concat(Array.from(this.whitelistKeywords))
+      Array.from(this.domainKeywords).concat(Array.from(this.whitelistKeywords))
     );
 
     if (this.strategies.filter(not(false)).length === 0) {
@@ -415,6 +438,11 @@ export class FileOutput {
 
     this.domainTrie.dumpWithoutDot((domain, includeAllSubdomain) => {
       if (kwfilter(domain)) {
+        return;
+      }
+
+      // 🔧 过滤 Sukka 规则集水印
+      if (RuleValidator.isSukkaWatermark(domain)) {
         return;
       }
 
@@ -445,7 +473,7 @@ export class FileOutput {
       }
     }
 
-    this.wildcardTrie.dumpWithoutDot((wildcard) => {
+    this.wildcardTrie.dumpWithoutDot(wildcard => {
       if (kwfilter(wildcard)) {
         return;
       }
@@ -540,22 +568,24 @@ export class FileOutput {
   }
 
   write(): Promise<unknown> {
-    return this.span.traceChildAsync('write all', async (childSpan) => {
+    return this.span.traceChildAsync('write all', async childSpan => {
       await childSpan.traceChildAsync('done', () => this.done());
 
       childSpan.traceChildSync('write to strategies', () => this.writeToStrategies());
 
-      return childSpan.traceChildAsync('output to disk', (childSpan) => {
+      return childSpan.traceChildAsync('output to disk', childSpan => {
         const promises: Array<Promise<void> | void> = [];
 
         const descriptions = nullthrow(this.description, 'Missing description');
 
         if (this.dataSource.size) {
-          descriptions.push(
-            '',
-            'This file contains data from:'
+          descriptions.push('', 'This file contains data from:');
+          appendArrayInPlace(
+            descriptions,
+            Array.from(this.dataSource)
+              .sort()
+              .map(source => `  - ${source}`)
           );
-          appendArrayInPlace(descriptions, Array.from(this.dataSource).sort().map((source) => `  - ${source}`));
         }
 
         for (let i = 0, len = this.strategies.length; i < len; i++) {
@@ -564,18 +594,20 @@ export class FileOutput {
           const basename = (strategy.overwriteFilename || this.id) + '.' + strategy.fileExtension;
 
           promises.push(
-            childSpan.traceChildAsync('write ' + strategy.name, (childSpan) => Promise.resolve(strategy.output(
-              childSpan,
-              nullthrow(this.title, 'Missing title'),
-              descriptions,
-              this.date,
-              path.join(
-                strategy.outputDir,
-                strategy.type
-                  ? path.join(strategy.type, basename)
-                  : basename
+            childSpan.traceChildAsync('write ' + strategy.name, childSpan =>
+              Promise.resolve(
+                strategy.output(
+                  childSpan,
+                  nullthrow(this.title, 'Missing title'),
+                  descriptions,
+                  this.date,
+                  path.join(
+                    strategy.outputDir,
+                    strategy.type ? path.join(strategy.type, basename) : basename
+                  )
+                )
               )
-            )))
+            )
           );
         }
 
