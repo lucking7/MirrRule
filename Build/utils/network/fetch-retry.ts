@@ -1,7 +1,7 @@
 import picocolors from 'picocolors';
 import undici, {
   interceptors,
-  Agent
+  Agent,
   // setGlobalDispatcher
 } from 'undici';
 
@@ -25,7 +25,7 @@ agent.compose(
   interceptors.dns({
     // disable IPv6
     dualStack: false,
-    affinity: 4
+    affinity: 4,
     // TODO: proper cacheable-lookup, or even DoH
   }),
   interceptors.retry({
@@ -39,14 +39,14 @@ agent.compose(
       const errorCode = 'code' in err ? (err as NodeJS.ErrnoException).code : undefined;
 
       Object.defineProperty(err, '_url', {
-        value: opts.method + ' ' + opts.origin?.toString() + opts.path
+        value: opts.method + ' ' + opts.origin?.toString() + opts.path,
       });
 
       // Any code that is not a Undici's originated and allowed to retry
       if (
-        errorCode === 'ERR_UNESCAPED_CHARACTERS'
-        || err.message === 'Request path contains unescaped characters'
-        || err.name === 'AbortError'
+        errorCode === 'ERR_UNESCAPED_CHARACTERS' ||
+        err.message === 'Request path contains unescaped characters' ||
+        err.name === 'AbortError'
       ) {
         return cb(err);
       }
@@ -54,14 +54,26 @@ agent.compose(
       const statusCode =
         'statusCode' in err && typeof err.statusCode === 'number' ? err.statusCode : null;
 
+      // 检查是否是 Script-Hub 请求（允许重试 403/500 等错误）
+      const isScriptHubRequest =
+        opts.origin?.toString().includes('script.hub') ||
+        opts.origin?.toString().includes('localhost:9101');
+
       // bail out if the status code matches one of the following
+      // 但对于 Script-Hub 请求，允许重试 403/500 等临时错误
       if (
-        statusCode != null
-        && (statusCode === 401 // Unauthorized, should check credentials instead of retrying
-          || statusCode === 403 // Forbidden, should check permissions instead of retrying
-          || statusCode === 404 // Not Found, should check URL instead of retrying
-          || statusCode === 405) // Method Not Allowed, should check method instead of retrying
+        statusCode != null &&
+        !isScriptHubRequest &&
+        (statusCode === 401 || // Unauthorized, should check credentials instead of retrying
+          statusCode === 403 || // Forbidden, should check permissions instead of retrying
+          statusCode === 404 || // Not Found, should check URL instead of retrying
+          statusCode === 405) // Method Not Allowed, should check method instead of retrying
       ) {
+        return cb(err);
+      }
+
+      // 对于 Script-Hub 请求，只跳过 404（真正的不存在）
+      if (isScriptHubRequest && statusCode === 404) {
         return cb(err);
       }
 
@@ -69,12 +81,17 @@ agent.compose(
       //   return cb(err);
       // }
 
+      // Script-Hub 请求使用更激进的重试策略
+      const defaultMaxRetries = isScriptHubRequest ? 10 : 5;
+      const defaultMinTimeout = isScriptHubRequest ? 1000 : 500;
+      const defaultMaxTimeout = isScriptHubRequest ? 30 * 1000 : 10 * 1000;
+
       const {
-        maxRetries = 5,
-        minTimeout = 500,
-        maxTimeout = 10 * 1000,
+        maxRetries = defaultMaxRetries,
+        minTimeout = defaultMinTimeout,
+        maxTimeout = defaultMaxTimeout,
         timeoutFactor = 2,
-        methods = ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE', 'TRACE']
+        methods = ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE', 'TRACE'],
       } = opts.retryOptions || {};
 
       // If we reached the max number of retries
@@ -109,23 +126,23 @@ agent.compose(
         statusCode,
         retryTimeout,
         errorCode,
-        url: opts.origin
+        url: opts.origin,
       });
       // eslint-disable-next-line sukka/prefer-timer-id -- won't leak
       setTimeout(() => cb(null), retryTimeout);
-    }
+    },
     // errorCodes: ['UND_ERR_HEADERS_TIMEOUT', 'ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'ENETDOWN', 'ENETUNREACH', 'EHOSTDOWN', 'EHOSTUNREACH', 'EPIPE', 'ETIMEDOUT']
   }),
   interceptors.redirect({
-    maxRedirections: 5
+    maxRedirections: 5,
   }),
   interceptors.cache({
     store: new BetterSqlite3CacheStore({
       loose: true,
       location: path.join(CACHE_DIR, 'undici-better-sqlite3-cache-store.db'),
-      maxEntrySize: 1024 * 1024 * 100 // 100 MiB
+      maxEntrySize: 1024 * 1024 * 100, // 100 MiB
     }),
-    cacheByDefault: 600 // 10 minutes
+    cacheByDefault: 600, // 10 minutes
   })
 );
 
@@ -152,8 +169,8 @@ export class ResponseError<T extends UndiciResponseData | Response> extends Erro
 
 export const defaultRequestInit = {
   headers: {
-    'User-Agent': 'Surge Mac/8380'
-  }
+    'User-Agent': 'Surge Mac/8380',
+  },
 };
 
 export async function $$fetch(url: string, init: RequestInit = defaultRequestInit) {

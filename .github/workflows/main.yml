@@ -266,21 +266,23 @@ jobs:
       
       - run: pnpm install --frozen-lockfile
       
-      - name: Configure Script-Hub
+      - name: Wait for Script-Hub service
         run: |
           echo "127.0.0.1 script.hub" | sudo tee -a /etc/hosts
           echo "⏳ 等待 Script-Hub 服务启动..."
-          for i in {1..30}; do
-            if curl -f -s http://script.hub:9101/ > /dev/null 2>&1; then
-              echo "✓ Script-Hub 服务就绪 (尝试 $i/30)"
-              # 🔧 增加等待时间,确保服务完全稳定 (方案 3)
-              sleep 10
+
+          # 使用 netcat 检查端口（更快更可靠）
+          for i in {1..20}; do
+            if nc -z localhost 9101; then
+              echo "✓ Script-Hub 端口 9101 已开放 (尝试 $i/20)"
+              # 额外等待 5 秒确保服务完全就绪
+              sleep 5
               exit 0
             fi
-            echo "  尝试 $i/30 失败，等待 5 秒后重试..."
+            echo "  尝试 $i/20 失败，等待 5 秒后重试..."
             sleep 5
           done
-          echo "❌ Script-Hub 服务启动超时"
+          echo "::error ::Script-Hub 服务启动超时"
           exit 1
 
       - name: Convert plugins with retry
