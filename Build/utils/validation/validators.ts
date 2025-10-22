@@ -15,9 +15,10 @@ export class DomainValidator {
   /**
    * 域名格式正则表达式
    * 匹配标准域名格式：example.com, sub.example.com
+   * 注意: 虽然 RFC 规范不允许下划线,但实际中有些域名包含下划线,因此这里也匹配
    */
   private static readonly DOMAIN_REGEX =
-    /^[\da-z]([\da-z-]*[\da-z])?(\.[\da-z]([\da-z-]*[\da-z])?)*$/i;
+    /^[\da-z_]([\da-z_-]*[\da-z_])?(\.[\da-z_]([\da-z_-]*[\da-z_])?)*$/i;
 
   /**
    * 检查字符串是否为有效的域名格式
@@ -322,12 +323,16 @@ export const RuleValidator = {
    */
   isSukkaWatermark(line: string): boolean {
     const trimmed = line.trim();
-    // 匹配 Sukka 规则集的水印标记
-    // 格式: 7h1s_rul35et_i5_mad3_by_5ukk4w-ruleset.skk.moe
-    // 或带规则类型: DOMAIN,7h1s_rul35et_i5_mad3_by_5ukk4w-ruleset.skk.moe
+    // 匹配 Sukka 规则集的所有水印变体:
+    // 1. 7h1s_rul35et_i5_mad3_by_5ukk4w-ruleset.skk.moe
+    // 2. th1s_rule5et_1s_m4d3_by_5ukk4w_ruleset.skk.moe
+    // 3. this_ruleset_is_made_by_sukkaw.ruleset.skk.moe
     return (
       trimmed.includes('7h1s_rul35et_i5_mad3_by_5ukk4w') ||
-      (trimmed.includes('ruleset.skk.moe') && trimmed.includes('7h1s'))
+      trimmed.includes('th1s_rule5et_1s_m4d3_by_5ukk4w') ||
+      trimmed.includes('this_ruleset_is_made_by_sukkaw') ||
+      (trimmed.includes('ruleset.skk.moe') &&
+        (trimmed.includes('7h1s') || trimmed.includes('th1s') || trimmed.includes('this')))
     );
   },
 
