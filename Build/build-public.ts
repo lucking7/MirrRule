@@ -172,6 +172,43 @@ function generateHtml(tree: TreeTypeArray) {
             --nav-link-spacing-horizontal: 0.5rem;
             --form-label-font-weight: var(--font-weight);
             --transition: 0.2s ease-in-out;
+
+            /* 圆角系统 */
+            --radius-xs: 0.125rem;    /* 2px */
+            --radius-sm: 0.25rem;     /* 4px */
+            --radius-md: 0.375rem;    /* 6px */
+            --radius-lg: 0.5rem;      /* 8px */
+            --radius-xl: 0.75rem;     /* 12px */
+            --radius-2xl: 1rem;       /* 16px */
+            --radius-3xl: 1.5rem;     /* 24px */
+
+            /* 排版系统 */
+            --text-xs: 0.75rem;       /* 12px */
+            --text-sm: 0.875rem;      /* 14px */
+            --text-base: 1rem;        /* 16px */
+            --text-lg: 1.125rem;      /* 18px */
+            --text-xl: 1.25rem;       /* 20px */
+            --text-2xl: 1.5rem;       /* 24px */
+            --text-3xl: 1.875rem;     /* 30px */
+            --text-4xl: 2.25rem;      /* 36px */
+            --text-5xl: 3rem;         /* 48px */
+            --text-6xl: 3.75rem;      /* 60px */
+            --text-7xl: 4.5rem;       /* 72px */
+
+            /* 间距系统 */
+            --spacing-0: 0;
+            --spacing-1: 0.25rem;     /* 4px */
+            --spacing-2: 0.5rem;      /* 8px */
+            --spacing-3: 0.75rem;     /* 12px */
+            --spacing-4: 1rem;        /* 16px */
+            --spacing-5: 1.25rem;     /* 20px */
+            --spacing-6: 1.5rem;      /* 24px */
+            --spacing-8: 2rem;        /* 32px */
+            --spacing-10: 2.5rem;     /* 40px */
+            --spacing-11: 2.75rem;    /* 44px */
+            --spacing-12: 3rem;       /* 48px */
+            --spacing-16: 4rem;       /* 64px */
+            --spacing-20: 5rem;       /* 80px */
           }
 
           @media (min-width: 576px) {
@@ -708,28 +745,34 @@ function generateHtml(tree: TreeTypeArray) {
       <body>
         <main class="container">
           <h1>Luck Ruleset Server</h1>
-          <p>Made by <a href="https://github.com/lucking7"><svg style="display:inline-block;width:1em;height:1em;vertical-align:middle;margin-right:4px;fill:#F77E2D" viewBox="0 0 24 24"><path d="M12 2a1 1 0 0 1 1 1v1.522a2.501 2.501 0 0 1 2.89 4.003l-.355.354l.707.707l.354-.354a2.5 2.5 0 1 1 0 3.536l-.354-.354l-.707.707l.354.354a2.5 2.5 0 0 1-1.14 4.188a1 1 0 0 1-.25.203V21a1 1 0 1 1-2 0v-3h-1v3a1 1 0 1 1-2 0v-3.134a1 1 0 0 1-.248-.203a2.5 2.5 0 0 1-1.14-4.188l.353-.354l-.707-.707l-.353.354a2.5 2.5 0 1 1 0-3.536l.353.354l.707-.707l-.353-.354A2.5 2.5 0 0 1 11 4.522V3a1 1 0 0 1 1-1m2.121 12.536l-.707.707l.354.353a.5.5 0 1 0 .707-.707zm-4.242 0l-.354.353a.5.5 0 1 0 .707.707l.354-.353zm-4.597-3.89a.5.5 0 0 0 .708.708L6.343 11l-.353-.354a.5.5 0 0 0-.708 0m12.728 0l-.353.354l.353.354a.5.5 0 1 0 0-.707M9.525 6.405a.5.5 0 0 0 0 .707l.354.354l.707-.708l-.354-.353a.5.5 0 0 0-.707 0m4.95 0a.5.5 0 0 0-.638-.058l-.07.058l-.353.353l.707.708l.354-.354a.5.5 0 0 0 0-.707"/></svg>Luck</a> • <a href="https://github.com/lucking7/esdeath">Source @ GitHub</a> • Licensed under <a href="/LICENSE" target="_blank">AGPL-3.0</a></p>
+          <div style="display:flex;flex-direction:column;align-items:flex-start;gap:0.25rem;margin:1rem 0;font-size:0.9rem;color:var(--muted-color)">
+            <div>Made by</div>
+            <a href="https://github.com/lucking7" style="display:inline-flex;align-items:center;gap:0.25rem"><svg style="display:inline-block;width:1em;height:1em;vertical-align:-0.125em;fill:#F77E2D" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2a1 1 0 0 1 1 1v1.522a2.501 2.501 0 0 1 2.89 4.003l-.355.354l.707.707l.354-.354a2.5 2.5 0 1 1 0 3.536l-.354-.354l-.707.707l.354.354a2.5 2.5 0 0 1-1.14 4.188a1 1 0 0 1-.25.203V21a1 1 0 1 1-2 0v-3h-1v3a1 1 0 1 1-2 0v-3.134a1 1 0 0 1-.248-.203a2.5 2.5 0 0 1-1.14-4.188l.353-.354l-.707-.707l-.353.354a2.5 2.5 0 1 1 0-3.536l.353.354l.707-.707l-.353-.354A2.5 2.5 0 0 1 11 4.522V3a1 1 0 0 1 1-1m2.121 12.536l-.707.707l.354.353a.5.5 0 1 0 .707-.707zm-4.242 0l-.354.353a.5.5 0 1 0 .707.707l.354-.353zm-4.597-3.89a.5.5 0 0 0 .708.708L6.343 11l-.353-.354a.5.5 0 0 0-.708 0m12.728 0l-.353.354l.353.354a.5.5 0 1 0 0-.707M9.525 6.405a.5.5 0 0 0 0 .707l.354.354l.707-.708l-.354-.353a.5.5 0 0 0-.707 0m4.95 0a.5.5 0 0 0-.638-.058l-.07.058l-.353.353l.707.708l.354-.354a.5.5 0 0 0 0-.707"/></svg>Luck</a>
+            <a href="https://github.com/lucking7/esdeath">Source @ GitHub</a>
+            <div>Licensed under</div>
+            <a href="/LICENSE" target="_blank" rel="noopener noreferrer">AGPL-3.0</a>
+          </div>
           <p>Last Build: ${(() => {
             const now = new Date();
             const offset = 8 * 60; // GMT+8 in minutes
             const gmtPlus8 = new Date(now.getTime() + (offset - now.getTimezoneOffset()) * 60000);
             return gmtPlus8.toISOString().replace('Z', '+08:00');
           })()}</p>
-          <div style="position:relative;margin:1.5rem 0">
-            <svg id="search-icon" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:20px;height:20px;fill:var(--muted-color);pointer-events:none;transition:fill 0.2s" viewBox="0 0 24 24"><path d="M10.5 2a8.5 8.5 0 1 0 5.262 15.176l3.652 3.652a1 1 0 0 0 1.414-1.414l-3.652-3.652A8.5 8.5 0 0 0 10.5 2M4 10.5a6.5 6.5 0 1 1 13 0a6.5 6.5 0 0 1-13 0"/></svg>
-            <input type="text" id="search-input" placeholder="搜索文件和文件夹..." style="width:100%;padding:0.75rem 2.75rem 0.75rem 2.75rem;border:2px solid var(--muted-border-color);border-radius:var(--border-radius);font-family:var(--font-family);font-size:var(--font-size);background-color:var(--background-color);color:var(--color);transition:all 0.2s;outline:none" />
-            <button id="clear-btn" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;padding:0;cursor:pointer;width:20px;height:20px" aria-label="清除搜索">
+          <div style="position:relative;margin:var(--spacing-6) 0">
+            <svg id="search-icon" style="position:absolute;left:var(--spacing-3);top:50%;transform:translateY(-50%);width:20px;height:20px;fill:var(--muted-color);pointer-events:none;transition:fill 0.2s" viewBox="0 0 24 24"><path d="M10.5 2a8.5 8.5 0 1 0 5.262 15.176l3.652 3.652a1 1 0 0 0 1.414-1.414l-3.652-3.652A8.5 8.5 0 0 0 10.5 2M4 10.5a6.5 6.5 0 1 1 13 0a6.5 6.5 0 0 1-13 0"/></svg>
+            <input type="text" id="search-input" placeholder="搜索文件和文件夹..." style="width:100%;padding:var(--spacing-3) var(--spacing-11) var(--spacing-3) var(--spacing-11);border:2px solid var(--muted-border-color);border-radius:var(--radius-lg);font-family:var(--font-family);font-size:var(--font-size);background-color:var(--background-color);color:var(--color);transition:all 0.2s;outline:none" />
+            <button id="clear-btn" style="display:none;position:absolute;right:var(--spacing-3);top:50%;transform:translateY(-50%);background:transparent;border:none;padding:0;cursor:pointer;width:20px;height:20px" aria-label="清除搜索">
               <svg style="width:20px;height:20px;fill:var(--muted-color);transition:fill 0.2s" viewBox="0 0 24 24"><path d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2m0 2a8 8 0 1 0 0 16a8 8 0 0 0 0-16M9.879 8.464L12 10.586l2.121-2.122a1 1 0 1 1 1.415 1.415l-2.122 2.12l2.122 2.122a1 1 0 0 1-1.415 1.415L12 13.414l-2.121 2.122a1 1 0 0 1-1.415-1.415L10.586 12L8.465 9.879a1 1 0 0 1 1.414-1.415"/></svg>
             </button>
           </div>
-          <div id="search-result-count" style="margin:-0.5rem 0 1rem 0;font-size:0.875rem;color:var(--muted-color);min-height:1.3125rem"></div>
+          <div id="search-result-count" style="margin:calc(var(--spacing-2) * -1) 0 var(--spacing-4) 0;font-size:var(--text-sm);color:var(--muted-color);min-height:1.3125rem"></div>
           <ul class="tree">
             ${treeHtml(tree, 0, closedRootFolders)}
           </ul>
-          <div id="empty-state" style="display:none;text-align:center;padding:3rem 1rem;color:var(--muted-color)">
-            <p style="font-size:3rem;margin:0 0 0.5rem 0">🔍</p>
-            <p style="margin:0;font-size:1.125rem">未找到匹配的文件或文件夹</p>
-            <p style="margin:0.5rem 0 0 0;font-size:0.875rem">试试其他关键词</p>
+          <div id="empty-state" style="display:none;text-align:center;padding:var(--spacing-12) var(--spacing-4);color:var(--muted-color)">
+            <p style="font-size:var(--text-7xl);margin:0 0 var(--spacing-2) 0">🔍</p>
+            <p style="margin:0;font-size:var(--text-lg)">未找到匹配的文件或文件夹</p>
+            <p style="margin:var(--spacing-2) 0 0 0;font-size:var(--text-sm)">试试其他关键词</p>
           </div>
         </main>
         <script>
