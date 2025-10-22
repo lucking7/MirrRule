@@ -180,7 +180,8 @@ export class SurgeRuleSet extends BaseWriteStrategy {
     // 解析规则结构
     const parts = trimmed.split(',');
     if (parts.length < 2) {
-      this.result.push(trimmed);
+      // 🔧 修复: 纯域名/IP 等无前缀规则,使用智能识别添加前缀
+      this.intelligentRuleIdentification(trimmed);
       return;
     }
 
