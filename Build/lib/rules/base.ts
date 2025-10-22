@@ -218,6 +218,26 @@ export class FileOutput {
         line = line.slice(0, otherPoundSign).trimEnd();
       }
 
+      // 🔧 自动转换 domainset 格式为 ruleset 格式
+      // .example.com → DOMAIN-SUFFIX,example.com
+      // example.com (纯域名) → DOMAIN,example.com
+      if (!line.includes(',')) {
+        if (line.startsWith('.')) {
+          // 域名后缀格式
+          line = `DOMAIN-SUFFIX,${line.slice(1)}`;
+        } else if (
+          line &&
+          !line.startsWith('#') &&
+          !line.startsWith('!') &&
+          !line.startsWith('//') &&
+          !line.startsWith(';') &&
+          !/^\d/.test(line) // 不以数字开头（排除 IP）
+        ) {
+          // 纯域名格式
+          line = `DOMAIN,${line}`;
+        }
+      }
+
       const splitted = line.split(',');
       const type = splitted[0];
       const value = splitted[1];
