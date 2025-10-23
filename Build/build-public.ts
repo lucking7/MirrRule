@@ -724,13 +724,11 @@ function generateHtml(tree: TreeTypeArray) {
           }
 
           .tree li.folder > details > summary {
-            font-weight: 600;
             letter-spacing: -0.02em;
             font-size: 1em;
           }
 
           .tree li.file a {
-            font-weight: 400;
             font-size: 0.95em;
             color: var(--muted-color);
             letter-spacing: 0;

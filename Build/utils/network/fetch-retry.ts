@@ -54,27 +54,36 @@ agent.compose(
       const statusCode =
         'statusCode' in err && typeof err.statusCode === 'number' ? err.statusCode : null;
 
-      // 检查是否是 Script-Hub 请求（允许重试 403/500 等错误）
+      // 检查是否是 Script-Hub 请求
+      const url = opts.origin?.toString() + opts.path;
       const isScriptHubRequest =
-        opts.origin?.toString().includes('script.hub') ||
-        opts.origin?.toString().includes('localhost:9101');
+        url.includes('script.hub') ||
+        url.includes('localhost:9101') ||
+        url.includes('localhost:9100');
 
-      // bail out if the status code matches one of the following
-      // 但对于 Script-Hub 请求，允许重试 403/500 等临时错误
-      if (
-        statusCode != null &&
-        !isScriptHubRequest &&
-        (statusCode === 401 || // Unauthorized, should check credentials instead of retrying
-          statusCode === 403 || // Forbidden, should check permissions instead of retrying
-          statusCode === 404 || // Not Found, should check URL instead of retrying
-          statusCode === 405) // Method Not Allowed, should check method instead of retrying
-      ) {
-        return cb(err);
-      }
-
-      // 对于 Script-Hub 请求，只跳过 404（真正的不存在）
-      if (isScriptHubRequest && statusCode === 404) {
-        return cb(err);
+      // Script-Hub 请求使用更宽松的重试策略
+      if (isScriptHubRequest) {
+        // Script-Hub 可能返回 403/500 错误，但这些错误是临时的，应该重试
+        // 只有 401/404/405 才不重试
+        if (
+          statusCode != null &&
+          (statusCode === 401 || // Unauthorized
+            statusCode === 404 || // Not Found
+            statusCode === 405) // Method Not Allowed
+        ) {
+          return cb(err);
+        }
+      } else {
+        // 普通请求：bail out if the status code matches one of the following
+        if (
+          statusCode != null &&
+          (statusCode === 401 || // Unauthorized, should check credentials instead of retrying
+            statusCode === 403 || // Forbidden, should check permissions instead of retrying
+            statusCode === 404 || // Not Found, should check URL instead of retrying
+            statusCode === 405) // Method Not Allowed, should check method instead of retrying
+        ) {
+          return cb(err);
+        }
       }
 
       // if (errorCode === 'UND_ERR_REQ_RETRY') {
@@ -82,16 +91,28 @@ agent.compose(
       // }
 
       // Script-Hub 请求使用更激进的重试策略
-      const defaultMaxRetries = isScriptHubRequest ? 10 : 5;
-      const defaultMinTimeout = isScriptHubRequest ? 1000 : 500;
-      const defaultMaxTimeout = isScriptHubRequest ? 30 * 1000 : 10 * 1000;
+      const defaultRetryOptions = isScriptHubRequest
+        ? {
+            maxRetries: 10, // Script-Hub: 10 次重试（普通请求 5 次）
+            minTimeout: 1000, // Script-Hub: 1 秒起始延迟（普通请求 500ms）
+            maxTimeout: 30 * 1000, // Script-Hub: 30 秒最大延迟（普通请求 10 秒）
+            timeoutFactor: 2,
+            methods: ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE', 'TRACE'],
+          }
+        : {
+            maxRetries: 5,
+            minTimeout: 500,
+            maxTimeout: 10 * 1000,
+            timeoutFactor: 2,
+            methods: ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE', 'TRACE'],
+          };
 
       const {
-        maxRetries = defaultMaxRetries,
-        minTimeout = defaultMinTimeout,
-        maxTimeout = defaultMaxTimeout,
-        timeoutFactor = 2,
-        methods = ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE', 'TRACE'],
+        maxRetries = defaultRetryOptions.maxRetries,
+        minTimeout = defaultRetryOptions.minTimeout,
+        maxTimeout = defaultRetryOptions.maxTimeout,
+        timeoutFactor = defaultRetryOptions.timeoutFactor,
+        methods = defaultRetryOptions.methods,
       } = opts.retryOptions || {};
 
       // If we reached the max number of retries
@@ -122,11 +143,12 @@ agent.compose(
           ? Math.min(retryAfter, maxTimeout)
           : Math.min(minTimeout * timeoutFactor ** (state.counter - 1), maxTimeout);
 
-      console.log('[fetch retry]', 'schedule retry', {
+      console.log('[fetch retry]', isScriptHubRequest ? '[Script-Hub]' : '', 'schedule retry', {
         statusCode,
         retryTimeout,
         errorCode,
         url: opts.origin,
+        attempt: `${state.counter}/${maxRetries}`,
       });
       // eslint-disable-next-line sukka/prefer-timer-id -- won't leak
       setTimeout(() => cb(null), retryTimeout);

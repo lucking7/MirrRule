@@ -61,19 +61,20 @@ export async function convertPlugin(
     targetType: 'surge-module',
   }
 ): Promise<string | { error: string }> {
-  console.log(picocolors.gray(`[Convert] ${plugin.name} (${plugin.extension})`));
-
-  // ✅ 统一处理: 让 Script-Hub 自己下载源文件（.plugin 和 .lpx 都支持）
   const url = buildConversionUrl(plugin, config);
-  console.log(picocolors.gray(`  URL: ${url.substring(0, 120)}...`));
+
+  console.log(picocolors.gray(`[Convert] ${plugin.name}`));
+  console.log(picocolors.gray(`  URL: ${url}`));
 
   try {
     const response = await $$fetch(url, {
       ...defaultRequestInit,
       headers: {
-        'User-Agent': 'Surge Mac/2985', // Script-Hub 会使用这个 UA 下载源文件
+        'User-Agent': 'Surge Mac/2985',
         Accept: '*/*',
       },
+      // 使用 DNS 解析到本地（如果 Script-Hub 容器在本地运行）
+      // 注意：fetch API 不支持 --resolve 参数，需要确保 DNS 正确配置
     });
 
     if (!response.ok) {
@@ -118,21 +119,13 @@ export async function convertPlugin(
 export async function convertPluginsBatch(
   plugins: PluginInfo[],
   config?: ConversionConfig,
-  concurrency = 3 // 降低并发数从 5 到 3
+  concurrency = 5
 ): Promise<Array<{ plugin: PluginInfo; content: string | { error: string } }>> {
   const results: Array<{ plugin: PluginInfo; content: string | { error: string } }> = [];
-
-  console.log(picocolors.cyan(`\n📊 批量转换配置: 并发数=${concurrency}, 总数=${plugins.length}`));
 
   // 分批处理
   for (let i = 0; i < plugins.length; i += concurrency) {
     const batch = plugins.slice(i, i + concurrency);
-    const batchNum = Math.floor(i / concurrency) + 1;
-    const totalBatches = Math.ceil(plugins.length / concurrency);
-
-    console.log(
-      picocolors.gray(`\n[Batch ${batchNum}/${totalBatches}] 处理 ${batch.length} 个插件...`)
-    );
 
     const batchResults = await Promise.all(
       batch.map(async plugin => ({
@@ -142,20 +135,6 @@ export async function convertPluginsBatch(
     );
 
     results.push(...batchResults);
-
-    // 统计当前批次结果
-    const batchSuccess = batchResults.filter(r => typeof r.content === 'string').length;
-    const batchFailed = batchResults.length - batchSuccess;
-    console.log(
-      picocolors.gray(
-        `[Batch ${batchNum}/${totalBatches}] 完成: ✓ ${batchSuccess} 成功, ✗ ${batchFailed} 失败`
-      )
-    );
-
-    // 批次间添加短暂延迟，避免过载
-    if (i + concurrency < plugins.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
   }
 
   return results;

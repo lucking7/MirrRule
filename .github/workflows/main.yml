@@ -5,12 +5,6 @@ on:
     branches:
       - main
       - master
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.github/dependabot.yml'
-      - 'LICENSE'
-      - '.gitignore'
   pull_request:
   schedule:
     # 每天 05:00 和 17:00 UTC 执行完整构建 (2 次/天)
@@ -55,7 +49,7 @@ jobs:
   # ============================================
   prepare:
     name: Prepare Tasks
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     outputs:
       should_build: ${{ steps.decide.outputs.should_build }}
       should_convert_plugins: ${{ steps.decide.outputs.should_convert_plugins }}
@@ -172,51 +166,28 @@ jobs:
     name: Build
     needs: prepare
     if: needs.prepare.outputs.should_build == 'true'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     steps:
       # 🚀 网络性能优化
       - uses: smorimoto/tune-github-hosted-runner-network@v1
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 1
-
+      
       - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v5
+      
+      - uses: actions/setup-node@v4
         with:
           node-version-file: ".node-version"
           cache: "pnpm"
-
+      
       - name: Setup build directory
         id: build-dir
         run: |
           echo "dir=public" >> $GITHUB_OUTPUT
           mkdir -p public
-
-      # 🚀 增量构建优化：下载上次构建结果作为基础
-      - name: Download Previous Build (for incremental build)
-        continue-on-error: true
-        uses: actions/checkout@v5
-        with:
-          repository: lucking7/NRRule
-          persist-credentials: false
-          filter: "tree:0"
-          fetch-tags: false
-          path: previous-build
-
-      - name: Setup incremental build baseline
-        continue-on-error: true
-        run: |
-          if [ -d "previous-build" ] && [ "$(ls -A previous-build 2>/dev/null)" ]; then
-            echo "📦 Loading previous build as baseline..."
-            cp -r previous-build/* public/ 2>/dev/null || true
-            rm -rf previous-build
-            echo "✅ Previous build loaded successfully"
-          else
-            echo "ℹ️ No previous build found, starting fresh build"
-          fi
       
       - name: Get current date
         id: date
@@ -275,7 +246,7 @@ jobs:
     name: Convert Plugins
     needs: prepare
     if: needs.prepare.outputs.should_convert_plugins == 'true'
-    runs-on: ubuntu-latest  # 🔧 改用 x86_64 架构（Script-Hub 可能不支持 ARM）
+    runs-on: ubuntu-latest
     continue-on-error: true  # Script-Hub 服务可能不稳定，允许失败
     permissions:
       contents: write
@@ -286,149 +257,41 @@ jobs:
           - 9100:9100
           - 9101:9101
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v4
         with:
           node-version-file: '.node-version'
           cache: 'pnpm'
       
       - run: pnpm install --frozen-lockfile
       
-      - name: Diagnose Script-Hub service
+      - name: Wait for Script-Hub service
         run: |
           echo "127.0.0.1 script.hub" | sudo tee -a /etc/hosts
-
-          echo "📊 系统信息:"
-          echo "  架构: $(uname -m)"
-          echo "  内核: $(uname -r)"
-          echo "  发行版: $(cat /etc/os-release | grep PRETTY_NAME)"
-
-          echo ""
-          echo "🐳 Docker 容器信息:"
-          docker ps -a
-
-          echo ""
           echo "⏳ 等待 Script-Hub 服务启动..."
 
           # 使用 netcat 检查端口（更快更可靠）
           for i in {1..20}; do
-            if nc -z localhost 9101; then
+            if nc -z localhost 9101 2>/dev/null; then
               echo "✓ Script-Hub 端口 9101 已开放 (尝试 $i/20)"
+              # 额外等待 5 秒确保服务完全就绪
               sleep 5
-              break
+
+              # 验证 HTTP 服务是否正常
+              if curl -f -s http://script.hub:9101/ > /dev/null 2>&1; then
+                echo "✓ Script-Hub HTTP 服务正常"
+                exit 0
+              else
+                echo "⚠️ 端口已开放但 HTTP 服务未就绪，继续等待..."
+              fi
             fi
             echo "  尝试 $i/20 失败，等待 5 秒后重试..."
             sleep 5
           done
 
-          if ! nc -z localhost 9101; then
-            echo "::error ::Script-Hub 服务启动超时"
-            exit 1
-          fi
-
-          echo ""
-          echo "🔍 Script-Hub 服务诊断:"
-
-          # 1. 测试 HTTP 服务
-          echo "1. 测试 HTTP 根路径..."
-          if curl -f -s -m 10 http://localhost:9101/ > /dev/null; then
-            echo "   ✅ HTTP 服务正常"
-          else
-            echo "   ❌ HTTP 服务异常"
-          fi
-
-          # 2. 测试 GitHub Actions 能否访问 kelee.one
-          echo "2. 测试 GitHub Actions 网络连接..."
-
-          echo "   测试 A: 不带 User-Agent"
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 10 \
-            https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx)
-          echo "   HTTP 状态码: $HTTP_CODE"
-
-          echo "   测试 B: 带 Surge Mac UA"
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 10 \
-            -A "Surge Mac/2985" \
-            https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx)
-          echo "   HTTP 状态码: $HTTP_CODE"
-
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "   ✅ GitHub Actions 可以访问 kelee.one (使用 Surge UA)"
-          elif [ "$HTTP_CODE" = "403" ]; then
-            echo "   ❌ kelee.one 返回 403 Forbidden (可能封禁 GitHub IP)"
-          else
-            echo "   ⚠️  kelee.one 返回 HTTP $HTTP_CODE"
-          fi
-
-          # 3. 测试 Script-Hub 容器能否访问外部网络
-          echo "3. 测试 Script-Hub 容器网络..."
-          CONTAINER_ID=$(docker ps -q -f ancestor=xream/script-hub:latest)
-          if [ -n "$CONTAINER_ID" ]; then
-            echo "   容器 ID: $CONTAINER_ID"
-
-            # 从容器内部测试（使用 wget 或 curl）
-            if docker exec "$CONTAINER_ID" sh -c "command -v curl" >/dev/null 2>&1; then
-              echo "   使用 curl 测试..."
-              if docker exec "$CONTAINER_ID" curl -s -o /dev/null -w "%{http_code}" -m 10 \
-                -A "Surge Mac/2985" \
-                https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx | grep -q "200"; then
-                echo "   ✅ 容器可以访问 kelee.one"
-              else
-                echo "   ❌ 容器无法访问 kelee.one"
-              fi
-            else
-              echo "   ⚠️  容器内没有 curl，跳过测试"
-            fi
-          else
-            echo "   ⚠️  未找到 Script-Hub 容器"
-          fi
-
-          # 4. 测试 Script-Hub 转换功能（完整流程）
-          echo "4. 测试 Script-Hub 转换功能..."
-          TEST_URL="http://localhost:9101/file/_start_/https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx/_end_/test.sgmodule?type=loon-plugin&target=surge-module&category=%F0%9F%9A%AB%20AD%20Block"
-
-          echo "   请求 URL: ${TEST_URL:0:120}..."
-
-          HTTP_CODE=$(curl -s -o /tmp/test-response.txt -w "%{http_code}" -m 30 \
-            -A "Surge Mac/2985" \
-            "$TEST_URL")
-
-          echo "   HTTP 状态码: $HTTP_CODE"
-
-          if [ "$HTTP_CODE" = "200" ]; then
-            RESPONSE_SIZE=$(wc -c < /tmp/test-response.txt)
-            echo "   ✅ 转换功能正常"
-            echo "   响应大小: $RESPONSE_SIZE 字节"
-
-            # 检查响应内容是否有效
-            if grep -q "#!name=" /tmp/test-response.txt; then
-              echo "   ✅ 响应包含有效的 sgmodule 内容"
-            else
-              echo "   ⚠️  响应可能不是有效的 sgmodule"
-              echo "   前 10 行:"
-              head -10 /tmp/test-response.txt
-            fi
-          else
-            echo "   ❌ 转换功能异常 (HTTP $HTTP_CODE)"
-            echo "   响应内容:"
-            cat /tmp/test-response.txt | head -30
-
-            # 检查 Script-Hub 容器日志
-            echo ""
-            echo "   📋 Script-Hub 容器日志 (最后 50 行):"
-            if [ -n "$CONTAINER_ID" ]; then
-              docker logs --tail 50 "$CONTAINER_ID" 2>&1 || echo "   无法获取容器日志"
-            fi
-          fi
-
-          echo ""
-          echo "📋 诊断完成"
-          echo ""
-          echo "🔍 诊断总结:"
-          echo "  - 架构: $(uname -m)"
-          echo "  - Script-Hub HTTP: $([ -f /tmp/test-response.txt ] && echo '已测试' || echo '未测试')"
-          echo "  - kelee.one 访问: 见上方测试结果"
-          echo "  - 转换功能: HTTP $HTTP_CODE"
+          echo "::error ::Script-Hub 服务启动超时"
+          exit 1
 
       - name: Convert plugins with retry
         run: |
@@ -439,21 +302,44 @@ jobs:
             sleep 10
             pnpm run convert-plugins --wait-service --timeout 600 || {
               echo "⚠️ 两次转换都失败，可能是 Script-Hub 服务问题"
-              echo "📊 检查是否有成功转换的插件..."
-
-              # 检查是否有成功转换的文件
-              if [ -d "public/Plugins" ] && [ "$(ls -A public/Plugins 2>/dev/null | wc -l)" -gt 0 ]; then
-                echo "✅ 发现 $(ls -A public/Plugins | wc -l) 个成功转换的插件"
-                echo "⚠️ 继续执行，但部分插件可能未转换"
-                exit 0
-              else
-                echo "❌ 没有成功转换的插件，任务失败"
-                exit 1
-              fi
+              echo "📊 检查转换结果..."
+              exit 1
             }
           }
         env:
           CI: true
+
+      - name: Check conversion results
+        if: always()
+        run: |
+          echo "📊 检查转换结果..."
+
+          # 检查输出目录是否存在
+          if [ ! -d "public/Plugins" ]; then
+            echo "❌ 输出目录 public/Plugins/ 不存在"
+            exit 1
+          fi
+
+          # 统计成功转换的插件数量
+          sgmodule_count=$(ls -1 public/Plugins/*.sgmodule 2>/dev/null | wc -l)
+          total_files=$(ls -1 public/Plugins/ 2>/dev/null | wc -l)
+
+          echo "📁 输出目录: public/Plugins/"
+          echo "📊 .sgmodule 文件数量: $sgmodule_count"
+          echo "📊 总文件数量: $total_files"
+
+          if [ "$sgmodule_count" -eq 0 ]; then
+            echo "❌ 没有成功转换的插件（.sgmodule 文件）"
+            echo "::error ::插件转换完全失败，没有生成任何 .sgmodule 文件"
+            exit 1
+          fi
+
+          echo "✅ 成功转换 $sgmodule_count 个插件"
+
+          # 显示前 10 个文件
+          echo ""
+          echo "📄 转换的插件列表（前 10 个）:"
+          ls -1 public/Plugins/*.sgmodule 2>/dev/null | head -10
       
       - name: Commit changes
         run: |
@@ -473,13 +359,13 @@ jobs:
     name: Merge Modules
     needs: prepare
     if: needs.prepare.outputs.should_merge_modules == 'true'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v4
         with:
           node-version-file: '.node-version'
           cache: 'pnpm'
@@ -513,13 +399,13 @@ jobs:
     name: Mirror Sync
     needs: prepare
     if: needs.prepare.outputs.should_mirror_sync == 'true'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v4
         with:
           node-version-file: '.node-version'
           cache: 'pnpm'
@@ -550,7 +436,7 @@ jobs:
     if: |
       github.event_name == 'pull_request' &&
       needs.build.result == 'success'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -589,7 +475,7 @@ jobs:
       needs.prepare.outputs.should_deploy == 'true' &&
       (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'cloudflare') &&
       github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -614,7 +500,7 @@ jobs:
       (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'github') &&
       github.ref == 'refs/heads/main' &&
       needs.build.result == 'success'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       # 🔧 下载 build artifact 而不是 checkout 源代码
       - uses: actions/download-artifact@v4

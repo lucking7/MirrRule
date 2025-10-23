@@ -111,9 +111,6 @@ export async function convertAndMirrorPlugins(waitForService = false): Promise<C
   console.log(picocolors.green(`✓ Found ${stats.total} plugins`));
   console.log(picocolors.gray(`  - .plugin: ${stats.byExtension.plugin}`));
   console.log(picocolors.gray(`  - .lpx: ${stats.byExtension.lpx}`));
-  console.log(
-    picocolors.cyan(`\n💡 Script-Hub 将使用 Surge Mac UA 下载源文件（支持 .plugin 和 .lpx）`)
-  );
 
   // 2. 转换插件
   console.log(picocolors.cyan('\n[Step 2/4] Converting plugins to sgmodule...\n'));
