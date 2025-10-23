@@ -256,6 +256,9 @@ jobs:
         ports:
           - 9100:9100
           - 9101:9101
+        options: >-
+          --dns 1.1.1.1
+          --dns 8.8.8.8
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -297,10 +300,33 @@ jobs:
         run: |
           echo "🔍 测试 Script-Hub 转换功能..."
 
+          # 测试 DNS 解析
+          echo "🌐 测试 DNS 解析..."
+          echo "kelee.one 的 IP 地址:"
+          nslookup kelee.one || dig kelee.one || echo "DNS 解析失败"
+
+          # 测试直接访问 kelee.one
+          echo ""
+          echo "🌐 测试直接访问 kelee.one..."
+          echo "使用不同的 User-Agent 测试:"
+
+          echo "1. 使用 Surge Mac/2985:"
+          curl -I -s -A "Surge Mac/2985" --connect-timeout 10 https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx | head -5 || echo "失败"
+
+          echo ""
+          echo "2. 使用 script-hub/1.0.0:"
+          curl -I -s -A "script-hub/1.0.0" --connect-timeout 10 https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx | head -5 || echo "失败"
+
+          echo ""
+          echo "3. 使用默认 UA (curl):"
+          curl -I -s --connect-timeout 10 https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx | head -5 || echo "失败"
+
           # 测试单个插件转换
+          echo ""
+          echo "📡 测试 Script-Hub 转换..."
           TEST_URL="http://localhost:9101/file/_start_/https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx/_end_/Block_HTTPDNS.sgmodule?type=loon-plugin&target=surge-module&category=test"
 
-          echo "📡 测试 URL: $TEST_URL"
+          echo "测试 URL: $TEST_URL"
 
           # 显示完整的响应（包括状态码和 body）
           HTTP_CODE=$(curl -w "%{http_code}" -o /tmp/test-response.txt -s -A "Surge Mac/2985" "$TEST_URL")
@@ -316,14 +342,12 @@ jobs:
             echo "📄 错误响应:"
             cat /tmp/test-response.txt
 
-            # 测试是否能访问 kelee.one
             echo ""
-            echo "🌐 测试访问 kelee.one..."
-            if curl -I -s --connect-timeout 10 https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx | head -5; then
-              echo "✅ 可以访问 kelee.one"
-            else
-              echo "❌ 无法访问 kelee.one（可能是网络限制）"
-            fi
+            echo "⚠️ 可能的原因："
+            echo "1. kelee.one 限制了 GitHub Actions 的 IP"
+            echo "2. Script-Hub 容器访问 kelee.one 时使用的 UA 不被接受"
+            echo "3. DNS 解析问题"
+            echo "4. 网络连接问题"
 
             exit 1
           fi
