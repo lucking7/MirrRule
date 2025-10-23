@@ -268,7 +268,6 @@ jobs:
       
       - name: Wait for Script-Hub service
         run: |
-          echo "127.0.0.1 script.hub" | sudo tee -a /etc/hosts
           echo "⏳ 等待 Script-Hub 服务启动..."
 
           # 使用 netcat 检查端口（更快更可靠）
@@ -278,8 +277,8 @@ jobs:
               # 额外等待 5 秒确保服务完全就绪
               sleep 5
 
-              # 验证 HTTP 服务是否正常
-              if curl -f -s http://script.hub:9101/ > /dev/null 2>&1; then
+              # 验证 HTTP 服务是否正常（使用 localhost）
+              if curl -f -s http://localhost:9101/ > /dev/null 2>&1; then
                 echo "✓ Script-Hub HTTP 服务正常"
                 exit 0
               else

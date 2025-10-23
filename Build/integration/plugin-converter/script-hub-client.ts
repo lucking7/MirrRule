@@ -10,11 +10,11 @@ import type { PluginInfo, ConversionConfig } from './types';
 /**
  * Script-Hub API 配置
  *
- * 本地开发：使用 localhost
- * GitHub Actions：使用 script.hub（通过 services 自动启动）
+ * ✅ 修复：始终使用 localhost，因为 undici fetch 不支持 /etc/hosts
+ * Docker 容器通过端口映射到 localhost:9101
  */
 const SCRIPT_HUB_CONFIG = {
-  host: process.env.CI ? 'script.hub' : 'localhost',
+  host: 'localhost',
   port: 9101,
   get baseUrl() {
     return `http://${this.host}:${this.port}`;
