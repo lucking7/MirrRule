@@ -314,17 +314,17 @@ jobs:
         run: |
           echo "📊 检查转换结果..."
 
-          # 检查输出目录是否存在
-          if [ ! -d "public/Plugins" ]; then
-            echo "❌ 输出目录 public/Plugins/ 不存在"
+          # ✅ 修正：检查正确的输出目录 public/Modules/
+          if [ ! -d "public/Modules" ]; then
+            echo "❌ 输出目录 public/Modules/ 不存在"
             exit 1
           fi
 
-          # 统计成功转换的插件数量
-          sgmodule_count=$(ls -1 public/Plugins/*.sgmodule 2>/dev/null | wc -l)
-          total_files=$(ls -1 public/Plugins/ 2>/dev/null | wc -l)
+          # ✅ 修正：统计正确目录中的文件
+          sgmodule_count=$(ls -1 public/Modules/*.sgmodule 2>/dev/null | wc -l)
+          total_files=$(ls -1 public/Modules/ 2>/dev/null | wc -l)
 
-          echo "📁 输出目录: public/Plugins/"
+          echo "📁 输出目录: public/Modules/"
           echo "📊 .sgmodule 文件数量: $sgmodule_count"
           echo "📊 总文件数量: $total_files"
 
@@ -339,14 +339,15 @@ jobs:
           # 显示前 10 个文件
           echo ""
           echo "📄 转换的插件列表（前 10 个）:"
-          ls -1 public/Plugins/*.sgmodule 2>/dev/null | head -10
+          ls -1 public/Modules/*.sgmodule 2>/dev/null | head -10
       
       - name: Commit changes
         run: |
           if ! git diff --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add -f public/Plugins/
+            # ✅ 修正：提交正确的目录 public/Modules/
+            git add -f public/Modules/
             git commit -m "🔄 转换插件 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
             git pull --rebase origin main || true
             git push
