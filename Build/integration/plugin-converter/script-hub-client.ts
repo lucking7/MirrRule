@@ -78,8 +78,26 @@ export async function convertPlugin(
     });
 
     if (!response.ok) {
+      // 尝试读取错误响应体以获取更多信息
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+        // 只在 CI 环境或首次错误时显示详细信息
+        if (process.env.CI || response.status >= 500) {
+          console.log(picocolors.yellow(`[Convert] ⚠️  ${plugin.name} 错误详情:`));
+          console.log(picocolors.gray(`  状态码: ${response.status}`));
+          console.log(
+            picocolors.gray(
+              `  响应体: ${errorBody.substring(0, 200)}${errorBody.length > 200 ? '...' : ''}`
+            )
+          );
+        }
+      } catch (e) {
+        // 忽略读取错误体的异常
+      }
+
       return {
-        error: `HTTP ${response.status}: ${response.statusText}`,
+        error: `HTTP ${response.status}${errorBody ? `: ${errorBody.substring(0, 100)}` : ''}`,
       };
     }
 
@@ -119,7 +137,7 @@ export async function convertPlugin(
 export async function convertPluginsBatch(
   plugins: PluginInfo[],
   config?: ConversionConfig,
-  concurrency = 5
+  concurrency = 3 // 🔧 降低并发数从 5 到 3，减轻服务压力
 ): Promise<Array<{ plugin: PluginInfo; content: string | { error: string } }>> {
   const results: Array<{ plugin: PluginInfo; content: string | { error: string } }> = [];
 
@@ -135,6 +153,13 @@ export async function convertPluginsBatch(
     );
 
     results.push(...batchResults);
+
+    // 🔧 在批次之间添加延迟，避免过载 Script-Hub 服务
+    // 在 CI 环境中使用更长的延迟
+    if (i + concurrency < plugins.length) {
+      const delay = process.env.CI ? 500 : 200; // CI: 500ms, 本地: 200ms
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
   }
 
   return results;
