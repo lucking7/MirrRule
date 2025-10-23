@@ -153,9 +153,7 @@ function generateHtml(tree: TreeTypeArray) {
         <link rel="canonical" href="https://github.com/lucking7/esdeath" />
         <style>
           :root {
-            --font-family: system-ui, -apple-system, 'Segoe UI', 'Roboto', 'Ubuntu', 'Cantarell',
-              'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-              'Noto Color Emoji';
+            --font-family: -apple-system, system-ui, 'Segoe UI Variable Display', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
             --line-height: 1.5;
             --font-weight: 400;
             --font-size: 16px;
@@ -497,6 +495,7 @@ function generateHtml(tree: TreeTypeArray) {
           }
 
           h1 {
+            font-family: 'Libre Baskerville', Georgia, Cambria, serif;
             --color: var(--h1-color);
           }
 
@@ -724,7 +723,19 @@ function generateHtml(tree: TreeTypeArray) {
           }
 
           .tree li.folder > details > summary {
-            font-family: 'Iowan Old Style', 'Palatino Linotype', 'URW Palladio L', P052, serif;
+            font-family: 'Libre Baskerville', Georgia, Cambria, serif;
+            font-weight: 700;
+            font-size: 1.1em;
+            color: var(--h3-color);
+            letter-spacing: 0.02em;
+          }
+
+          .tree li.file a {
+            font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
+            font-weight: 400;
+            font-size: 0.88em;
+            color: var(--muted-color);
+            letter-spacing: -0.01em;
           }
           .tree li.folder > details > summary::before {
             z-index: 1;
@@ -763,9 +774,9 @@ function generateHtml(tree: TreeTypeArray) {
           })()}</p>
           <div style="position:relative;margin:var(--spacing-6) 0;max-width:720px;width:100%">
             <svg id="search-icon" style="position:absolute;left:var(--spacing-4);top:50%;transform:translateY(-50%);width:18px;height:18px;fill:var(--muted-color);pointer-events:none;transition:fill 0.2s" viewBox="0 0 24 24"><path d="M10.5 2a8.5 8.5 0 1 0 5.262 15.176l3.652 3.652a1 1 0 0 0 1.414-1.414l-3.652-3.652A8.5 8.5 0 0 0 10.5 2M4 10.5a6.5 6.5 0 1 1 13 0a6.5 6.5 0 0 1-13 0"/></svg>
-            <input type="text" id="search-input" placeholder="搜索文件和文件夹..." style="width:100%;padding:var(--spacing-2) var(--spacing-4);padding-left:3rem;padding-right:3rem;border:2px solid var(--muted-border-color);border-radius:12px;font-family:var(--font-family);font-size:var(--font-size);background-color:var(--background-color);color:var(--color);transition:all 0.2s;outline:none;box-shadow:0 1px 3px rgba(0,0,0,0.05)" />
-            <button id="clear-btn" style="display:none;position:absolute;right:var(--spacing-4);top:50%;transform:translateY(-50%);background:transparent;border:none;padding:0;cursor:pointer;width:18px;height:18px;border-radius:16px" aria-label="清除搜索">
-              <svg style="width:18px;height:18px;fill:var(--muted-color);transition:fill 0.2s;border-radius:16px" viewBox="0 0 24 24"><path d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2m0 2a8 8 0 1 0 0 16a8 8 0 0 0 0-16M9.879 8.464L12 10.586l2.121-2.122a1 1 0 1 1 1.415 1.415l-2.122 2.12l2.122 2.122a1 1 0 0 1-1.415 1.415L12 13.414l-2.121 2.122a1 1 0 0 1-1.415-1.415L10.586 12L8.465 9.879a1 1 0 0 1 1.414-1.415"/></svg>
+            <input type="text" id="search-input" placeholder="" style="width:100%;padding:var(--spacing-3) var(--spacing-4);padding-left:3rem;padding-right:3rem;border:2px solid var(--muted-border-color);border-radius:18px;font-family:var(--font-family);font-size:var(--font-size);background-color:var(--background-color);color:var(--color);transition:all 0.2s;outline:none;box-shadow:0 1px 3px rgba(0,0,0,0.05)" />
+            <button id="clear-btn" style="display:none;position:absolute;right:var(--spacing-4);top:50%;transform:translateY(-50%);background:transparent;border:1px solid rgba(0,0,0,0.06);padding:0;cursor:pointer;width:32px;height:32px;border-radius:9999px;transition:all 0.2s" aria-label="清除搜索">
+              <svg style="width:16px;height:16px;fill:var(--muted-color);transition:fill 0.2s" viewBox="0 0 24 24"><path d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2m0 2a8 8 0 1 0 0 16a8 8 0 0 0 0-16M9.879 8.464L12 10.586l2.121-2.122a1 1 0 1 1 1.415 1.415l-2.122 2.12l2.122 2.122a1 1 0 0 1-1.415 1.415L12 13.414l-2.121 2.122a1 1 0 0 1-1.415-1.415L10.586 12L8.465 9.879a1 1 0 0 1 1.414-1.415"/></svg>
             </button>
           </div>
           <div id="search-result-count" style="margin:calc(var(--spacing-2) * -1) 0 var(--spacing-4) 0;font-size:var(--text-sm);color:var(--muted-color);min-height:1.3125rem"></div>
@@ -814,12 +825,14 @@ function generateHtml(tree: TreeTypeArray) {
               }
             });
 
-            // 清除按钮 hover 效果
+            // Clear button hover effects
             clearBtn.addEventListener('mouseenter', function() {
+              this.style.backgroundColor = 'rgba(0,0,0,0.04)';
               this.querySelector('svg').style.fill = 'var(--primary)';
             });
 
             clearBtn.addEventListener('mouseleave', function() {
+              this.style.backgroundColor = 'transparent';
               this.querySelector('svg').style.fill = 'var(--muted-color)';
             });
 

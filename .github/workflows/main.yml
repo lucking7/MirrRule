@@ -5,6 +5,12 @@ on:
     branches:
       - main
       - master
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/dependabot.yml'
+      - 'LICENSE'
+      - '.gitignore'
   pull_request:
   schedule:
     # 每天 05:00 和 17:00 UTC 执行完整构建 (2 次/天)
@@ -49,7 +55,7 @@ jobs:
   # ============================================
   prepare:
     name: Prepare Tasks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     outputs:
       should_build: ${{ steps.decide.outputs.should_build }}
       should_convert_plugins: ${{ steps.decide.outputs.should_convert_plugins }}
@@ -166,28 +172,51 @@ jobs:
     name: Build
     needs: prepare
     if: needs.prepare.outputs.should_build == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       # 🚀 网络性能优化
       - uses: smorimoto/tune-github-hosted-runner-network@v1
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
           fetch-depth: 1
-      
+
       - uses: pnpm/action-setup@v4
-      
-      - uses: actions/setup-node@v4
+
+      - uses: actions/setup-node@v5
         with:
           node-version-file: ".node-version"
           cache: "pnpm"
-      
+
       - name: Setup build directory
         id: build-dir
         run: |
           echo "dir=public" >> $GITHUB_OUTPUT
           mkdir -p public
+
+      # 🚀 增量构建优化：下载上次构建结果作为基础
+      - name: Download Previous Build (for incremental build)
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          repository: lucking7/NRRule
+          persist-credentials: false
+          filter: "tree:0"
+          fetch-tags: false
+          path: previous-build
+
+      - name: Setup incremental build baseline
+        continue-on-error: true
+        run: |
+          if [ -d "previous-build" ] && [ "$(ls -A previous-build 2>/dev/null)" ]; then
+            echo "📦 Loading previous build as baseline..."
+            cp -r previous-build/* public/ 2>/dev/null || true
+            rm -rf previous-build
+            echo "✅ Previous build loaded successfully"
+          else
+            echo "ℹ️ No previous build found, starting fresh build"
+          fi
       
       - name: Get current date
         id: date
@@ -246,7 +275,7 @@ jobs:
     name: Convert Plugins
     needs: prepare
     if: needs.prepare.outputs.should_convert_plugins == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     continue-on-error: true  # Script-Hub 服务可能不稳定，允许失败
     permissions:
       contents: write
@@ -257,9 +286,9 @@ jobs:
           - 9100:9100
           - 9101:9101
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: '.node-version'
           cache: 'pnpm'
@@ -328,13 +357,13 @@ jobs:
     name: Merge Modules
     needs: prepare
     if: needs.prepare.outputs.should_merge_modules == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: '.node-version'
           cache: 'pnpm'
@@ -368,13 +397,13 @@ jobs:
     name: Mirror Sync
     needs: prepare
     if: needs.prepare.outputs.should_mirror_sync == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: '.node-version'
           cache: 'pnpm'
@@ -405,7 +434,7 @@ jobs:
     if: |
       github.event_name == 'pull_request' &&
       needs.build.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -444,7 +473,7 @@ jobs:
       needs.prepare.outputs.should_deploy == 'true' &&
       (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'cloudflare') &&
       github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -469,7 +498,7 @@ jobs:
       (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'github') &&
       github.ref == 'refs/heads/main' &&
       needs.build.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # 🔧 下载 build artifact 而不是 checkout 源代码
       - uses: actions/download-artifact@v4
