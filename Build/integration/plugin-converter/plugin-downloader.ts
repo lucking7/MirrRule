@@ -53,12 +53,23 @@ export async function cleanupTempDirectory(): Promise<void> {
 }
 
 /**
- * 下载单个插件到本地
+ * 延迟函数
+ */
+async function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * 下载单个插件到本地（带重试机制）
  *
  * @param plugin - 插件信息
+ * @param maxRetries - 最大重试次数
  * @returns 本地文件路径或错误信息
  */
-export async function downloadPlugin(plugin: PluginInfo): Promise<string | { error: string }> {
+export async function downloadPlugin(
+  plugin: PluginInfo,
+  maxRetries = 3
+): Promise<string | { error: string }> {
   await ensureTempDirectory();
 
   const filename = `${plugin.name}.${plugin.extension}`;
@@ -67,65 +78,128 @@ export async function downloadPlugin(plugin: PluginInfo): Promise<string | { err
   console.log(picocolors.gray(`[Download] ${plugin.name} (${plugin.extension})`));
   console.log(picocolors.gray(`  URL: ${plugin.url}`));
 
-  try {
-    const response = await $$fetch(plugin.url, {
-      headers: {
-        // 🔑 关键: 使用 Surge Mac UA，某些源站需要此 UA 才能正常访问
-        'User-Agent': 'Surge Mac/2985',
-        Accept: '*/*',
-      },
-    });
+  let lastError: string = '';
 
-    if (!response.ok) {
-      return {
-        error: `HTTP ${response.status}: ${response.statusText}`,
-      };
-    }
-
-    const content = await response.text();
-
-    // 验证内容
-    if (!content || content.trim().length === 0) {
-      return {
-        error: 'Empty response from source',
-      };
-    }
-
-    // 基本验证：检查文件格式
-    if (plugin.extension === 'lpx') {
-      // .lpx 文件应该包含 Loon 插件标记
-      if (
-        !content.includes('[General]') &&
-        !content.includes('[Script]') &&
-        !content.includes('[Rule]')
-      ) {
-        return {
-          error: 'Invalid .lpx format (missing Loon plugin sections)',
-        };
+  // 重试循环
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // 如果是重试，添加延迟（2-5秒随机）
+      if (attempt > 1) {
+        const retryDelay = 2000 + Math.random() * 3000; // 2-5秒
+        console.log(
+          picocolors.yellow(
+            `[Download] Retry ${attempt}/${maxRetries} for ${plugin.name} (waiting ${Math.round(
+              retryDelay / 1000
+            )}s)...`
+          )
+        );
+        await delay(retryDelay);
       }
-    } else if (plugin.extension === 'plugin') {
-      // .plugin 文件应该包含插件标记
-      if (
-        !content.includes('[General]') &&
-        !content.includes('[Script]') &&
-        !content.includes('[Rule]')
-      ) {
-        return {
-          error: 'Invalid .plugin format (missing plugin sections)',
-        };
+
+      const response = await $$fetch(plugin.url, {
+        headers: {
+          // 🔑 关键: 使用 Surge Mac UA，某些源站需要此 UA 才能正常访问
+          'User-Agent': 'Surge Mac/2985',
+          Accept: '*/*',
+          // 添加常见的浏览器请求头，避免被防护机制拦截
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+          'Accept-Encoding': 'gzip, deflate, br',
+          // 添加 Referer（某些站点需要）
+          Referer: new URL(plugin.url).origin,
+        },
+        // 添加超时设置（30秒）
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unable to read response body');
+        lastError = `HTTP ${response.status}: ${response.statusText}`;
+
+        // 记录详细错误信息
+        console.log(picocolors.red(`[Download] HTTP ${response.status} for ${plugin.name}`));
+        if (errorText && errorText.length < 500) {
+          console.log(picocolors.gray(`  Response: ${errorText.slice(0, 200)}`));
+        }
+
+        // 对于 4xx 错误，不重试
+        if (response.status >= 400 && response.status < 500) {
+          return { error: lastError };
+        }
+
+        // 对于 5xx 错误，继续重试
+        continue;
+      }
+
+      const content = await response.text();
+
+      // 验证内容
+      if (!content || content.trim().length === 0) {
+        lastError = 'Empty response from source';
+        console.log(picocolors.red(`[Download] Empty response for ${plugin.name}`));
+        continue;
+      }
+
+      // 基本验证：检查文件格式
+      if (plugin.extension === 'lpx') {
+        // .lpx 文件应该包含 Loon 插件标记
+        if (
+          !content.includes('[General]') &&
+          !content.includes('[Script]') &&
+          !content.includes('[Rule]')
+        ) {
+          lastError = 'Invalid .lpx format (missing Loon plugin sections)';
+          console.log(picocolors.red(`[Download] Invalid format for ${plugin.name}`));
+          console.log(picocolors.gray(`  Content preview: ${content.slice(0, 200)}`));
+          // 格式错误不重试
+          return { error: lastError };
+        }
+      } else if (plugin.extension === 'plugin') {
+        // .plugin 文件应该包含插件标记
+        if (
+          !content.includes('[General]') &&
+          !content.includes('[Script]') &&
+          !content.includes('[Rule]')
+        ) {
+          lastError = 'Invalid .plugin format (missing plugin sections)';
+          console.log(picocolors.red(`[Download] Invalid format for ${plugin.name}`));
+          console.log(picocolors.gray(`  Content preview: ${content.slice(0, 200)}`));
+          // 格式错误不重试
+          return { error: lastError };
+        }
+      }
+
+      // 保存到本地
+      await fs.writeFile(localPath, content, 'utf-8');
+
+      console.log(
+        picocolors.green(
+          `[Download] ✓ ${plugin.name} → ${filename}${attempt > 1 ? ` (attempt ${attempt})` : ''}`
+        )
+      );
+      return localPath;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      lastError = errorMsg;
+
+      console.log(
+        picocolors.red(
+          `[Download] ✗ ${plugin.name} (attempt ${attempt}/${maxRetries}): ${errorMsg}`
+        )
+      );
+
+      // 如果是超时错误，记录详细信息
+      if (errorMsg.includes('timeout') || errorMsg.includes('ETIMEDOUT')) {
+        console.log(picocolors.yellow(`  Timeout after 30s`));
+      }
+
+      // 如果是最后一次尝试，返回错误
+      if (attempt === maxRetries) {
+        return { error: lastError };
       }
     }
-
-    // 保存到本地
-    await fs.writeFile(localPath, content, 'utf-8');
-
-    console.log(picocolors.green(`[Download] ✓ ${plugin.name} → ${filename}`));
-    return localPath;
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.log(picocolors.red(`[Download] ✗ ${plugin.name}: ${errorMsg}`));
-    return { error: errorMsg };
   }
+
+  return { error: lastError || 'Unknown error' };
 }
 
 /**
