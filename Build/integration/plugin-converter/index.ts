@@ -8,12 +8,13 @@ export * from './script-hub-client';
 export * from './script-extractor';
 export * from './script-mirror';
 export * from './plugin-list';
+export * from './plugin-downloader';
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import picocolors from 'picocolors';
 import { getPluginList, getPluginStats } from './plugin-list';
-import { convertPluginsBatch, waitForScriptHub } from './script-hub-client';
+import { convertPluginsBatchFromLocal, waitForScriptHub } from './script-hub-client';
 import {
   extractScriptUrls,
   filterUnmirroredScripts,
@@ -21,6 +22,11 @@ import {
   getScriptStats,
 } from './script-extractor';
 import { mirrorScripts, printMirrorSummary } from './script-mirror';
+import {
+  downloadPluginsBatch,
+  printDownloadStats,
+  cleanupTempDirectory,
+} from './plugin-downloader';
 import type { ConversionResult } from './types';
 
 // CommonJS 中的 __dirname 直接可用
@@ -81,11 +87,18 @@ function extractModuleName(content: string, fallbackName: string): string {
 /**
  * 转换并镜像所有插件
  *
+ * 新流程：
+ * 1. 获取插件列表
+ * 2. 下载插件到本地 (使用正确的 User-Agent)
+ * 3. 用 Script-Hub 转换本地文件
+ * 4. 提取并镜像脚本文件
+ * 5. 更新 sgmodule 文件中的脚本 URL
+ *
  * @param waitForService - 是否等待 Script-Hub 服务就绪
  * @returns 转换结果数组
  */
 export async function convertAndMirrorPlugins(waitForService = false): Promise<ConversionResult[]> {
-  console.log(picocolors.cyan('\n🔄 Plugin Converter & Mirror\n'));
+  console.log(picocolors.cyan('\n🔄 Plugin Converter & Mirror (v2.0 - Local Download)\n'));
 
   // 等待 Script-Hub 服务（如果需要）
   if (waitForService) {
@@ -97,7 +110,7 @@ export async function convertAndMirrorPlugins(waitForService = false): Promise<C
   }
 
   // 1. 获取插件列表
-  console.log(picocolors.cyan('\n[Step 1/4] Fetching plugin list...\n'));
+  console.log(picocolors.cyan('\n[Step 1/5] Fetching plugin list...\n'));
   const pluginsResult = await getPluginList();
 
   if ('error' in pluginsResult) {
@@ -112,32 +125,45 @@ export async function convertAndMirrorPlugins(waitForService = false): Promise<C
   console.log(picocolors.gray(`  - .plugin: ${stats.byExtension.plugin}`));
   console.log(picocolors.gray(`  - .lpx: ${stats.byExtension.lpx}`));
 
-  // 2. 转换插件
-  console.log(picocolors.cyan('\n[Step 2/4] Converting plugins to sgmodule...\n'));
+  // 2. 下载插件到本地
+  console.log(picocolors.cyan('\n[Step 2/5] Downloading plugins to local...\n'));
+  const downloadResults = await downloadPluginsBatch(plugins);
+  printDownloadStats(downloadResults);
+
+  // 检查是否有成功下载的插件
+  const successfulDownloads = downloadResults.filter(r => r.localPath);
+  if (successfulDownloads.length === 0) {
+    console.log(picocolors.red('\n❌ No plugins downloaded successfully'));
+    await cleanupTempDirectory();
+    return [];
+  }
+
+  // 3. 转换插件 (从本地文件)
+  console.log(picocolors.cyan('\n[Step 3/5] Converting plugins to sgmodule...\n'));
   await ensureOutputDirectory();
 
-  const conversionResults = await convertPluginsBatch(plugins);
+  const conversionResults = await convertPluginsBatchFromLocal(downloadResults);
 
   const results: ConversionResult[] = [];
   const allScripts: string[] = [];
 
-  for (const { plugin, content } of conversionResults) {
+  for (const { pluginName, content } of conversionResults) {
     if (typeof content === 'string') {
       // 提取脚本
       const scripts = extractScriptUrls(content);
 
       // 从内容中提取模块名称
-      const moduleName = extractModuleName(content, plugin.name);
+      const moduleName = extractModuleName(content, pluginName);
       const fileName = `${moduleName}.sgmodule`;
 
       // 保存 sgmodule 文件
       const outputPath = path.join(OUTPUT_DIR, fileName);
       await fs.writeFile(outputPath, content, 'utf-8');
 
-      console.log(picocolors.gray(`  ✓ ${plugin.name} → ${fileName}`));
+      console.log(picocolors.gray(`  ✓ ${pluginName} → ${fileName}`));
 
       results.push({
-        pluginName: plugin.name,
+        pluginName,
         success: true,
         outputPath,
         scripts,
@@ -146,7 +172,7 @@ export async function convertAndMirrorPlugins(waitForService = false): Promise<C
       allScripts.push(content);
     } else {
       results.push({
-        pluginName: plugin.name,
+        pluginName,
         success: false,
         scripts: [],
         error: content.error,
@@ -155,10 +181,12 @@ export async function convertAndMirrorPlugins(waitForService = false): Promise<C
   }
 
   const successCount = results.filter(r => r.success).length;
-  console.log(picocolors.green(`\n✓ Converted ${successCount}/${plugins.length} plugins`));
+  console.log(
+    picocolors.green(`\n✓ Converted ${successCount}/${successfulDownloads.length} plugins`)
+  );
 
-  // 3. 提取所有脚本
-  console.log(picocolors.cyan('\n[Step 3/4] Extracting JavaScript URLs...\n'));
+  // 4. 提取所有脚本
+  console.log(picocolors.cyan('\n[Step 4/5] Extracting JavaScript URLs...\n'));
 
   const allScriptInfos = allScripts.flatMap(content => extractScriptUrls(content));
   const uniqueScripts = Array.from(new Map(allScriptInfos.map(s => [s.originalUrl, s])).values());
@@ -168,18 +196,18 @@ export async function convertAndMirrorPlugins(waitForService = false): Promise<C
   console.log(picocolors.gray(`  - Already mirrored: ${scriptStats.mirrored}`));
   console.log(picocolors.gray(`  - Need to mirror: ${scriptStats.needMirror}`));
 
-  // 4. 镜像脚本
+  // 5. 镜像脚本
   if (scriptStats.needMirror > 0) {
-    console.log(picocolors.cyan('\n[Step 4/4] Mirroring JavaScript files...\n'));
+    console.log(picocolors.cyan('\n[Step 5/5] Mirroring JavaScript files...\n'));
 
     const toMirror = filterUnmirroredScripts(uniqueScripts);
     const mirrorResult = await mirrorScripts(toMirror);
 
     printMirrorSummary(mirrorResult);
 
-    // 5. 更新 sgmodule 文件中的 URL
+    // 更新 sgmodule 文件中的 URL
     if (mirrorResult.mirrored > 0) {
-      console.log(picocolors.cyan('\n[Step 5/4] Updating sgmodule files with mirror URLs...\n'));
+      console.log(picocolors.cyan('\n[Update] Updating sgmodule files with mirror URLs...\n'));
 
       for (const result of results) {
         if (!result.success || !result.outputPath) continue;
@@ -194,10 +222,22 @@ export async function convertAndMirrorPlugins(waitForService = false): Promise<C
       }
     }
   } else {
-    console.log(picocolors.gray('\n[Step 4/4] No scripts to mirror - skipping\n'));
+    console.log(picocolors.gray('\n[Step 5/5] No scripts to mirror - skipping\n'));
   }
 
+  // 清理临时下载目录
+  console.log(picocolors.cyan('\n[Cleanup] Removing temporary files...\n'));
+  await cleanupTempDirectory();
+
   console.log(picocolors.green('\n🎉 Plugin conversion complete!\n'));
+  console.log(picocolors.cyan('Summary:'));
+  console.log(
+    picocolors.gray(`  - Downloaded: ${successfulDownloads.length}/${plugins.length} plugins`)
+  );
+  console.log(
+    picocolors.gray(`  - Converted: ${successCount}/${successfulDownloads.length} plugins`)
+  );
+  console.log(picocolors.gray(`  - Scripts mirrored: ${scriptStats.needMirror} files`));
 
   return results;
 }

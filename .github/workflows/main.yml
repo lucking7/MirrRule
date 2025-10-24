@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: '执行任务 (all/build/convert-plugins/merge-modules/mirror-sync/deploy)'
+        description: '执行任务 (all/build/convert-plugins/convert-qx/merge-modules/mirror-sync/deploy)'
         required: false
         default: 'all'
         type: choice
@@ -26,6 +26,7 @@ on:
           - all
           - build
           - convert-plugins
+          - convert-qx
           - merge-modules
           - mirror-sync
           - deploy
@@ -53,6 +54,7 @@ jobs:
     outputs:
       should_build: ${{ steps.decide.outputs.should_build }}
       should_convert_plugins: ${{ steps.decide.outputs.should_convert_plugins }}
+      should_convert_qx: ${{ steps.decide.outputs.should_convert_qx }}
       should_merge_modules: ${{ steps.decide.outputs.should_merge_modules }}
       should_mirror_sync: ${{ steps.decide.outputs.should_mirror_sync }}
       should_deploy: ${{ steps.decide.outputs.should_deploy }}
@@ -76,6 +78,7 @@ jobs:
           # 默认值
           BUILD="false"
           CONVERT_PLUGINS="false"
+          CONVERT_QX="false"
           MERGE_MODULES="false"
           MIRROR_SYNC="false"
           DEPLOY="false"
@@ -89,6 +92,7 @@ jobs:
           if [ "$IS_WORKFLOW_DISPATCH" = "true" ]; then
             if [ "$TASK" = "all" ] || [ "$TASK" = "build" ]; then BUILD="true"; fi
             if [ "$TASK" = "all" ] || [ "$TASK" = "convert-plugins" ]; then CONVERT_PLUGINS="true"; fi
+            if [ "$TASK" = "all" ] || [ "$TASK" = "convert-qx" ]; then CONVERT_QX="true"; fi
             if [ "$TASK" = "all" ] || [ "$TASK" = "merge-modules" ]; then MERGE_MODULES="true"; fi
             if [ "$TASK" = "all" ] || [ "$TASK" = "mirror-sync" ]; then MIRROR_SYNC="true"; fi
             if [ "$TASK" = "all" ] || [ "$TASK" = "deploy" ]; then DEPLOY="true"; fi
@@ -100,6 +104,7 @@ jobs:
               "0 5,17 * * *")
                 # 完整构建 - 执行所有任务 (每天 2 次)
                 CONVERT_PLUGINS="true"
+                CONVERT_QX="true"
                 MERGE_MODULES="true"
                 MIRROR_SYNC="true"
                 BUILD="true"
@@ -111,8 +116,9 @@ jobs:
                 DEPLOY="true"
                 ;;
               "0 6,14,22 * * *")
-                # 镜像同步 (每天 3 次: 06:00, 14:00, 22:00 UTC)
+                # 镜像同步 + QX 转换 (每天 3 次: 06:00, 14:00, 22:00 UTC)
                 MIRROR_SYNC="true"
+                CONVERT_QX="true"
                 ;;
               "30 7,19 * * *")
                 # 插件转换 (每天 2 次: 07:30, 19:30 UTC)
@@ -124,6 +130,7 @@ jobs:
           # Push 触发 - 执行完整流程
           if [ "$IS_PUSH" = "true" ] && [ "$IS_SCHEDULE" != "true" ]; then
             CONVERT_PLUGINS="true"
+            CONVERT_QX="true"
             MERGE_MODULES="true"
             MIRROR_SYNC="true"
             BUILD="true"
@@ -138,6 +145,7 @@ jobs:
 
           echo "should_build=$BUILD" >> $GITHUB_OUTPUT
           echo "should_convert_plugins=$CONVERT_PLUGINS" >> $GITHUB_OUTPUT
+          echo "should_convert_qx=$CONVERT_QX" >> $GITHUB_OUTPUT
           echo "should_merge_modules=$MERGE_MODULES" >> $GITHUB_OUTPUT
           echo "should_mirror_sync=$MIRROR_SYNC" >> $GITHUB_OUTPUT
           echo "should_deploy=$DEPLOY" >> $GITHUB_OUTPUT
@@ -155,6 +163,7 @@ jobs:
           echo "📋 Tasks to run:"
           echo "  Build: $BUILD"
           echo "  Convert Plugins: $CONVERT_PLUGINS"
+          echo "  Convert QX Rewrites: $CONVERT_QX"
           echo "  Merge Modules: $MERGE_MODULES"
           echo "  Mirror Sync: $MIRROR_SYNC"
           echo "  Deploy: $DEPLOY (target: $DEPLOY_TARGET)"
@@ -256,9 +265,6 @@ jobs:
         ports:
           - 9100:9100
           - 9101:9101
-        options: >-
-          --dns 1.1.1.1
-          --dns 8.8.8.8
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -269,145 +275,84 @@ jobs:
       
       - run: pnpm install --frozen-lockfile
       
-      - name: Wait for Script-Hub service
+      - name: Configure Script-Hub
         run: |
+          echo "127.0.0.1 script.hub" | sudo tee -a /etc/hosts
           echo "⏳ 等待 Script-Hub 服务启动..."
-
-          # 使用 netcat 检查端口（更快更可靠）
-          for i in {1..20}; do
-            if nc -z localhost 9101 2>/dev/null; then
-              echo "✓ Script-Hub 端口 9101 已开放 (尝试 $i/20)"
-              # 额外等待 5 秒确保服务完全就绪
-              sleep 5
-
-              # 验证 HTTP 服务是否正常（使用 localhost）
-              if curl -f -s http://localhost:9101/ > /dev/null 2>&1; then
-                echo "✓ Script-Hub HTTP 服务正常"
-                exit 0
-              else
-                echo "⚠️ 端口已开放但 HTTP 服务未就绪，继续等待..."
-              fi
+          for i in {1..30}; do
+            if curl -f -s http://script.hub:9101/ > /dev/null 2>&1; then
+              echo "✓ Script-Hub 服务就绪 (尝试 $i/30)"
+              # 🔧 增加等待时间,确保服务完全稳定 (方案 3)
+              sleep 10
+              exit 0
             fi
-            echo "  尝试 $i/20 失败，等待 5 秒后重试..."
+            echo "  尝试 $i/30 失败，等待 5 秒后重试..."
             sleep 5
           done
-
-          echo "::error ::Script-Hub 服务启动超时"
+          echo "❌ Script-Hub 服务启动超时"
           exit 1
-
-      # 🔍 诊断步骤：测试 Script-Hub 转换功能
-      - name: Test Script-Hub conversion
-        run: |
-          echo "🔍 测试 Script-Hub 转换功能..."
-
-          # 测试 DNS 解析
-          echo "🌐 测试 DNS 解析..."
-          echo "kelee.one 的 IP 地址:"
-          nslookup kelee.one || dig kelee.one || echo "DNS 解析失败"
-
-          # 测试直接访问 kelee.one
-          echo ""
-          echo "🌐 测试直接访问 kelee.one..."
-          echo "使用不同的 User-Agent 测试:"
-
-          echo "1. 使用 Surge Mac/2985:"
-          curl -I -s -A "Surge Mac/2985" --connect-timeout 10 https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx | head -5 || echo "失败"
-
-          echo ""
-          echo "2. 使用 script-hub/1.0.0:"
-          curl -I -s -A "script-hub/1.0.0" --connect-timeout 10 https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx | head -5 || echo "失败"
-
-          echo ""
-          echo "3. 使用默认 UA (curl):"
-          curl -I -s --connect-timeout 10 https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx | head -5 || echo "失败"
-
-          # 测试单个插件转换
-          echo ""
-          echo "📡 测试 Script-Hub 转换..."
-          TEST_URL="http://localhost:9101/file/_start_/https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx/_end_/Block_HTTPDNS.sgmodule?type=loon-plugin&target=surge-module&category=test"
-
-          echo "测试 URL: $TEST_URL"
-
-          # 显示完整的响应（包括状态码和 body）
-          HTTP_CODE=$(curl -w "%{http_code}" -o /tmp/test-response.txt -s -A "Surge Mac/2985" "$TEST_URL")
-
-          echo "📊 HTTP 状态码: $HTTP_CODE"
-
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Script-Hub 转换测试成功"
-            echo "📄 响应内容（前 50 行）:"
-            head -50 /tmp/test-response.txt
-          else
-            echo "❌ Script-Hub 转换测试失败"
-            echo "📄 错误响应:"
-            cat /tmp/test-response.txt
-
-            echo ""
-            echo "⚠️ 可能的原因："
-            echo "1. kelee.one 限制了 GitHub Actions 的 IP"
-            echo "2. Script-Hub 容器访问 kelee.one 时使用的 UA 不被接受"
-            echo "3. DNS 解析问题"
-            echo "4. 网络连接问题"
-
-            exit 1
-          fi
 
       - name: Convert plugins with retry
         run: |
           # 增加超时时间到 600 秒
-          # 允许部分插件转换失败（Script-Hub 服务可能不稳定）
           pnpm run convert-plugins --wait-service --timeout 600 || {
             echo "⚠️ 首次转换失败，等待 10 秒后重试..."
             sleep 10
             pnpm run convert-plugins --wait-service --timeout 600 || {
-              echo "⚠️ 两次转换都失败，可能是 Script-Hub 服务问题"
-              echo "📊 检查转换结果..."
+              echo "❌ 两次转换都失败，可能是 Script-Hub 服务问题"
               exit 1
             }
           }
         env:
           CI: true
-
-      - name: Check conversion results
-        if: always()
-        run: |
-          echo "📊 检查转换结果..."
-
-          # ✅ 修正：检查正确的输出目录 public/Modules/
-          if [ ! -d "public/Modules" ]; then
-            echo "❌ 输出目录 public/Modules/ 不存在"
-            exit 1
-          fi
-
-          # ✅ 修正：统计正确目录中的文件
-          sgmodule_count=$(ls -1 public/Modules/*.sgmodule 2>/dev/null | wc -l)
-          total_files=$(ls -1 public/Modules/ 2>/dev/null | wc -l)
-
-          echo "📁 输出目录: public/Modules/"
-          echo "📊 .sgmodule 文件数量: $sgmodule_count"
-          echo "📊 总文件数量: $total_files"
-
-          if [ "$sgmodule_count" -eq 0 ]; then
-            echo "❌ 没有成功转换的插件（.sgmodule 文件）"
-            echo "::error ::插件转换完全失败，没有生成任何 .sgmodule 文件"
-            exit 1
-          fi
-
-          echo "✅ 成功转换 $sgmodule_count 个插件"
-
-          # 显示前 10 个文件
-          echo ""
-          echo "📄 转换的插件列表（前 10 个）:"
-          ls -1 public/Modules/*.sgmodule 2>/dev/null | head -10
       
       - name: Commit changes
         run: |
           if ! git diff --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            # ✅ 修正：提交正确的目录 public/Modules/
-            git add -f public/Modules/
+            git add -f public/Plugins/
             git commit -m "🔄 转换插件 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
+            git pull --rebase origin main || true
+            git push
+          fi
+
+  # ============================================
+  # QX Rewrite 转换任务
+  # ============================================
+  convert-qx-rewrites:
+    name: Convert QX Rewrites
+    needs: prepare
+    if: needs.prepare.outputs.should_convert_qx == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Prepare directories
+        run: |
+          mkdir -p public/Modules
+
+      - run: pnpm run convert-qx-rewrites
+        env:
+          CI: true
+
+      - name: Commit changes
+        run: |
+          git add -N -f public/Modules/*.sgmodule
+          if ! git diff --quiet --exit-code public/Modules/; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add -f public/Modules/*.sgmodule
+            git commit -m "🔄 转换 QX Rewrites - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
             git pull --rebase origin main || true
             git push
           fi
@@ -434,7 +379,7 @@ jobs:
 
       - name: Prepare directories
         run: |
-          mkdir -p public/Modules/{Original,Merged}
+          mkdir -p public/Modules/Merged
 
       - run: pnpm run merge-modules
         env:
@@ -575,11 +520,11 @@ jobs:
           ls -la public/ || echo "⚠️ public 目录不存在"
           echo ""
           echo "📊 文件统计："
-          echo "  Modules: $(find public/Modules -type f 2>/dev/null | wc -l) 个文件"
+          echo "  Modules (根目录): $(find public/Modules -maxdepth 1 -type f -name '*.sgmodule' 2>/dev/null | wc -l) 个文件"
+          echo "  Modules/Merged: $(find public/Modules/Merged -type f 2>/dev/null | wc -l) 个文件"
           echo "  Scripts: $(find public/Scripts -type f 2>/dev/null | wc -l) 个文件"
           echo "  List: $(find public/List -type f 2>/dev/null | wc -l) 个文件"
           echo "  Mirror: $(find public/Mirror -type f 2>/dev/null | wc -l) 个文件"
-          echo "  Plugins: $(find public/Plugins -type f 2>/dev/null | wc -l) 个文件"
           echo "  GeoIP: $(find public/GeoIP -type f 2>/dev/null | wc -l) 个文件"
 
       - name: Deploy to NRRule Repository

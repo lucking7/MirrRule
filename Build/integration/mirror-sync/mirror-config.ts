@@ -15,7 +15,7 @@ import type { MirrorGroup } from './types';
 const OUTPUT_ROOT = path.join(__dirname, '../../../public/Mirror');
 
 /**
- * iRingo 后处理：替换 Proxy 参数为 United States
+ * iRingo 后处理：替换 Proxy 参数为 🇺🇸
  */
 function postProcessIRingo(filePath: string, content: string): string {
   if (!filePath.endsWith('.sgmodule')) {
@@ -23,7 +23,7 @@ function postProcessIRingo(filePath: string, content: string): string {
   }
 
   // 替换 #!arguments= 行中的 Proxy 参数
-  return content.replaceAll(/^(#!arguments=.*Proxy:)[^\n,]*/gm, '$1United States');
+  return content.replaceAll(/^(#!arguments=.*Proxy:)[^\n,]*/gm, '$1🇺🇸');
 }
 
 /**
@@ -38,49 +38,49 @@ export const MIRROR_GROUPS: MirrorGroup[] = [
         repo: 'NSRingo/WeatherKit',
         outputDir: path.join(OUTPUT_ROOT, 'iRingo'),
         allowedTypes: [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE],
-        postProcess: postProcessIRingo
+        postProcess: postProcessIRingo,
       },
       {
         repo: 'NSRingo/News',
         outputDir: path.join(OUTPUT_ROOT, 'iRingo'),
         allowedTypes: [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE],
-        postProcess: postProcessIRingo
+        postProcess: postProcessIRingo,
       },
       {
         repo: 'NSRingo/Testflight',
         outputDir: path.join(OUTPUT_ROOT, 'iRingo'),
         allowedTypes: [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE],
-        postProcess: postProcessIRingo
+        postProcess: postProcessIRingo,
       },
       {
         repo: 'NSRingo/GeoServices',
         outputDir: path.join(OUTPUT_ROOT, 'iRingo'),
         allowedTypes: [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE],
-        postProcess: postProcessIRingo
+        postProcess: postProcessIRingo,
       },
       {
         repo: 'NSRingo/Siri',
         outputDir: path.join(OUTPUT_ROOT, 'iRingo'),
         allowedTypes: [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE],
-        postProcess: postProcessIRingo
+        postProcess: postProcessIRingo,
       },
       {
         repo: 'NSRingo/TV',
         outputDir: path.join(OUTPUT_ROOT, 'iRingo'),
         allowedTypes: [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE],
-        postProcess: postProcessIRingo
-      }
+        postProcess: postProcessIRingo,
+      },
     ],
     extraDownloads: [
       {
         url: 'https://raw.githubusercontent.com/NSRingo/Siri/dev/debug/Siri.V2.beta.sgmodule',
-        outputPath: path.join(OUTPUT_ROOT, 'iRingo/sgmodule/Siri.V2.beta.sgmodule')
+        outputPath: path.join(OUTPUT_ROOT, 'iRingo/sgmodule/Siri.V2.beta.sgmodule'),
       },
       {
         url: 'https://raw.githubusercontent.com/NSRingo/Siri/dev/debug/Siri.V2.macOS.beta.sgmodule',
-        outputPath: path.join(OUTPUT_ROOT, 'iRingo/sgmodule/Siri.V2.macOS.beta.sgmodule')
-      }
-    ]
+        outputPath: path.join(OUTPUT_ROOT, 'iRingo/sgmodule/Siri.V2.macOS.beta.sgmodule'),
+      },
+    ],
   },
 
   // DualSubs 项目
@@ -90,24 +90,24 @@ export const MIRROR_GROUPS: MirrorGroup[] = [
       {
         repo: 'DualSubs/YouTube',
         outputDir: path.join(OUTPUT_ROOT, 'DualSubs'),
-        allowedTypes: [FileType.SGMODULE]
+        allowedTypes: [FileType.SGMODULE],
       },
       {
         repo: 'DualSubs/Universal',
         outputDir: path.join(OUTPUT_ROOT, 'DualSubs'),
-        allowedTypes: [FileType.SGMODULE]
+        allowedTypes: [FileType.SGMODULE],
       },
       {
         repo: 'DualSubs/Netflix',
         outputDir: path.join(OUTPUT_ROOT, 'DualSubs'),
-        allowedTypes: [FileType.SGMODULE]
+        allowedTypes: [FileType.SGMODULE],
       },
       {
         repo: 'DualSubs/Spotify',
         outputDir: path.join(OUTPUT_ROOT, 'DualSubs'),
-        allowedTypes: [FileType.SGMODULE]
-      }
-    ]
+        allowedTypes: [FileType.SGMODULE],
+      },
+    ],
   },
 
   // BiliUniverse 项目
@@ -117,25 +117,25 @@ export const MIRROR_GROUPS: MirrorGroup[] = [
       {
         repo: 'BiliUniverse/Global',
         outputDir: path.join(OUTPUT_ROOT, 'BiliUniverse'),
-        allowedTypes: [FileType.SGMODULE]
+        allowedTypes: [FileType.SGMODULE],
       },
       {
         repo: 'BiliUniverse/Redirect',
         outputDir: path.join(OUTPUT_ROOT, 'BiliUniverse'),
-        allowedTypes: [FileType.SGMODULE]
+        allowedTypes: [FileType.SGMODULE],
       },
       {
         repo: 'BiliUniverse/Enhanced',
         outputDir: path.join(OUTPUT_ROOT, 'BiliUniverse'),
-        allowedTypes: [FileType.SGMODULE]
+        allowedTypes: [FileType.SGMODULE],
       },
       {
         repo: 'BiliUniverse/ADBlock',
         outputDir: path.join(OUTPUT_ROOT, 'BiliUniverse'),
-        allowedTypes: [FileType.SGMODULE]
-      }
-    ]
-  }
+        allowedTypes: [FileType.SGMODULE],
+      },
+    ],
+  },
 ];
 
 /**
