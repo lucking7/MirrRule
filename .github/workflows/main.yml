@@ -169,13 +169,20 @@ jobs:
           echo "  Deploy: $DEPLOY (target: $DEPLOY_TARGET)"
 
   # ============================================
-  # 核心构建任务 - 包含规则转换和合并
+  # 核心构建任务 - 包含所有生成步骤
   # ============================================
   build:
     name: Build
     needs: prepare
     if: needs.prepare.outputs.should_build == 'true'
     runs-on: ubuntu-latest
+    services:
+      # 🔧 添加 Script-Hub 服务（用于插件转换）
+      script-hub:
+        image: xream/script-hub:latest
+        ports:
+          - 9100:9100
+          - 9101:9101
     steps:
       # 🚀 网络性能优化
       - uses: smorimoto/tune-github-hosted-runner-network@v1
@@ -184,20 +191,20 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 1
-      
+
       - uses: pnpm/action-setup@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version-file: ".node-version"
           cache: "pnpm"
-      
+
       - name: Setup build directory
         id: build-dir
         run: |
           echo "dir=public" >> $GITHUB_OUTPUT
           mkdir -p public
-      
+
       - name: Get current date
         id: date
         run: |
@@ -205,7 +212,7 @@ jobs:
           echo "year=$(date +'%Y')" >> $GITHUB_OUTPUT
           echo "month=$(date +'%m')" >> $GITHUB_OUTPUT
           echo "day=$(date +'%d')" >> $GITHUB_OUTPUT
-      
+
       - name: Restore cache
         uses: actions/cache/restore@v4
         with:
@@ -215,13 +222,72 @@ jobs:
             ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-
             ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-
             ${{ runner.os }}-build-v3-
-      
+
       - run: pnpm install --frozen-lockfile
-      
+
+      # 🔧 步骤 1: 镜像同步（如果需要）
+      - name: Sync mirrors
+        if: needs.prepare.outputs.should_mirror_sync == 'true'
+        run: pnpm run node ./Build/sync-mirrors.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: true
+
+      # 🔧 步骤 2: QX Rewrite 转换（如果需要）
+      - name: Convert QX Rewrites
+        if: needs.prepare.outputs.should_convert_qx == 'true'
+        run: |
+          mkdir -p public/Modules
+          pnpm run convert-qx-rewrites
+        env:
+          CI: true
+
+      # 🔧 步骤 3: 插件转换（如果需要）
+      - name: Configure Script-Hub
+        if: needs.prepare.outputs.should_convert_plugins == 'true'
+        run: |
+          echo "127.0.0.1 script.hub" | sudo tee -a /etc/hosts
+          echo "⏳ 等待 Script-Hub 服务启动..."
+          for i in {1..30}; do
+            if curl -f -s http://script.hub:9101/ > /dev/null 2>&1; then
+              echo "✓ Script-Hub 服务就绪 (尝试 $i/30)"
+              sleep 10
+              exit 0
+            fi
+            echo "  尝试 $i/30 失败，等待 5 秒后重试..."
+            sleep 5
+          done
+          echo "❌ Script-Hub 服务启动超时"
+          exit 1
+
+      - name: Convert plugins
+        if: needs.prepare.outputs.should_convert_plugins == 'true'
+        continue-on-error: true
+        run: |
+          pnpm run convert-plugins --wait-service --timeout 600 || {
+            echo "⚠️ 首次转换失败，等待 10 秒后重试..."
+            sleep 10
+            pnpm run convert-plugins --wait-service --timeout 600 || {
+              echo "❌ 两次转换都失败，继续构建流程"
+            }
+          }
+        env:
+          CI: true
+
+      # 🔧 步骤 4: 模块合并（如果需要）
+      - name: Merge modules
+        if: needs.prepare.outputs.should_merge_modules == 'true'
+        run: |
+          mkdir -p public/Modules/Merged
+          pnpm run merge-modules
+        env:
+          CI: true
+
+      # 🔧 步骤 5: 规则构建（始终执行）
       - run: pnpm run build
         env:
           PUBLIC_DIR: ${{ steps.build-dir.outputs.dir }}
-      
+
       - name: Verify build output
         run: |
           if [ ! -d "${{ steps.build-dir.outputs.dir }}" ]; then
@@ -232,15 +298,23 @@ jobs:
             echo "❌ Build directory is empty"
             exit 1
           fi
+
+          echo "📊 Build output statistics:"
+          echo "  Modules (root): $(find public/Modules -maxdepth 1 -type f -name '*.sgmodule' 2>/dev/null | wc -l) files"
+          echo "  Modules/Merged: $(find public/Modules/Merged -type f 2>/dev/null | wc -l) files"
+          echo "  Scripts: $(find public/Scripts -type f 2>/dev/null | wc -l) files"
+          echo "  List: $(find public/List -type f 2>/dev/null | wc -l) files"
+          echo "  Mirror: $(find public/Mirror -type f 2>/dev/null | wc -l) files"
+          echo "  GeoIP: $(find public/GeoIP -type f 2>/dev/null | wc -l) files"
           echo "✅ Build output verified"
-      
+
       - uses: actions/upload-artifact@v4
         with:
           name: build-artifact-${{ github.sha }}-${{ github.run_number }}
           path: ${{ steps.build-dir.outputs.dir }}
           retention-days: 1
           compression-level: 4
-      
+
       - name: Save cache
         if: always()
         uses: actions/cache/save@v4
@@ -248,189 +322,7 @@ jobs:
           path: .cache
           key: ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
 
-  # ============================================
-  # 插件转换任务
-  # ============================================
-  convert-plugins:
-    name: Convert Plugins
-    needs: prepare
-    if: needs.prepare.outputs.should_convert_plugins == 'true'
-    runs-on: ubuntu-latest
-    continue-on-error: true  # Script-Hub 服务可能不稳定，允许失败
-    permissions:
-      contents: write
-    services:
-      script-hub:
-        image: xream/script-hub:latest
-        ports:
-          - 9100:9100
-          - 9101:9101
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
-      
-      - run: pnpm install --frozen-lockfile
-      
-      - name: Configure Script-Hub
-        run: |
-          echo "127.0.0.1 script.hub" | sudo tee -a /etc/hosts
-          echo "⏳ 等待 Script-Hub 服务启动..."
-          for i in {1..30}; do
-            if curl -f -s http://script.hub:9101/ > /dev/null 2>&1; then
-              echo "✓ Script-Hub 服务就绪 (尝试 $i/30)"
-              # 🔧 增加等待时间,确保服务完全稳定 (方案 3)
-              sleep 10
-              exit 0
-            fi
-            echo "  尝试 $i/30 失败，等待 5 秒后重试..."
-            sleep 5
-          done
-          echo "❌ Script-Hub 服务启动超时"
-          exit 1
 
-      - name: Convert plugins with retry
-        run: |
-          # 增加超时时间到 600 秒
-          pnpm run convert-plugins --wait-service --timeout 600 || {
-            echo "⚠️ 首次转换失败，等待 10 秒后重试..."
-            sleep 10
-            pnpm run convert-plugins --wait-service --timeout 600 || {
-              echo "❌ 两次转换都失败，可能是 Script-Hub 服务问题"
-              exit 1
-            }
-          }
-        env:
-          CI: true
-      
-      - name: Commit changes
-        run: |
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add -f public/Plugins/
-            git commit -m "🔄 转换插件 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
-            git pull --rebase origin main || true
-            git push
-          fi
-
-  # ============================================
-  # QX Rewrite 转换任务
-  # ============================================
-  convert-qx-rewrites:
-    name: Convert QX Rewrites
-    needs: prepare
-    if: needs.prepare.outputs.should_convert_qx == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Prepare directories
-        run: |
-          mkdir -p public/Modules
-
-      - run: pnpm run convert-qx-rewrites
-        env:
-          CI: true
-
-      - name: Commit changes
-        run: |
-          git add -N -f public/Modules/*.sgmodule
-          if ! git diff --quiet --exit-code public/Modules/; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add -f public/Modules/*.sgmodule
-            git commit -m "🔄 转换 QX Rewrites - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
-            git pull --rebase origin main || true
-            git push
-          fi
-
-  # ============================================
-  # 模块合并任务
-  # ============================================
-  merge-modules:
-    name: Merge Modules
-    needs: prepare
-    if: needs.prepare.outputs.should_merge_modules == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Prepare directories
-        run: |
-          mkdir -p public/Modules/Merged
-
-      - run: pnpm run merge-modules
-        env:
-          CI: true
-
-      - name: Commit changes
-        run: |
-          git add -N -f public/Modules/Merged/
-          if ! git diff --quiet --exit-code public/Modules/Merged/; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add -f public/Modules/Merged/
-            git commit -m "🎯 合并模块 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
-            git pull --rebase origin main || true
-            git push
-          fi
-
-  # ============================================
-  # 镜像同步任务
-  # ============================================
-  mirror-sync:
-    name: Mirror Sync
-    needs: prepare
-    if: needs.prepare.outputs.should_mirror_sync == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
-
-      - run: pnpm install --frozen-lockfile
-
-      - run: pnpm run node ./Build/sync-mirrors.ts
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Commit changes
-        run: |
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add -f public/Mirror/
-            git commit -m "🪞 同步镜像 - $(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')"
-            git pull --rebase origin main || true
-            git push
-          fi
 
   # ============================================
   # PR 差异对比 - 预览构建变更
