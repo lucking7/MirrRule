@@ -82,21 +82,22 @@ function extractModuleName(content: string, fallbackName: string): string {
 /**
  * 转换并镜像所有插件
  *
- * 新流程（v2.1 - 远程转换）：
+ * 新流程（v2.1 - 远程转换 + 代理支持）：
  * 1. 获取插件列表
- * 2. 用 Script-Hub 直接从远程 URL 转换
+ * 2. 用 Script-Hub 直接从远程 URL 转换（kelee.one 自动使用代理）
  * 3. 提取并镜像脚本文件
  *
  * 优势：
  * - 避免本地文件路径问题（GitHub Actions 环境）
- * - 参考 Mirrored-main 项目的成功实践
+ * - 支持代理访问 kelee.one 等受保护的域名
+ * - 完全参考 Mirrored-main 项目的成功实践
  * - 添加重试机制和详细错误日志
  *
  * @param waitForService - 是否等待 Script-Hub 服务就绪
  * @returns 转换结果数组
  */
 export async function convertAndMirrorPlugins(waitForService = false): Promise<ConversionResult[]> {
-  console.log(picocolors.cyan('\n🔄 Plugin Converter & Mirror (v2.1 - Remote Conversion)\n'));
+  console.log(picocolors.cyan('\n🔄 Plugin Converter & Mirror (v2.1 - Remote + Proxy)\n'));
 
   // 等待 Script-Hub 服务（如果需要）
   if (waitForService) {

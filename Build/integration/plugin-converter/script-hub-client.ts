@@ -50,11 +50,41 @@ export function buildConversionUrl(plugin: PluginInfo, config: ConversionConfig)
 }
 
 /**
- * 构建转换 URL (从远程 URL)
+ * 检查 URL 是否需要使用代理
+ * kelee.one 域名被防火墙/Cloudflare 保护，Script-Hub 容器无法直接访问
+ */
+function shouldUseProxy(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return hostname === 'kelee.one' || hostname.endsWith('.kelee.one');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 为 URL 添加代理前缀（如果需要）
+ * 参考 Mirrored-main 项目的实现
+ */
+function applyProxyIfNeeded(url: string): string {
+  if (!shouldUseProxy(url)) {
+    return url;
+  }
+
+  // 使用环境变量配置的代理，或使用默认代理
+  const proxyBase = process.env.PROXY_BASE || 'https://proxy.tomatopie.tutuis.me?url=';
+
+  // 直接拼接，不需要 encodeURIComponent（参考 Mirrored-main）
+  return proxyBase + url;
+}
+
+/**
+ * 构建转换 URL (从远程 URL，支持代理)
  *
  * 优势：
  * 1. Script-Hub 直接从源站下载，避免本地文件路径问题
- * 2. 更可靠（参考 Mirrored-main 项目的实现）
+ * 2. 支持代理访问 kelee.one 等受保护的域名
+ * 3. 完全参考 Mirrored-main 项目的成功实践
  *
  * @param sourceUrl - 插件源 URL
  * @param pluginName - 插件名称
@@ -71,8 +101,11 @@ export function buildConversionUrlFromRemote(
     ? encodeURIComponentSafe(config.category)
     : encodeURIComponentSafe('🚫 AD Block');
 
+  // 应用代理（如果需要）- 参考 Mirrored-main 的实现
+  const finalUrl = applyProxyIfNeeded(sourceUrl);
+
   // 构建 Script-Hub URL（参考 Mirrored-main 的实现）
-  const baseUrl = `${SCRIPT_HUB_CONFIG.baseUrl}/file/_start_/${sourceUrl}/_end_/${encodedName}.sgmodule`;
+  const baseUrl = `${SCRIPT_HUB_CONFIG.baseUrl}/file/_start_/${finalUrl}/_end_/${encodedName}.sgmodule`;
 
   // 添加 User-Agent 到请求头参数
   const headerValue = encodeURIComponentSafe('User-Agent: Surge Mac/2985');
@@ -409,7 +442,15 @@ export async function convertPluginsBatchFromRemote(
           }
         );
 
-        console.log(picocolors.gray(`[Convert] ${plugin.name} (from remote)`));
+        // 检查是否使用代理
+        const usesProxy = shouldUseProxy(plugin.url);
+        const proxyIndicator = usesProxy ? picocolors.yellow(' [PROXY]') : '';
+
+        console.log(picocolors.gray(`[Convert] ${plugin.name}${proxyIndicator}`));
+        if (usesProxy) {
+          console.log(picocolors.yellow(`  Source: ${plugin.url}`));
+          console.log(picocolors.yellow(`  Via proxy: ${applyProxyIfNeeded(plugin.url)}`));
+        }
         console.log(picocolors.gray(`  URL: ${url}`));
 
         let lastError: string = '';
