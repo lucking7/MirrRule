@@ -213,12 +213,18 @@ jobs:
           echo "month=$(date +'%m')" >> $GITHUB_OUTPUT
           echo "day=$(date +'%d')" >> $GITHUB_OUTPUT
 
+      # 缓存策略：
+      # - 主键包含 run_id，确保每次运行有唯一缓存，避免并发冲突
+      # - restore-keys 按时间粒度降级：同日 > 同月 > 同年 > 任意
+      # - 这样既避免了 "another job may be creating this cache" 错误
+      # - 又能最大化利用最近的缓存数据
       - name: Restore cache
         uses: actions/cache/restore@v4
         with:
           path: .cache
-          key: ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
+          key: ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}-${{ github.run_id }}
           restore-keys: |
+            ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}-
             ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-
             ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-
             ${{ runner.os }}-build-v3-
@@ -331,7 +337,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .cache
-          key: ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
+          key: ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}-${{ github.run_id }}
 
 
 
