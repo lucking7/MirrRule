@@ -72,7 +72,7 @@ function applyProxyIfNeeded(url: string): string {
   }
 
   // 使用环境变量配置的代理，或使用默认代理
-  const proxyBase = process.env.PROXY_BASE || 'https://proxy.tomatopie.tutuis.me?url=';
+  const proxyBase = process.env.PROXY_BASE || 'https://proxy-one.cc.sbs?url=';
 
   // 直接拼接，不需要 encodeURIComponent（参考 Mirrored-main）
   return proxyBase + url;
