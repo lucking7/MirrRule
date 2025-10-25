@@ -226,11 +226,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       # 🔧 步骤 1: 镜像同步（如果需要）
-      - name: Sync mirrors
+      - name: Sync mirrors (iRingo, DualSubs, BiliUniverse)
         if: needs.prepare.outputs.should_mirror_sync == 'true'
         run: pnpm run node ./Build/sync-mirrors.ts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: true
+
+      - name: Download Sukka Mock & Modules
+        if: needs.prepare.outputs.should_mirror_sync == 'true'
+        run: pnpm run node ./Build/download-mock-modules.ts
+        env:
           CI: true
 
       # 🔧 步骤 2: QX Rewrite 转换（如果需要）
@@ -305,6 +311,11 @@ jobs:
           echo "  Scripts: $(find public/Scripts -type f 2>/dev/null | wc -l) files"
           echo "  List: $(find public/List -type f 2>/dev/null | wc -l) files"
           echo "  Mirror: $(find public/Mirror -type f 2>/dev/null | wc -l) files"
+          echo "    - iRingo: $(find public/Mirror/iRingo -type f 2>/dev/null | wc -l) files"
+          echo "    - DualSubs: $(find public/Mirror/DualSubs -type f 2>/dev/null | wc -l) files"
+          echo "    - BiliUniverse: $(find public/Mirror/BiliUniverse -type f 2>/dev/null | wc -l) files"
+          echo "    - Sukka/Mock: $(find public/Mirror/Sukka/Mock -type f 2>/dev/null | wc -l) files"
+          echo "    - Sukka/Modules: $(find public/Mirror/Sukka/Modules -type f 2>/dev/null | wc -l) files"
           echo "  GeoIP: $(find public/GeoIP -type f 2>/dev/null | wc -l) files"
           echo "✅ Build output verified"
 
