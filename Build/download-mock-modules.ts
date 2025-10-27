@@ -17,9 +17,32 @@ const GITLAB_CODELOAD_URL =
   'https://gitlab.com/SukkaW/ruleset.skk.moe/-/archive/master/ruleset.skk.moe-master.tar.gz';
 
 /**
+ * 为 Surge Module 文件添加 category 标签
+ * 如果文件已有 #!category= 标签，则不修改
+ */
+function addCategoryTag(content: Buffer, filePath: string): Buffer {
+  // 只处理 .sgmodule 文件
+  if (!filePath.endsWith('.sgmodule')) {
+    return content;
+  }
+
+  const text = content.toString('utf-8');
+
+  // 检查是否已有 category 标签
+  if (text.includes('#!category=')) {
+    return content;
+  }
+
+  // 在文件开头添加 category 标签
+  const newContent = '#!category=[Sukka]\n' + text;
+  return Buffer.from(newContent, 'utf-8');
+}
+
+/**
  * 下载 Mock 和 Modules 目录（输出到 public/Mirror/Sukka/ 下）
  * - 使用临时目录解压
  * - 逐个文件 checksum 比对，仅复制变化的文件
+ * - 为 Modules 文件添加 #!category=[Sukka] 标签
  * - 提供详细日志（新增/更新/跳过/总数）
  */
 export const downloadMockAndModules = task(
@@ -55,8 +78,8 @@ export const downloadMockAndModules = task(
             method: 'GET',
             headers: {
               'User-Agent': 'Surge-Ruleset-Mirror/1.0',
-              'sec-fetch-mode': 'same-origin'
-            }
+              'sec-fetch-mode': 'same-origin',
+            },
           },
           ({ statusCode, body }) => {
             if (statusCode !== 200) {
@@ -97,7 +120,7 @@ export const downloadMockAndModules = task(
           map(header) {
             header.name = header.name.replace(pathPrefix, '');
             return header;
-          }
+          },
         })
       );
 
@@ -117,7 +140,13 @@ export const downloadMockAndModules = task(
         const targetFilePath = path.join(OUTPUT_SUKKA_MIRROR_DIR, filePath);
 
         try {
-          const fileBuffer = await fsp.readFile(tempFilePath);
+          let fileBuffer = await fsp.readFile(tempFilePath);
+
+          // 为 Modules 文件添加 category 标签
+          if (filePath.startsWith('Modules/')) {
+            fileBuffer = addCategoryTag(fileBuffer, filePath);
+          }
+
           const needsUpdate = await shouldUpdateFile(targetFilePath, fileBuffer);
 
           if (needsUpdate) {
@@ -126,7 +155,7 @@ export const downloadMockAndModules = task(
             // 确保目标目录存在
             await fsp.mkdir(path.dirname(targetFilePath), { recursive: true });
 
-            // 复制文件
+            // 复制文件（已添加 category 标签）
             await fsp.writeFile(targetFilePath, fileBuffer);
 
             if (isNew) {

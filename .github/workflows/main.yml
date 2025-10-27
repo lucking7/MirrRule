@@ -98,8 +98,18 @@ jobs:
             if [ "$TASK" = "all" ] || [ "$TASK" = "deploy" ]; then DEPLOY="true"; fi
           fi
 
-          # 定时任务
-          if [ "$IS_SCHEDULE" = "true" ]; then
+          # Push 触发 - 执行完整流程（优先级最高）
+          if [ "$IS_PUSH" = "true" ]; then
+            CONVERT_PLUGINS="true"
+            CONVERT_QX="true"
+            MERGE_MODULES="true"
+            MIRROR_SYNC="true"
+            BUILD="true"
+            DEPLOY="true"
+          fi
+
+          # 定时任务（仅在非 push 时生效）
+          if [ "$IS_SCHEDULE" = "true" ] && [ "$IS_PUSH" != "true" ]; then
             case "$CRON" in
               "0 5,17 * * *")
                 # 完整构建 - 执行所有任务 (每天 2 次)
@@ -125,16 +135,6 @@ jobs:
                 CONVERT_PLUGINS="true"
                 ;;
             esac
-          fi
-
-          # Push 触发 - 执行完整流程
-          if [ "$IS_PUSH" = "true" ] && [ "$IS_SCHEDULE" != "true" ]; then
-            CONVERT_PLUGINS="true"
-            CONVERT_QX="true"
-            MERGE_MODULES="true"
-            MIRROR_SYNC="true"
-            BUILD="true"
-            DEPLOY="true"
           fi
 
           # PR 触发
