@@ -1,0 +1,98 @@
+# Dependabot 依赖自动更新配置
+# 文档: https://docs.github.com/zh/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # npm 依赖更新
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "02:00"
+      timezone: "Asia/Shanghai"
+
+    # 打开 PR 的数量限制
+    open-pull-requests-limit: 10
+
+    # PR 标签
+    labels:
+      - "dependencies"
+      - "automated"
+
+    # 提交消息前缀
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+      include: "scope"
+
+    # 版本更新策略
+    versioning-strategy: "increase"
+
+    # 分组更新
+    groups:
+      # 开发依赖
+      development-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+
+      # ESLint 相关
+      eslint:
+        patterns:
+          - "eslint*"
+          - "@eslint*"
+
+      # TypeScript 相关
+      typescript:
+        patterns:
+          - "typescript"
+          - "@types/*"
+
+      # 构建工具
+      build-tools:
+        patterns:
+          - "@swc/*"
+          - "vite"
+          - "rollup"
+
+    # 忽略的依赖
+    ignore:
+      # Node.js 版本手动更新
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
+
+      # 暂时忽略的大版本更新 (如有)
+      # - dependency-name: "某个包"
+      #   versions: ["5.x", "6.x"]
+
+  # GitHub Actions 更新
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Asia/Shanghai"
+
+    open-pull-requests-limit: 5
+
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "automated"
+
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+    # Actions 分组
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+# Dependabot 安全更新
+# 安全更新会自动启用,无需额外配置
+# GitHub 会自动为有漏洞的依赖创建 PR

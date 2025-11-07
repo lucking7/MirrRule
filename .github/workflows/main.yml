@@ -1,0 +1,526 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  schedule:
+    # 🌟 完整构建 - 每天 2 次 (05:00, 17:00 UTC = 北京时间 13:00, 01:00)
+    # 执行: 镜像同步 + QX转换 + 插件转换 + 模块合并 + 规则构建 + 部署
+    - cron: '0 5,17 * * *'
+
+    # ⚡ 快速更新 - 每 6 小时 (00:00, 06:00, 12:00, 18:00 UTC)
+    # 执行: 规则构建 + 部署 (不包含镜像和插件,速度快)
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      task:
+        description: '执行任务 (all/build/convert-plugins/convert-qx/merge-modules/mirror-sync/deploy)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - build
+          - convert-plugins
+          - convert-qx
+          - merge-modules
+          - mirror-sync
+          - deploy
+      deploy_target:
+        description: '部署目标 (all/github/cloudflare)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - github
+          - cloudflare
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================
+  # 准备阶段：确定需要执行的任务
+  # ============================================
+  prepare:
+    name: Prepare Tasks
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.decide.outputs.should_build }}
+      should_convert_plugins: ${{ steps.decide.outputs.should_convert_plugins }}
+      should_convert_qx: ${{ steps.decide.outputs.should_convert_qx }}
+      should_merge_modules: ${{ steps.decide.outputs.should_merge_modules }}
+      should_mirror_sync: ${{ steps.decide.outputs.should_mirror_sync }}
+      should_deploy: ${{ steps.decide.outputs.should_deploy }}
+      deploy_target: ${{ steps.decide.outputs.deploy_target }}
+    steps:
+      - name: Decide tasks to run
+        id: decide
+        run: |
+          # 🔧 修复: 正确处理空字符串的情况
+          TASK="${{ github.event.inputs.task }}"
+          if [ -z "$TASK" ]; then
+            TASK="all"
+          fi
+
+          IS_SCHEDULE="${{ github.event_name == 'schedule' }}"
+          IS_PUSH="${{ github.event_name == 'push' }}"
+          IS_PR="${{ github.event_name == 'pull_request' }}"
+          IS_WORKFLOW_DISPATCH="${{ github.event_name == 'workflow_dispatch' }}"
+          CRON="${{ github.event.schedule }}"
+
+          # 默认值
+          BUILD="false"
+          CONVERT_PLUGINS="false"
+          CONVERT_QX="false"
+          MERGE_MODULES="false"
+          MIRROR_SYNC="false"
+          DEPLOY="false"
+
+          DEPLOY_TARGET="${{ github.event.inputs.deploy_target }}"
+          if [ -z "$DEPLOY_TARGET" ]; then
+            DEPLOY_TARGET="all"
+          fi
+
+          # 手动触发 - 根据 task 参数决定
+          if [ "$IS_WORKFLOW_DISPATCH" = "true" ]; then
+            if [ "$TASK" = "all" ] || [ "$TASK" = "build" ]; then BUILD="true"; fi
+            if [ "$TASK" = "all" ] || [ "$TASK" = "convert-plugins" ]; then CONVERT_PLUGINS="true"; fi
+            if [ "$TASK" = "all" ] || [ "$TASK" = "convert-qx" ]; then CONVERT_QX="true"; fi
+            if [ "$TASK" = "all" ] || [ "$TASK" = "merge-modules" ]; then MERGE_MODULES="true"; fi
+            if [ "$TASK" = "all" ] || [ "$TASK" = "mirror-sync" ]; then MIRROR_SYNC="true"; fi
+            if [ "$TASK" = "all" ] || [ "$TASK" = "deploy" ]; then DEPLOY="true"; fi
+          fi
+
+          # Push 触发 - 执行完整流程（优先级最高）
+          if [ "$IS_PUSH" = "true" ]; then
+            CONVERT_PLUGINS="true"
+            CONVERT_QX="true"
+            MERGE_MODULES="true"
+            MIRROR_SYNC="true"
+            BUILD="true"
+            DEPLOY="true"
+          fi
+
+          # 定时任务（仅在非 push 时生效）
+          if [ "$IS_SCHEDULE" = "true" ] && [ "$IS_PUSH" != "true" ]; then
+            case "$CRON" in
+              "0 5,17 * * *")
+                # 🌟 完整构建 - 执行所有任务 (每天 2 次: 05:00, 17:00 UTC)
+                MIRROR_SYNC="true"
+                CONVERT_QX="true"
+                CONVERT_PLUGINS="true"
+                MERGE_MODULES="true"
+                BUILD="true"
+                DEPLOY="true"
+                ;;
+              "0 */6 * * *")
+                # ⚡ 快速更新 - 仅规则构建 (每 6 小时)
+                BUILD="true"
+                DEPLOY="true"
+                ;;
+            esac
+          fi
+
+          # PR 触发
+          if [ "$IS_PR" = "true" ]; then
+            BUILD="true"
+            DEPLOY="false"
+          fi
+
+          echo "should_build=$BUILD" >> $GITHUB_OUTPUT
+          echo "should_convert_plugins=$CONVERT_PLUGINS" >> $GITHUB_OUTPUT
+          echo "should_convert_qx=$CONVERT_QX" >> $GITHUB_OUTPUT
+          echo "should_merge_modules=$MERGE_MODULES" >> $GITHUB_OUTPUT
+          echo "should_mirror_sync=$MIRROR_SYNC" >> $GITHUB_OUTPUT
+          echo "should_deploy=$DEPLOY" >> $GITHUB_OUTPUT
+          echo "deploy_target=$DEPLOY_TARGET" >> $GITHUB_OUTPUT
+
+          echo "📋 Trigger Information:"
+          echo "  Event: ${{ github.event_name }}"
+          echo "  Task: $TASK"
+          echo "  Is Schedule: $IS_SCHEDULE"
+          echo "  Is Push: $IS_PUSH"
+          echo "  Is PR: $IS_PR"
+          echo "  Is Workflow Dispatch: $IS_WORKFLOW_DISPATCH"
+          echo "  Cron: $CRON"
+          echo ""
+          echo "📋 Tasks to run:"
+          echo "  Build: $BUILD"
+          echo "  Convert Plugins: $CONVERT_PLUGINS"
+          echo "  Convert QX Rewrites: $CONVERT_QX"
+          echo "  Merge Modules: $MERGE_MODULES"
+          echo "  Mirror Sync: $MIRROR_SYNC"
+          echo "  Deploy: $DEPLOY (target: $DEPLOY_TARGET)"
+
+  # ============================================
+  # 核心构建任务 - 包含所有生成步骤
+  # ============================================
+  build:
+    name: Build
+    needs: prepare
+    if: needs.prepare.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    services:
+      # 🔧 添加 Script-Hub 服务（用于插件转换）
+      script-hub:
+        image: xream/script-hub:latest
+        ports:
+          - 9100:9100
+          - 9101:9101
+    steps:
+      # 🚀 网络性能优化
+      - uses: smorimoto/tune-github-hosted-runner-network@v1
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+          cache: "pnpm"
+
+      - name: Setup build directory
+        id: build-dir
+        run: |
+          echo "dir=public" >> $GITHUB_OUTPUT
+          mkdir -p public
+
+      - name: Get current date
+        id: date
+        run: |
+          echo "date=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+          echo "year=$(date +'%Y')" >> $GITHUB_OUTPUT
+          echo "month=$(date +'%m')" >> $GITHUB_OUTPUT
+          echo "day=$(date +'%d')" >> $GITHUB_OUTPUT
+
+      # 缓存策略：
+      # - 主键包含 run_id，确保每次运行有唯一缓存，避免并发冲突
+      # - restore-keys 按时间粒度降级：同日 > 同月 > 同年 > 任意
+      # - 这样既避免了 "another job may be creating this cache" 错误
+      # - 又能最大化利用最近的缓存数据
+      - name: Restore cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache
+          key: ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}-
+            ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-
+            ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-
+            ${{ runner.os }}-build-v3-
+
+      - run: pnpm install --frozen-lockfile
+
+      # 🔧 步骤 1: 镜像同步（如果需要）
+      - name: Sync mirrors (iRingo, DualSubs, BiliUniverse)
+        if: needs.prepare.outputs.should_mirror_sync == 'true'
+        run: pnpm run node ./Build/sync-mirrors.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI: true
+
+      - name: Download Sukka Mock & Modules
+        if: needs.prepare.outputs.should_mirror_sync == 'true'
+        run: pnpm run node ./Build/download-mock-modules.ts
+        env:
+          CI: true
+
+      # 🔧 步骤 2: QX Rewrite 转换（如果需要）
+      - name: Convert QX Rewrites
+        if: needs.prepare.outputs.should_convert_qx == 'true'
+        run: |
+          mkdir -p public/Modules
+          pnpm run convert-qx-rewrites
+        env:
+          CI: true
+
+      # 🔧 步骤 3: 插件转换（如果需要）
+      - name: Configure Script-Hub
+        if: needs.prepare.outputs.should_convert_plugins == 'true'
+        run: |
+          echo "127.0.0.1 script.hub" | sudo tee -a /etc/hosts
+          echo "⏳ 等待 Script-Hub 服务启动..."
+          for i in {1..30}; do
+            if curl -f -s http://script.hub:9101/ > /dev/null 2>&1; then
+              echo "✓ Script-Hub 服务就绪 (尝试 $i/30)"
+              sleep 10
+              exit 0
+            fi
+            echo "  尝试 $i/30 失败，等待 5 秒后重试..."
+            sleep 5
+          done
+          echo "❌ Script-Hub 服务启动超时"
+          exit 1
+
+      - name: Convert plugins
+        if: needs.prepare.outputs.should_convert_plugins == 'true'
+        continue-on-error: true
+        run: |
+          pnpm run convert-plugins --wait-service --timeout 600 || {
+            echo "⚠️ 首次转换失败，等待 10 秒后重试..."
+            sleep 10
+            pnpm run convert-plugins --wait-service --timeout 600 || {
+              echo "❌ 两次转换都失败，继续构建流程"
+            }
+          }
+        env:
+          CI: true
+
+      # 🔧 步骤 4: 模块合并（如果需要）
+      - name: Merge modules
+        if: needs.prepare.outputs.should_merge_modules == 'true'
+        run: |
+          mkdir -p public/Modules/Merged
+          pnpm run merge-modules
+        env:
+          CI: true
+
+      # 🔧 步骤 5: 规则构建（始终执行）
+      - run: pnpm run build
+        env:
+          PUBLIC_DIR: ${{ steps.build-dir.outputs.dir }}
+
+      - name: Verify build output
+        run: |
+          if [ ! -d "${{ steps.build-dir.outputs.dir }}" ]; then
+            echo "❌ Build directory not found"
+            exit 1
+          fi
+          if [ ! "$(ls -A ${{ steps.build-dir.outputs.dir }})" ]; then
+            echo "❌ Build directory is empty"
+            exit 1
+          fi
+
+          echo "📊 Build output statistics:"
+          echo "  Modules (root): $(find public/Modules -maxdepth 1 -type f -name '*.sgmodule' 2>/dev/null | wc -l) files"
+          echo "  Modules/Merged: $(find public/Modules/Merged -type f 2>/dev/null | wc -l) files"
+          echo "  Scripts: $(find public/Scripts -type f 2>/dev/null | wc -l) files"
+          echo "  List: $(find public/List -type f 2>/dev/null | wc -l) files"
+          echo "  Mirror: $(find public/Mirror -type f 2>/dev/null | wc -l) files"
+          echo "    - iRingo: $(find public/Mirror/iRingo -type f 2>/dev/null | wc -l) files"
+          echo "    - DualSubs: $(find public/Mirror/DualSubs -type f 2>/dev/null | wc -l) files"
+          echo "    - BiliUniverse: $(find public/Mirror/BiliUniverse -type f 2>/dev/null | wc -l) files"
+          echo "    - Sukka/Mock: $(find public/Mirror/Sukka/Mock -type f 2>/dev/null | wc -l) files"
+          echo "    - Sukka/Modules: $(find public/Mirror/Sukka/Modules -type f 2>/dev/null | wc -l) files"
+          echo "  GeoIP: $(find public/GeoIP -type f 2>/dev/null | wc -l) files"
+          echo "✅ Build output verified"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
+          path: ${{ steps.build-dir.outputs.dir }}
+          retention-days: 1
+          compression-level: 4
+
+      - name: Save cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache
+          key: ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}-${{ github.run_id }}
+
+
+
+  # ============================================
+  # PR 差异对比 - 预览构建变更
+  # ============================================
+  diff-deployment-on-pr:
+    name: Diff Build Output
+    needs: [prepare, build]
+    if: |
+      github.event_name == 'pull_request' &&
+      needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
+          path: public
+
+      - name: Compare with production
+        run: |
+          echo "📥 Downloading production build..."
+          git clone --filter=tree:0 --no-tags \
+            https://github.com/lucking7/NRRule.git ./deploy-git
+
+          cd ./deploy-git
+          echo "📊 Comparing changes..."
+          rm -rf ./*
+          cp -rf ../public/* ./
+
+          echo ""
+          echo "📈 File statistics:"
+          git --no-pager diff --stat
+
+          echo ""
+          echo "📝 Detailed changes (first 500 lines):"
+          git --no-pager diff --minimal | head -500
+
+          echo ""
+          echo "✅ Diff complete"
+
+  # ============================================
+  # 部署到 Cloudflare Pages
+  # ============================================
+  deploy-cloudflare:
+    name: Deploy to Cloudflare Pages
+    needs: [prepare, build]
+    if: |
+      needs.prepare.outputs.should_deploy == 'true' &&
+      (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'cloudflare') &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
+          path: public
+
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy public --project-name=nrrule --commit-dirty=true --branch=main
+          wranglerVersion: '3.114.12'
+
+  # ============================================
+  # 部署到 GitHub Repository
+  # ============================================
+  deploy-github:
+    name: Deploy to GitHub Repository
+    needs: [prepare, build]
+    if: |
+      needs.prepare.outputs.should_deploy == 'true' &&
+      (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'github') &&
+      github.ref == 'refs/heads/main' &&
+      needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      # 🔧 下载 build artifact 而不是 checkout 源代码
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
+          path: public
+
+      # 验证 public 目录内容
+      - name: Verify public directory
+        run: |
+          echo "📁 Public 目录内容："
+          ls -la public/ || echo "⚠️ public 目录不存在"
+          echo ""
+          echo "📊 文件统计："
+          echo "  Modules (根目录): $(find public/Modules -maxdepth 1 -type f -name '*.sgmodule' 2>/dev/null | wc -l) 个文件"
+          echo "  Modules/Merged: $(find public/Modules/Merged -type f 2>/dev/null | wc -l) 个文件"
+          echo "  Scripts: $(find public/Scripts -type f 2>/dev/null | wc -l) 个文件"
+          echo "  List: $(find public/List -type f 2>/dev/null | wc -l) 个文件"
+          echo "  Mirror: $(find public/Mirror -type f 2>/dev/null | wc -l) 个文件"
+          echo "  GeoIP: $(find public/GeoIP -type f 2>/dev/null | wc -l) 个文件"
+
+      - name: Deploy to NRRule Repository
+        continue-on-error: true
+        run: |
+          # 🔧 根据执行的任务决定要更新的目录（智能增量部署）
+          SYNC_PATHS=""
+          SYNC_DESC=""
+          
+          # 规则构建（始终执行）
+          SYNC_PATHS="$SYNC_PATHS List/ GeoIP/"
+          SYNC_DESC="rules"
+          
+          # 镜像同步
+          if [ "${{ needs.prepare.outputs.should_mirror_sync }}" = "true" ]; then
+            SYNC_PATHS="$SYNC_PATHS Mirror/"
+            SYNC_DESC="$SYNC_DESC+mirrors"
+          fi
+          
+          # QX 转换
+          if [ "${{ needs.prepare.outputs.should_convert_qx }}" = "true" ]; then
+            SYNC_PATHS="$SYNC_PATHS Modules/"
+            SYNC_DESC="$SYNC_DESC+qx"
+          fi
+          
+          # 插件转换
+          if [ "${{ needs.prepare.outputs.should_convert_plugins }}" = "true" ]; then
+            SYNC_PATHS="$SYNC_PATHS Modules/"
+            SYNC_DESC="$SYNC_DESC+plugins"
+          fi
+          
+          # 模块合并
+          if [ "${{ needs.prepare.outputs.should_merge_modules }}" = "true" ]; then
+            SYNC_PATHS="$SYNC_PATHS Modules/"
+            SYNC_DESC="$SYNC_DESC+modules"
+          fi
+          
+          # Scripts 目录（如果存在）
+          if [ -d "../public/Scripts" ]; then
+            SYNC_PATHS="$SYNC_PATHS Scripts/"
+            SYNC_DESC="$SYNC_DESC+scripts"
+          fi
+          
+          echo "📦 将要同步的目录: $SYNC_PATHS"
+          echo "📝 更新描述: $SYNC_DESC"
+
+          gh repo unarchive lucking7/NRRule --yes || true
+
+          git clone --filter=tree:0 --no-tags \
+            https://${GH_USER}:${GH_TOKEN}@github.com/lucking7/NRRule.git \
+            ./deploy-git
+
+          cd ./deploy-git
+          git config user.email "${GH_EMAIL}"
+          git config user.name "${GH_USER}"
+
+          # 🔧 只删除和更新需要同步的目录
+          for path in $SYNC_PATHS; do
+            if [ -d "./$path" ]; then
+              echo "🗑️  删除旧目录: $path"
+              rm -rf "./$path"
+            fi
+            mkdir -p "./$path"
+            if [ -d "../public/$path" ]; then
+              echo "📥 复制新内容: $path"
+              cp -rf "../public/$path"* "./$path" 2>/dev/null || true
+            fi
+          done
+          
+          # 复制根目录文件（如 README.md, index.html 等）
+          echo "📄 复制根目录文件..."
+          find ../public/ -maxdepth 1 -type f -exec cp {} ./ \; 2>/dev/null || true
+
+          echo ""
+          echo "📊 部署后的文件统计："
+          echo "  Modules (根目录): $(find ./Modules -maxdepth 1 -type f -name '*.sgmodule' 2>/dev/null | wc -l) 个文件"
+          echo "  Modules/Merged: $(find ./Modules/Merged -type f 2>/dev/null | wc -l) 个文件"
+          echo "  Scripts: $(find ./Scripts -type f 2>/dev/null | wc -l) 个文件"
+          echo "  List: $(find ./List -type f 2>/dev/null | wc -l) 个文件"
+          echo "  Mirror: $(find ./Mirror -type f 2>/dev/null | wc -l) 个文件"
+          echo "  GeoIP: $(find ./GeoIP -type f 2>/dev/null | wc -l) 个文件"
+
+          git add --all .
+          if git diff --cached --quiet; then
+            echo "✅ 没有变更需要提交"
+            exit 0
+          fi
+          
+          git commit -m "deploy: ${{ github.repository }}@${{ github.sha }} [$SYNC_DESC]"
+          git push --quiet origin HEAD:main
+
+          cd ..
+          rm -rf ./deploy-git
+
+          gh repo archive lucking7/NRRule --yes || true
+        env:
+          GH_EMAIL: ${{ secrets.GIT_EMAIL }}
+          GH_USER: ${{ secrets.GIT_USER }}
+          GH_TOKEN: ${{ secrets.GIT_TOKEN }}
+

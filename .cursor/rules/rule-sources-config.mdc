@@ -1,0 +1,105 @@
+---
+globs: Build/lib/rule-sources.ts,Build/lib/rule-source-types.ts
+description: 规则源配置系统和类型定义
+---
+
+# 规则源配置系统
+
+## 配置文件结构
+
+### 主配置文件
+[Build/lib/rule-sources.ts](mdc:Build/lib/rule-sources.ts) 是整个项目的核心配置文件，定义了：
+- `ruleGroups`: 规则组配置数组
+- `specialRules`: 特殊规则合并配置
+
+### 类型定义
+[Build/lib/rule-source-types.ts](mdc:Build/lib/rule-source-types.ts) 定义了所有配置类型：
+- `FileConfig`: 单个文件下载配置
+- `RuleGroup`: 规则组配置接口
+- `SpecialRuleConfig`: 特殊规则合并配置
+
+## 规则组配置格式
+
+### RuleGroup结构
+```typescript
+{
+  name: string;           // 组名称
+  files: FileConfig[];    // 文件列表
+  enabled?: boolean;      // 是否启用
+  description?: string;   // 组描述
+}
+```
+
+### FileConfig详细配置
+```typescript
+{
+  path: string;              // 输出路径
+  url: string;              // 下载URL
+  fallbackUrls?: string[];  // 备用URL
+  title?: string;           // 文件标题
+  dedup?: boolean;          // 是否去重
+  sort?: boolean;           // 是否排序
+  keepComments?: boolean;   // 保留注释
+  formatConversion?: boolean; // 格式转换
+  applyNoResolve?: boolean;  // IP规则添加no-resolve
+}
+```
+
+## 默认处理配置
+
+项目使用统一的默认配置：
+```typescript
+const DEFAULT_FILE_CONFIG = {
+  validate: true,         // 启用验证
+  dedup: true,           // 启用去重
+  sort: true,            // 启用排序
+  keepComments: true,    // 保留注释
+  keepEmptyLines: false, // 不保留空行
+  formatConversion: true, // 启用格式转换
+  applyNoResolve: false, // 不自动添加no-resolve
+};
+```
+
+## 主要规则组类别
+
+### 1. GeoIP数据库
+- 各种中国IP数据库文件(.mmdb格式)
+- 来源：Hackl0us、Masaiki、soffchen、Loyalsoldier等
+
+### 2. 基础规则集
+- 广告拦截规则 (reject相关)
+- 直连规则 (direct, domestic)
+- 代理规则 (global, proxy)
+- 局域网规则 (lan)
+
+### 3. 特定服务规则
+- Apple服务规则
+- Microsoft服务规则
+- Telegram规则
+- 流媒体分流规则
+- AI服务规则
+
+### 4. 地理位置规则
+- 中国大陆规则
+- 各国/地区特定规则
+- ASN规则
+
+## 特殊规则配置
+
+SpecialRuleConfig用于合并多个规则文件：
+```typescript
+{
+  name: string;           // 规则名称
+  files: string[];        // 要合并的文件列表
+  outputPath: string;     // 输出路径
+  mergeStrategy?: string; // 合并策略
+}
+```
+
+## 配置最佳实践
+
+1. **URL稳定性**: 优先使用GitHub raw链接，配置fallback URLs
+2. **分类组织**: 按功能将相关规则组织到同一RuleGroup
+3. **描述完整**: 为每个组和文件添加清晰的描述
+4. **性能考虑**: 合理配置去重和排序选项
+5. **格式统一**: 启用formatConversion确保输出格式一致

@@ -1,0 +1,76 @@
+---
+globs: Build/**/*.ts,complete-build.ts
+description: 构建系统核心组件和工作流程
+---
+
+# Surge 构建系统规则
+
+## 核心构建组件
+
+### 主要入口文件
+
+- [Build/index.ts](mdc:Build/index.ts) - 构建系统主入口，提供规则处理器创建和配置管理
+- [complete-build.ts](mdc:complete-build.ts) - 完整构建流程脚本，执行下载 → 转换 → 验证的完整工作流
+- [Build/process-all-rules.ts](mdc:Build/process-all-rules.ts) - 批量规则处理执行脚本
+
+### 核心处理器
+
+- [Build/lib/rule-source-processor.ts](mdc:Build/lib/rule-source-processor.ts) - 规则源处理器，负责下载和处理规则文件
+- [Build/lib/rule-source-config-loader.ts](mdc:Build/lib/rule-source-config-loader.ts) - 配置加载器，处理规则源配置验证
+- [Build/lib/cross-platform-rule-parser.ts](mdc:Build/lib/cross-platform-rule-parser.ts) - 跨平台规则解析器，处理格式转换
+
+### 规则处理库
+
+- [Build/lib/rules/](mdc:Build/lib/rules/) - 规则处理核心逻辑
+  - `base.ts` - 基础规则处理功能
+  - `domainset.ts` - 域名集合规则处理
+  - `ruleset.ts` - 规则集处理
+  - `ip.ts` - IP 规则处理
+
+## 构建流程阶段
+
+### 1. 配置验证阶段
+
+- 加载 [Build/lib/rule-sources.ts](mdc:Build/lib/rule-sources.ts) 中的规则源配置
+- 验证配置文件格式和完整性
+- 统计规则组和特殊规则数量
+
+### 2. 文件下载阶段
+
+- 并发下载规则文件到 Source 目录
+- 支持备用 URL 和重试机制
+- 处理各种文件格式（.list, .conf, .txt, .mmdb 等）
+
+### 3. 规则转换阶段
+
+- 统一转换为 RULE-SET 格式
+- 应用去重、排序、验证逻辑
+- 保留或移除注释和空行
+
+### 4. 格式生成阶段
+
+- 使用 [Build/lib/writing-strategy/](mdc:Build/lib/writing-strategy/) 下的策略
+- 生成多种客户端格式：Surge、Clash、sing-box、Surfboard 等
+
+## 关键构建脚本
+
+### 主要 npm/pnpm 脚本
+
+- `pnpm build` - 执行标准构建流程
+- `pnpm build-profile` - 性能分析构建
+- `pnpm lint` - 代码检查
+
+### 执行顺序建议
+
+1. 先执行配置验证
+2. 批量下载规则文件
+3. 转换和处理规则
+4. 验证输出文件格式
+5. 生成使用示例文档
+
+## 错误处理策略
+
+- 下载失败时使用备用 URL
+- 转换失败时保留原始内容并标记错误
+- 验证失败时输出详细错误信息
+- 支持部分失败继续处理
