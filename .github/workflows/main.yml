@@ -7,13 +7,21 @@ on:
       - master
   pull_request:
   schedule:
-    # 🌟 完整构建 - 每天 2 次 (05:00, 17:00 UTC = 北京时间 13:00, 01:00)
+    # 🌟 完整构建 - 每天 2 次 (05:00, 17:00 UTC)
     # 执行: 镜像同步 + QX转换 + 插件转换 + 模块合并 + 规则构建 + 部署
     - cron: '0 5,17 * * *'
 
-    # ⚡ 快速更新 - 每 6 小时 (00:00, 06:00, 12:00, 18:00 UTC)
-    # 执行: 规则构建 + 部署 (不包含镜像和插件,速度快)
-    - cron: '0 */6 * * *'
+    # ⚡ 快速更新 - 每 4 小时 (00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC)
+    # 执行: 规则构建 + 部署 (智能增量,不覆盖其他目录)
+    - cron: '0 */4 * * *'
+
+    # 🪞 镜像同步 - 每天 3 次 (06:00, 14:00, 22:00 UTC)
+    # 执行: 镜像同步 + 规则构建 + 部署 (智能增量)
+    - cron: '0 6,14,22 * * *'
+
+    # 🔌 插件转换 - 每天 2 次 (07:30, 19:30 UTC)
+    # 执行: 插件转换 + 模块合并 + 规则构建 + 部署 (智能增量)
+    - cron: '30 7,19 * * *'
   workflow_dispatch:
     inputs:
       task:
@@ -111,7 +119,7 @@ jobs:
           if [ "$IS_SCHEDULE" = "true" ] && [ "$IS_PUSH" != "true" ]; then
             case "$CRON" in
               "0 5,17 * * *")
-                # 🌟 完整构建 - 执行所有任务 (每天 2 次: 05:00, 17:00 UTC)
+                # 🌟 完整构建 - 执行所有任务 (每天 2 次)
                 MIRROR_SYNC="true"
                 CONVERT_QX="true"
                 CONVERT_PLUGINS="true"
@@ -119,8 +127,21 @@ jobs:
                 BUILD="true"
                 DEPLOY="true"
                 ;;
-              "0 */6 * * *")
-                # ⚡ 快速更新 - 仅规则构建 (每 6 小时)
+              "0 */4 * * *")
+                # ⚡ 快速更新 - 仅规则构建 (每 4 小时)
+                BUILD="true"
+                DEPLOY="true"
+                ;;
+              "0 6,14,22 * * *")
+                # 🪞 镜像同步 - 镜像 + 规则 (每天 3 次)
+                MIRROR_SYNC="true"
+                BUILD="true"
+                DEPLOY="true"
+                ;;
+              "30 7,19 * * *")
+                # 🔌 插件转换 - 插件 + 模块 + 规则 (每天 2 次)
+                CONVERT_PLUGINS="true"
+                MERGE_MODULES="true"
                 BUILD="true"
                 DEPLOY="true"
                 ;;
@@ -285,6 +306,84 @@ jobs:
         env:
           CI: true
 
+      # 🔧 步骤 4.5: 下载缺失的目录用于生成完整的 index.html
+      - name: Download missing directories for index.html
+        if: needs.prepare.outputs.should_build == 'true'
+        run: |
+          echo "📥 检查并下载缺失的目录..."
+          echo "📁 当前 public 目录内容："
+          ls -la public/ || echo "public 目录不存在"
+
+          # 检查哪些目录缺失（包含所有可能的规则目录）
+          MISSING_DIRS=""
+          for dir in Mirror Modules Scripts Clash sing-box Loon QuantumultX Surfboard; do
+            if [ ! -d "public/$dir" ]; then
+              MISSING_DIRS="$MISSING_DIRS $dir"
+              echo "  ❌ $dir/ 缺失"
+            else
+              echo "  ✅ $dir/ 存在 ($(find public/$dir -type f 2>/dev/null | wc -l) 个文件)"
+            fi
+          done
+
+          if [ -z "$MISSING_DIRS" ]; then
+            echo "✅ 所有目录都已存在,无需下载"
+            exit 0
+          fi
+
+          echo ""
+          echo "📋 需要下载的目录:$MISSING_DIRS"
+
+          # 克隆生产仓库（浅克隆,只获取最新版本）
+          echo "⏬ 克隆生产仓库..."
+          git clone --depth=1 --filter=blob:none --sparse \
+            https://github.com/lucking7/NRRule.git \
+            ./prod-temp 2>/dev/null || {
+            echo "⚠️  无法克隆生产仓库,可能是首次构建"
+            echo "📁 为缺失的目录创建空目录..."
+            for dir in $MISSING_DIRS; do
+              mkdir -p "public/$dir"
+              echo "  ✅ 创建空目录: public/$dir"
+            done
+            exit 0
+          }
+
+          cd ./prod-temp
+          # 设置要下载的所有目录
+          git sparse-checkout set $MISSING_DIRS 2>/dev/null || true
+          cd ..
+
+          # 复制缺失的目录到 public
+          echo ""
+          echo "📂 从生产环境复制缺失的目录..."
+          for dir in $MISSING_DIRS; do
+            if [ -d "prod-temp/$dir" ]; then
+              FILE_COUNT=$(find "prod-temp/$dir" -type f 2>/dev/null | wc -l)
+              echo "  ✅ 复制 $dir/ ($FILE_COUNT 个文件)"
+              cp -r "prod-temp/$dir" "public/$dir"
+            else
+              echo "  ⚠️  $dir/ 在生产环境也不存在,创建空目录"
+              mkdir -p "public/$dir"
+            fi
+          done
+
+          # 清理临时目录
+          rm -rf ./prod-temp
+
+          echo ""
+          echo "📊 最终目录状态："
+          for dir in Mirror Modules Scripts List Clash sing-box Loon QuantumultX Surfboard GeoIP; do
+            if [ -d "public/$dir" ]; then
+              FILE_COUNT=$(find "public/$dir" -type f 2>/dev/null | wc -l)
+              echo "  ✅ $dir/: $FILE_COUNT 个文件"
+            else
+              echo "  ⚠️  $dir/: 不存在"
+            fi
+          done
+
+          echo "✅ 目录准备完成"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # 🔧 步骤 5: 规则构建（始终执行）
       - run: pnpm run build
         env:
@@ -302,17 +401,56 @@ jobs:
           fi
 
           echo "📊 Build output statistics:"
+          echo ""
+          echo "📁 目录结构:"
+          # 显示第一层目录结构
+          ls -la public/ | head -20
+          echo ""
+
+          echo "📈 文件统计:"
+          # 规则文件
+          echo "  List: $(find public/List -type f 2>/dev/null | wc -l) files"
+          echo "  Clash: $(find public/Clash -type f 2>/dev/null | wc -l) files"
+          echo "  sing-box: $(find public/sing-box -type f 2>/dev/null | wc -l) files"
+          echo "  Loon: $(find public/Loon -type f 2>/dev/null | wc -l) files"
+          echo "  QuantumultX: $(find public/QuantumultX -type f 2>/dev/null | wc -l) files"
+          echo "  Surfboard: $(find public/Surfboard -type f 2>/dev/null | wc -l) files"
+          echo "  GeoIP: $(find public/GeoIP -type f 2>/dev/null | wc -l) files"
+
+          # 模块和脚本
+          echo ""
           echo "  Modules (root): $(find public/Modules -maxdepth 1 -type f -name '*.sgmodule' 2>/dev/null | wc -l) files"
           echo "  Modules/Merged: $(find public/Modules/Merged -type f 2>/dev/null | wc -l) files"
           echo "  Scripts: $(find public/Scripts -type f 2>/dev/null | wc -l) files"
-          echo "  List: $(find public/List -type f 2>/dev/null | wc -l) files"
+
+          # 镜像
+          echo ""
           echo "  Mirror: $(find public/Mirror -type f 2>/dev/null | wc -l) files"
           echo "    - iRingo: $(find public/Mirror/iRingo -type f 2>/dev/null | wc -l) files"
           echo "    - DualSubs: $(find public/Mirror/DualSubs -type f 2>/dev/null | wc -l) files"
           echo "    - BiliUniverse: $(find public/Mirror/BiliUniverse -type f 2>/dev/null | wc -l) files"
           echo "    - Sukka/Mock: $(find public/Mirror/Sukka/Mock -type f 2>/dev/null | wc -l) files"
           echo "    - Sukka/Modules: $(find public/Mirror/Sukka/Modules -type f 2>/dev/null | wc -l) files"
-          echo "  GeoIP: $(find public/GeoIP -type f 2>/dev/null | wc -l) files"
+
+          # 检查 index.html 是否生成
+          echo ""
+          if [ -f "public/index.html" ]; then
+            echo "✅ index.html generated successfully"
+            echo "  Size: $(stat -f%z public/index.html 2>/dev/null || stat -c%s public/index.html 2>/dev/null || echo 'unknown') bytes"
+            # 检查 index.html 中是否包含关键目录
+            echo "  Checking content..."
+            for dir in Mirror Modules Scripts List Clash sing-box; do
+              if grep -q "$dir" public/index.html; then
+                echo "    ✅ Contains $dir"
+              else
+                echo "    ⚠️  Missing $dir in index.html"
+              fi
+            done
+          else
+            echo "❌ index.html not found!"
+          fi
+
+          echo ""
           echo "✅ Build output verified"
 
       - uses: actions/upload-artifact@v4
@@ -378,7 +516,8 @@ jobs:
     if: |
       needs.prepare.outputs.should_deploy == 'true' &&
       (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'cloudflare') &&
-      github.ref == 'refs/heads/main'
+      github.ref == 'refs/heads/main' &&
+      needs.build.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -386,12 +525,46 @@ jobs:
           name: build-artifact-${{ github.sha }}-${{ github.run_number }}
           path: public
 
-      - uses: cloudflare/wrangler-action@v3
+      # 验证构建产物
+      - name: Verify build artifact
+        run: |
+          echo "📁 检查 Cloudflare Pages 部署内容："
+          if [ ! -d "public" ]; then
+            echo "❌ public 目录不存在"
+            exit 1
+          fi
+          ls -la public/
+          echo ""
+          echo "📊 文件统计："
+          find public -type f | wc -l
+          echo "✅ 构建产物验证通过"
+
+      # 部署到 Cloudflare Pages
+      - name: Deploy to Cloudflare Pages
+        id: cloudflare-deploy
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy public --project-name=nrrule --commit-dirty=true --branch=main
-          wranglerVersion: '3.114.12'
+          wranglerVersion: 'latest'
+        continue-on-error: false
+
+      # 输出部署结果
+      - name: Deploy summary
+        if: always()
+        run: |
+          if [ "${{ steps.cloudflare-deploy.outcome }}" == "success" ]; then
+            echo "✅ Cloudflare Pages 部署成功"
+            echo "🔗 访问地址: https://nrrule.pages.dev"
+          else
+            echo "❌ Cloudflare Pages 部署失败"
+            echo "请检查："
+            echo "  1. CLOUDFLARE_API_TOKEN 是否正确配置"
+            echo "  2. CLOUDFLARE_ACCOUNT_ID 是否正确配置"
+            echo "  3. 项目名称 'nrrule' 是否正确"
+            exit 1
+          fi
 
   # ============================================
   # 部署到 GitHub Repository
@@ -432,42 +605,35 @@ jobs:
           # 🔧 根据执行的任务决定要更新的目录（智能增量部署）
           SYNC_PATHS=""
           SYNC_DESC=""
-          
-          # 规则构建（始终执行）
-          SYNC_PATHS="$SYNC_PATHS List/ GeoIP/"
+
+          # 规则构建（始终执行）- 包含所有规则格式
+          SYNC_PATHS="$SYNC_PATHS List/ Clash/ sing-box/ Loon/ QuantumultX/ Surfboard/ GeoIP/"
           SYNC_DESC="rules"
-          
+
           # 镜像同步
           if [ "${{ needs.prepare.outputs.should_mirror_sync }}" = "true" ]; then
             SYNC_PATHS="$SYNC_PATHS Mirror/"
             SYNC_DESC="$SYNC_DESC+mirrors"
           fi
-          
-          # QX 转换
-          if [ "${{ needs.prepare.outputs.should_convert_qx }}" = "true" ]; then
-            SYNC_PATHS="$SYNC_PATHS Modules/"
-            SYNC_DESC="$SYNC_DESC+qx"
-          fi
-          
-          # 插件转换
-          if [ "${{ needs.prepare.outputs.should_convert_plugins }}" = "true" ]; then
-            SYNC_PATHS="$SYNC_PATHS Modules/"
-            SYNC_DESC="$SYNC_DESC+plugins"
-          fi
-          
-          # 模块合并
-          if [ "${{ needs.prepare.outputs.should_merge_modules }}" = "true" ]; then
+
+          # QX 转换 / 插件转换 / 模块合并 - 统一处理 Modules
+          if [ "${{ needs.prepare.outputs.should_convert_qx }}" = "true" ] || \
+             [ "${{ needs.prepare.outputs.should_convert_plugins }}" = "true" ] || \
+             [ "${{ needs.prepare.outputs.should_merge_modules }}" = "true" ]; then
             SYNC_PATHS="$SYNC_PATHS Modules/"
             SYNC_DESC="$SYNC_DESC+modules"
           fi
-          
+
           # Scripts 目录（如果存在）
           if [ -d "../public/Scripts" ]; then
             SYNC_PATHS="$SYNC_PATHS Scripts/"
             SYNC_DESC="$SYNC_DESC+scripts"
           fi
-          
-          echo "📦 将要同步的目录: $SYNC_PATHS"
+
+          # 去重目录列表
+          SYNC_PATHS=$(echo "$SYNC_PATHS" | tr ' ' '\n' | sort -u | tr '\n' ' ')
+
+          echo "📦 将要同步的目录（去重后）: $SYNC_PATHS"
           echo "📝 更新描述: $SYNC_DESC"
 
           gh repo unarchive lucking7/NRRule --yes || true
@@ -499,10 +665,13 @@ jobs:
 
           echo ""
           echo "📊 部署后的文件统计："
-          echo "  Modules (根目录): $(find ./Modules -maxdepth 1 -type f -name '*.sgmodule' 2>/dev/null | wc -l) 个文件"
-          echo "  Modules/Merged: $(find ./Modules/Merged -type f 2>/dev/null | wc -l) 个文件"
-          echo "  Scripts: $(find ./Scripts -type f 2>/dev/null | wc -l) 个文件"
           echo "  List: $(find ./List -type f 2>/dev/null | wc -l) 个文件"
+          echo "  Clash: $(find ./Clash -type f 2>/dev/null | wc -l) 个文件"
+          echo "  sing-box: $(find ./sing-box -type f 2>/dev/null | wc -l) 个文件"
+          echo "  Loon: $(find ./Loon -type f 2>/dev/null | wc -l) 个文件"
+          echo "  QuantumultX: $(find ./QuantumultX -type f 2>/dev/null | wc -l) 个文件"
+          echo "  Modules: $(find ./Modules -type f 2>/dev/null | wc -l) 个文件"
+          echo "  Scripts: $(find ./Scripts -type f 2>/dev/null | wc -l) 个文件"
           echo "  Mirror: $(find ./Mirror -type f 2>/dev/null | wc -l) 个文件"
           echo "  GeoIP: $(find ./GeoIP -type f 2>/dev/null | wc -l) 个文件"
 
