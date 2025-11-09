@@ -198,14 +198,14 @@ jobs:
       # 🚀 网络性能优化
       - uses: smorimoto/tune-github-hosted-runner-network@v1
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
           fetch-depth: 1
 
       - uses: pnpm/action-setup@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: ".node-version"
           cache: "pnpm"
@@ -453,7 +453,7 @@ jobs:
           echo ""
           echo "✅ Build output verified"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: build-artifact-${{ github.sha }}-${{ github.run_number }}
           path: ${{ steps.build-dir.outputs.dir }}
@@ -480,7 +480,7 @@ jobs:
       needs.build.result == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           name: build-artifact-${{ github.sha }}-${{ github.run_number }}
           path: public
@@ -520,7 +520,7 @@ jobs:
       needs.build.result == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           name: build-artifact-${{ github.sha }}-${{ github.run_number }}
           path: public
@@ -580,7 +580,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # 🔧 下载 build artifact 而不是 checkout 源代码
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           name: build-artifact-${{ github.sha }}-${{ github.run_number }}
           path: public
