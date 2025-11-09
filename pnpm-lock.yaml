@@ -42,8 +42,8 @@ importers:
         specifier: ^0.1.6
         version: 0.1.6
       fast-cidr-tools:
-        specifier: ^0.3.2
-        version: 0.3.2
+        specifier: ^0.3.4
+        version: 0.3.4
       fast-fifo:
         specifier: ^1.3.2
         version: 1.3.2
@@ -1132,8 +1132,8 @@ packages:
     resolution: {integrity: sha512-XYfuKMvj4O35f/pOXLObndIRvyQ+/+6AhODh+OKWj9S9498pHHn/IMszH+gt0fBCRWMNfk1ZSp5x3AifmnI2vg==}
     engines: {node: '>=6'}
 
-  fast-cidr-tools@0.3.2:
-    resolution: {integrity: sha512-hH8m1zjBer5VxrFG3dCEIMGEu/hDs/2scCH0vCJqce5ujCEBmZYlCejfZ4IFYTCt1YQard/uXmMzNBs9SR3/qg==}
+  fast-cidr-tools@0.3.4:
+    resolution: {integrity: sha512-WQNW+ynysAsI+O3YX2269Ff1wx6+xTyKrtLPN0TaZOf5ZZfFNPS59J0vmCrJbpno5z3vJ5sX4wUHpJL7avuHLg==}
     engines: {node: '>=16'}
 
   fast-deep-equal@3.1.3:
@@ -1197,6 +1197,9 @@ packages:
 
   foxts@3.12.0:
     resolution: {integrity: sha512-9yPxs9AAxpn+dDesm8gnKGE5I6hKe7YhfAvIzfxGjg5UYpoctzep4FEQV8EkJj8XBW4sCPLOfnt6SH4eBApqew==}
+
+  foxts@4.6.0:
+    resolution: {integrity: sha512-Sq6k7CDUAz1/MOiwRiV59tblzsaWGOQitYxvF/l7H5Z/9gZNBvWKWsRcXLS7T7FLKRKO0LmETiefkVUm5omESg==}
 
   fs-constants@1.0.0:
     resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
@@ -1500,8 +1503,8 @@ packages:
   resolve-pkg-maps@1.0.0:
     resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
 
-  resolve@1.22.10:
-    resolution: {integrity: sha512-NPRy+/ncIMeDlTAsuqwKIiferiawhefFJtkNSW0qZJEqMEb+qBt/77B/jGeeek+F0uOeN05CDa6HXbbIgtVX4w==}
+  resolve@1.22.11:
+    resolution: {integrity: sha512-RfqAvLnMl313r7c9oclB1HhUEAezcpLjz95wFH4LVuhk9JF/r22qmVP9AMmOU4vMX7Q8pN8jwNg/CSpdFnMjTQ==}
     engines: {node: '>= 0.4'}
     hasBin: true
 
@@ -2517,7 +2520,7 @@ snapshots:
     dependencies:
       debug: 3.2.7
       is-core-module: 2.16.1
-      resolve: 1.22.10
+      resolve: 1.22.11
     transitivePeerDependencies:
       - supports-color
     optional: true
@@ -2728,7 +2731,9 @@ snapshots:
 
   expand-template@2.0.3: {}
 
-  fast-cidr-tools@0.3.2: {}
+  fast-cidr-tools@0.3.4:
+    dependencies:
+      foxts: 4.6.0
 
   fast-deep-equal@3.1.3: {}
 
@@ -2783,6 +2788,11 @@ snapshots:
   flatted@3.3.3: {}
 
   foxts@3.12.0:
+    dependencies:
+      fast-escape-html: 1.1.0
+      fast-escape-regexp: 1.0.1
+
+  foxts@4.6.0:
     dependencies:
       fast-escape-html: 1.1.0
       fast-escape-regexp: 1.0.1
@@ -3073,7 +3083,7 @@ snapshots:
 
   resolve-pkg-maps@1.0.0: {}
 
-  resolve@1.22.10:
+  resolve@1.22.11:
     dependencies:
       is-core-module: 2.16.1
       path-parse: 1.0.7
