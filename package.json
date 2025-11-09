@@ -72,7 +72,7 @@
     "yauzl-promise": "^4.0.0"
   },
   "devDependencies": {
-    "@eslint-sukka/node": "^6.23.1",
+    "@eslint-sukka/node": "^8.0.2",
     "@swc-node/register": "^1.11.1",
     "@swc/core": "^1.13.5",
     "@types/better-sqlite3": "^7.6.13",
