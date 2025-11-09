@@ -61,7 +61,7 @@
     "null-prototype-object": "^1.2.2",
     "picocolors": "^1.1.1",
     "punycode": "^2.3.1",
-    "tar-fs": "^3.1.0",
+    "tar-fs": "^3.1.1",
     "tldts": "^7.0.12",
     "tldts-experimental": "^7.0.12",
     "undici": "^7.15.0",
