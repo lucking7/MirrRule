@@ -43,7 +43,7 @@
   "license": "ISC",
   "dependencies": {
     "@ghostery/adblocker": "^2.11.6",
-    "@henrygd/queue": "^1.0.7",
+    "@henrygd/queue": "^1.1.1",
     "@mitata/counters": "^0.0.8",
     "better-sqlite3": "^12.2.0",
     "ci-info": "^4.3.0",
