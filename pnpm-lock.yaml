@@ -127,8 +127,8 @@ importers:
         specifier: ^6.23.1
         version: 6.23.1(@typescript-eslint/eslint-plugin@8.40.0(@typescript-eslint/parser@8.40.0(eslint@9.34.0(jiti@1.21.7))(typescript@5.9.2))(eslint@9.34.0(jiti@1.21.7))(typescript@5.9.2))(@typescript-eslint/utils@8.40.0(eslint@9.34.0(jiti@1.21.7))(typescript@5.9.2))(eslint-import-resolver-node@0.3.9)(eslint@9.34.0(jiti@1.21.7))(typescript@5.9.2)
       eslint-formatter-sukka:
-        specifier: ^6.23.1
-        version: 6.23.1
+        specifier: ^8.0.2
+        version: 8.0.2(eslint@9.34.0(jiti@1.21.7))
       tinyexec:
         specifier: ^1.0.1
         version: 1.0.1
@@ -856,6 +856,10 @@ packages:
     resolution: {integrity: sha512-l+2bNRMiQgcfILUi33labAZYIWlH1kWDp+ecNo5iisRKrbm0xcRyCww71/YU0Fkw0mAFpz9bJayXPjey6vkmaQ==}
     engines: {node: '>=8'}
 
+  ci-info@4.3.1:
+    resolution: {integrity: sha512-Wdy2Igu8OcBpI2pZePZ5oWjPC38tmDVx5WKUXKwlLYkA0ozo85sLsLvkBbBn/sZaSCMFOGZJ14fvW9t5/d7kdA==}
+    engines: {node: '>=8'}
+
   cli-progress@3.12.0:
     resolution: {integrity: sha512-tRkV3HJ1ASwm19THiiLIXLO7Im7wlTuKnvkYaTkyoAPefqjNg7W7DHKUlGRxy9vxDvbyCYQkQozvptuMkGCg8A==}
     engines: {node: '>=4'}
@@ -959,8 +963,10 @@ packages:
   eslint-config-sukka@6.23.1:
     resolution: {integrity: sha512-bjbpjP64qF5Yw17ZWDAyfyg6MXvFwhaLPib1XdCbj7ba4aYLh8s0/1JCJVoduwhLc7QlMUXUL5UlQvHf/YF9nQ==}
 
-  eslint-formatter-sukka@6.23.1:
-    resolution: {integrity: sha512-oZydy+iu3yKtcVVONeu+NzW6T8B1MoiZ3dbH/nXFJKiiAKZhBx6IwV9jV7X+VVaLOXn8bZGuTa6Kdybu4dpolg==}
+  eslint-formatter-sukka@8.0.2:
+    resolution: {integrity: sha512-MMBpSER3WM9TUWmvrTAiskbjspXCNfz+NI/7HRj0e/lZrOvl/kjWQpOvTMujeS+jNBECYZy40s1ZxPzO47VadQ==}
+    peerDependencies:
+      eslint: '*'
 
   eslint-import-context@0.1.9:
     resolution: {integrity: sha512-K9Hb+yRaGAGUbwjhFNHvSmmkZs9+zbuoe3kFQ4V1wYjrepUFYM2dZAfNtjbbj3qsPfUfsA68Bx/ICWQMi+C8Eg==}
@@ -1197,6 +1203,9 @@ packages:
 
   foxts@3.12.0:
     resolution: {integrity: sha512-9yPxs9AAxpn+dDesm8gnKGE5I6hKe7YhfAvIzfxGjg5UYpoctzep4FEQV8EkJj8XBW4sCPLOfnt6SH4eBApqew==}
+
+  foxts@5.0.0:
+    resolution: {integrity: sha512-7DFosPyxBY+PlOblM2afOqqCY+3l/KAWq0qVQ5CLXzHkjLJfdzFON1YZYpPG9VXR+e5R2dgcZxDQWzWk2uudtQ==}
 
   fs-constants@1.0.0:
     resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
@@ -1500,8 +1509,8 @@ packages:
   resolve-pkg-maps@1.0.0:
     resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
 
-  resolve@1.22.10:
-    resolution: {integrity: sha512-NPRy+/ncIMeDlTAsuqwKIiferiawhefFJtkNSW0qZJEqMEb+qBt/77B/jGeeek+F0uOeN05CDa6HXbbIgtVX4w==}
+  resolve@1.22.11:
+    resolution: {integrity: sha512-RfqAvLnMl313r7c9oclB1HhUEAezcpLjz95wFH4LVuhk9JF/r22qmVP9AMmOU4vMX7Q8pN8jwNg/CSpdFnMjTQ==}
     engines: {node: '>= 0.4'}
     hasBin: true
 
@@ -2382,6 +2391,8 @@ snapshots:
 
   ci-info@4.3.0: {}
 
+  ci-info@4.3.1: {}
+
   cli-progress@3.12.0:
     dependencies:
       string-width: 4.2.3
@@ -2501,9 +2512,11 @@ snapshots:
       - supports-color
       - typescript
 
-  eslint-formatter-sukka@6.23.1:
+  eslint-formatter-sukka@8.0.2(eslint@9.34.0(jiti@1.21.7)):
     dependencies:
-      ci-info: 4.3.0
+      ci-info: 4.3.1
+      eslint: 9.34.0(jiti@1.21.7)
+      foxts: 5.0.0
       picocolors: 1.1.1
 
   eslint-import-context@0.1.9(unrs-resolver@1.11.1):
@@ -2517,7 +2530,7 @@ snapshots:
     dependencies:
       debug: 3.2.7
       is-core-module: 2.16.1
-      resolve: 1.22.10
+      resolve: 1.22.11
     transitivePeerDependencies:
       - supports-color
     optional: true
@@ -2786,6 +2799,8 @@ snapshots:
     dependencies:
       fast-escape-html: 1.1.0
       fast-escape-regexp: 1.0.1
+
+  foxts@5.0.0: {}
 
   fs-constants@1.0.0: {}
 
@@ -3073,7 +3088,7 @@ snapshots:
 
   resolve-pkg-maps@1.0.0: {}
 
-  resolve@1.22.10:
+  resolve@1.22.11:
     dependencies:
       is-core-module: 2.16.1
       path-parse: 1.0.7
