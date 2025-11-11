@@ -136,6 +136,15 @@ export const MIRROR_GROUPS: MirrorGroup[] = [
       },
     ],
   },
+
+  // fmz200 项目
+  // 注意：fmz200 的 split 目录通过专门的脚本处理（download-fmz200-split.ts）
+  // 该脚本会下载所有子目录中的 .sgmodule 文件，并根据 #!name= 重命名
+  {
+    name: 'fmz200',
+    repositories: [],
+    extraDownloads: [],
+  },
 ];
 
 /**

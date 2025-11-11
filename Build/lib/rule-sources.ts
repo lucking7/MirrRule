@@ -93,24 +93,14 @@ export const ruleGroups: RuleGroup[] = [
     targets: ['surge', 'clash', 'singbox', 'loon', 'quantumult-x'], // 广告拦截支持多平台
     files: [
       applyDefaultConfig({
-        path: 'List/reject-qx.list',
+        path: 'List/Reject-fmz.list',
         url: 'https://github.com/fmz200/wool_scripts/raw/main/QuantumultX/filter/filter.list',
-        keepComments: false, // 保留注释 - 特殊规则通常需要保留注释信息
-        dedup: true, // 启用去重 - 特殊规则通常来自多个源，需要去重
-        sort: true, // 启用排序 - 合并后的规则需要排序
-        validate: true, // 启用规则验证
-        keepEmptyLines: false, // 不保留空行
-        deleteSourceFiles: true, // 删除源文件 - 避免冲突
-      }),
-      applyDefaultConfig({
-        path: 'List/reject-loon.list',
-        url: 'https://github.com/fmz200/wool_scripts/raw/main/Loon/rule/rejectAd.list',
-        keepComments: false, // 保留注释 - 特殊规则通常需要保留注释信息
-        dedup: true, // 启用去重 - 特殊规则通常来自多个源，需要去重
-        sort: true, // 启用排序 - 合并后的规则需要排序
-        validate: true, // 启用规则验证
-        keepEmptyLines: false, // 不保留空行
-        deleteSourceFiles: true, // 删除源文件 - 避免冲突
+        keepComments: false,
+        dedup: true,
+        sort: true,
+        validate: true,
+        keepEmptyLines: false,
+        deleteSourceFiles: true,
       }),
       applyDefaultConfig({
         path: 'List/reject-no-drop.list',
@@ -129,8 +119,14 @@ export const ruleGroups: RuleGroup[] = [
     targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
       applyDefaultConfig({
-        path: 'List/direct-qx.list',
+        path: 'List/Direct-fmz.list',
         url: 'https://github.com/fmz200/wool_scripts/raw/main/QuantumultX/filter/filterFix.list',
+        keepComments: false,
+        dedup: true,
+        sort: true,
+        validate: true,
+        keepEmptyLines: false,
+        deleteSourceFiles: true,
       }),
     ],
   },

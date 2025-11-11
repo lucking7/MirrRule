@@ -256,6 +256,12 @@ jobs:
         env:
           CI: true
 
+      - name: Download fmz200 Split Modules
+        if: needs.prepare.outputs.should_mirror_sync == 'true'
+        run: pnpm run node ./Build/download-fmz200-split.ts
+        env:
+          CI: true
+
       # 🔧 步骤 2: QX Rewrite 转换（如果需要）
       - name: Convert QX Rewrites
         if: needs.prepare.outputs.should_convert_qx == 'true'

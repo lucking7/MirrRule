@@ -12,9 +12,9 @@ import { OUTPUT_MOCK_DIR, OUTPUT_MODULES_DIR, OUTPUT_SUKKA_MIRROR_DIR } from './
 import { requestWithLog } from './utils/network/fetch-retry';
 import { shouldUpdateFile } from './integration/mirror-sync/checksum';
 
-const GITHUB_CODELOAD_URL = 'https://codeload.github.com/lucking7/NRRule/tar.gz/master';
+const GITHUB_CODELOAD_URL = 'https://codeload.github.com/SukkaLab/ruleset.skk.moe/tar.gz/master';
 const GITLAB_CODELOAD_URL =
-  'https://gitlab.com/lucking7/NRRule/-/archive/master/NRRule-master.tar.gz';
+  'https://gitlab.com/SukkaLab/ruleset.skk.moe/-/archive/master/ruleset.skk.moe-master.tar.gz';
 
 /**
  * 为 Surge Module 文件添加 category 标签
@@ -93,7 +93,7 @@ export const downloadMockAndModules = task(
         )
         .end();
 
-      const pathPrefix = 'NRRule-master/';
+      const pathPrefix = 'ruleset.skk.moe-master/';
       const extractedFiles: string[] = [];
 
       console.log(picocolors.cyan('📦 解压文件到临时目录...'));

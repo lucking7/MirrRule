@@ -4,5 +4,6 @@ node_modules
 .wireit
 .cache
 public
+public.zip
 tmp.*
 .BUILD_FINISHED
