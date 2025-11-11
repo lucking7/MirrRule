@@ -22,8 +22,8 @@ export const OUTPUT_INTERNAL_DIR = path.resolve(PUBLIC_DIR, 'Internal');
 
 // Sukka 镜像目录 - 统一放在 Mirror/Sukka 下
 export const OUTPUT_SUKKA_MIRROR_DIR = path.resolve(PUBLIC_DIR, 'Mirror', 'Sukka');
-export const OUTPUT_MOCK_DIR = path.resolve(OUTPUT_SUKKA_MIRROR_DIR, 'Mock');
-export const OUTPUT_MODULES_DIR = path.resolve(OUTPUT_SUKKA_MIRROR_DIR, 'Modules');
+export const OUTPUT_MOCK_DIR = path.resolve(OUTPUT_SUKKA_MIRROR_DIR, 'mock');
+export const OUTPUT_MODULES_DIR = path.resolve(OUTPUT_SUKKA_MIRROR_DIR, 'sgmodule');
 export const OUTPUT_MODULES_RULES_DIR = path.resolve(OUTPUT_MODULES_DIR, 'Rules');
 
 // 遗留导出（兼容性）- 如果这些目录不再使用，应该删除引用

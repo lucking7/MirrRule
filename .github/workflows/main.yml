@@ -250,7 +250,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI: true
 
-      - name: Download Sukka Mock & Modules
+      - name: Download Sukka mock & sgmodule
         if: needs.prepare.outputs.should_mirror_sync == 'true'
         run: pnpm run node ./Build/download-mock-modules.ts
         env:
@@ -435,8 +435,8 @@ jobs:
           echo "    - iRingo: $(find public/Mirror/iRingo -type f 2>/dev/null | wc -l) files"
           echo "    - DualSubs: $(find public/Mirror/DualSubs -type f 2>/dev/null | wc -l) files"
           echo "    - BiliUniverse: $(find public/Mirror/BiliUniverse -type f 2>/dev/null | wc -l) files"
-          echo "    - Sukka/Mock: $(find public/Mirror/Sukka/Mock -type f 2>/dev/null | wc -l) files"
-          echo "    - Sukka/Modules: $(find public/Mirror/Sukka/Modules -type f 2>/dev/null | wc -l) files"
+          echo "    - Sukka/mock: $(find public/Mirror/Sukka/mock -type f 2>/dev/null | wc -l) files"
+          echo "    - Sukka/sgmodule: $(find public/Mirror/Sukka/sgmodule -type f 2>/dev/null | wc -l) files"
 
           # 检查 index.html 是否生成
           echo ""

@@ -39,20 +39,20 @@ function addCategoryTag(content: Buffer, filePath: string): Buffer {
 }
 
 /**
- * 下载 Mock 和 Modules 目录（输出到 public/Mirror/Sukka/ 下）
+ * 下载 mock 和 sgmodule 目录（输出到 public/Mirror/Sukka/ 下）
  * - 使用临时目录解压
  * - 逐个文件 checksum 比对，仅复制变化的文件
- * - 为 Modules 文件添加 #!category=[Sukka] 标签
+ * - 为 sgmodule 文件添加 #!category=[Sukka] 标签
  * - 提供详细日志（新增/更新/跳过/总数）
  */
 export const downloadMockAndModules = task(
   require.main === module,
   __filename
 )(async span => {
-  console.log(picocolors.cyan('🪞 Sukka Mirror Sync - Mock & Modules\n'));
+  console.log(picocolors.cyan('🪞 Sukka Mirror Sync - Mock & sgmodule\n'));
   console.log(picocolors.gray(`Output: ${OUTPUT_SUKKA_MIRROR_DIR}`));
-  console.log(picocolors.gray(`  Mock: ${OUTPUT_MOCK_DIR}`));
-  console.log(picocolors.gray(`  Modules: ${OUTPUT_MODULES_DIR}\n`));
+  console.log(picocolors.gray(`  mock: ${OUTPUT_MOCK_DIR}`));
+  console.log(picocolors.gray(`  sgmodule: ${OUTPUT_MODULES_DIR}\n`));
 
   const tarGzUrl = await span.traceChildAsync('获取 tar.gz URL', async () => {
     const resp = await requestWithLog(GITHUB_CODELOAD_URL, { method: 'HEAD' });
@@ -64,7 +64,7 @@ export const downloadMockAndModules = task(
     return GITHUB_CODELOAD_URL;
   });
 
-  await span.traceChildAsync('下载并解压 Mock 和 Modules', async () => {
+  await span.traceChildAsync('下载并解压 mock 和 sgmodule', async () => {
     try {
       // 1) 创建临时目录
       const tempDir = path.join(OUTPUT_SUKKA_MIRROR_DIR, '.temp');
@@ -142,7 +142,7 @@ export const downloadMockAndModules = task(
         try {
           let fileBuffer = await fsp.readFile(tempFilePath);
 
-          // 为 Modules 文件添加 category 标签
+          // 为 sgmodule 文件添加 category 标签
           if (filePath.startsWith('Modules/')) {
             fileBuffer = addCategoryTag(fileBuffer, filePath);
           }
