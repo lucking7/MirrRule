@@ -91,13 +91,17 @@ export class SectionParser {
         .join('\n');
     }
 
-    // 🔧 统一注释处理 - 使用 RuleValidator (支持 #、!、//、; 四种格式)
+    // 🔧 统一注释处理 - 参考 Mirrored 项目的实现
+    // 移除注释行和空行，保留有效内容
     cleaned = cleaned
       .split('\n')
       .filter(line => {
         const trimmed = line.trim();
-        // 使用统一的注释检测
-        return trimmed && !RuleValidator.isComment(trimmed);
+        // 过滤空行
+        if (!trimmed) return false;
+        // 过滤注释行（支持 #、!、//、; 四种格式）
+        if (RuleValidator.isComment(trimmed)) return false;
+        return true;
       })
       .join('\n');
 

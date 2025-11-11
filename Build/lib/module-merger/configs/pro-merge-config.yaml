@@ -1,0 +1,234 @@
+# 专业版模块合并配置文件
+# 使用 pro-sgmodules.yaml 中的模块列表
+
+# 基本信息
+name: "All-in-One Pro Ad Blocker"
+version: "2.x"
+description: "Professional Ad-free Experience with comprehensive module coverage"
+category: "🛡️ Esdeath Pro"
+author: "@lucking7"
+
+# 要合并的模块列表
+# 从 pro-sgmodules.yaml 加载
+modules:
+  # 高德地图去广告
+  - url: "https://nrrule.pages.dev/Modules/高德地图去广告.sgmodule"
+    header: "高德地图去广告"
+
+  # 顺丰速运去广告
+  - url: "https://nrrule.pages.dev/Modules/顺丰速运去广告.sgmodule"
+    header: "顺丰速运去广告"
+
+  # 阿里云盘去广告
+  - url: "https://nrrule.pages.dev/Modules/阿里云盘去广告.sgmodule"
+    header: "阿里云盘去广告"
+
+  # 闲鱼去广告
+  - url: "https://nrrule.pages.dev/Modules/闲鱼去广告.sgmodule"
+    header: "闲鱼去广告"
+
+  # 酷我音乐去广告
+  - url: "https://nrrule.pages.dev/Modules/酷我音乐去广告.sgmodule"
+    header: "酷我音乐去广告"
+
+  # 酷狗铃声去广告
+  - url: "https://nrrule.pages.dev/Modules/酷狗铃声去广告.sgmodule"
+    header: "酷狗铃声去广告"
+
+  # 酷狗音乐去广告
+  - url: "https://nrrule.pages.dev/Modules/酷狗音乐去广告.sgmodule"
+    header: "酷狗音乐去广告"
+
+  # 金山文档去广告
+  - url: "https://nrrule.pages.dev/Modules/金山文档去广告.sgmodule"
+    header: "金山文档去广告"
+
+  # 腾讯文档去广告
+  - url: "https://nrrule.pages.dev/Modules/腾讯文档去广告.sgmodule"
+    header: "腾讯文档去广告"
+
+  # 腾讯视频去广告
+  - url: "https://nrrule.pages.dev/Modules/腾讯视频去广告.sgmodule"
+    header: "腾讯视频去广告"
+
+  # 财新去广告
+  - url: "https://nrrule.pages.dev/Modules/财新去广告.sgmodule"
+    header: "财新去广告"
+
+  # 拼多多去广告
+  - url: "https://nrrule.pages.dev/Modules/拼多多去广告.sgmodule"
+    header: "拼多多去广告"
+
+  # 微信公众号去广告
+  - url: "https://nrrule.pages.dev/Modules/微信公众号去广告.sgmodule"
+    header: "微信公众号去广告"
+
+  # 微信外部链接解锁
+  - url: "https://nrrule.pages.dev/Modules/微信外部链接解锁.sgmodule"
+    header: "微信外部链接解锁"
+
+  # 微信小程序去广告
+  - url: "https://nrrule.pages.dev/Modules/微信小程序去广告.sgmodule"
+    header: "微信小程序去广告"
+
+  # 微博轻享版去广告
+  - url: "https://nrrule.pages.dev/Modules/微博轻享版去广告.sgmodule"
+    header: "微博轻享版去广告"
+
+  # 小黑盒去广告
+  - url: "https://nrrule.pages.dev/Modules/小黑盒去广告.sgmodule"
+    header: "小黑盒去广告"
+
+  # HTTPDNS拦截器
+  - url: "https://nrrule.pages.dev/Modules/HTTPDNS拦截器.sgmodule"
+    header: "HTTPDNS拦截器"
+
+  # 12306去广告
+  - url: "https://nrrule.pages.dev/Modules/12306去广告.sgmodule"
+    header: "12306去广告"
+
+  # 彩云天气去广告
+  - url: "https://nrrule.pages.dev/Modules/彩云天气去广告.sgmodule"
+    header: "彩云天气去广告"
+
+  # 可莉广告过滤器
+  - url: "https://nrrule.pages.dev/Modules/可莉广告过滤器.sgmodule"
+    header: "可莉广告过滤器"
+
+  # 优酷视频去广告
+  - url: "https://nrrule.pages.dev/Modules/优酷视频去广告.sgmodule"
+    header: "优酷视频去广告"
+
+  # 中华万年历去广告
+  - url: "https://nrrule.pages.dev/Modules/中华万年历去广告.sgmodule"
+    header: "中华万年历去广告"
+
+  # YouTube去广告
+  - url: "https://nrrule.pages.dev/Modules/YouTube去广告.sgmodule"
+    header: "YouTube去广告"
+
+  # QQ音乐去广告
+  - url: "https://nrrule.pages.dev/Modules/QQ音乐去广告.sgmodule"
+    header: "QQ音乐去广告"
+
+  # KOOK去广告
+  - url: "https://nrrule.pages.dev/Modules/KOOK去广告.sgmodule"
+    header: "KOOK去广告"
+
+  # 小红书去广告
+  - url: "https://nrrule.pages.dev/Modules/小红书去广告.sgmodule"
+    header: "小红书去广告"
+
+  # 大麦去广告
+  - url: "https://nrrule.pages.dev/Modules/大麦去广告.sgmodule"
+    header: "大麦去广告"
+
+  # 夸克去广告
+  - url: "https://nrrule.pages.dev/Modules/夸克去广告.sgmodule"
+    header: "夸克去广告"
+
+  # 哔哩哔哩去广告
+  - url: "https://nrrule.pages.dev/Modules/哔哩哔哩去广告.sgmodule"
+    header: "哔哩哔哩去广告"
+
+  # 哔哩哔哩漫画去广告
+  - url: "https://nrrule.pages.dev/Modules/哔哩哔哩漫画去广告.sgmodule"
+    header: "哔哩哔哩漫画去广告"
+
+  # 喜马拉雅去广告
+  - url: "https://nrrule.pages.dev/Modules/喜马拉雅去广告.sgmodule"
+    header: "喜马拉雅去广告"
+
+  # 芒果TV去广告
+  - url: "https://nrrule.pages.dev/Modules/芒果TV去广告.sgmodule"
+    header: "芒果TV去广告"
+
+  # 菜鸟去广告
+  - url: "https://nrrule.pages.dev/Modules/菜鸟去广告.sgmodule"
+    header: "菜鸟去广告"
+
+  # 斗鱼去广告
+  - url: "https://nrrule.pages.dev/Modules/斗鱼去广告.sgmodule"
+    header: "斗鱼去广告"
+
+  # 无他相机去广告
+  - url: "https://nrrule.pages.dev/Modules/无他相机去广告.sgmodule"
+    header: "无他相机去广告"
+
+  # 有道云笔记去广告
+  - url: "https://nrrule.pages.dev/Modules/有道云笔记去广告.sgmodule"
+    header: "有道云笔记去广告"
+
+  # 萤石云视频去广告
+  - url: "https://nrrule.pages.dev/Modules/萤石云视频去广告.sgmodule"
+    header: "萤石云视频去广告"
+
+  # 薄荷健康去广告
+  - url: "https://nrrule.pages.dev/Modules/薄荷健康去广告.sgmodule"
+    header: "薄荷健康去广告"
+
+  # 航旅纵横去广告
+  - url: "https://nrrule.pages.dev/Modules/航旅纵横去广告.sgmodule"
+    header: "航旅纵横去广告"
+
+  # 美颜相机去广告
+  - url: "https://nrrule.pages.dev/Modules/美颜相机去广告.sgmodule"
+    header: "美颜相机去广告"
+
+  # 网易新闻去广告
+  - url: "https://nrrule.pages.dev/Modules/网易新闻去广告.sgmodule"
+    header: "网易新闻去广告"
+
+  # 知乎去广告
+  - url: "https://nrrule.pages.dev/Modules/知乎去广告.sgmodule"
+    header: "知乎去广告"
+
+  # 知识星球去水印
+  - url: "https://nrrule.pages.dev/Modules/知识星球去水印.sgmodule"
+    header: "知识星球去水印"
+
+  # 百度地图去广告
+  - url: "https://nrrule.pages.dev/Modules/百度地图去广告.sgmodule"
+    header: "百度地图去广告"
+
+  # 百度网盘去广告
+  - url: "https://nrrule.pages.dev/Modules/百度网盘去广告.sgmodule"
+    header: "百度网盘去广告"
+
+  # 淘宝去广告
+  - url: "https://nrrule.pages.dev/Modules/淘宝去广告.sgmodule"
+    header: "淘宝去广告"
+
+  # 淘票票去广告
+  - url: "https://nrrule.pages.dev/Modules/淘票票去广告.sgmodule"
+    header: "淘票票去广告"
+
+  # 滴滴出行去广告
+  - url: "https://nrrule.pages.dev/Modules/滴滴出行去广告.sgmodule"
+    header: "滴滴出行去广告"
+
+# 输出配置
+output:
+  # 合并后的 .sgmodule 文件路径
+  sgmodule: "public/Modules/All-in-One-Pro.sgmodule"
+  
+  # 提取的规则列表文件路径
+  rulelist: "public/Modules/reject-pro.list"
+  
+  # 模板文件路径
+  template: "Build/lib/module-merger/templates/all-in-one.template"
+
+# 合并选项
+options:
+  # 是否去重 MITM hostnames
+  deduplicateHostnames: true
+  
+  # 是否移除注释
+  stripComments: true
+  
+  # 是否添加分隔符
+  addDividers: true
+  
+  # 分隔符长度
+  dividerLength: 30
+
