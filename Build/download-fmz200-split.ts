@@ -7,7 +7,18 @@ import { OUTPUT_SUKKA_MIRROR_DIR } from './constants/dir';
 const GITHUB_API_BASE = 'https://api.github.com/repos/fmz200/wool_scripts/contents';
 const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/fmz200/wool_scripts/main';
 const SPLIT_DIR_PATH = 'Surge/module/split';
-const OUTPUT_DIR = path.join(OUTPUT_SUKKA_MIRROR_DIR, '../fmz200/sgmodule/categories');
+const OUTPUT_BASE_DIR = path.join(OUTPUT_SUKKA_MIRROR_DIR, '../fmz200/sgmodule');
+const OUTPUT_CATEGORIES_DIR = path.join(OUTPUT_BASE_DIR, 'categories');
+
+/**
+ * 根目录模块文件列表
+ */
+const ROOT_MODULES = [
+  'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/blockAds.module',
+  'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/blockAdsHis.module',
+  'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/cookies.module',
+  'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/weibo.module',
+];
 
 /**
  * 目录名映射规则
@@ -77,7 +88,68 @@ async function fetchDirectoryContents(dirPath: string): Promise<any[]> {
 }
 
 /**
- * 下载并处理单个 sgmodule 文件
+ * 下载并处理根目录模块文件
+ */
+async function downloadRootModule(
+  moduleUrl: string
+): Promise<{ success: boolean; fileName?: string }> {
+  const originalFileName = path.basename(moduleUrl);
+
+  try {
+    console.log(picocolors.cyan(`  Downloading: ${originalFileName}`));
+
+    const response = await fetch(moduleUrl);
+
+    if (!response.ok) {
+      console.warn(
+        picocolors.yellow(`⚠️  Failed to download ${originalFileName}: ${response.status}`)
+      );
+      return { success: false };
+    }
+
+    const content = await response.text();
+
+    // 提取模块名称
+    const moduleName = extractModuleName(content);
+
+    if (!moduleName) {
+      console.warn(
+        picocolors.yellow(`⚠️  No #!name= found in ${originalFileName}, using original name`)
+      );
+      const baseName = path.basename(originalFileName, '.module');
+      const newFileName = `${baseName}.sgmodule`;
+      const outputPath = path.join(OUTPUT_BASE_DIR, newFileName);
+
+      await fsp.mkdir(path.dirname(outputPath), { recursive: true });
+      await fsp.writeFile(outputPath, content, 'utf-8');
+
+      console.log(picocolors.green(`  ✓ ${originalFileName} → ${newFileName}`));
+      return { success: true, fileName: newFileName };
+    }
+
+    // 使用提取的模块名作为文件名
+    const sanitizedName = sanitizeFileName(moduleName);
+    const newFileName = `${sanitizedName}.sgmodule`;
+    const outputPath = path.join(OUTPUT_BASE_DIR, newFileName);
+
+    // 确保目录存在
+    await fsp.mkdir(path.dirname(outputPath), { recursive: true });
+
+    // 写入文件
+    await fsp.writeFile(outputPath, content, 'utf-8');
+
+    console.log(
+      picocolors.green(`  ✓ ${originalFileName} → ${newFileName} (from #!name=${moduleName})`)
+    );
+    return { success: true, fileName: newFileName };
+  } catch (error) {
+    console.error(picocolors.red(`❌ Error processing ${originalFileName}:`), error);
+    return { success: false };
+  }
+}
+
+/**
+ * 下载并处理单个 sgmodule 文件（用于 categories 子目录）
  */
 async function downloadAndProcessFile(
   fileUrl: string,
@@ -102,7 +174,7 @@ async function downloadAndProcessFile(
       // 使用原文件名（不带扩展名）
       const baseName = path.basename(fileName, '.sgmodule');
       const mappedDir = mapDirectoryName(originalDirName);
-      const outputPath = path.join(OUTPUT_DIR, mappedDir, fileName);
+      const outputPath = path.join(OUTPUT_CATEGORIES_DIR, mappedDir, fileName);
 
       await fsp.mkdir(path.dirname(outputPath), { recursive: true });
       await fsp.writeFile(outputPath, content, 'utf-8');
@@ -114,7 +186,7 @@ async function downloadAndProcessFile(
     const sanitizedName = sanitizeFileName(moduleName);
     const newFileName = `${sanitizedName}.sgmodule`;
     const mappedDir = mapDirectoryName(originalDirName);
-    const outputPath = path.join(OUTPUT_DIR, mappedDir, newFileName);
+    const outputPath = path.join(OUTPUT_CATEGORIES_DIR, mappedDir, newFileName);
 
     // 确保目录存在
     await fsp.mkdir(path.dirname(outputPath), { recursive: true });
@@ -180,41 +252,75 @@ async function processSubDirectory(dirName: string): Promise<{
 }
 
 /**
- * 主函数：下载并处理所有 split 目录
+ * 主函数：下载并处理所有模块
  */
 export const downloadFmz200Split = task(
   require.main === module,
   __filename
 )(async span => {
-  console.log(picocolors.cyan('🪞 fmz200 Split Modules Sync\n'));
-  console.log(picocolors.gray(`Output: ${OUTPUT_DIR}\n`));
+  console.log(picocolors.cyan('🪞 fmz200 Modules Sync\n'));
+  console.log(picocolors.gray(`Output Base: ${OUTPUT_BASE_DIR}`));
+  console.log(picocolors.gray(`Output Categories: ${OUTPUT_CATEGORIES_DIR}\n`));
 
-  await span.traceChildAsync('Download and process split modules', async () => {
+  await span.traceChildAsync('Download and process all modules', async () => {
     try {
+      let totalRootProcessed = 0;
+      let totalRootFailed = 0;
+      let totalCategoriesProcessed = 0;
+      let totalCategoriesFailed = 0;
+
+      // ========== 步骤 1: 下载根目录模块 ==========
+      console.log(picocolors.cyan('📦 Step 1: Downloading root modules\n'));
+
+      for (const moduleUrl of ROOT_MODULES) {
+        const result = await downloadRootModule(moduleUrl);
+        if (result.success) {
+          totalRootProcessed++;
+        } else {
+          totalRootFailed++;
+        }
+      }
+
+      console.log(
+        picocolors.cyan(
+          `\n✓ Root modules: ${totalRootProcessed} processed, ${totalRootFailed} failed\n`
+        )
+      );
+
+      // ========== 步骤 2: 下载 split 目录（categories） ==========
+      console.log(picocolors.cyan('📦 Step 2: Downloading split modules (categories)\n'));
+
       // 获取 split 目录下的所有子目录
       const splitContents = await fetchDirectoryContents(SPLIT_DIR_PATH);
 
       const subDirs = splitContents.filter((item: any) => item.type === 'dir');
 
-      console.log(picocolors.cyan(`📦 Found ${subDirs.length} subdirectories\n`));
-
-      let totalProcessed = 0;
-      let totalFailed = 0;
-      const allFiles: string[] = [];
+      console.log(picocolors.cyan(`📁 Found ${subDirs.length} subdirectories\n`));
 
       // 处理每个子目录
       for (const dir of subDirs) {
         const result = await processSubDirectory(dir.name);
-        totalProcessed += result.processed;
-        totalFailed += result.failed;
-        allFiles.push(...result.files);
+        totalCategoriesProcessed += result.processed;
+        totalCategoriesFailed += result.failed;
       }
 
-      // 打印摘要
-      console.log(picocolors.cyan('\n📊 Sync Summary:'));
-      console.log(picocolors.green(`  ✓ Processed: ${totalProcessed} files`));
-      console.log(picocolors.red(`  ✗ Failed: ${totalFailed} files`));
-      console.log(picocolors.cyan(`  📁 Total directories: ${subDirs.length}`));
+      // ========== 打印总摘要 ==========
+      console.log(picocolors.cyan('\n📊 Overall Sync Summary:'));
+      console.log(picocolors.cyan('\n  Root Modules:'));
+      console.log(picocolors.green(`    ✓ Processed: ${totalRootProcessed} files`));
+      console.log(picocolors.red(`    ✗ Failed: ${totalRootFailed} files`));
+
+      console.log(picocolors.cyan('\n  Categories Modules:'));
+      console.log(picocolors.green(`    ✓ Processed: ${totalCategoriesProcessed} files`));
+      console.log(picocolors.red(`    ✗ Failed: ${totalCategoriesFailed} files`));
+      console.log(picocolors.cyan(`    📁 Total directories: ${subDirs.length}`));
+
+      const totalProcessed = totalRootProcessed + totalCategoriesProcessed;
+      const totalFailed = totalRootFailed + totalCategoriesFailed;
+
+      console.log(picocolors.cyan('\n  Total:'));
+      console.log(picocolors.green(`    ✓ Processed: ${totalProcessed} files`));
+      console.log(picocolors.red(`    ✗ Failed: ${totalFailed} files`));
 
       if (totalProcessed > 0) {
         console.log(picocolors.green(`\n✨ Successfully synced ${totalProcessed} modules`));
