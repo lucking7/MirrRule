@@ -137,12 +137,19 @@ export const downloadMockAndModules = task(
       // 4) 逐个文件 checksum 比较并复制
       for (const filePath of extractedFiles) {
         const tempFilePath = path.join(tempDir, filePath);
-        const targetFilePath = path.join(OUTPUT_SUKKA_MIRROR_DIR, filePath);
+
+        // 将上游路径（Mock/, Modules/）映射为输出目录的小写规范（mock/, sgmodule/）
+        // 注意：category 标签的判断仍基于上游原始路径 filePath
+        const relPath = filePath
+          .replace(/^Mock(\/|$)/, 'mock$1')
+          .replace(/^Modules(\/|$)/, 'sgmodule$1');
+
+        const targetFilePath = path.join(OUTPUT_SUKKA_MIRROR_DIR, relPath);
 
         try {
           let fileBuffer = await fsp.readFile(tempFilePath);
 
-          // 为 sgmodule 文件添加 category 标签
+          // 为 sgmodule 文件添加 category 标签（基于上游原始路径判断）
           if (filePath.startsWith('Modules/')) {
             fileBuffer = addCategoryTag(fileBuffer, filePath);
           }
@@ -160,14 +167,14 @@ export const downloadMockAndModules = task(
 
             if (isNew) {
               newCount++;
-              if (newCount <= 5) console.log(picocolors.green(`  ✓ 新增: ${filePath}`));
+              if (newCount <= 5) console.log(picocolors.green(`  ✓ 新增: ${relPath}`));
             } else {
               updatedCount++;
-              if (updatedCount <= 5) console.log(picocolors.blue(`  ↻ 更新: ${filePath}`));
+              if (updatedCount <= 5) console.log(picocolors.blue(`  ↻ 更新: ${relPath}`));
             }
           } else {
             skippedCount++;
-            if (skippedCount <= 3) console.log(picocolors.gray(`  ○ 跳过: ${filePath}`));
+            if (skippedCount <= 3) console.log(picocolors.gray(`  ○ 跳过: ${relPath}`));
           }
         } catch (error) {
           console.error(picocolors.red(`  ✗ 处理失败: ${filePath}`), error);
