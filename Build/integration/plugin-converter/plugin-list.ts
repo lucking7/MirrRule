@@ -13,6 +13,18 @@ import type { PluginInfo } from './types';
 const PLUGIN_LIST_URL = 'https://hub.kelee.one/list.json';
 
 /**
+ * 额外插件列表 - 不在 Script-Hub 列表中的插件
+ */
+const EXTRA_PLUGINS: PluginInfo[] = [
+  {
+    name: 'blockAds',
+    url: 'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Loon/plugin/blockAds.plugin',
+    extension: 'plugin',
+    useLocalOnly: true, // 仅使用本地转换器
+  },
+];
+
+/**
  * 插件 URL 正则表达式
  */
 const PLUGIN_URL_REGEX = /https?:\/\/[^"]+\.(?:plugin|lpx)/g;
@@ -30,13 +42,13 @@ export async function downloadPluginList(): Promise<string | { error: string }> 
       ...defaultRequestInit,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        Accept: 'application/json'
-      }
+        Accept: 'application/json',
+      },
     });
 
     if (!response.ok) {
       return {
-        error: `HTTP ${response.status}: ${response.statusText}`
+        error: `HTTP ${response.status}: ${response.statusText}`,
       };
     }
 
@@ -44,7 +56,7 @@ export async function downloadPluginList(): Promise<string | { error: string }> 
 
     if (!text || text.trim().length === 0) {
       return {
-        error: 'Empty response'
+        error: 'Empty response',
       };
     }
 
@@ -53,7 +65,7 @@ export async function downloadPluginList(): Promise<string | { error: string }> 
       JSON.parse(text);
     } catch {
       return {
-        error: 'Invalid JSON format'
+        error: 'Invalid JSON format',
       };
     }
 
@@ -120,7 +132,7 @@ export function urlToPluginInfo(url: string): PluginInfo {
   return {
     name,
     url,
-    extension
+    extension,
   };
 }
 
@@ -142,15 +154,24 @@ export async function getPluginList(): Promise<PluginInfo[] | { error: string }>
 
   if (urls.length === 0) {
     return {
-      error: 'No plugin URLs found in list'
+      error: 'No plugin URLs found in list',
     };
   }
 
-  console.log(picocolors.green(`[Plugin List] Found ${urls.length} plugins`));
+  console.log(picocolors.green(`[Plugin List] Found ${urls.length} plugins from Script-Hub`));
 
   // 转换为插件信息
+  const plugins = urls.map(url => urlToPluginInfo(url));
 
-  return urls.map(url => urlToPluginInfo(url));
+  // 添加额外插件
+  if (EXTRA_PLUGINS.length > 0) {
+    console.log(picocolors.cyan(`[Plugin List] Adding ${EXTRA_PLUGINS.length} extra plugins`));
+    plugins.push(...EXTRA_PLUGINS);
+  }
+
+  console.log(picocolors.green(`[Plugin List] Total: ${plugins.length} plugins`));
+
+  return plugins;
 }
 
 /**
@@ -193,11 +214,11 @@ export function groupPluginsByExtension(
  * 获取插件统计信息
  */
 export interface PluginStats {
-  total: number,
+  total: number;
   byExtension: {
-    plugin: number,
-    lpx: number
-  }
+    plugin: number;
+    lpx: number;
+  };
 }
 
 export function getPluginStats(plugins: PluginInfo[]): PluginStats {
@@ -207,7 +228,7 @@ export function getPluginStats(plugins: PluginInfo[]): PluginStats {
     total: plugins.length,
     byExtension: {
       plugin: groups.get('plugin')!.length,
-      lpx: groups.get('lpx')!.length
-    }
+      lpx: groups.get('lpx')!.length,
+    },
   };
 }

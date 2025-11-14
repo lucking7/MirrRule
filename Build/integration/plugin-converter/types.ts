@@ -12,7 +12,9 @@ export interface PluginInfo {
   /** 插件 URL */
   url: string,
   /** 文件扩展名 */
-  extension: 'plugin' | 'lpx'
+  extension: 'plugin' | 'lpx',
+  /** 是否仅使用本地转换器（跳过 Script-Hub） */
+  useLocalOnly?: boolean
 }
 
 /**

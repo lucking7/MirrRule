@@ -12,9 +12,13 @@ const OUTPUT_CATEGORIES_DIR = path.join(OUTPUT_BASE_DIR, 'categories');
 
 /**
  * 根目录模块文件列表
+ *
+ * 注意：blockAds.module 已改用插件转换系统（从 Loon plugin 转换）
+ * 转换流程：Build/integration/plugin-converter/plugin-list.ts
+ * 输出目录：public/Mirror/fmz200/sgmodule/广告拦截&净化合集.sgmodule
  */
 const ROOT_MODULES = [
-  'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/blockAds.module',
+  // 'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/blockAds.module', // ⚠️ 已注释：改用插件转换系统
   'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/blockAdsHis.module',
   'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/cookies.module',
   'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/weibo.module',

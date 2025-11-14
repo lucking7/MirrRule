@@ -9,6 +9,8 @@ export * from './script-extractor';
 export * from './script-mirror';
 export * from './plugin-list';
 export * from './plugin-downloader';
+export * from './local-converter';
+export * from './plugin-mirror';
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -22,6 +24,8 @@ import {
   getScriptStats,
 } from './script-extractor';
 import { mirrorScripts, printMirrorSummary } from './script-mirror';
+import { convertPluginsLocallyBatch } from './local-converter';
+import { mirrorPluginsBatch } from './plugin-mirror';
 import type { ConversionResult } from './types';
 
 // CommonJS 中的 __dirname 直接可用
@@ -30,6 +34,7 @@ import type { ConversionResult } from './types';
  * 输出目录
  */
 const OUTPUT_DIR = path.join(__dirname, '../../../public/Modules');
+const FMZ200_OUTPUT_DIR = path.join(__dirname, '../../../public/Mirror/fmz200/sgmodule');
 
 /**
  * 确保输出目录存在
@@ -82,22 +87,27 @@ function extractModuleName(content: string, fallbackName: string): string {
 /**
  * 转换并镜像所有插件
  *
- * 新流程（v2.1 - 远程转换 + 代理支持）：
- * 1. 获取插件列表
- * 2. 用 Script-Hub 直接从远程 URL 转换（kelee.one 自动使用代理）
- * 3. 提取并镜像脚本文件
+ * 新流程（v2.2 - 混合转换 + 本地备用）：
+ * 1. 获取插件列表（Script-Hub + 额外插件）
+ * 2. 优先使用 Script-Hub 远程转换（支持代理）
+ * 3. Script-Hub 失败时自动使用本地转换器备用
+ * 4. 提取并镜像脚本文件
  *
  * 优势：
- * - 避免本地文件路径问题（GitHub Actions 环境）
- * - 支持代理访问 kelee.one 等受保护的域名
- * - 完全参考 Mirrored-main 项目的成功实践
+ * - 支持额外插件（如 blockAds.plugin）
+ * - Script-Hub 不可用时自动降级到本地转换
+ * - 完全兼容现有流程
  * - 添加重试机制和详细错误日志
  *
  * @param waitForService - 是否等待 Script-Hub 服务就绪
+ * @param useLocalFallback - Script-Hub 失败时是否使用本地转换备用
  * @returns 转换结果数组
  */
-export async function convertAndMirrorPlugins(waitForService = false): Promise<ConversionResult[]> {
-  console.log(picocolors.cyan('\n🔄 Plugin Converter & Mirror (v2.1 - Remote + Proxy)\n'));
+export async function convertAndMirrorPlugins(
+  waitForService = false,
+  useLocalFallback = true
+): Promise<ConversionResult[]> {
+  console.log(picocolors.cyan('\n🔄 Plugin Converter & Mirror (v2.2 - Hybrid + Local Fallback)\n'));
 
   // 等待 Script-Hub 服务（如果需要）
   if (waitForService) {
@@ -124,11 +134,84 @@ export async function convertAndMirrorPlugins(waitForService = false): Promise<C
   console.log(picocolors.gray(`  - .plugin: ${stats.byExtension.plugin}`));
   console.log(picocolors.gray(`  - .lpx: ${stats.byExtension.lpx}`));
 
-  // 2. 转换插件 (从远程 URL，支持代理)
-  console.log(picocolors.cyan('\n[Step 2/3] Converting plugins to sgmodule...\n'));
+  // 分离 useLocalOnly 插件
+  const localOnlyPlugins = plugins.filter(p => p.useLocalOnly);
+  const remotePlugins = plugins.filter(p => !p.useLocalOnly);
+
+  if (localOnlyPlugins.length > 0) {
+    console.log(
+      picocolors.cyan(
+        `\n[Local Only] ${localOnlyPlugins.length} plugins marked for local conversion only`
+      )
+    );
+    localOnlyPlugins.forEach(p => console.log(picocolors.gray(`  - ${p.name}`)));
+  }
+
+  // 2. 转换插件
+  console.log(picocolors.cyan('\n[Step 2/4] Converting plugins to sgmodule...\n'));
   await ensureOutputDirectory();
 
-  const conversionResults = await convertPluginsBatchFromRemote(plugins);
+  let conversionResults: Array<{ pluginName: string; content: string | { error: string } }> = [];
+
+  // 2a. 本地转换 (useLocalOnly 插件)
+  if (localOnlyPlugins.length > 0) {
+    console.log(
+      picocolors.cyan(
+        `\n[Local Only] Converting ${localOnlyPlugins.length} plugins with local converter...\n`
+      )
+    );
+
+    // 先镜像插件文件
+    await mirrorPluginsBatch(localOnlyPlugins);
+
+    // 本地转换
+    const localResults = await convertPluginsLocallyBatch(localOnlyPlugins);
+    conversionResults.push(...localResults);
+  }
+
+  // 2b. Script-Hub 转换 (其他插件)
+  if (remotePlugins.length > 0) {
+    console.log(
+      picocolors.cyan(
+        `\n[Script-Hub] Converting ${remotePlugins.length} plugins with Script-Hub...\n`
+      )
+    );
+    const remoteResults = await convertPluginsBatchFromRemote(remotePlugins);
+    conversionResults.push(...remoteResults);
+  }
+
+  // 2c. 检查失败的插件，使用本地转换器重试
+  if (useLocalFallback && remotePlugins.length > 0) {
+    const failedPlugins = conversionResults
+      .filter(r => typeof r.content !== 'string')
+      .map(r => remotePlugins.find(p => p.name === r.pluginName))
+      .filter(p => p !== undefined);
+
+    if (failedPlugins.length > 0) {
+      console.log(
+        picocolors.yellow(
+          `\n[Fallback] ${failedPlugins.length} plugins failed, using local converter...\n`
+        )
+      );
+
+      // 先镜像失败的插件
+      await mirrorPluginsBatch(failedPlugins);
+
+      // 本地转换
+      const localResults = await convertPluginsLocallyBatch(failedPlugins);
+
+      // 替换失败的结果
+      for (const localResult of localResults) {
+        const index = conversionResults.findIndex(r => r.pluginName === localResult.pluginName);
+        if (index !== -1) {
+          conversionResults[index] = localResult;
+        }
+      }
+    }
+  }
+
+  // 3. 处理转换结果
+  console.log(picocolors.cyan('\n[Step 3/4] Processing conversion results...\n'));
 
   const results: ConversionResult[] = [];
   const allScripts: string[] = [];
@@ -142,11 +225,23 @@ export async function convertAndMirrorPlugins(waitForService = false): Promise<C
       const moduleName = extractModuleName(content, pluginName);
       const fileName = `${moduleName}.sgmodule`;
 
-      // 保存 sgmodule 文件
+      // 保存 sgmodule 文件（主输出目录）
       const outputPath = path.join(OUTPUT_DIR, fileName);
       await fs.writeFile(outputPath, content, 'utf-8');
 
-      console.log(picocolors.gray(`  ✓ ${pluginName} → ${fileName}`));
+      // 针对 fmz200/blockAds：额外输出到 Mirror/fmz200/sgmodule，文件名来自 #!name=
+      if (pluginName === 'blockAds') {
+        await fs.mkdir(FMZ200_OUTPUT_DIR, { recursive: true });
+        const fmz200OutputPath = path.join(FMZ200_OUTPUT_DIR, fileName);
+        await fs.writeFile(fmz200OutputPath, content, 'utf-8');
+        console.log(
+          picocolors.gray(
+            `  ✓ ${pluginName} → ${fileName} (Modules) & Mirror/fmz200/sgmodule/${fileName}`
+          )
+        );
+      } else {
+        console.log(picocolors.gray(`  ✓ ${pluginName} → ${fileName}`));
+      }
 
       results.push({
         pluginName,
@@ -169,8 +264,8 @@ export async function convertAndMirrorPlugins(waitForService = false): Promise<C
   const successCount = results.filter(r => r.success).length;
   console.log(picocolors.green(`\n✓ Converted ${successCount}/${plugins.length} plugins`));
 
-  // 3. 提取所有脚本
-  console.log(picocolors.cyan('\n[Step 3/3] Extracting JavaScript URLs...\n'));
+  // 4. 提取所有脚本
+  console.log(picocolors.cyan('\n[Step 4/4] Extracting JavaScript URLs...\n'));
 
   const allScriptInfos = allScripts.flatMap(content => extractScriptUrls(content));
   const uniqueScripts = Array.from(new Map(allScriptInfos.map(s => [s.originalUrl, s])).values());
