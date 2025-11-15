@@ -1,5 +1,4 @@
-// https://github.com/remusao/tldts/issues/2121
-// In short, single label domain suffix is ignored due to the size optimization, so no isIcann
+// tldts currently ignores single-label domain suffixes for size optimization, so no isIcann flag
 // import tldts from 'tldts-experimental';
 import tldts from 'tldts';
 import { normalizeTldtsOpt } from '../../constants/loose-tldts-opt';

@@ -33,8 +33,8 @@ agent.compose(
     minTimeout: 500, // The initial retry delay in milliseconds
     maxTimeout: 10 * 1000, // The maximum retry delay in milliseconds
 
-    // TODO: this part of code is only for allow more errors to be retried by default
-    // This should be removed once https://github.com/nodejs/undici/issues/3728 is implemented
+    // TODO: this part of code is only for allowing more errors to be retried by default
+    // Remove once upstream Undici exposes native support for the broader retry set
     retry(err, { state, opts }, cb) {
       const errorCode = 'code' in err ? (err as NodeJS.ErrnoException).code : undefined;
 
