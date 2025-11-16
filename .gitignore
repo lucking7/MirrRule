@@ -1,0 +1,9 @@
+.DS_Store
+node_modules
+.clinic
+.wireit
+.cache
+public
+public.zip
+tmp.*
+.BUILD_FINISHED
