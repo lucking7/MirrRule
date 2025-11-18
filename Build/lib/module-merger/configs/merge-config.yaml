@@ -1,0 +1,72 @@
+# 模块合并配置文件
+# 用于将多个 .sgmodule 文件合并为一个 All-in-One 模块
+
+# 基本信息
+name: "All-in-One Ad Blocker"
+version: "2.x"
+description: "Most Optimized Ad-free Experience with automated updates"
+category: "🛡️ Esdeath"
+author: "@lucking7"
+
+# 要合并的模块列表
+# 使用本地已转换的模块文件
+modules:
+  # 社交媒体
+  - url: "file://public/Modules/Zhihu_remove_ads.sgmodule"
+    header: "Zhihu"
+
+  - url: "file://public/Modules/Weibo_remove_ads.sgmodule"
+    header: "Weibo"
+
+  - url: "file://public/Modules/RedPaper_remove_ads.sgmodule"
+    header: "Xiaohongshu"
+
+  # 出行服务
+  - url: "file://public/Modules/Amap_remove_ads.sgmodule"
+    header: "Amap"
+
+  - url: "file://public/Modules/12306_remove_ads.sgmodule"
+    header: "12306"
+
+  # 电商购物
+  - url: "file://public/Modules/JD_remove_ads.sgmodule"
+    header: "JD"
+
+  - url: "file://public/Modules/Taobao_remove_ads.sgmodule"
+    header: "Taobao"
+
+  - url: "file://public/Modules/FleaMarket_remove_ads.sgmodule"
+    header: "FleaMarket"
+
+  # 视频娱乐
+  - url: "file://public/Modules/Bilibili_remove_ads.sgmodule"
+    header: "Bilibili"
+
+  - url: "file://public/Modules/YouTube_remove_ads.sgmodule"
+    header: "YouTube"
+
+# 输出配置
+output:
+  # 合并后的 .sgmodule 文件路径
+  sgmodule: "public/Modules/All-in-One.sgmodule"
+  
+  # 提取的规则列表文件路径
+  rulelist: "public/Modules/reject.list"
+  
+  # 模板文件路径
+  template: "Build/lib/module-merger/templates/all-in-one.template"
+
+# 合并选项
+options:
+  # 是否去重 MITM hostnames
+  deduplicateHostnames: true
+  
+  # 是否移除注释
+  stripComments: true
+  
+  # 是否添加分隔符
+  addDividers: true
+  
+  # 分隔符长度
+  dividerLength: 30
+
