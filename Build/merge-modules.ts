@@ -27,7 +27,7 @@ const cli = createCLI(
         alias: 'c',
         type: 'string',
         description: '配置文件路径',
-        defaultValue: path.join(__dirname, 'lib/module-merger/configs/merge-config.yaml'),
+        defaultValue: path.join(__dirname, 'lib/module-merger/configs/pro-merge-config.yaml'),
       },
       {
         name: 'dry-run',

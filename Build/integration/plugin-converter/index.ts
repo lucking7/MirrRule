@@ -21,7 +21,7 @@ import {
   extractScriptUrls,
   filterUnmirroredScripts,
   replaceScriptUrls,
-  getScriptStats
+  getScriptStats,
 } from './script-extractor';
 import { mirrorScripts, printMirrorSummary } from './script-mirror';
 import { convertPluginsLocallyBatch } from './local-converter';
@@ -33,7 +33,7 @@ import type { ConversionResult } from './types';
 /**
  * 输出目录
  */
-const OUTPUT_DIR = path.join(__dirname, '../../../public/Modules');
+const OUTPUT_DIR = path.join(__dirname, '../../../public/Mirror/luestr/sgmodule');
 
 /**
  * 确保输出目录存在
@@ -150,7 +150,7 @@ export async function convertAndMirrorPlugins(
   console.log(picocolors.cyan('\n[Step 2/4] Converting plugins to sgmodule...\n'));
   await ensureOutputDirectory();
 
-  const conversionResults: Array<{ pluginName: string, content: string | { error: string } }> = [];
+  const conversionResults: Array<{ pluginName: string; content: string | { error: string } }> = [];
 
   // 2a. 本地转换 (useLocalOnly 插件)
   if (localOnlyPlugins.length > 0) {
@@ -243,7 +243,7 @@ export async function convertAndMirrorPlugins(
         pluginName,
         success: true,
         outputPath,
-        scripts
+        scripts,
       });
 
       allScripts.push(content);
@@ -252,7 +252,7 @@ export async function convertAndMirrorPlugins(
         pluginName,
         success: false,
         scripts: [],
-        error: content.error
+        error: content.error,
       });
     }
   }

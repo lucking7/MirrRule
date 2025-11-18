@@ -7,6 +7,7 @@
 ## 功能特性
 
 ✅ **已实现功能：**
+
 - 合并多个 `.sgmodule` 文件
 - 支持 6 种 Section 类型（Rule、URL Rewrite、Map Local、Script、MITM、General）
 - 自动去重 MITM hostnames
@@ -22,11 +23,11 @@
 ### 1. 基本用法
 
 ```bash
-# 使用默认配置（merge-config.yaml）
+# 使用默认配置（pro-merge-config.yaml）
 npm run node ./Build/merge-modules.ts
 
 # 使用自定义配置
-npm run node ./Build/merge-modules.ts -- --config ./Build/lib/module-merger/configs/pro-merge-config.yaml
+npm run node ./Build/merge-modules.ts -- --config ./Build/lib/module-merger/configs/custom-config.yaml
 
 # 干运行模式（不实际执行）
 npm run node ./Build/merge-modules.ts -- --dry-run
@@ -41,37 +42,36 @@ npm run node ./Build/merge-modules.ts -- --verbose
 
 ```yaml
 # 基本信息
-name: "All-in-One Pro Ad Blocker"
-version: "2.x"
-description: "Professional Ad-free Experience"
-category: "🚫 AD Block Pro"
-author: "@hututu0 & Community"
+name: 'All-in-One Pro Ad Blocker'
+version: '2.x'
+description: 'Professional Ad-free Experience'
+category: '🚫 AD Block Pro'
+author: '@hututu0 & Community'
 
 # 模块列表
 modules:
-  - url: "https://example.com/module.sgmodule"
-    header: "Module Name"
-  - url: "file://local/path/module.sgmodule"
-    header: "Local Module"
+  - url: 'https://example.com/module.sgmodule'
+    header: 'Module Name'
+  - url: 'file://local/path/module.sgmodule'
+    header: 'Local Module'
 
 # 输出配置
 output:
-  sgmodule: "public/Modules/All-in-One-Pro.sgmodule"
-  rulelist: "public/Modules/Rules/reject-pro.list"
-  template: "Build/lib/module-merger/templates/all-in-one.template"
+  sgmodule: 'public/Modules/All-in-One-Pro.sgmodule'
+  rulelist: 'public/Modules/Rules/reject-pro.list'
+  template: 'Build/lib/module-merger/templates/all-in-one.template'
 
 # 合并选项
 options:
-  deduplicateHostnames: true  # 去重 MITM hostnames
-  stripComments: true         # 移除注释
-  addDividers: true          # 添加分隔符
-  dividerLength: 30          # 分隔符长度
+  deduplicateHostnames: true # 去重 MITM hostnames
+  stripComments: true # 移除注释
+  addDividers: true # 添加分隔符
+  dividerLength: 30 # 分隔符长度
 ```
 
 ### 3. 可用配置文件
 
-- **merge-config.yaml**: 默认配置，使用本地文件
-- **pro-merge-config.yaml**: 专业版配置，使用远程 URL（49 个模块）
+- **pro-merge-config.yaml**: 默认配置，使用本地 Mirror sgmodule（专业版模块集合）
 
 ## 最近改进
 
@@ -80,10 +80,12 @@ options:
 参考 Mirrored 项目的实现，进行了以下改进：
 
 1. **创建 pro-merge-config.yaml**
+
    - 支持 49 个远程模块的合并
    - 使用 nrrule.pages.dev 作为模块源
 
 2. **改进策略清理**
+
    - 添加 `cleanPolicyFast()` 函数
    - 使用正则表达式快速清理策略组
    - 支持 REJECT-DROP、REJECT-TINYGIF、REJECT-NO-DROP 等变体
@@ -98,6 +100,7 @@ options:
 合并完成后会生成两个文件：
 
 1. **All-in-One-Pro.sgmodule** (127KB)
+
    - 位置: `public/Modules/All-in-One-Pro.sgmodule`
    - 包含所有 Section 的合并内容
    - 带有元数据和分隔符
@@ -160,6 +163,7 @@ module-merger/
 ### 问题：模块下载失败
 
 **解决方案**：
+
 - 检查网络连接
 - 验证 URL 是否正确
 - 单个模块失败不会中断整个流程
@@ -167,6 +171,7 @@ module-merger/
 ### 问题：输出目录不存在
 
 **解决方案**：
+
 ```bash
 mkdir -p public/Modules
 ```
@@ -174,6 +179,7 @@ mkdir -p public/Modules
 ### 问题：依赖未安装
 
 **解决方案**：
+
 ```bash
 npm install
 ```
@@ -187,4 +193,3 @@ npm install
 ## 许可证
 
 MIT License
-
