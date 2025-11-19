@@ -52,11 +52,14 @@ export const buildRuleset = task(
 
     try {
       console.log('📦 加载 RuleSourceProcessor...');
-      const { RuleSourceProcessor } = await import('./lib/rule-source-processor.ts');
+      // 使用 require 避免 Node 内置 TypeScript ESM loader 与 @swc-node/register 冲突，防止 strip-only 模式下参数属性报错
+      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires -- Node TS loader 与 swc 冲突，这里必须使用 require 加载 TS 模块
+      const { RuleSourceProcessor } = require('./lib/rule-source-processor.ts');
       console.log('✅ RuleSourceProcessor 加载成功');
 
       console.log('📦 加载 rule-sources...');
-      const { ruleGroups, specialRules } = await import('./lib/rule-sources.ts');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires -- 同上，保持 TS 模块由 swc 编译而不是 Node 内置 TS loader
+      const { ruleGroups, specialRules } = require('./lib/rule-sources.ts');
       console.log(`✅ rule-sources 加载成功: ${ruleGroups.length} 组, ${specialRules.length} 规则`);
 
       // 使用统一规则处理器
@@ -131,7 +134,9 @@ export const buildRuleset = task(
     console.log('🌐 开始构建前端网页...');
 
     try {
-      const { buildPublic } = await import('./build-public.ts');
+      // 使用 require 避免 Node 内置 TypeScript ESM loader 与 @swc-node/register 冲突
+      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires -- 避免 Node 内置 TS loader，确保 build-public.ts 由 swc 编译
+      const { buildPublic } = require('./build-public.ts');
       await buildPublic();
       console.log('✅ 前端网页构建完成');
     } catch (error) {
