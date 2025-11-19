@@ -33,7 +33,7 @@ import type { ConversionResult } from './types';
 /**
  * 输出目录
  */
-const OUTPUT_DIR = path.join(__dirname, '../../../public/Mirror/luestr/sgmodule');
+const OUTPUT_DIR = path.join(__dirname, '../../../public/Modules/Converted');
 
 /**
  * 确保输出目录存在

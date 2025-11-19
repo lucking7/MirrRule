@@ -12,202 +12,202 @@ author: "@lucking7"
 # 从 pro-sgmodules.yaml 加载
 modules:
   # 高德地图去广告
-  - url: "file://public/Mirror/luestr/sgmodule/高德地图去广告.sgmodule"
+  - url: "file://public/Modules/Converted/高德地图去广告.sgmodule"
     header: "高德地图去广告"
 
   # 顺丰速运去广告
-  - url: "file://public/Mirror/luestr/sgmodule/顺丰速运去广告.sgmodule"
+  - url: "file://public/Modules/Converted/顺丰速运去广告.sgmodule"
     header: "顺丰速运去广告"
 
   # 阿里云盘去广告
-  - url: "file://public/Mirror/luestr/sgmodule/阿里云盘去广告.sgmodule"
+  - url: "file://public/Modules/Converted/阿里云盘去广告.sgmodule"
     header: "阿里云盘去广告"
 
   # 闲鱼去广告
-  - url: "file://public/Mirror/luestr/sgmodule/闲鱼去广告.sgmodule"
+  - url: "file://public/Modules/Converted/闲鱼去广告.sgmodule"
     header: "闲鱼去广告"
 
   # 酷我音乐去广告
-  - url: "file://public/Mirror/luestr/sgmodule/酷我音乐去广告.sgmodule"
+  - url: "file://public/Modules/Converted/酷我音乐去广告.sgmodule"
     header: "酷我音乐去广告"
 
   # 酷狗铃声去广告
-  - url: "file://public/Mirror/luestr/sgmodule/酷狗铃声去广告.sgmodule"
+  - url: "file://public/Modules/Converted/酷狗铃声去广告.sgmodule"
     header: "酷狗铃声去广告"
 
   # 酷狗音乐去广告
-  - url: "file://public/Mirror/luestr/sgmodule/酷狗音乐去广告.sgmodule"
+  - url: "file://public/Modules/Converted/酷狗音乐去广告.sgmodule"
     header: "酷狗音乐去广告"
 
   # 金山文档去广告
-  - url: "file://public/Mirror/luestr/sgmodule/金山文档去广告.sgmodule"
+  - url: "file://public/Modules/Converted/金山文档去广告.sgmodule"
     header: "金山文档去广告"
 
   # 腾讯文档去广告
-  - url: "file://public/Mirror/luestr/sgmodule/腾讯文档去广告.sgmodule"
+  - url: "file://public/Modules/Converted/腾讯文档去广告.sgmodule"
     header: "腾讯文档去广告"
 
   # 腾讯视频去广告
-  - url: "file://public/Mirror/luestr/sgmodule/腾讯视频去广告.sgmodule"
+  - url: "file://public/Modules/Converted/腾讯视频去广告.sgmodule"
     header: "腾讯视频去广告"
 
   # 财新去广告
-  - url: "file://public/Mirror/luestr/sgmodule/财新去广告.sgmodule"
+  - url: "file://public/Modules/Converted/财新去广告.sgmodule"
     header: "财新去广告"
 
   # 拼多多去广告
-  - url: "file://public/Mirror/luestr/sgmodule/拼多多去广告.sgmodule"
+  - url: "file://public/Modules/Converted/拼多多去广告.sgmodule"
     header: "拼多多去广告"
 
   # 微信公众号去广告
-  - url: "file://public/Mirror/luestr/sgmodule/微信公众号去广告.sgmodule"
+  - url: "file://public/Modules/Converted/微信公众号去广告.sgmodule"
     header: "微信公众号去广告"
 
   # 微信外部链接解锁
-  - url: "file://public/Mirror/luestr/sgmodule/微信外部链接解锁.sgmodule"
+  - url: "file://public/Modules/Converted/微信外部链接解锁.sgmodule"
     header: "微信外部链接解锁"
 
   # 微信小程序去广告
-  - url: "file://public/Mirror/luestr/sgmodule/微信小程序去广告.sgmodule"
+  - url: "file://public/Modules/Converted/微信小程序去广告.sgmodule"
     header: "微信小程序去广告"
 
   # 微博轻享版去广告
-  - url: "file://public/Mirror/luestr/sgmodule/微博轻享版去广告.sgmodule"
+  - url: "file://public/Modules/Converted/微博轻享版去广告.sgmodule"
     header: "微博轻享版去广告"
 
   # 小黑盒去广告
-  - url: "file://public/Mirror/luestr/sgmodule/小黑盒去广告.sgmodule"
+  - url: "file://public/Modules/Converted/小黑盒去广告.sgmodule"
     header: "小黑盒去广告"
 
   # HTTPDNS拦截器
-  - url: "file://public/Mirror/luestr/sgmodule/HTTPDNS拦截器.sgmodule"
+  - url: "file://public/Modules/Converted/HTTPDNS拦截器.sgmodule"
     header: "HTTPDNS拦截器"
 
   # 12306去广告
-  - url: "file://public/Mirror/luestr/sgmodule/12306去广告.sgmodule"
+  - url: "file://public/Modules/Converted/12306去广告.sgmodule"
     header: "12306去广告"
 
   # 彩云天气去广告
-  - url: "file://public/Mirror/luestr/sgmodule/彩云天气去广告.sgmodule"
+  - url: "file://public/Modules/Converted/彩云天气去广告.sgmodule"
     header: "彩云天气去广告"
 
   # 可莉广告过滤器
-  - url: "file://public/Mirror/luestr/sgmodule/可莉广告过滤器.sgmodule"
+  - url: "file://public/Modules/Converted/可莉广告过滤器.sgmodule"
     header: "可莉广告过滤器"
 
   # 优酷视频去广告
-  - url: "file://public/Mirror/luestr/sgmodule/优酷视频去广告.sgmodule"
+  - url: "file://public/Modules/Converted/优酷视频去广告.sgmodule"
     header: "优酷视频去广告"
 
   # 中华万年历去广告
-  - url: "file://public/Mirror/luestr/sgmodule/中华万年历去广告.sgmodule"
+  - url: "file://public/Modules/Converted/中华万年历去广告.sgmodule"
     header: "中华万年历去广告"
 
   # YouTube去广告
-  - url: "file://public/Mirror/luestr/sgmodule/YouTube去广告.sgmodule"
+  - url: "file://public/Modules/Converted/YouTube去广告.sgmodule"
     header: "YouTube去广告"
 
   # QQ音乐去广告
-  - url: "file://public/Mirror/luestr/sgmodule/QQ音乐去广告.sgmodule"
+  - url: "file://public/Modules/Converted/QQ音乐去广告.sgmodule"
     header: "QQ音乐去广告"
 
   # KOOK去广告
-  - url: "file://public/Mirror/luestr/sgmodule/KOOK去广告.sgmodule"
+  - url: "file://public/Modules/Converted/KOOK去广告.sgmodule"
     header: "KOOK去广告"
 
   # 小红书去广告
-  - url: "file://public/Mirror/luestr/sgmodule/小红书去广告.sgmodule"
+  - url: "file://public/Modules/Converted/小红书去广告.sgmodule"
     header: "小红书去广告"
 
   # 大麦去广告
-  - url: "file://public/Mirror/luestr/sgmodule/大麦去广告.sgmodule"
+  - url: "file://public/Modules/Converted/大麦去广告.sgmodule"
     header: "大麦去广告"
 
   # 夸克去广告
-  - url: "file://public/Mirror/luestr/sgmodule/夸克去广告.sgmodule"
+  - url: "file://public/Modules/Converted/夸克去广告.sgmodule"
     header: "夸克去广告"
 
   # 哔哩哔哩漫画去广告
-  - url: "file://public/Mirror/luestr/sgmodule/哔哩哔哩漫画去广告.sgmodule"
+  - url: "file://public/Modules/Converted/哔哩哔哩漫画去广告.sgmodule"
     header: "哔哩哔哩漫画去广告"
 
   # 喜马拉雅去广告
-  - url: "file://public/Mirror/luestr/sgmodule/喜马拉雅去广告.sgmodule"
+  - url: "file://public/Modules/Converted/喜马拉雅去广告.sgmodule"
     header: "喜马拉雅去广告"
 
   # 芒果TV去广告
-  - url: "file://public/Mirror/luestr/sgmodule/芒果TV去广告.sgmodule"
+  - url: "file://public/Modules/Converted/芒果TV去广告.sgmodule"
     header: "芒果TV去广告"
 
   # 菜鸟去广告
-  - url: "file://public/Mirror/luestr/sgmodule/菜鸟去广告.sgmodule"
+  - url: "file://public/Modules/Converted/菜鸟去广告.sgmodule"
     header: "菜鸟去广告"
 
   # 斗鱼去广告
-  - url: "file://public/Mirror/luestr/sgmodule/斗鱼去广告.sgmodule"
+  - url: "file://public/Modules/Converted/斗鱼去广告.sgmodule"
     header: "斗鱼去广告"
 
   # 无他相机去广告
-  - url: "file://public/Mirror/luestr/sgmodule/无他相机去广告.sgmodule"
+  - url: "file://public/Modules/Converted/无他相机去广告.sgmodule"
     header: "无他相机去广告"
 
   # 有道云笔记去广告
-  - url: "file://public/Mirror/luestr/sgmodule/有道云笔记去广告.sgmodule"
+  - url: "file://public/Modules/Converted/有道云笔记去广告.sgmodule"
     header: "有道云笔记去广告"
 
   # 萤石云视频去广告
-  - url: "file://public/Mirror/luestr/sgmodule/萤石云视频去广告.sgmodule"
+  - url: "file://public/Modules/Converted/萤石云视频去广告.sgmodule"
     header: "萤石云视频去广告"
 
   # 薄荷健康去广告
-  - url: "file://public/Mirror/luestr/sgmodule/薄荷健康去广告.sgmodule"
+  - url: "file://public/Modules/Converted/薄荷健康去广告.sgmodule"
     header: "薄荷健康去广告"
 
   # 航旅纵横去广告
-  - url: "file://public/Mirror/luestr/sgmodule/航旅纵横去广告.sgmodule"
+  - url: "file://public/Modules/Converted/航旅纵横去广告.sgmodule"
     header: "航旅纵横去广告"
 
   # 美颜相机去广告
-  - url: "file://public/Mirror/luestr/sgmodule/美颜相机去广告.sgmodule"
+  - url: "file://public/Modules/Converted/美颜相机去广告.sgmodule"
     header: "美颜相机去广告"
 
   # 网易新闻去广告
-  - url: "file://public/Mirror/luestr/sgmodule/网易新闻去广告.sgmodule"
+  - url: "file://public/Modules/Converted/网易新闻去广告.sgmodule"
     header: "网易新闻去广告"
 
   # 知乎去广告
-  - url: "file://public/Mirror/luestr/sgmodule/知乎去广告.sgmodule"
+  - url: "file://public/Modules/Converted/知乎去广告.sgmodule"
     header: "知乎去广告"
 
   # 知识星球去水印
-  - url: "file://public/Mirror/luestr/sgmodule/知识星球去水印.sgmodule"
+  - url: "file://public/Modules/Converted/知识星球去水印.sgmodule"
     header: "知识星球去水印"
 
   # 百度地图去广告
-  - url: "file://public/Mirror/luestr/sgmodule/百度地图去广告.sgmodule"
+  - url: "file://public/Modules/Converted/百度地图去广告.sgmodule"
     header: "百度地图去广告"
 
   # 百度网盘去广告
-  - url: "file://public/Mirror/luestr/sgmodule/百度网盘去广告.sgmodule"
+  - url: "file://public/Modules/Converted/百度网盘去广告.sgmodule"
     header: "百度网盘去广告"
 
   # 淘宝去广告
-  - url: "file://public/Mirror/luestr/sgmodule/淘宝去广告.sgmodule"
+  - url: "file://public/Modules/Converted/淘宝去广告.sgmodule"
     header: "淘宝去广告"
 
   # 淘票票去广告
-  - url: "file://public/Mirror/luestr/sgmodule/淘票票去广告.sgmodule"
+  - url: "file://public/Modules/Converted/淘票票去广告.sgmodule"
     header: "淘票票去广告"
 
   # 滴滴出行去广告
-  - url: "file://public/Mirror/luestr/sgmodule/滴滴出行去广告.sgmodule"
+  - url: "file://public/Modules/Converted/滴滴出行去广告.sgmodule"
     header: "滴滴出行去广告"
 
 # 输出配置
 output:
   # 合并后的 .sgmodule 文件路径
-  sgmodule: "public/Modules/All-in-One-Pro.sgmodule"
-  
+  sgmodule: "public/Modules/Merged/All-in-One-Pro.sgmodule"
+
   # 提取的规则列表文件路径
   rulelist: "public/Modules/Rules/reject-pro.list"
   

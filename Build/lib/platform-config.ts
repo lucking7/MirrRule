@@ -7,28 +7,27 @@ import { SurgeRuleSet } from '../core/output/writing-strategy/surge';
 import { ClashClassicRuleSet } from '../core/output/writing-strategy/clash';
 import { SingboxSource } from '../core/output/writing-strategy/singbox';
 import { LoonRuleSet } from '../core/output/writing-strategy/loon';
-import { QuantumultXRuleSet } from '../core/output/writing-strategy/quantumult-x';
+import type { BaseWriteStrategy } from '../core/output/writing-strategy/base';
 
-export type SupportedPlatform = 'surge' | 'clash' | 'singbox' | 'loon' | 'quantumult-x';
+export type SupportedPlatform = 'surge' | 'clash' | 'singbox' | 'loon';
 
 export interface PlatformConfig {
   /** 启用的目标平台（默认仅Surge） */
   targets: SupportedPlatform[];
   /** 全局默认策略 */
-  globalDefaultPolicy: 'DIRECT' | 'REJECT' | 'PROXY';
+  globalDefaultPolicy: 'DIRECT' | 'REJECT' | 'PROXY' | null;
   /** 每个平台的输出目录配置 */
   outputDirs: Record<SupportedPlatform, string>;
 }
 
 export const DEFAULT_PLATFORM_CONFIG: PlatformConfig = {
   targets: ['surge'], // 默认仅启用Surge，兼容"只服务Surge"场景
-  globalDefaultPolicy: null as any, // 全局默认无策略
+  globalDefaultPolicy: null, // 全局默认无策略
   outputDirs: {
     surge: 'List',
     clash: 'Clash',
     singbox: 'sing-box',
     loon: 'Loon',
-    'quantumult-x': 'QuantumultX',
   },
 };
 
@@ -39,8 +38,8 @@ export const DEFAULT_PLATFORM_CONFIG: PlatformConfig = {
 export function createStrategiesForTargets(
   targets: SupportedPlatform[],
   outputBaseDir = 'public'
-): any[] {
-  const strategies: any[] = [];
+): BaseWriteStrategy[] {
+  const strategies: BaseWriteStrategy[] = [];
 
   // 使用静态导入避免动态加载问题
   try {
@@ -65,10 +64,6 @@ export function createStrategiesForTargets(
         case 'loon':
           // 🔧 type 设为空字符串，避免创建子目录
           strategies.push(new LoonRuleSet('', fullOutputDir));
-          break;
-        case 'quantumult-x':
-          // 🔧 type 设为空字符串，避免创建子目录
-          strategies.push(new QuantumultXRuleSet('', fullOutputDir));
           break;
         default:
           console.log(`⚠\uFE0F 未知平台 ${target}，跳过`);
@@ -95,5 +90,4 @@ export const PLATFORM_POLICY_SUPPORT: Record<SupportedPlatform, boolean> = {
   clash: false, // 不支持策略组
   singbox: false, // 不支持策略组
   loon: true, // 支持策略组
-  'quantumult-x': true, // 支持策略组
 };

@@ -90,7 +90,7 @@ export const ruleGroups: RuleGroup[] = [
     name: 'Reject',
     description: 'Ad blocking and privacy protection rules',
     defaultPolicy: null, // 无策略，生成纯拦截规则
-    targets: ['surge', 'clash', 'singbox', 'loon', 'quantumult-x'], // 广告拦截支持多平台
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 广告拦截支持多平台
     files: [
       applyDefaultConfig({
         path: 'List/Reject-fmz.list',
@@ -380,7 +380,7 @@ export const specialRules: SpecialRuleConfig[] = [
       // 'https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/master/anti-ad-surge.txt',
       // 'https://raw.githubusercontent.com/Cats-Team/AdRules/main/adrules.list',
     ],
-    targets: ['surge', 'clash', 'singbox', 'loon', 'quantumult-x'], // 多平台支持
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持
     dedup: true,
     sort: true,
     formatConversion: true, // 启用格式转换,将 domain-set 格式(.example.com)转换为 rule-set 格式(DOMAIN-SUFFIX,example.com)
@@ -401,7 +401,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.lucking.moe/List/non_ip/my_reject.conf'
     ],
     defaultPolicy: 'REJECT', // 明确指定拒绝策略
-    targets: ['surge', 'clash', 'singbox', 'loon', 'quantumult-x'], // 多平台支持
+    targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持
     dedup: true,
     sort: true,
     keepComments: false,

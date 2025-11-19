@@ -20,7 +20,6 @@ const priorityOrder: Record<'default' | (string & {}), number> = {
   ip: 30,
   List: 40,
   Loon: 50,
-  QuantumultX: 60,
   Clash: 70,
   'sing-box': 80,
   GEOIP: 90,

@@ -93,17 +93,8 @@ export class RuleParser {
       return null;
     }
 
-    // 处理QuantumultX的host-wildcard特殊情况
-    let finalRuleType = standardRuleType;
-    let finalValue = value;
-
-    if (ruleTypeStr === 'HOST-WILDCARD' && detectedPlatform === ProxyPlatform.QUANTUMULT_X) {
-      const wildcardAnalysis = WildcardAnalyzer.analyzeWildcard(value);
-      if (wildcardAnalysis.isSimpleSuffix && wildcardAnalysis.extractedSuffix) {
-        finalRuleType = RuleType.DOMAIN_SUFFIX;
-        finalValue = wildcardAnalysis.extractedSuffix;
-      }
-    }
+    const finalRuleType = standardRuleType;
+    const finalValue = value;
 
     // 解析策略和参数
     const { policy, parameters, options } = RuleParser.parsePolicyAndParameters(
@@ -271,6 +262,23 @@ export class RuleParser {
     const operatorStr = parts[0].toUpperCase() as LogicalOperator;
     const subRuleText = parts.slice(1).join(',').trim();
 
+    // 逻辑操作符作为特殊的规则类型（AND/OR/NOT 本身在 RuleType 中也有对应值）
+    let logicalRuleType: RuleType;
+    switch (operatorStr) {
+      case LogicalOperator.AND:
+        logicalRuleType = RuleType.AND;
+        break;
+      case LogicalOperator.OR:
+        logicalRuleType = RuleType.OR;
+        break;
+      case LogicalOperator.NOT:
+        logicalRuleType = RuleType.NOT;
+        break;
+      default:
+        // 未知逻辑操作符，解析失败
+        return null;
+    }
+
     // 🔧 移除平台支持检查 - 解析阶段应该解析所有逻辑规则
     // 转换阶段会在 convertLogicalRule 中检查目标平台是否支持
     // const supportedOperators = PLATFORM_LOGICAL_SUPPORT[platform] || [];
@@ -291,7 +299,7 @@ export class RuleParser {
     }
 
     return {
-      type: operatorStr as RuleType, // 逻辑操作符作为特殊的规则类型
+      type: logicalRuleType,
       value: subRuleText,
       policy: inheritedPolicy,
       parameters: [],

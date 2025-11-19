@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: '执行任务 (all/build/convert-plugins/convert-qx/merge-modules/mirror-sync/deploy)'
+        description: '执行任务 (all/build/convert-plugins/merge-modules/mirror-sync/deploy)'
         required: false
         default: 'all'
         type: choice
@@ -33,7 +33,6 @@ on:
           - all
           - build
           - convert-plugins
-          - convert-qx
           - merge-modules
           - mirror-sync
           - deploy
@@ -61,7 +60,6 @@ jobs:
     outputs:
       should_build: ${{ steps.decide.outputs.should_build }}
       should_convert_plugins: ${{ steps.decide.outputs.should_convert_plugins }}
-      should_convert_qx: ${{ steps.decide.outputs.should_convert_qx }}
       should_merge_modules: ${{ steps.decide.outputs.should_merge_modules }}
       should_mirror_sync: ${{ steps.decide.outputs.should_mirror_sync }}
       should_deploy: ${{ steps.decide.outputs.should_deploy }}
@@ -85,7 +83,6 @@ jobs:
           # 默认值
           BUILD="false"
           CONVERT_PLUGINS="false"
-          CONVERT_QX="false"
           MERGE_MODULES="false"
           MIRROR_SYNC="false"
           DEPLOY="false"
@@ -99,7 +96,6 @@ jobs:
           if [ "$IS_WORKFLOW_DISPATCH" = "true" ]; then
             if [ "$TASK" = "all" ] || [ "$TASK" = "build" ]; then BUILD="true"; fi
             if [ "$TASK" = "all" ] || [ "$TASK" = "convert-plugins" ]; then CONVERT_PLUGINS="true"; fi
-            if [ "$TASK" = "all" ] || [ "$TASK" = "convert-qx" ]; then CONVERT_QX="true"; fi
             if [ "$TASK" = "all" ] || [ "$TASK" = "merge-modules" ]; then MERGE_MODULES="true"; fi
             if [ "$TASK" = "all" ] || [ "$TASK" = "mirror-sync" ]; then MIRROR_SYNC="true"; fi
             if [ "$TASK" = "all" ] || [ "$TASK" = "deploy" ]; then DEPLOY="true"; fi
@@ -108,7 +104,6 @@ jobs:
           # Push 触发 - 执行完整流程（优先级最高）
           if [ "$IS_PUSH" = "true" ]; then
             CONVERT_PLUGINS="true"
-            CONVERT_QX="true"
             MERGE_MODULES="true"
             MIRROR_SYNC="true"
             BUILD="true"
@@ -121,7 +116,6 @@ jobs:
               "0 5,17 * * *")
                 # 🌟 完整构建 - 执行所有任务 (每天 2 次)
                 MIRROR_SYNC="true"
-                CONVERT_QX="true"
                 CONVERT_PLUGINS="true"
                 MERGE_MODULES="true"
                 BUILD="true"
@@ -156,7 +150,6 @@ jobs:
 
           echo "should_build=$BUILD" >> $GITHUB_OUTPUT
           echo "should_convert_plugins=$CONVERT_PLUGINS" >> $GITHUB_OUTPUT
-          echo "should_convert_qx=$CONVERT_QX" >> $GITHUB_OUTPUT
           echo "should_merge_modules=$MERGE_MODULES" >> $GITHUB_OUTPUT
           echo "should_mirror_sync=$MIRROR_SYNC" >> $GITHUB_OUTPUT
           echo "should_deploy=$DEPLOY" >> $GITHUB_OUTPUT
@@ -174,7 +167,6 @@ jobs:
           echo "📋 Tasks to run:"
           echo "  Build: $BUILD"
           echo "  Convert Plugins: $CONVERT_PLUGINS"
-          echo "  Convert QX Rewrites: $CONVERT_QX"
           echo "  Merge Modules: $MERGE_MODULES"
           echo "  Mirror Sync: $MIRROR_SYNC"
           echo "  Deploy: $DEPLOY (target: $DEPLOY_TARGET)"
@@ -263,13 +255,6 @@ jobs:
           CI: true
 
       # 🔧 步骤 2: QX Rewrite 转换（如果需要）
-      - name: Convert QX Rewrites
-        if: needs.prepare.outputs.should_convert_qx == 'true'
-        run: |
-          mkdir -p public/Modules
-          pnpm run convert-qx-rewrites
-        env:
-          CI: true
 
       # 🔧 步骤 3: 插件转换（如果需要）
       - name: Configure Script-Hub
@@ -322,7 +307,7 @@ jobs:
 
           # 检查哪些目录缺失（包含所有可能的规则目录）
           MISSING_DIRS=""
-          for dir in Mirror Modules Scripts Clash sing-box Loon QuantumultX Surfboard; do
+          for dir in Mirror Modules Scripts Clash sing-box Loon Surfboard; do
             if [ ! -d "public/$dir" ]; then
               MISSING_DIRS="$MISSING_DIRS $dir"
               echo "  ❌ $dir/ 缺失"
@@ -377,7 +362,7 @@ jobs:
 
           echo ""
           echo "📊 最终目录状态："
-          for dir in Mirror Modules Scripts List Clash sing-box Loon QuantumultX Surfboard GeoIP; do
+          for dir in Mirror Modules Scripts List Clash sing-box Loon Surfboard GeoIP; do
             if [ -d "public/$dir" ]; then
               FILE_COUNT=$(find "public/$dir" -type f 2>/dev/null | wc -l)
               echo "  ✅ $dir/: $FILE_COUNT 个文件"
@@ -419,14 +404,14 @@ jobs:
           echo "  Clash: $(find public/Clash -type f 2>/dev/null | wc -l) files"
           echo "  sing-box: $(find public/sing-box -type f 2>/dev/null | wc -l) files"
           echo "  Loon: $(find public/Loon -type f 2>/dev/null | wc -l) files"
-          echo "  QuantumultX: $(find public/QuantumultX -type f 2>/dev/null | wc -l) files"
           echo "  Surfboard: $(find public/Surfboard -type f 2>/dev/null | wc -l) files"
           echo "  GeoIP: $(find public/GeoIP -type f 2>/dev/null | wc -l) files"
 
           # 模块和脚本
           echo ""
-          echo "  Modules (root): $(find public/Modules -maxdepth 1 -type f -name '*.sgmodule' 2>/dev/null | wc -l) files"
-          echo "  Modules/Merged: $(find public/Modules/Merged -type f 2>/dev/null | wc -l) files"
+          echo "  Modules (all): $(find public/Modules -type f -name '*.sgmodule' 2>/dev/null | wc -l) files"
+          echo "  Modules/Converted: $(find public/Modules/Converted -type f -name '*.sgmodule' 2>/dev/null | wc -l) files"
+          echo "  Modules/Merged: $(find public/Modules/Merged -type f -name '*.sgmodule' 2>/dev/null | wc -l) files"
           echo "  Scripts: $(find public/Scripts -type f 2>/dev/null | wc -l) files"
 
           # 镜像
@@ -598,8 +583,9 @@ jobs:
           ls -la public/ || echo "⚠️ public 目录不存在"
           echo ""
           echo "📊 文件统计："
-          echo "  Modules (根目录): $(find public/Modules -maxdepth 1 -type f -name '*.sgmodule' 2>/dev/null | wc -l) 个文件"
-          echo "  Modules/Merged: $(find public/Modules/Merged -type f 2>/dev/null | wc -l) 个文件"
+          echo "  Modules (全部): $(find public/Modules -type f -name '*.sgmodule' 2>/dev/null | wc -l) 个文件"
+          echo "  Modules/Converted: $(find public/Modules/Converted -type f -name '*.sgmodule' 2>/dev/null | wc -l) 个文件"
+          echo "  Modules/Merged: $(find public/Modules/Merged -type f -name '*.sgmodule' 2>/dev/null | wc -l) 个文件"
           echo "  Scripts: $(find public/Scripts -type f 2>/dev/null | wc -l) 个文件"
           echo "  List: $(find public/List -type f 2>/dev/null | wc -l) 个文件"
           echo "  Mirror: $(find public/Mirror -type f 2>/dev/null | wc -l) 个文件"
@@ -613,7 +599,7 @@ jobs:
           SYNC_DESC=""
 
           # 规则构建（始终执行）- 包含所有规则格式
-          SYNC_PATHS="$SYNC_PATHS List/ Clash/ sing-box/ Loon/ QuantumultX/ Surfboard/ GeoIP/"
+          SYNC_PATHS="$SYNC_PATHS List/ Clash/ sing-box/ Loon/ Surfboard/ GeoIP/"
           SYNC_DESC="rules"
 
           # 镜像同步
@@ -622,9 +608,8 @@ jobs:
             SYNC_DESC="$SYNC_DESC+mirrors"
           fi
 
-          # QX 转换 / 插件转换 / 模块合并 - 统一处理 Modules
-          if [ "${{ needs.prepare.outputs.should_convert_qx }}" = "true" ] || \
-             [ "${{ needs.prepare.outputs.should_convert_plugins }}" = "true" ] || \
+          # 插件转换 / 模块合并 - 统一处理 Modules
+          if [ "${{ needs.prepare.outputs.should_convert_plugins }}" = "true" ] || \
              [ "${{ needs.prepare.outputs.should_merge_modules }}" = "true" ]; then
             SYNC_PATHS="$SYNC_PATHS Modules/"
             SYNC_DESC="$SYNC_DESC+modules"
@@ -675,7 +660,6 @@ jobs:
           echo "  Clash: $(find ./Clash -type f 2>/dev/null | wc -l) 个文件"
           echo "  sing-box: $(find ./sing-box -type f 2>/dev/null | wc -l) 个文件"
           echo "  Loon: $(find ./Loon -type f 2>/dev/null | wc -l) 个文件"
-          echo "  QuantumultX: $(find ./QuantumultX -type f 2>/dev/null | wc -l) 个文件"
           echo "  Modules: $(find ./Modules -type f 2>/dev/null | wc -l) 个文件"
           echo "  Scripts: $(find ./Scripts -type f 2>/dev/null | wc -l) 个文件"
           echo "  Mirror: $(find ./Mirror -type f 2>/dev/null | wc -l) 个文件"

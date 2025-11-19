@@ -12,15 +12,22 @@ import type { Span } from '../trace';
 import { fetchAssets } from '../utils/network/fetch-assets';
 import { EnhancedFileOutput } from './enhanced-file-output';
 import type { RuleGroup, SpecialRuleConfig } from './rule-source-types';
+import type { SupportedPlatform } from './platform-config';
 import { applyDefaultConfig } from './rule-sources';
 import path from 'node:path';
 import fs from 'node:fs';
 
+const isSupportedPlatform = (target: string): target is SupportedPlatform =>
+  target === 'surge' ||
+  target === 'clash' ||
+  target === 'singbox' ||
+  target === 'loon';
+
 interface ProcessorStats {
-  filesProcessed: number,
-  rulesMerged: number,
-  processingTime: number,
-  errors: Array<{ file: string, error: string }>
+  filesProcessed: number;
+  rulesMerged: number;
+  processingTime: number;
+  errors: Array<{ file: string; error: string }>;
 }
 
 export class RuleSourceProcessor {
@@ -35,7 +42,7 @@ export class RuleSourceProcessor {
       filesProcessed: 0,
       rulesMerged: 0,
       processingTime: 0,
-      errors: []
+      errors: [],
     };
 
     for (const group of groups) {
@@ -53,7 +60,9 @@ export class RuleSourceProcessor {
               // 下载规则文件
               const rules = await groupSpan
                 .traceChild('download')
-                .traceAsyncFn(() => fetchAssets(fileConfig.url, fileConfig.fallbackUrls || null, true));
+                .traceAsyncFn(() =>
+                  fetchAssets(fileConfig.url, fileConfig.fallbackUrls || null, true)
+                );
 
               // 🔧 应用默认配置
               const mergedConfig = applyDefaultConfig(fileConfig);
@@ -64,11 +73,16 @@ export class RuleSourceProcessor {
 
               // 🔧 创建增强输出器 - 传递完整配置和输出基础目录
               // 🔧 ruleType 设为空字符串，取消规则分类，避免创建子目录
+              const rawTargets = group.targets ?? ['surge'];
+              const targets: SupportedPlatform[] = rawTargets.filter(isSupportedPlatform);
+              const effectiveTargets: SupportedPlatform[] =
+                targets.length > 0 ? targets : ['surge'];
+
               const output = new EnhancedFileOutput(
                 groupSpan,
                 fileName, // 使用不带扩展名的文件名
                 '', // 🔧 空字符串，不创建基于规则类型的子目录
-                (group.targets as any) || ['surge'],
+                effectiveTargets,
                 group.defaultPolicy === undefined ? null : group.defaultPolicy,
                 mergedConfig, // 🔧 传递合并后的配置参数
                 this.outputDir // 🔧 传递输出基础目录 (public)
@@ -79,7 +93,7 @@ export class RuleSourceProcessor {
                 .withTitle(fileConfig.title || group.name)
                 .withDescription([
                   fileConfig.description || group.description || `Rules for ${group.name}`,
-                  `Source: ${fileConfig.url}`
+                  `Source: ${fileConfig.url}`,
                 ]);
 
               // 添加规则
@@ -95,7 +109,7 @@ export class RuleSourceProcessor {
               const errorMsg = error instanceof Error ? error.message : String(error);
               stats.errors.push({
                 file: fileConfig.path,
-                error: errorMsg
+                error: errorMsg,
               });
               console.error(`  ❌ ${fileConfig.path}: ${errorMsg}`);
             }
@@ -105,7 +119,7 @@ export class RuleSourceProcessor {
         const errorMsg = error instanceof Error ? error.message : String(error);
         stats.errors.push({
           file: group.name,
-          error: errorMsg
+          error: errorMsg,
         });
         console.error(`❌ 规则组 ${group.name} 失败: ${errorMsg}`);
       }
@@ -124,7 +138,7 @@ export class RuleSourceProcessor {
       filesProcessed: 0,
       rulesMerged: 0,
       processingTime: 0,
-      errors: []
+      errors: [],
     };
 
     for (const ruleConfig of rules) {
@@ -162,11 +176,15 @@ export class RuleSourceProcessor {
 
           // 🔧 创建增强输出器 - 使用 targetFile 中的文件名并传递输出基础目录
           // 🔧 ruleType 设为空字符串，取消规则分类，避免创建子目录
+          const rawTargets = ruleConfig.targets ?? ['surge'];
+          const targets: SupportedPlatform[] = rawTargets.filter(isSupportedPlatform);
+          const effectiveTargets: SupportedPlatform[] = targets.length > 0 ? targets : ['surge'];
+
           const output = new EnhancedFileOutput(
             ruleSpan,
             fileName,
             '', // 🔧 空字符串，不创建基于规则类型的子目录
-            (ruleConfig.targets as any) || ['surge'],
+            effectiveTargets,
             ruleConfig.defaultPolicy === undefined ? null : ruleConfig.defaultPolicy,
             mergedConfig, // 🔧 传递合并后的配置参数
             this.outputDir // 🔧 传递输出基础目录 (public)
@@ -177,7 +195,7 @@ export class RuleSourceProcessor {
             .withTitle(ruleConfig.name)
             .withDescription([
               ruleConfig.description || `Rules for ${ruleConfig.name}`,
-              `Merged from ${ruleConfig.sourceFiles.length} sources`
+              `Merged from ${ruleConfig.sourceFiles.length} sources`,
             ]);
 
           // 添加规则（会自动去重）
@@ -208,7 +226,7 @@ export class RuleSourceProcessor {
         const errorMsg = error instanceof Error ? error.message : String(error);
         stats.errors.push({
           file: ruleConfig.targetFile,
-          error: errorMsg
+          error: errorMsg,
         });
         console.error(`❌ 特殊规则 ${ruleConfig.name} 失败: ${errorMsg}`);
       }

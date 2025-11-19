@@ -55,7 +55,7 @@ export interface RuleGroup {
   /** 组级默认策略（覆盖全局默认，null表示无策略） */
   defaultPolicy?: 'DIRECT' | 'REJECT' | 'PROXY' | string | null,
   /** 目标平台列表（默认仅Surge） */
-  targets?: Array<'surge' | 'clash' | 'singbox' | 'surfboard' | 'loon' | 'quantumult-x'>
+  targets?: Array<'surge' | 'clash' | 'singbox' | 'surfboard' | 'loon'>
 }
 
 /**
@@ -112,7 +112,7 @@ export interface SpecialRuleConfig {
   /** 默认策略组（可设为null表示无策略，null时会移除规则中的策略） */
   defaultPolicy?: 'DIRECT' | 'REJECT' | 'PROXY' | string | null,
   /** 目标平台列表（默认仅Surge） */
-  targets?: Array<'surge' | 'clash' | 'singbox' | 'surfboard' | 'loon' | 'quantumult-x'>
+  targets?: Array<'surge' | 'clash' | 'singbox' | 'surfboard' | 'loon'>
 }
 
 /**

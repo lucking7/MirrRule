@@ -1,6 +1,6 @@
 /**
  * 跨平台规则格式常量定义
- * 支持Surge、Loon、QuantumultX等多种代理客户端的规则格式转换
+ * 支持Surge、Loon、Clash、sing-box等多种代理客户端的规则格式转换
  */
 
 /**
@@ -9,7 +9,6 @@
 export enum ProxyPlatform {
   SURGE = 'surge',
   LOON = 'loon',
-  QUANTUMULT_X = 'quantumult-x',
   CLASH = 'clash',
   SINGBOX = 'sing-box',
 }
@@ -136,20 +135,6 @@ export const PLATFORM_RULE_MAPPING: Record<ProxyPlatform, Record<string, RuleTyp
     'DEST-PORT': RuleType.DEST_PORT,
     PROTOCOL: RuleType.PROTOCOL,
   },
-  [ProxyPlatform.QUANTUMULT_X]: {
-    // 域名类 (使用 host 前缀)
-    HOST: RuleType.DOMAIN,
-    'HOST-SUFFIX': RuleType.DOMAIN_SUFFIX,
-    'HOST-KEYWORD': RuleType.DOMAIN_KEYWORD,
-    'HOST-WILDCARD': RuleType.DOMAIN_WILDCARD,
-    // IP 类
-    'IP-CIDR': RuleType.IP_CIDR,
-    'IP6-CIDR': RuleType.IP_CIDR6,
-    GEOIP: RuleType.GEOIP,
-    'IP-ASN': RuleType.IP_ASN,
-    // 网络类
-    'USER-AGENT': RuleType.USER_AGENT,
-  },
   [ProxyPlatform.CLASH]: {
     // 域名类
     DOMAIN: RuleType.DOMAIN,
@@ -187,98 +172,84 @@ export const RULE_TO_PLATFORM_MAPPING: Partial<Record<RuleType, Record<ProxyPlat
   [RuleType.DOMAIN]: {
     [ProxyPlatform.SURGE]: 'DOMAIN',
     [ProxyPlatform.LOON]: 'DOMAIN',
-    [ProxyPlatform.QUANTUMULT_X]: 'HOST',
     [ProxyPlatform.CLASH]: 'DOMAIN',
     [ProxyPlatform.SINGBOX]: 'domain',
   },
   [RuleType.DOMAIN_SUFFIX]: {
     [ProxyPlatform.SURGE]: 'DOMAIN-SUFFIX',
     [ProxyPlatform.LOON]: 'DOMAIN-SUFFIX',
-    [ProxyPlatform.QUANTUMULT_X]: 'HOST-SUFFIX',
     [ProxyPlatform.CLASH]: 'DOMAIN-SUFFIX',
     [ProxyPlatform.SINGBOX]: 'domain_suffix',
   },
   [RuleType.DOMAIN_KEYWORD]: {
     [ProxyPlatform.SURGE]: 'DOMAIN-KEYWORD',
     [ProxyPlatform.LOON]: 'DOMAIN-KEYWORD',
-    [ProxyPlatform.QUANTUMULT_X]: 'HOST-KEYWORD',
     [ProxyPlatform.CLASH]: 'DOMAIN-KEYWORD',
     [ProxyPlatform.SINGBOX]: 'domain_keyword',
   },
   [RuleType.DOMAIN_WILDCARD]: {
     [ProxyPlatform.SURGE]: 'DOMAIN-WILDCARD',
     [ProxyPlatform.LOON]: 'DOMAIN-WILDCARD',
-    [ProxyPlatform.QUANTUMULT_X]: 'HOST-WILDCARD',
     [ProxyPlatform.CLASH]: 'DOMAIN-WILDCARD',
     [ProxyPlatform.SINGBOX]: 'domain_wildcard',
   },
   [RuleType.IP_CIDR]: {
     [ProxyPlatform.SURGE]: 'IP-CIDR',
     [ProxyPlatform.LOON]: 'IP-CIDR',
-    [ProxyPlatform.QUANTUMULT_X]: 'IP-CIDR',
     [ProxyPlatform.CLASH]: 'IP-CIDR',
     [ProxyPlatform.SINGBOX]: 'ip_cidr',
   },
   [RuleType.IP_CIDR6]: {
     [ProxyPlatform.SURGE]: 'IP-CIDR6',
     [ProxyPlatform.LOON]: 'IP-CIDR6',
-    [ProxyPlatform.QUANTUMULT_X]: 'IP6-CIDR',
     [ProxyPlatform.CLASH]: 'IP-CIDR6',
     [ProxyPlatform.SINGBOX]: 'ip_cidr',
   },
   [RuleType.GEOIP]: {
     [ProxyPlatform.SURGE]: 'GEOIP',
     [ProxyPlatform.LOON]: 'GEOIP',
-    [ProxyPlatform.QUANTUMULT_X]: 'GEOIP',
     [ProxyPlatform.CLASH]: 'GEOIP',
     [ProxyPlatform.SINGBOX]: 'geoip',
   },
   [RuleType.IP_ASN]: {
     [ProxyPlatform.SURGE]: 'IP-ASN',
     [ProxyPlatform.LOON]: 'IP-ASN',
-    [ProxyPlatform.QUANTUMULT_X]: 'IP-ASN',
     [ProxyPlatform.CLASH]: 'IP-ASN',
     [ProxyPlatform.SINGBOX]: 'ip_asn',
   },
   [RuleType.USER_AGENT]: {
     [ProxyPlatform.SURGE]: 'USER-AGENT',
     [ProxyPlatform.LOON]: 'USER-AGENT',
-    [ProxyPlatform.QUANTUMULT_X]: 'USER-AGENT',
     [ProxyPlatform.CLASH]: 'USER-AGENT',
     [ProxyPlatform.SINGBOX]: 'user_agent',
   },
   [RuleType.URL_REGEX]: {
     [ProxyPlatform.SURGE]: 'URL-REGEX',
     [ProxyPlatform.LOON]: 'URL-REGEX',
-    [ProxyPlatform.QUANTUMULT_X]: 'URL-REGEX',
     [ProxyPlatform.CLASH]: 'URL-REGEX',
     [ProxyPlatform.SINGBOX]: 'url_regex',
   },
   [RuleType.PROCESS_NAME]: {
     [ProxyPlatform.SURGE]: 'PROCESS-NAME',
     [ProxyPlatform.LOON]: 'PROCESS-NAME',
-    [ProxyPlatform.QUANTUMULT_X]: 'PROCESS-NAME',
     [ProxyPlatform.CLASH]: 'PROCESS-NAME',
     [ProxyPlatform.SINGBOX]: 'process_name',
   },
   [RuleType.AND]: {
     [ProxyPlatform.SURGE]: 'AND',
     [ProxyPlatform.LOON]: 'AND',
-    [ProxyPlatform.QUANTUMULT_X]: 'AND',
     [ProxyPlatform.CLASH]: 'AND',
     [ProxyPlatform.SINGBOX]: 'and',
   },
   [RuleType.OR]: {
     [ProxyPlatform.SURGE]: 'OR',
     [ProxyPlatform.LOON]: 'OR',
-    [ProxyPlatform.QUANTUMULT_X]: 'OR',
     [ProxyPlatform.CLASH]: 'OR',
     [ProxyPlatform.SINGBOX]: 'or',
   },
   [RuleType.NOT]: {
     [ProxyPlatform.SURGE]: 'NOT',
     [ProxyPlatform.LOON]: 'NOT',
-    [ProxyPlatform.QUANTUMULT_X]: 'NOT',
     [ProxyPlatform.CLASH]: 'NOT',
     [ProxyPlatform.SINGBOX]: 'not',
   },
@@ -306,15 +277,6 @@ export const PLATFORM_POLICY_MAPPING: Record<ProxyPlatform, Record<string, Polic
     'REJECT-ARRAY': PolicyType.REJECT_ARRAY,
     PROXY: PolicyType.PROXY,
   },
-  [ProxyPlatform.QUANTUMULT_X]: {
-    direct: PolicyType.DIRECT,
-    reject: PolicyType.REJECT,
-    'reject-200': PolicyType.REJECT_200,
-    'reject-img': PolicyType.REJECT_IMG,
-    'reject-dict': PolicyType.REJECT_DICT,
-    'reject-array': PolicyType.REJECT_ARRAY,
-    proxy: PolicyType.PROXY,
-  },
   [ProxyPlatform.CLASH]: {
     DIRECT: PolicyType.DIRECT,
     REJECT: PolicyType.REJECT,
@@ -334,49 +296,42 @@ export const POLICY_TO_PLATFORM_MAPPING: Record<PolicyType, Record<ProxyPlatform
   [PolicyType.DIRECT]: {
     [ProxyPlatform.SURGE]: 'DIRECT',
     [ProxyPlatform.LOON]: 'DIRECT',
-    [ProxyPlatform.QUANTUMULT_X]: 'direct',
     [ProxyPlatform.CLASH]: 'DIRECT',
     [ProxyPlatform.SINGBOX]: 'direct',
   },
   [PolicyType.REJECT]: {
     [ProxyPlatform.SURGE]: 'REJECT',
     [ProxyPlatform.LOON]: 'REJECT',
-    [ProxyPlatform.QUANTUMULT_X]: 'reject',
     [ProxyPlatform.CLASH]: 'REJECT',
     [ProxyPlatform.SINGBOX]: 'reject',
   },
   [PolicyType.REJECT_200]: {
     [ProxyPlatform.SURGE]: 'REJECT-200',
     [ProxyPlatform.LOON]: 'REJECT-200',
-    [ProxyPlatform.QUANTUMULT_X]: 'reject-200',
     [ProxyPlatform.CLASH]: 'REJECT',
     [ProxyPlatform.SINGBOX]: 'reject',
   },
   [PolicyType.REJECT_IMG]: {
     [ProxyPlatform.SURGE]: 'REJECT-IMG',
     [ProxyPlatform.LOON]: 'REJECT-IMG',
-    [ProxyPlatform.QUANTUMULT_X]: 'reject-img',
     [ProxyPlatform.CLASH]: 'REJECT',
     [ProxyPlatform.SINGBOX]: 'reject',
   },
   [PolicyType.REJECT_DICT]: {
     [ProxyPlatform.SURGE]: 'REJECT-DICT',
     [ProxyPlatform.LOON]: 'REJECT-DICT',
-    [ProxyPlatform.QUANTUMULT_X]: 'reject-dict',
     [ProxyPlatform.CLASH]: 'REJECT',
     [ProxyPlatform.SINGBOX]: 'reject',
   },
   [PolicyType.REJECT_ARRAY]: {
     [ProxyPlatform.SURGE]: 'REJECT-ARRAY',
     [ProxyPlatform.LOON]: 'REJECT-ARRAY',
-    [ProxyPlatform.QUANTUMULT_X]: 'reject-array',
     [ProxyPlatform.CLASH]: 'REJECT',
     [ProxyPlatform.SINGBOX]: 'reject',
   },
   [PolicyType.PROXY]: {
     [ProxyPlatform.SURGE]: 'PROXY',
     [ProxyPlatform.LOON]: 'PROXY',
-    [ProxyPlatform.QUANTUMULT_X]: 'proxy',
     [ProxyPlatform.CLASH]: 'PROXY',
     [ProxyPlatform.SINGBOX]: 'proxy',
   },
@@ -451,7 +406,6 @@ export const PLATFORM_PARAMETER_SUPPORT: Record<ProxyPlatform, RuleParameter[]> 
     RuleParameter.NO_RESOLVE,
   ],
   [ProxyPlatform.LOON]: [RuleParameter.NO_RESOLVE],
-  [ProxyPlatform.QUANTUMULT_X]: [],
   [ProxyPlatform.CLASH]: [RuleParameter.NO_RESOLVE],
   [ProxyPlatform.SINGBOX]: [],
 };
@@ -463,7 +417,6 @@ export const PLATFORM_PARAMETER_SUPPORT: Record<ProxyPlatform, RuleParameter[]> 
 export const PLATFORM_LOGICAL_SUPPORT: Record<ProxyPlatform, LogicalOperator[]> = {
   [ProxyPlatform.SURGE]: [LogicalOperator.AND, LogicalOperator.OR, LogicalOperator.NOT],
   [ProxyPlatform.LOON]: [LogicalOperator.AND, LogicalOperator.OR, LogicalOperator.NOT],
-  [ProxyPlatform.QUANTUMULT_X]: [LogicalOperator.AND, LogicalOperator.OR],
   [ProxyPlatform.CLASH]: [LogicalOperator.AND, LogicalOperator.OR, LogicalOperator.NOT], // Clash.Meta/mihomo支持
   [ProxyPlatform.SINGBOX]: [LogicalOperator.AND, LogicalOperator.OR, LogicalOperator.NOT], // sing-box 支持逻辑规则
 };

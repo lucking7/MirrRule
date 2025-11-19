@@ -387,7 +387,7 @@ class LoonPluginParser {
   }
 
   private static parseRewrite(this: void, line: string): RewriteRule | null {
-    // ⭐ 规范化 Quantumult X 风格的 " - " 分隔符
+    // ⭐ 规范化常见重写规则中的 " - " 分隔符
     line = line.replaceAll(/\s+-\s+/g, ' ');
 
     // ⭐ 检测重定向规则: pattern replacement 302/307/redirect

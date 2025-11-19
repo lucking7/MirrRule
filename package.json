@@ -18,7 +18,6 @@
     "download-fmz200-split": "pnpm run node ./Build/download-fmz200-split.ts",
     "sync-mirrors": "pnpm run node ./Build/sync-mirrors.ts",
     "convert-plugins": "pnpm run node ./Build/convert-plugins.ts",
-    "convert-qx-rewrites": "pnpm run node ./Build/convert-qx-rewrites.ts",
     "merge-modules": "pnpm run node ./Build/merge-modules.ts",
     "mirror:iringo": "pnpm run node ./Build/sync-mirrors.ts iRingo",
     "mirror:dualsubs": "pnpm run node ./Build/sync-mirrors.ts DualSubs",

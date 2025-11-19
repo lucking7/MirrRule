@@ -5,11 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 项目概述
 
 这是一个高质量、自动化维护的**网络代理规则集生成系统**,支持多种客户端平台:
+
 - **Surge** (macOS/iOS/tvOS) - 原生格式
 - **Clash Meta** (mihomo) - YAML 格式
 - **sing-box** - 二进制 JSON 格式
 - **Loon** - 兼容格式
-- **QuantumultX** - 兼容格式
 - **Surfboard** (Android) - 基于 Surge 格式
 
 主要功能包括广告拦截、隐私保护、流媒体分流、地理位置路由等。
@@ -25,6 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 常用命令
 
 ### 构建和部署
+
 ```bash
 # 完整构建(规则集 + 前端网页)
 pnpm build
@@ -37,6 +38,7 @@ pnpm deploy
 ```
 
 ### 开发工具
+
 ```bash
 # 代码检查(lint + typecheck) - 提交前必须运行
 pnpm validate
@@ -52,6 +54,7 @@ pnpm format
 ```
 
 ### 辅助工具
+
 ```bash
 # 下载 GeoIP 数据库
 pnpm download-geoip
@@ -65,14 +68,12 @@ pnpm sync-mirrors
 # 转换插件(需要 Script-Hub 服务)
 pnpm convert-plugins
 
-# 转换 QuantumultX Rewrites
-pnpm convert-qx-rewrites
-
 # 合并模块
 pnpm merge-modules
 ```
 
 ### Script-Hub 服务管理
+
 ```bash
 # 启动服务(用于插件转换)
 pnpm script-hub:start
@@ -96,15 +97,18 @@ pnpm script-hub:remove
 构建系统采用统一的规则处理管道:
 
 1. **下载 GeoIP 数据** (`Build/download-geoip.ts`)
+
    - 下载 MaxMind GeoLite2 Country MMDB 文件
    - 用于地理位置规则生成
 
 2. **规则源处理系统** (`Build/lib/rule-source-processor.ts`)
+
    - **RuleSourceProcessor**: 统一处理所有规则源
    - 支持多源合并、去重、排序、格式转换
    - 跨平台输出策略(Surge/Clash/sing-box 等)
 
 3. **规则配置定义** (`Build/lib/rule-sources.ts`)
+
    - **ruleGroups**: 规则组配置(如 Streaming、Reject 等)
    - **specialRules**: 特殊规则配置(需要多源合并的规则)
    - 每个规则组包含:
@@ -147,11 +151,11 @@ public/                   # 构建输出目录
 ├── Clash/               # Clash Meta 格式规则
 ├── sing-box/            # sing-box 格式规则
 ├── Loon/                # Loon 格式规则
-├── QuantumultX/         # QuantumultX 格式规则
 ├── Surfboard/           # Surfboard 格式规则
 ├── GeoIP/               # GeoIP 数据库
 ├── Modules/             # Surge 模块
-│   └── Merged/         # 合并后的模块
+│   ├── Converted/       # 从 Loon 插件转换的模块
+│   └── Merged/          # 合并后的模块
 ├── Mirror/              # 镜像仓库
 │   ├── iRingo/
 │   ├── DualSubs/
@@ -175,13 +179,13 @@ public/                   # 构建输出目录
    - Clash: `.txt` YAML 格式
    - sing-box: `.json` 二进制格式
    - Loon: `.conf` 格式
-   - QuantumultX: `.conf` 格式
 
 ### 核心概念
 
 #### RuleGroup vs SpecialRule
 
 - **RuleGroup**: 单一数据源的规则组
+
   - 示例: `List/netflix.list` 来自单一 URL
   - 直接转换为多平台格式
 
@@ -192,21 +196,23 @@ public/                   # 构建输出目录
 #### 平台配置 (platform-config.ts)
 
 定义了每个平台的:
+
 - 文件扩展名
 - 格式转换器
 - 输出目录
 
 支持的目标平台:
+
 - `surge`: Surge 原生格式
 - `clash`: Clash Meta YAML 格式
 - `singbox`: sing-box JSON 格式
 - `loon`: Loon 格式
-- `qx`: QuantumultX 格式
 - `surfboard`: Surfboard 格式
 
 ## 缓存系统
 
 项目使用 `.cache/` 目录存储:
+
 - HTTP 请求缓存 (better-sqlite3)
 - GeoIP MMDB 文件缓存
 - 构建中间结果
@@ -216,12 +222,14 @@ public/                   # 构建输出目录
 ## GitHub Actions 工作流
 
 定时构建策略:
+
 - **完整构建**: 每天 2 次 (05:00, 17:00 UTC) - 包含镜像同步、插件转换、模块合并
 - **快速更新**: 每 4 小时 - 仅规则构建
 - **镜像同步**: 每天 3 次 (06:00, 14:00, 22:00 UTC)
 - **插件转换**: 每天 2 次 (07:30, 19:30 UTC)
 
 构建产物部署到:
+
 1. **Cloudflare Pages**: https://nrrule.pages.dev (主站)
 2. **GitHub Repository**: lucking7/NRRule (分发仓库)
 
@@ -230,6 +238,7 @@ public/                   # 构建输出目录
 ### 添加新规则源
 
 1. 在 `Build/lib/rule-sources.ts` 中添加配置:
+
    ```typescript
    // 规则组示例
    {
@@ -258,6 +267,7 @@ public/                   # 构建输出目录
    ```
 
 2. 运行构建:
+
    ```bash
    pnpm build
    ```
@@ -270,10 +280,12 @@ public/                   # 构建输出目录
 ### 修改规则处理逻辑
 
 核心处理器在 `Build/lib/rule-source-processor.ts`:
+
 - `processRuleGroups()`: 处理规则组
 - `processSpecialRules()`: 处理特殊规则(多源合并)
 
 规则解析器在 `Build/core/parsers/`:
+
 - 每个平台有独立的解析器
 - 支持域名、IP、关键词等多种规则类型
 
@@ -294,11 +306,13 @@ public/                   # 构建输出目录
 ### 调试技巧
 
 1. **查看构建日志**:
+
    ```bash
    pnpm build 2>&1 | tee build.log
    ```
 
 2. **性能分析**:
+
    ```bash
    pnpm build-profile  # 使用 dexnode 进行性能分析
    ```
@@ -319,7 +333,9 @@ public/                   # 构建输出目录
 ## 外部服务依赖
 
 ### Script-Hub
+
 用于插件格式转换,需要 Docker 容器运行:
+
 ```bash
 docker run -d -p 9100:9100 -p 9101:9101 xream/script-hub:latest
 ```

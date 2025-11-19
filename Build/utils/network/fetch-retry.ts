@@ -1,7 +1,7 @@
 import picocolors from 'picocolors';
 import undici, {
   interceptors,
-  Agent
+  Agent,
   // setGlobalDispatcher
 } from 'undici';
 
@@ -25,7 +25,7 @@ agent.compose(
   interceptors.dns({
     // disable IPv6
     dualStack: false,
-    affinity: 4
+    affinity: 4,
     // TODO: proper cacheable-lookup, or even DoH
   }),
   interceptors.retry({
@@ -39,14 +39,14 @@ agent.compose(
       const errorCode = 'code' in err ? (err as NodeJS.ErrnoException).code : undefined;
 
       Object.defineProperty(err, '_url', {
-        value: opts.method + ' ' + opts.origin?.toString() + opts.path
+        value: opts.method + ' ' + opts.origin?.toString() + opts.path,
       });
 
       // Any code that is not a Undici's originated and allowed to retry
       if (
-        errorCode === 'ERR_UNESCAPED_CHARACTERS'
-        || err.message === 'Request path contains unescaped characters'
-        || err.name === 'AbortError'
+        errorCode === 'ERR_UNESCAPED_CHARACTERS' ||
+        err.message === 'Request path contains unescaped characters' ||
+        err.name === 'AbortError'
       ) {
         return cb(err);
       }
@@ -56,11 +56,11 @@ agent.compose(
 
       // bail out if the status code matches one of the following
       if (
-        statusCode != null
-        && (statusCode === 401 // Unauthorized, should check credentials instead of retrying
-          || statusCode === 403 // Forbidden, should check permissions instead of retrying
-          || statusCode === 404 // Not Found, should check URL instead of retrying
-          || statusCode === 405) // Method Not Allowed, should check method instead of retrying
+        statusCode != null &&
+        (statusCode === 401 || // Unauthorized, should check credentials instead of retrying
+          statusCode === 403 || // Forbidden, should check permissions instead of retrying
+          statusCode === 404 || // Not Found, should check URL instead of retrying
+          statusCode === 405) // Method Not Allowed, should check method instead of retrying
       ) {
         return cb(err);
       }
@@ -74,7 +74,7 @@ agent.compose(
         minTimeout = 500,
         maxTimeout = 10 * 1000,
         timeoutFactor = 2,
-        methods = ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE', 'TRACE']
+        methods = ['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE', 'TRACE'],
       } = opts.retryOptions || {};
 
       // If we reached the max number of retries
@@ -113,23 +113,23 @@ agent.compose(
         statusCode,
         retryTimeout,
         errorCode,
-        url: opts.origin
+        url: opts.origin,
       });
       // eslint-disable-next-line sukka/prefer-timer-id -- won't leak
       setTimeout(() => cb(null), retryTimeout);
-    }
+    },
     // errorCodes: ['UND_ERR_HEADERS_TIMEOUT', 'ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'ENETDOWN', 'ENETUNREACH', 'EHOSTDOWN', 'EHOSTUNREACH', 'EPIPE', 'ETIMEDOUT']
   }),
   interceptors.redirect({
-    maxRedirections: 5
+    maxRedirections: 5,
   }),
   interceptors.cache({
     store: new BetterSqlite3CacheStore({
       loose: true,
       location: path.join(CACHE_DIR, 'undici-better-sqlite3-cache-store.db'),
-      maxEntrySize: 1024 * 1024 * 100 // 100 MiB
+      maxEntrySize: 1024 * 1024 * 100, // 100 MiB
     }),
-    cacheByDefault: 600 // 10 minutes
+    cacheByDefault: 600, // 10 minutes
   })
 );
 
@@ -142,7 +142,7 @@ export class ResponseError<T extends UndiciResponseData | Response> extends Erro
   readonly code: number;
   readonly statusCode: number;
 
-  constructor(public readonly res: T, public readonly url: string, ...args: any[]) {
+  constructor(public readonly res: T, public readonly url: string, ...args: unknown[]) {
     const statusCode = 'statusCode' in res ? res.statusCode : res.status;
     super('HTTP ' + statusCode + ' ' + args.map(_ => inspect(_)).join(' '));
 
@@ -156,8 +156,8 @@ export class ResponseError<T extends UndiciResponseData | Response> extends Erro
 
 export const defaultRequestInit = {
   headers: {
-    'User-Agent': 'Surge Mac/8380'
-  }
+    'User-Agent': 'Surge Mac/8380',
+  },
 };
 
 export async function $$fetch(url: string, init: RequestInit = defaultRequestInit) {
@@ -178,7 +178,7 @@ export async function $$fetch(url: string, init: RequestInit = defaultRequestIni
         console.log(picocolors.gray('[fetch abort]'), url);
       }
     } else {
-      console.log(picocolors.gray('[fetch fail]'), url, { name: (err as any).name }, err);
+      console.log(picocolors.gray('[fetch fail]'), url, err);
     }
 
     throw err;
@@ -204,7 +204,7 @@ export async function requestWithLog(url: string, opt?: Parameters<typeof undici
         console.log(picocolors.gray('[fetch abort]'), url);
       }
     } else {
-      console.log(picocolors.gray('[fetch fail]'), url, { name: (err as any).name }, err);
+      console.log(picocolors.gray('[fetch fail]'), url, err);
     }
 
     throw err;

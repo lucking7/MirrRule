@@ -15,6 +15,12 @@ import {
   PLATFORM_POLICY_SUPPORT,
 } from './platform-config';
 import type { SupportedPlatform } from './platform-config';
+
+const isSupportedPlatform = (target: string): target is SupportedPlatform =>
+  target === 'surge' ||
+  target === 'clash' ||
+  target === 'singbox' ||
+  target === 'loon';
 import type { RuleGroup, FileConfig, SpecialRuleConfig } from './rule-source-types';
 import { cleanPolicy } from '../core/parsers/policy-cleaner';
 import { RuleValidator } from '../utils/validation/validators';
@@ -106,7 +112,7 @@ export class EnhancedFileOutput extends FileOutput {
     // 🔧 4. 格式转换 - 智能平台检测和转换
     let normalizedRule = trimmed;
     if (this.config.formatConversion) {
-      // 支持 QuantumultX (HOST, HOST-SUFFIX), Clash (+.domain), Domain-set (.domain), 纯文本等
+      // 支持多种规则来源格式（如 Clash 的 +.domain、Domain-set 的 .domain、纯文本等）
       normalizedRule = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.SURGE);
     }
 
@@ -370,7 +376,13 @@ export class EnhancedFileOutput extends FileOutput {
     span: Span,
     config: RuleGroup | SpecialRuleConfig
   ): EnhancedFileOutput {
-    const targets = ('targets' in config ? config.targets || ['surge'] : ['surge']) as any;
+    const rawTargets =
+      'targets' in config && config.targets && config.targets.length > 0
+        ? config.targets
+        : ['surge'];
+    const targets: SupportedPlatform[] = rawTargets.filter(isSupportedPlatform);
+    const effectiveTargets: SupportedPlatform[] = targets.length > 0 ? targets : ['surge'];
+
     const defaultPolicy =
       'defaultPolicy' in config
         ? config.defaultPolicy === undefined
@@ -379,6 +391,6 @@ export class EnhancedFileOutput extends FileOutput {
         : null;
 
     // 默认使用混合类型，让Strategy智能判断
-    return new EnhancedFileOutput(span, config.name, 'mixed', targets, defaultPolicy);
+    return new EnhancedFileOutput(span, config.name, 'mixed', effectiveTargets, defaultPolicy);
   }
 }

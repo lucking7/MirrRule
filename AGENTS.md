@@ -7,10 +7,10 @@
 - **Tools**: `pnpm download-geoip`, `pnpm sync-mirrors`, `pnpm convert-plugins`, `pnpm merge-modules`
 
 ## Architecture
-- **Type**: Network proxy ruleset generation system (Surge/Clash/sing-box/Loon/QuantumultX/Surfboard)
+- **Type**: Network proxy ruleset generation system (Surge/Clash/sing-box/Loon/Surfboard)
 - **Entry**: `Build/index.ts` → `Build/lib/rule-source-processor.ts` (unified rule pipeline)
 - **Config**: `Build/lib/rule-sources.ts` (ruleGroups + specialRules), `Build/lib/platform-config.ts`
-- **Output**: `public/` directory with multi-platform formats (List/Clash/sing-box/Loon/QuantumultX/Surfboard)
+- **Output**: `public/` directory with multi-platform formats (List/Clash/sing-box/Loon/Surfboard)
 - **Cache**: `.cache/` directory (better-sqlite3 HTTP cache + GeoIP MMDB)
 - **Parsers**: `Build/core/parsers/` (platform-specific rule parsers)
 

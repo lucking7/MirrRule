@@ -2,7 +2,7 @@
  * 平台检测器 - 识别代理客户端规则格式
  *
  * 职责：
- * - 检测规则所属平台（Surge/Clash/Loon/QuantumultX）
+ * - 检测规则所属平台（Surge/Clash/Loon）
  * - 基于规则语法特征进行模式匹配
  *
  * 使用示例：
@@ -45,11 +45,6 @@ export class PlatformDetector {
       return PlatformDetector.detectLogicalRulePlatform(trimmed);
     }
 
-    // QuantumultX特征检测（小写规则名）
-    if (PlatformDetector.isQuantumultXRule(trimmed)) {
-      return ProxyPlatform.QUANTUMULT_X;
-    }
-
     // Loon特征检测（通常缺少策略部分）
     if (PlatformDetector.isLoonRule(trimmed)) {
       return ProxyPlatform.LOON;
@@ -79,16 +74,6 @@ export class PlatformDetector {
       return PlatformDetector.detectPlatform(subRule) || ProxyPlatform.SURGE;
     }
     return ProxyPlatform.SURGE;
-  }
-
-  /**
-   * 检测是否为QuantumultX规则
-   * 特征：小写规则名（host, host-suffix等）
-   */
-  private static isQuantumultXRule(this: void, rule: string): boolean {
-    return /^(?:host|host-suffix|host-keyword|host-wildcard|ip-cidr|ip6-cidr|geoip|ip-asn|user-agent)\s*,/i.test(
-      rule
-    );
   }
 
   /**
