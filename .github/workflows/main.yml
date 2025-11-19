@@ -445,6 +445,8 @@ jobs:
           if [ -f "public/index.html" ]; then
             echo "✅ index.html generated successfully"
             echo "  Size: $(stat -f%z public/index.html 2>/dev/null || stat -c%s public/index.html 2>/dev/null || echo 'unknown') bytes"
+            echo "  Last Build line in public/index.html:"
+            grep -n "Last Build" public/index.html || echo "    ⚠️  Last Build not found"
             # 检查 index.html 中是否包含关键目录
             echo "  Checking content..."
             for dir in Mirror Modules Scripts List Clash sing-box; do
@@ -668,8 +670,24 @@ jobs:
           done
           
           # 复制根目录文件（如 README.md, index.html 等）
+          echo ""
+          echo "📄 新产物 index.html 中的 Last Build 行（来自 ../public/index.html）:"
+          if [ -f "../public/index.html" ]; then
+            grep -n "Last Build" ../public/index.html || echo "  ⚠️  未找到 Last Build 行"
+          else
+            echo "  ⚠️  ../public/index.html 不存在"
+          fi
+
           echo "📄 复制根目录文件..."
           find ../public/ -maxdepth 1 -type f -exec cp {} ./ \; 2>/dev/null || true
+
+          echo ""
+          echo "📄 NRRule 仓库中 index.html 的 Last Build 行（复制后）:"
+          if [ -f "./index.html" ]; then
+            grep -n "Last Build" ./index.html || echo "  ⚠️  未找到 Last Build 行"
+          else
+            echo "  ⚠️  ./index.html 不存在"
+          fi
 
           echo ""
           echo "📊 部署后的文件统计："
