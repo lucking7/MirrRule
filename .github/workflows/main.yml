@@ -297,6 +297,23 @@ jobs:
         env:
           CI: true
 
+      # 🔧 步骤 4.2: 清理 Modules 根目录中的历史 .sgmodule 文件
+      - name: Clean legacy Modules root files
+        if: needs.prepare.outputs.should_build == 'true'
+        run: |
+          echo "🧹 清理 public/Modules 根目录中的历史 .sgmodule 文件..."
+          if [ -d "public/Modules" ]; then
+            LEGACY_COUNT=$(find public/Modules -maxdepth 1 -type f -name '*.sgmodule' 2>/dev/null | wc -l)
+            if [ "$LEGACY_COUNT" -gt 0 ]; then
+              echo "  🗑️  将删除 $LEGACY_COUNT 个旧的根目录 .sgmodule 文件"
+              find public/Modules -maxdepth 1 -type f -name '*.sgmodule' -print -delete
+            else
+              echo "  ✅ 没有需要清理的根目录 .sgmodule 文件"
+            fi
+          fi
+          # 确保新目录结构存在
+          mkdir -p public/Modules/Converted public/Modules/Merged public/Modules/Rules
+
       # 🔧 步骤 4.5: 下载缺失的目录用于生成完整的 index.html
       - name: Download missing directories for index.html
         if: needs.prepare.outputs.should_build == 'true'
@@ -307,7 +324,7 @@ jobs:
 
           # 检查哪些目录缺失（包含所有可能的规则目录）
           MISSING_DIRS=""
-          for dir in Mirror Modules Scripts Clash sing-box Loon Surfboard; do
+          for dir in Mirror Scripts Clash sing-box Loon Surfboard; do
             if [ ! -d "public/$dir" ]; then
               MISSING_DIRS="$MISSING_DIRS $dir"
               echo "  ❌ $dir/ 缺失"
