@@ -324,7 +324,7 @@ jobs:
 
           # 检查哪些目录缺失（包含所有可能的规则目录）
           MISSING_DIRS=""
-          for dir in Mirror Scripts Clash sing-box Loon Surfboard; do
+          for dir in Mirror Modules Scripts List Clash sing-box Loon Surfboard GeoIP; do
             if [ ! -d "public/$dir" ]; then
               MISSING_DIRS="$MISSING_DIRS $dir"
               echo "  ❌ $dir/ 缺失"
