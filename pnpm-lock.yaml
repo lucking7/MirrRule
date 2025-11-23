@@ -63,8 +63,8 @@ importers:
         specifier: 3.0.0
         version: 3.0.0
       null-prototype-object:
-        specifier: ^1.2.2
-        version: 1.2.2
+        specifier: ^1.2.5
+        version: 1.2.5
       picocolors:
         specifier: ^1.1.1
         version: 1.1.1
@@ -1399,8 +1399,8 @@ packages:
     resolution: {integrity: sha512-OhYaY5sDsIka7H7AtijtI9jwGYLyl29eQn/W623DiN/MIv5sUqc4g7BIDThX+gb7di9f6xK02nkp8sdfFWZLTg==}
     engines: {node: '>=10'}
 
-  null-prototype-object@1.2.2:
-    resolution: {integrity: sha512-JhzIvS2Z8GKpDO5E/Usry9EGP8gznHSyPVY9a4Uv98OnkbYSe4qvge97/DeDdejICnb7YTW7fSvbcMSKCuVrMA==}
+  null-prototype-object@1.2.5:
+    resolution: {integrity: sha512-YAPMPwBVlXXmIx/eIHx/KwIL1Bsd8I+YHQdFpW0Ydvez6vu5Bx2CaP4GrEnH5c1huVWZD9MqEuFwAJoBMm5LJQ==}
     engines: {node: '>= 20'}
 
   once@1.4.0:
@@ -1500,8 +1500,8 @@ packages:
   resolve-pkg-maps@1.0.0:
     resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
 
-  resolve@1.22.10:
-    resolution: {integrity: sha512-NPRy+/ncIMeDlTAsuqwKIiferiawhefFJtkNSW0qZJEqMEb+qBt/77B/jGeeek+F0uOeN05CDa6HXbbIgtVX4w==}
+  resolve@1.22.11:
+    resolution: {integrity: sha512-RfqAvLnMl313r7c9oclB1HhUEAezcpLjz95wFH4LVuhk9JF/r22qmVP9AMmOU4vMX7Q8pN8jwNg/CSpdFnMjTQ==}
     engines: {node: '>= 0.4'}
     hasBin: true
 
@@ -2517,7 +2517,7 @@ snapshots:
     dependencies:
       debug: 3.2.7
       is-core-module: 2.16.1
-      resolve: 1.22.10
+      resolve: 1.22.11
     transitivePeerDependencies:
       - supports-color
     optional: true
@@ -2951,7 +2951,7 @@ snapshots:
     dependencies:
       semver: 7.7.2
 
-  null-prototype-object@1.2.2: {}
+  null-prototype-object@1.2.5: {}
 
   once@1.4.0:
     dependencies:
@@ -3073,7 +3073,7 @@ snapshots:
 
   resolve-pkg-maps@1.0.0: {}
 
-  resolve@1.22.10:
+  resolve@1.22.11:
     dependencies:
       is-core-module: 2.16.1
       path-parse: 1.0.7
