@@ -11,6 +11,16 @@ author: "@lucking7"
 # 要合并的模块列表
 # 从 pro-sgmodules.yaml 加载
 modules:
+  # HTTPDNS拦截器（基础过滤，固定启用）
+  - url: "file://public/Modules/Converted/HTTPDNS拦截器.sgmodule"
+    header: "HTTPDNS拦截器"
+    scriptToggle: false
+
+  # 可莉广告过滤器（基础过滤，固定启用）
+  - url: "file://public/Modules/Converted/可莉广告过滤器.sgmodule"
+    header: "可莉广告过滤器"
+    scriptToggle: false
+
   # 高德地图去广告
   - url: "file://public/Modules/Converted/高德地图去广告.sgmodule"
     header: "高德地图去广告"
@@ -79,10 +89,6 @@ modules:
   - url: "file://public/Modules/Converted/小黑盒去广告.sgmodule"
     header: "小黑盒去广告"
 
-  # HTTPDNS拦截器
-  - url: "file://public/Modules/Converted/HTTPDNS拦截器.sgmodule"
-    header: "HTTPDNS拦截器"
-
   # 12306去广告
   - url: "file://public/Modules/Converted/12306去广告.sgmodule"
     header: "12306去广告"
@@ -90,10 +96,6 @@ modules:
   # 彩云天气去广告
   - url: "file://public/Modules/Converted/彩云天气去广告.sgmodule"
     header: "彩云天气去广告"
-
-  # 可莉广告过滤器
-  - url: "file://public/Modules/Converted/可莉广告过滤器.sgmodule"
-    header: "可莉广告过滤器"
 
   # 优酷视频去广告
   - url: "file://public/Modules/Converted/优酷视频去广告.sgmodule"
@@ -210,7 +212,7 @@ output:
 
   # 提取的规则列表文件路径
   rulelist: "public/Modules/Rules/reject-pro.list"
-  
+
   # 模板文件路径
   template: "Build/lib/module-merger/templates/all-in-one.template"
 
@@ -218,13 +220,13 @@ output:
 options:
   # 是否去重 MITM hostnames
   deduplicateHostnames: true
-  
+
   # 是否移除注释
   stripComments: true
-  
+
   # 是否添加分隔符
   addDividers: true
-  
+
   # 分隔符长度
   dividerLength: 30
 

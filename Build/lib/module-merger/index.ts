@@ -240,7 +240,36 @@ function _buildArgumentsLines(scriptToggles: ScriptToggleInfo[]): {
     };
   }
 
-  const argumentsLine = scriptToggles.map(info => `${info.argumentName}:#`).join(',');
+  const defaultOnHeaders = [
+    '高德地图去广告',
+    '阿里云盘去广告',
+    '闲鱼去广告',
+    '微信公众号去广告',
+    '微信外部链接解锁',
+    '微信小程序去广告',
+    '12306去广告',
+    '彩云天气去广告',
+    '中华万年历去广告',
+    'QQ音乐去广告',
+    '小红书去广告',
+    '喜马拉雅去广告',
+    '哔哩哔哩漫画去广告',
+    '萤石云视频去广告',
+    '薄荷健康去广告',
+    '航旅纵横去广告',
+    '美颜相机去广告',
+    '淘宝去广告',
+    '淘票票去广告',
+    '滴滴出行去广告',
+  ];
+
+  const argumentsLine = scriptToggles
+    .map(info => {
+      const isDefaultOn = defaultOnHeaders.includes(info.header.trim());
+      const defaultValue = isDefaultOn ? '1' : '#';
+      return `${info.argumentName}:${defaultValue}`;
+    })
+    .join(',');
 
   const argumentsDesc = scriptToggles
     .map(
