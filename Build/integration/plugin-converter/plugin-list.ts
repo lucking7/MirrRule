@@ -3,14 +3,49 @@
  * 从 Script-Hub 获取插件列表
  */
 
+import process from 'node:process';
 import picocolors from 'picocolors';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import type { PluginInfo } from './types';
+import { applyProxyIfNeeded, buildProxyUrlCandidates } from './proxy-utils';
 
 /**
- * 插件列表 URL
+ * 插件列表 URL（可通过环境变量覆盖）
  */
-const PLUGIN_LIST_URL = 'https://hub.kelee.one/list.json';
+const DEFAULT_PLUGIN_LIST_URL = 'https://hub.kelee.one/list.json';
+const FORCE_PROXY_FOR_LIST = (process.env.PLUGIN_LIST_FORCE_PROXY ?? 'true') !== 'false';
+
+function resolvePluginListSources(): string[] {
+  const overrides = (process.env.PLUGIN_LIST_URL || '')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+
+  const bases = overrides.length > 0 ? overrides : [DEFAULT_PLUGIN_LIST_URL];
+  const deduped: string[] = [];
+  const seen = new Set<string>();
+
+  for (const base of bases) {
+    const candidates = FORCE_PROXY_FOR_LIST
+      ? [applyProxyIfNeeded(base)]
+      : buildProxyUrlCandidates(base);
+
+    for (const candidate of candidates) {
+      if (seen.has(candidate)) continue;
+      seen.add(candidate);
+      deduped.push(candidate);
+    }
+  }
+
+  return deduped;
+}
+
+function formatSourceLabel(url: string): string {
+  if (url.includes('proxy-one') || url.includes('proxy')) {
+    return `${url} (proxy)`;
+  }
+  return url;
+}
 
 /**
  * 额外插件列表 - 不在 Script-Hub 列表中的插件
@@ -35,47 +70,56 @@ const PLUGIN_URL_REGEX = /https?:\/\/[^"]+\.(?:plugin|lpx)/g;
  * @returns 插件列表 JSON 字符串
  */
 export async function downloadPluginList(): Promise<string | { error: string }> {
-  console.log(picocolors.cyan('[Plugin List] Downloading from Script-Hub...'));
+  const sources = resolvePluginListSources();
+  const errors: string[] = [];
 
-  try {
-    const response = await $$fetch(PLUGIN_LIST_URL, {
-      ...defaultRequestInit,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        Accept: 'application/json'
-      }
-    });
+  for (const source of sources) {
+    console.log(picocolors.cyan(`[Plugin List] Downloading from ${formatSourceLabel(source)}...`));
 
-    if (!response.ok) {
-      return {
-        error: `HTTP ${response.status}: ${response.statusText}`
-      };
-    }
-
-    const text = await response.text();
-
-    if (!text || text.trim().length === 0) {
-      return {
-        error: 'Empty response'
-      };
-    }
-
-    // 验证 JSON 格式
     try {
-      JSON.parse(text);
-    } catch {
-      return {
-        error: 'Invalid JSON format'
-      };
-    }
+      const response = await $$fetch(source, {
+        ...defaultRequestInit,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          Accept: 'application/json'
+        }
+      });
 
-    console.log(picocolors.green('[Plugin List] ✓ Downloaded successfully'));
-    return text;
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.log(picocolors.red(`[Plugin List] ✗ ${errorMsg}`));
-    return { error: errorMsg };
+      if (!response.ok) {
+        const errorMsg = `HTTP ${response.status}: ${response.statusText}`;
+        console.log(picocolors.red(`[Plugin List] ✗ ${errorMsg}`));
+        errors.push(`${formatSourceLabel(source)} -> ${errorMsg}`);
+        continue;
+      }
+
+      const text = await response.text();
+
+      if (!text || text.trim().length === 0) {
+        console.log(picocolors.red('[Plugin List] ✗ Empty response'));
+        errors.push(`${formatSourceLabel(source)} -> Empty response`);
+        continue;
+      }
+
+      try {
+        JSON.parse(text);
+      } catch {
+        console.log(picocolors.red('[Plugin List] ✗ Invalid JSON format'));
+        errors.push(`${formatSourceLabel(source)} -> Invalid JSON`);
+        continue;
+      }
+
+      console.log(picocolors.green(`[Plugin List] ✓ Downloaded successfully from ${formatSourceLabel(source)}`));
+      return text;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.log(picocolors.red(`[Plugin List] ✗ ${errorMsg}`));
+      errors.push(`${formatSourceLabel(source)} -> ${errorMsg}`);
+    }
   }
+
+  return {
+    error: `Failed to download plugin list after trying ${sources.length} source(s): ${errors.join('; ')}`
+  };
 }
 
 /**
