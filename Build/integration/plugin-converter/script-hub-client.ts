@@ -8,6 +8,7 @@ import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import picocolors from 'picocolors';
 import type { PluginInfo, ConversionConfig } from './types';
 import type { DownloadResult } from './plugin-downloader';
+import { applyProxyIfNeeded, shouldUseProxy } from './proxy-utils';
 
 /**
  * Script-Hub API 配置
@@ -48,35 +49,6 @@ export function buildConversionUrl(plugin: PluginInfo, config: ConversionConfig)
   const query = `type=${config.sourceType}&target=${config.targetType}&category=${encodedCategory}`;
 
   return `${baseUrl}?${query}`;
-}
-
-/**
- * 检查 URL 是否需要使用代理
- * kelee.one 域名被防火墙/Cloudflare 保护，Script-Hub 容器无法直接访问
- */
-function shouldUseProxy(url: string): boolean {
-  try {
-    const hostname = new URL(url).hostname.toLowerCase();
-    return hostname === 'kelee.one' || hostname.endsWith('.kelee.one');
-  } catch {
-    return false;
-  }
-}
-
-/**
- * 为 URL 添加代理前缀（如果需要）
- * 参考 Mirrored-main 项目的实现
- */
-function applyProxyIfNeeded(url: string): string {
-  if (!shouldUseProxy(url)) {
-    return url;
-  }
-
-  // 使用环境变量配置的代理，或使用默认代理
-  const proxyBase = process.env.PROXY_BASE || 'https://proxy-one.cc.sbs?url=';
-
-  // 直接拼接，不需要 encodeURIComponent（参考 Mirrored-main）
-  return proxyBase + url;
 }
 
 /**

@@ -5,36 +5,10 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import process from 'node:process';
 import picocolors from 'picocolors';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import type { PluginInfo } from './types';
-
-/**
- * 检查 URL 是否需要使用代理
- * 与 script-hub-client.ts 中的逻辑保持一致
- */
-function shouldUseProxy(url: string): boolean {
-  try {
-    const hostname = new URL(url).hostname.toLowerCase();
-    return hostname === 'kelee.one' || hostname.endsWith('.kelee.one');
-  } catch {
-    return false;
-  }
-}
-
-/**
- * 为 URL 添加代理前缀（如果需要）
- * 默认使用 https://proxy-one.cc.sbs?url=，也支持通过 PROXY_BASE 环境变量覆盖
- */
-function applyProxyIfNeeded(url: string): string {
-  if (!shouldUseProxy(url)) {
-    return url;
-  }
-
-  const proxyBase = process.env.PROXY_BASE || 'https://proxy-one.cc.sbs?url=';
-  return proxyBase + url;
-}
+import { applyProxyIfNeeded } from './proxy-utils';
 
 /**
  * 镜像目录
