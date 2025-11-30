@@ -79,7 +79,7 @@
     "@types/node": "^24.10.1",
     "@types/punycode": "^2.1.4",
     "eslint": "^9.39.1",
-    "eslint-config-sukka": "^6.23.1",
+    "eslint-config-sukka": "^8.0.5",
     "eslint-formatter-sukka": "^6.23.1",
     "tinyexec": "^1.0.2",
     "typescript": "^5.9.3",
