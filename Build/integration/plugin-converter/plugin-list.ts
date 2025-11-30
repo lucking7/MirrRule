@@ -7,12 +7,13 @@ import process from 'node:process';
 import picocolors from 'picocolors';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import type { PluginInfo } from './types';
-import { buildProxyUrlCandidates } from './proxy-utils';
+import { applyProxyIfNeeded, buildProxyUrlCandidates } from './proxy-utils';
 
 /**
  * 插件列表 URL（可通过环境变量覆盖）
  */
 const DEFAULT_PLUGIN_LIST_URL = 'https://hub.kelee.one/list.json';
+const FORCE_PROXY_FOR_LIST = (process.env.PLUGIN_LIST_FORCE_PROXY ?? 'true') !== 'false';
 
 function resolvePluginListSources(): string[] {
   const overrides = (process.env.PLUGIN_LIST_URL || '')
@@ -25,7 +26,11 @@ function resolvePluginListSources(): string[] {
   const seen = new Set<string>();
 
   for (const base of bases) {
-    for (const candidate of buildProxyUrlCandidates(base)) {
+    const candidates = FORCE_PROXY_FOR_LIST
+      ? [applyProxyIfNeeded(base)]
+      : buildProxyUrlCandidates(base);
+
+    for (const candidate of candidates) {
       if (seen.has(candidate)) continue;
       seen.add(candidate);
       deduped.push(candidate);
