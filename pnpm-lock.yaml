@@ -54,8 +54,8 @@ importers:
         specifier: ^6.5.0
         version: 6.5.0(picomatch@4.0.3)
       foxts:
-        specifier: ^3.12.0
-        version: 3.12.0
+        specifier: ^5.0.2
+        version: 5.0.2
       hash-wasm:
         specifier: ^4.12.0
         version: 4.12.0
@@ -1210,8 +1210,11 @@ packages:
   flatted@3.3.3:
     resolution: {integrity: sha512-GX+ysw4PBCz0PzosHDepZGANEuFCMLrnRTiEy9McGjmkCQYwRq4A/X786G/fjM/+OjsWSU1ZrY5qyARZmO/uwg==}
 
-  foxts@3.12.0:
-    resolution: {integrity: sha512-9yPxs9AAxpn+dDesm8gnKGE5I6hKe7YhfAvIzfxGjg5UYpoctzep4FEQV8EkJj8XBW4sCPLOfnt6SH4eBApqew==}
+  foxts@3.15.0:
+    resolution: {integrity: sha512-XaSnlPKgD23NGdfuUHAX50V9h17bavUEZthg3SBO8ajT3D0pFg6KhYRvKNOlB+t7MpKZ1fj22bUPssH5PY0h4w==}
+
+  foxts@5.0.2:
+    resolution: {integrity: sha512-fi+xLTz/43inmP6C5ZdZjjpq4fcCd8/+1N059K4LkYiQw7lbVcie8BBJ6aR/xlfuQOlWSim/BJQk7OA+vJKLhA==}
 
   fs-constants@1.0.0:
     resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
@@ -2475,7 +2478,7 @@ snapshots:
       async-retry: 1.3.3
       debug: 4.4.1
       dns2: https://codeload.github.com/lsongdev/node-dns/tar.gz/3adb7e91b3101c0e4f43ebaca3a568269ea04d11
-      foxts: 3.12.0
+      foxts: 3.15.0
       punycode: 2.3.1
       tldts: 7.0.12
     transitivePeerDependencies:
@@ -2522,7 +2525,7 @@ snapshots:
       eslint-plugin-regexp: 2.10.0(eslint@9.39.1(jiti@1.21.7))
       eslint-plugin-sukka: 6.23.1(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
       eslint-plugin-unused-imports: 4.2.0(@typescript-eslint/eslint-plugin@8.40.0(@typescript-eslint/parser@8.40.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.1(jiti@1.21.7))
-      foxts: 3.12.0
+      foxts: 3.15.0
       jsonc-eslint-parser: 2.4.0
       picocolors: 1.1.1
       typescript-eslint: 8.40.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
@@ -2669,7 +2672,7 @@ snapshots:
       '@eslint-sukka/shared': 6.23.1(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
       '@typescript-eslint/type-utils': 8.40.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
       '@typescript-eslint/utils': 8.40.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
-      foxts: 3.12.0
+      foxts: 3.15.0
     optionalDependencies:
       typescript: 5.9.3
     transitivePeerDependencies:
@@ -2816,10 +2819,12 @@ snapshots:
 
   flatted@3.3.3: {}
 
-  foxts@3.12.0:
+  foxts@3.15.0:
     dependencies:
       fast-escape-html: 1.1.0
       fast-escape-regexp: 1.0.1
+
+  foxts@5.0.2: {}
 
   fs-constants@1.0.0: {}
 
@@ -3286,7 +3291,7 @@ snapshots:
   undici-cache-store-better-sqlite3@1.0.0(undici@7.15.0):
     dependencies:
       better-sqlite3: 11.10.0
-      foxts: 3.12.0
+      foxts: 3.15.0
       undici: 7.15.0
 
   undici-types@7.16.0: {}
