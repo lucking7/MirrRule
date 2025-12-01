@@ -5,9 +5,9 @@
 
 import process from 'node:process';
 import picocolors from 'picocolors';
-import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
-import type { PluginInfo } from './types';
-import { applyProxyIfNeeded, buildProxyUrlCandidates } from './proxy-utils';
+import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry.ts';
+import type { PluginInfo } from './types.ts';
+import { applyProxyIfNeeded, buildProxyUrlCandidates } from './proxy-utils.ts';
 
 /**
  * 插件列表 URL（可通过环境变量覆盖）
@@ -16,10 +16,11 @@ const DEFAULT_PLUGIN_LIST_URL = 'https://hub.kelee.one/list.json';
 const FORCE_PROXY_FOR_LIST = (process.env.PLUGIN_LIST_FORCE_PROXY ?? 'true') !== 'false';
 
 function resolvePluginListSources(): string[] {
-  const overrides = (process.env.PLUGIN_LIST_URL || '')
-    .split(',')
-    .map(item => item.trim())
-    .filter(Boolean);
+  const overrides = (process.env.PLUGIN_LIST_URL || '').split(',').reduce<string[]>((acc, item) => {
+    const trimmed = item.trim();
+    if (trimmed) acc.push(trimmed);
+    return acc;
+  }, []);
 
   const bases = overrides.length > 0 ? overrides : [DEFAULT_PLUGIN_LIST_URL];
   const deduped: string[] = [];
@@ -55,8 +56,8 @@ const EXTRA_PLUGINS: PluginInfo[] = [
     name: 'blockAds',
     url: 'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Loon/plugin/blockAds.plugin',
     extension: 'plugin',
-    useLocalOnly: true // 仅使用本地转换器
-  }
+    useLocalOnly: true, // 仅使用本地转换器
+  },
 ];
 
 /**
@@ -81,8 +82,8 @@ export async function downloadPluginList(): Promise<string | { error: string }> 
         ...defaultRequestInit,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          Accept: 'application/json'
-        }
+          Accept: 'application/json',
+        },
       });
 
       if (!response.ok) {
@@ -108,7 +109,11 @@ export async function downloadPluginList(): Promise<string | { error: string }> 
         continue;
       }
 
-      console.log(picocolors.green(`[Plugin List] ✓ Downloaded successfully from ${formatSourceLabel(source)}`));
+      console.log(
+        picocolors.green(
+          `[Plugin List] ✓ Downloaded successfully from ${formatSourceLabel(source)}`
+        )
+      );
       return text;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -118,7 +123,9 @@ export async function downloadPluginList(): Promise<string | { error: string }> 
   }
 
   return {
-    error: `Failed to download plugin list after trying ${sources.length} source(s): ${errors.join('; ')}`
+    error: `Failed to download plugin list after trying ${sources.length} source(s): ${errors.join(
+      '; '
+    )}`,
   };
 }
 
@@ -176,7 +183,7 @@ export function urlToPluginInfo(url: string): PluginInfo {
   return {
     name,
     url,
-    extension
+    extension,
   };
 }
 
@@ -198,7 +205,7 @@ export async function getPluginList(): Promise<PluginInfo[] | { error: string }>
 
   if (urls.length === 0) {
     return {
-      error: 'No plugin URLs found in list'
+      error: 'No plugin URLs found in list',
     };
   }
 
@@ -258,11 +265,11 @@ export function groupPluginsByExtension(
  * 获取插件统计信息
  */
 export interface PluginStats {
-  total: number,
+  total: number;
   byExtension: {
-    plugin: number,
-    lpx: number
-  }
+    plugin: number;
+    lpx: number;
+  };
 }
 
 export function getPluginStats(plugins: PluginInfo[]): PluginStats {
@@ -272,7 +279,7 @@ export function getPluginStats(plugins: PluginInfo[]): PluginStats {
     total: plugins.length,
     byExtension: {
       plugin: groups.get('plugin')!.length,
-      lpx: groups.get('lpx')!.length
-    }
+      lpx: groups.get('lpx')!.length,
+    },
   };
 }

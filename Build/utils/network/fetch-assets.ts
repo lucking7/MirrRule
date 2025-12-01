@@ -5,6 +5,7 @@ import { nullthrow } from 'foxts/guard';
 import { TextLineStream } from 'foxts/text-line-stream';
 import { ProcessLineStream } from '../../lib/process-line';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
+import { applyProxyIfNeeded } from './proxy';
 
 // eslint-disable-next-line sukka/unicorn/custom-error-definition -- typescript is better
 class CustomAbortError extends Error {
@@ -36,7 +37,9 @@ export async function fetchAssets(
       console.log(picocolors.gray('[fetch cancelled]'), picocolors.gray(url));
       throw reusedCustomAbortError;
     }
-    const res = await $$fetch(url, { signal: controller.signal, ...defaultRequestInit });
+    // 应用代理（如果需要，例如 kelee.one 域名）
+    const finalUrl = applyProxyIfNeeded(url);
+    const res = await $$fetch(finalUrl, { signal: controller.signal, ...defaultRequestInit });
 
     let stream = nullthrow(res.body, url + ' has an empty body')
       .pipeThrough(new TextDecoderStream())

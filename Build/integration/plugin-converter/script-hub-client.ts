@@ -6,9 +6,9 @@
 import process from 'node:process';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import picocolors from 'picocolors';
-import type { PluginInfo, ConversionConfig } from './types';
-import type { DownloadResult } from './plugin-downloader';
-import { applyProxyIfNeeded, shouldUseProxy } from './proxy-utils';
+import { applyProxyIfNeeded, shouldUseProxy } from './proxy-utils.ts';
+import type { PluginInfo, ConversionConfig } from './types.ts';
+import type { DownloadResult } from './plugin-downloader.ts';
 
 /**
  * Script-Hub API 配置

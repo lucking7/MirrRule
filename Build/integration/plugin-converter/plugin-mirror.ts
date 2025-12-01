@@ -6,9 +6,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import picocolors from 'picocolors';
-import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
-import type { PluginInfo } from './types';
-import { applyProxyIfNeeded } from './proxy-utils';
+import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry.ts';
+import type { PluginInfo } from './types.ts';
+import { applyProxyIfNeeded } from './proxy-utils.ts';
 
 /**
  * 镜像目录
@@ -58,7 +58,7 @@ export async function isPluginMirrored(plugin: PluginInfo): Promise<boolean> {
  */
 export async function mirrorPlugin(
   plugin: PluginInfo
-): Promise<{ success: boolean, content?: string, error?: string }> {
+): Promise<{ success: boolean; content?: string; error?: string }> {
   console.log(picocolors.gray(`  [Mirror] Downloading ${plugin.name}...`));
 
   try {
@@ -69,8 +69,8 @@ export async function mirrorPlugin(
       ...defaultRequestInit,
       headers: {
         'User-Agent': USER_AGENT,
-        Accept: '*/*'
-      }
+        Accept: '*/*',
+      },
     });
 
     if (!response.ok) {
@@ -114,7 +114,7 @@ export async function readMirroredPlugin(plugin: PluginInfo): Promise<string | n
 export async function getPluginContent(
   plugin: PluginInfo,
   forceUpdate = false
-): Promise<{ success: boolean, content?: string, error?: string }> {
+): Promise<{ success: boolean; content?: string; error?: string }> {
   // 检查是否已镜像（且不强制更新）
   if (!forceUpdate && (await isPluginMirrored(plugin))) {
     console.log(picocolors.gray(`  [Mirror] Using cached ${plugin.name}...`));
@@ -135,11 +135,11 @@ export async function mirrorPluginsBatch(
   plugins: PluginInfo[],
   forceUpdate = false
 ): Promise<{
-  total: number,
-  mirrored: number,
-  cached: number,
-  failed: number,
-  failedPlugins: Array<{ name: string, error: string }>
+  total: number;
+  mirrored: number;
+  cached: number;
+  failed: number;
+  failedPlugins: Array<{ name: string; error: string }>;
 }> {
   console.log(picocolors.cyan(`\n[Plugin Mirror] Processing ${plugins.length} plugins...\n`));
 
@@ -148,7 +148,7 @@ export async function mirrorPluginsBatch(
     mirrored: 0,
     cached: 0,
     failed: 0,
-    failedPlugins: [] as Array<{ name: string, error: string }>
+    failedPlugins: [] as Array<{ name: string; error: string }>,
   };
 
   for (const plugin of plugins) {
@@ -165,7 +165,7 @@ export async function mirrorPluginsBatch(
       stats.failed++;
       stats.failedPlugins.push({
         name: plugin.name,
-        error: result.error || 'Unknown error'
+        error: result.error || 'Unknown error',
       });
     }
   }
@@ -190,8 +190,8 @@ export async function mirrorPluginsBatch(
  * 获取镜像统计信息
  */
 export async function getMirrorStats(): Promise<{
-  totalMirrored: number,
-  mirrorPath: string
+  totalMirrored: number;
+  mirrorPath: string;
 }> {
   try {
     await ensureMirrorDirectory();
@@ -200,12 +200,12 @@ export async function getMirrorStats(): Promise<{
 
     return {
       totalMirrored: pluginFiles.length,
-      mirrorPath: MIRROR_DIR
+      mirrorPath: MIRROR_DIR,
     };
   } catch {
     return {
       totalMirrored: 0,
-      mirrorPath: MIRROR_DIR
+      mirrorPath: MIRROR_DIR,
     };
   }
 }
