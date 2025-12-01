@@ -44,8 +44,8 @@ export const geoipFiles: GEOIPFile[] = [
   },
   {
     path: 'GEOIP/ipinfo.mmdb',
-    url: 'https://github.com/xream/geoip/releases/latest/download/ipinfo.country.mmdb',
-    description: 'IPInfo 国家数据库'
+    url: 'https://github.com/lucking7/ASN-China/raw/main/ipinfo.lite.mmdb',
+    description: 'IPInfo 国家数据库 (lite)'
   },
   {
     path: 'GEOIP/ip2.mmdb',
