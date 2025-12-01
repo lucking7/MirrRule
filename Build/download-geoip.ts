@@ -19,11 +19,9 @@ import { mkdirp } from './lib/misc';
  */
 export interface GEOIPFile {
   /** 输出路径(相对于 public 目录),例如: 'GEOIP/geoip2-cn.mmdb' */
-  path: string,
+  path: string;
   /** 下载 URL */
-  url: string,
-  /** 可选描述 */
-  description?: string
+  url: string;
 }
 
 /**
@@ -35,23 +33,19 @@ export const geoipFiles: GEOIPFile[] = [
   {
     path: 'GEOIP/geoip2-cn.mmdb',
     url: 'https://github.com/Hackl0us/GeoIP2-CN/raw/release/Country.mmdb',
-    description: 'GEOIP2 中国 IP 数据库 (Hackl0us)'
   },
   {
     path: 'GEOIP/chnroutes2.mmdb',
     url: 'https://raw.githubusercontent.com/soffchen/GeoIP2-CN/release/Country.mmdb',
-    description: 'GEOIP2 中国路由数据库 (soffchen)'
   },
   {
     path: 'GEOIP/ipinfo.mmdb',
     url: 'https://github.com/xream/geoip/releases/latest/download/ipinfo.country.mmdb',
-    description: 'IPInfo 国家数据库'
   },
   {
     path: 'GEOIP/ip2.mmdb',
     url: 'https://github.com/xream/geoip/releases/latest/download/ip2location.country.mmdb',
-    description: 'IP2Location 国家数据库'
-  }
+  },
 ];
 
 /**
@@ -67,7 +61,7 @@ export const downloadGEOIP = task(
   const stats = {
     success: 0,
     failed: 0,
-    total: files.length
+    total: files.length,
   };
 
   console.log(picocolors.cyan(`\n🌍 开始下载 ${stats.total} 个 GEOIP MMDB 文件...\n`));
