@@ -7,7 +7,7 @@ import process from 'node:process';
 import picocolors from 'picocolors';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import type { PluginInfo } from './types';
-import { applyProxyIfNeeded, buildProxyUrlCandidates } from './proxy-utils';
+import { buildProxyUrlCandidates } from './proxy-utils';
 
 /**
  * 插件列表 URL（可通过环境变量覆盖）
@@ -26,9 +26,9 @@ function resolvePluginListSources(): string[] {
   const seen = new Set<string>();
 
   for (const base of bases) {
-    const candidates = FORCE_PROXY_FOR_LIST
-      ? [applyProxyIfNeeded(base)]
-      : buildProxyUrlCandidates(base);
+    const candidates = buildProxyUrlCandidates(base, {
+      forceProxy: FORCE_PROXY_FOR_LIST,
+    });
 
     for (const candidate of candidates) {
       if (seen.has(candidate)) continue;

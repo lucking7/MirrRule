@@ -1,9 +1,15 @@
 import process from 'node:process';
 
-/**
- * 判断指定 URL 是否需要通过代理访问
- * 当前仅针对 kelee.one 域做兼容处理，后续可按需扩展
- */
+const DEFAULT_PROXY_BASE = 'https://proxy-one.cc.sbs?url=';
+
+const proxyBaseConfig =
+  process.env.PROXY_BASES ?? process.env.PROXY_BASE ?? DEFAULT_PROXY_BASE;
+
+const PROXY_BASES = proxyBaseConfig
+  .split(',')
+  .map(base => base.trim())
+  .filter(Boolean);
+
 export function shouldUseProxy(url: string): boolean {
   try {
     const hostname = new URL(url).hostname.toLowerCase();
@@ -13,29 +19,31 @@ export function shouldUseProxy(url: string): boolean {
   }
 }
 
-const DEFAULT_PROXY_BASE = 'https://proxy-one.cc.sbs?url=';
-
-/**
- * 若匹配需要代理的域名，则返回带代理前缀的 URL
- */
 export function applyProxyIfNeeded(url: string): string {
   if (!shouldUseProxy(url)) {
     return url;
   }
 
-  const proxyBase = process.env.PROXY_BASE || DEFAULT_PROXY_BASE;
-  return proxyBase + url;
+  const candidates = buildProxyUrlCandidates(url, { forceProxy: true });
+  return candidates[0] ?? url;
 }
 
-/**
- * 返回按优先级排列的 URL 备选列表，优先使用代理，其次直连
- */
-export function buildProxyUrlCandidates(url: string): string[] {
-  const proxied = applyProxyIfNeeded(url);
+interface BuildCandidateOptions {
+  forceProxy?: boolean;
+}
 
-  if (proxied === url) {
-    return [url];
+export function buildProxyUrlCandidates(
+  url: string,
+  options?: BuildCandidateOptions
+): string[] {
+  const shouldForceProxy = options?.forceProxy === true;
+  const proxied = shouldForceProxy || shouldUseProxy(url)
+    ? PROXY_BASES.map(base => `${base}${url}`)
+    : [];
+
+  if (shouldForceProxy) {
+    return proxied.length > 0 ? proxied : [url];
   }
 
-  return [proxied, url];
+  return proxied.length > 0 ? [...proxied, url] : [url];
 }
