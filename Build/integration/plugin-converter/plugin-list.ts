@@ -5,9 +5,9 @@
 
 import process from 'node:process';
 import picocolors from 'picocolors';
-import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry.ts';
-import type { PluginInfo } from './types.ts';
-import { applyProxyIfNeeded, buildProxyUrlCandidates } from './proxy-utils.ts';
+import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
+import type { PluginInfo } from './types';
+import { buildProxyUrlCandidates } from './proxy-utils';
 
 /**
  * 插件列表 URL（可通过环境变量覆盖）
@@ -16,20 +16,19 @@ const DEFAULT_PLUGIN_LIST_URL = 'https://hub.kelee.one/list.json';
 const FORCE_PROXY_FOR_LIST = (process.env.PLUGIN_LIST_FORCE_PROXY ?? 'true') !== 'false';
 
 function resolvePluginListSources(): string[] {
-  const overrides = (process.env.PLUGIN_LIST_URL || '').split(',').reduce<string[]>((acc, item) => {
-    const trimmed = item.trim();
-    if (trimmed) acc.push(trimmed);
-    return acc;
-  }, []);
+  const overrides = (process.env.PLUGIN_LIST_URL || '')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
 
   const bases = overrides.length > 0 ? overrides : [DEFAULT_PLUGIN_LIST_URL];
   const deduped: string[] = [];
   const seen = new Set<string>();
 
   for (const base of bases) {
-    const candidates = FORCE_PROXY_FOR_LIST
-      ? [applyProxyIfNeeded(base)]
-      : buildProxyUrlCandidates(base);
+    const candidates = buildProxyUrlCandidates(base, {
+      forceProxy: FORCE_PROXY_FOR_LIST,
+    });
 
     for (const candidate of candidates) {
       if (seen.has(candidate)) continue;

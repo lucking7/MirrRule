@@ -1,6 +1,12 @@
 /**
- * 代理工具模块（插件转换专用）
- * 重新导出通用代理工具，保持向后兼容
+ * 代理工具模块（供插件转换使用）
+ * 直接复用通用网络代理工具，保持兼容
  */
 
-export { shouldUseProxy, applyProxyIfNeeded, getProxyBase, buildProxyUrlCandidates } from '../../utils/network/proxy.ts';
+export {
+  shouldUseProxy,
+  applyProxyIfNeeded,
+  getProxyBase,
+  buildProxyUrlCandidates,
+  isProxyConfigured,
+} from '../../utils/network/proxy';
