@@ -21,7 +21,7 @@ export function loadManifest(): BuildManifestV1 | null {
   try {
     const raw = fs.readFileSync(MANIFEST_FILE, 'utf-8');
     const json = JSON.parse(raw) as BuildManifestV1;
-    if (json && json.version === 1 && typeof json.configHash === 'string') {
+    if (json?.version === 1 && typeof json.configHash === 'string') {
       return json;
     }
     return null;

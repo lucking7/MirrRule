@@ -1,4 +1,7 @@
-import { escapeStringRegexp } from 'foxts/escape-string-regexp';
+// escape-string-regexp implementation
+function escapeStringRegexp(string: string): string {
+  return string.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&').replace(/-/g, '\\x2d');
+}
 import { BaseWriteStrategy } from './base';
 import { noop } from 'foxts/noop';
 import { notSupported } from '../../../lib/misc';
@@ -48,7 +51,7 @@ export class AdGuardHome extends BaseWriteStrategy {
   writeDomainKeywords(keywords: Set<string>): void {
     for (const keyword of keywords) {
       // Use regex to match keyword
-      this.result.push(`/${escapeStringRegexp(keyword, false)}/`);
+      this.result.push(`/${escapeStringRegexp(keyword)}/`);
     }
   }
 

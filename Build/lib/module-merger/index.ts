@@ -240,7 +240,7 @@ function _buildArgumentsLines(scriptToggles: ScriptToggleInfo[]): {
     };
   }
 
-  const defaultOnHeaders = [
+  const defaultOnHeaders = new Set([
     '高德地图去广告',
     '阿里云盘去广告',
     '闲鱼去广告',
@@ -261,11 +261,11 @@ function _buildArgumentsLines(scriptToggles: ScriptToggleInfo[]): {
     '淘宝去广告',
     '淘票票去广告',
     '滴滴出行去广告',
-  ];
+  ]);
 
   const argumentsLine = scriptToggles
     .map(info => {
-      const isDefaultOn = defaultOnHeaders.includes(info.header.trim());
+      const isDefaultOn = defaultOnHeaders.has(info.header.trim());
       const defaultValue = isDefaultOn ? '1' : '#';
       return `${info.argumentName}:${defaultValue}`;
     })

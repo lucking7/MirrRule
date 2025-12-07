@@ -11,9 +11,9 @@ import type { PluginInfo } from './types.ts';
 import { applyProxyIfNeeded } from './proxy-utils.ts';
 
 /**
- * 镜像目录
+ * 镜像目录（放在 .cache 目录下，不部署到生产环境）
  */
-const MIRROR_DIR = path.join(__dirname, '../../../public/Mirror/Plugins');
+const MIRROR_DIR = path.join(__dirname, '../../../.cache/plugins');
 
 /**
  * 用户代理

@@ -247,10 +247,10 @@ export function filterPlugins(
 export function groupPluginsByExtension(
   plugins: PluginInfo[]
 ): Map<'plugin' | 'lpx', PluginInfo[]> {
-  const groups = new Map<'plugin' | 'lpx', PluginInfo[]>();
-
-  groups.set('plugin', []);
-  groups.set('lpx', []);
+  const groups = new Map<'plugin' | 'lpx', PluginInfo[]>([
+    ['plugin', []],
+    ['lpx', []],
+  ]);
 
   for (const plugin of plugins) {
     const group = groups.get(plugin.extension)!;

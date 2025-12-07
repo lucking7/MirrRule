@@ -23,8 +23,8 @@ const OUTPUT_CATEGORIES_DIR = path.join(OUTPUT_BASE_DIR, 'categories');
  * - 插件转换任务：负责 Loon → Surge 的本地转换（包括 blockAds.plugin）
  */
 const ROOT_MODULES = [
-  // 'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/blockAds.module', // ⚠️ 已注释：改用插件转换系统
-  'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/blockAdsHis.module',
+  'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/blockAds.module', // ⚠️ 已注释：改用插件转换系统
+  // 'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/blockAdsHis.module', // ⚠️ 已注释：上游已删除此文件
   'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/cookies.module',
   'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/weibo.module',
 ];

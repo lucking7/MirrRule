@@ -36,7 +36,7 @@ function addCategoryTag(content: Buffer, filePath: string): Buffer {
 
   // 在文件开头添加 category 标签
   const newContent = '#!category=[Sukka]\n' + text;
-  return Buffer.from(newContent, 'utf-8');
+  return Buffer.from(newContent, 'utf-8') as Buffer;
 }
 
 /**
@@ -148,14 +148,14 @@ export const downloadMockAndModules = task(
         const targetFilePath = path.join(OUTPUT_SUKKA_MIRROR_DIR, relPath);
 
         try {
-          let fileBuffer = await fsp.readFile(tempFilePath);
+          const fileBuffer = await fsp.readFile(tempFilePath);
 
           // 为 sgmodule 文件添加 category 标签（基于上游原始路径判断）
-          if (filePath.startsWith('Modules/')) {
-            fileBuffer = addCategoryTag(fileBuffer, filePath);
-          }
+          const processedBuffer = filePath.startsWith('Modules/')
+            ? addCategoryTag(fileBuffer, filePath)
+            : fileBuffer;
 
-          const needsUpdate = await shouldUpdateFile(targetFilePath, fileBuffer);
+          const needsUpdate = await shouldUpdateFile(targetFilePath, processedBuffer);
 
           if (needsUpdate) {
             const isNew = !fs.existsSync(targetFilePath);
@@ -164,7 +164,7 @@ export const downloadMockAndModules = task(
             await fsp.mkdir(path.dirname(targetFilePath), { recursive: true });
 
             // 复制文件（已添加 category 标签）
-            await fsp.writeFile(targetFilePath, fileBuffer);
+            await fsp.writeFile(targetFilePath, processedBuffer);
 
             if (isNew) {
               newCount++;

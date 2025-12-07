@@ -31,7 +31,7 @@ export const runMirrorSync = task(
 
       if (!result) {
         console.log(picocolors.red('\n❌ Sync failed: Group not found'));
-        process.exit(1);
+        throw new Error('Sync failed: Group not found');
       }
     } else {
       // 同步所有组
@@ -41,8 +41,8 @@ export const runMirrorSync = task(
 
     // 检查是否有失败
     if (result.failedFiles.length > 0) {
-      console.log(picocolors.yellow('\n⚠\uFE0F  Sync completed with errors'));
-      process.exit(1);
+      console.log(picocolors.yellow('\n⚠️  Sync completed with errors'));
+      throw new Error(`Sync completed with ${result.failedFiles.length} errors`);
     }
 
     // 检查是否有变更

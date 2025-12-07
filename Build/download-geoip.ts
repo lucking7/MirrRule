@@ -31,19 +31,19 @@ export interface GEOIPFile {
  */
 export const geoipFiles: GEOIPFile[] = [
   {
-    path: 'GEOIP/geoip2-cn.mmdb',
+    path: 'GeoIP/geoip2-cn.mmdb',
     url: 'https://github.com/Hackl0us/GeoIP2-CN/raw/release/Country.mmdb',
   },
   {
-    path: 'GEOIP/chnroutes2.mmdb',
+    path: 'GeoIP/chnroutes2.mmdb',
     url: 'https://raw.githubusercontent.com/soffchen/GeoIP2-CN/release/Country.mmdb',
   },
   {
-    path: 'GEOIP/ipinfo.mmdb',
+    path: 'GeoIP/ipinfo.mmdb',
     url: 'https://github.com/lucking7/ASN-China/raw/main/ipinfo.lite.mmdb',
   },
   {
-    path: 'GEOIP/ip2.mmdb',
+    path: 'GeoIP/ip2.mmdb',
     url: 'https://github.com/xream/geoip/releases/latest/download/ip2location.country.mmdb',
   },
 ];

@@ -656,16 +656,27 @@ jobs:
           git config user.email "${GH_EMAIL}"
           git config user.name "${GH_USER}"
 
-          # 🔧 只删除和更新需要同步的目录
+          # 🔧 智能增量同步：只更新有内容的目录，避免清空生产环境
           for path in $SYNC_PATHS; do
-            if [ -d "./$path" ]; then
-              echo "🗑️  删除旧目录: $path"
-              rm -rf "./$path"
-            fi
-            mkdir -p "./$path"
+            # 检查源目录是否存在且有内容
             if [ -d "../public/$path" ]; then
-              echo "📥 复制新内容: $path"
-              cp -rf "../public/$path"* "./$path" 2>/dev/null || true
+              SOURCE_COUNT=$(find "../public/$path" -type f 2>/dev/null | wc -l)
+              if [ "$SOURCE_COUNT" -gt 0 ]; then
+                # 源目录有内容，执行同步
+                if [ -d "./$path" ]; then
+                  echo "🗑️  删除旧目录: $path"
+                  rm -rf "./$path"
+                fi
+                mkdir -p "./$path"
+                echo "📥 复制新内容: $path ($SOURCE_COUNT 个文件)"
+                cp -rf "../public/$path"* "./$path" 2>/dev/null || true
+              else
+                # 源目录为空，保留生产环境现有内容
+                echo "⏭️  跳过空目录: $path (保留生产环境现有内容)"
+              fi
+            else
+              # 源目录不存在，保留生产环境现有内容
+              echo "⏭️  跳过不存在的目录: $path (保留生产环境现有内容)"
             fi
           done
           

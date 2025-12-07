@@ -30,8 +30,6 @@ type EnhancedFileConfig = FileConfig & {
 };
 
 export class EnhancedFileOutput extends FileOutput {
-  private readonly platformConfig = DEFAULT_PLATFORM_CONFIG;
-
   // 统计信息（DEBUG 模式）
   private readonly stats = {
     inputDomains: 0,
@@ -54,11 +52,11 @@ export class EnhancedFileOutput extends FileOutput {
   constructor(
     span: Span,
     id: string,
-    private readonly ruleType: 'domainset' | 'non_ip' | 'ip' | 'mixed' | '', // 🔧 支持空字符串，取消分类
-    private readonly targets: SupportedPlatform[] = ['surge'],
+    _ruleType: 'domainset' | 'non_ip' | 'ip' | 'mixed' | '', // 🔧 支持空字符串，取消分类（保留参数位置兼容性）
+    targets: SupportedPlatform[] = ['surge'],
     private readonly defaultPolicy: string | null = null, // 默认无策略
     config?: Partial<EnhancedFileConfig>, // 🔧 接受完整配置（扩展支持 validate 开关）
-    private readonly outputBaseDir = 'public' // 🔧 添加输出基础目录参数
+    outputBaseDir = 'public'
   ) {
     super(span, id);
 
