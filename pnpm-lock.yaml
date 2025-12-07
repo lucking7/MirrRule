@@ -93,8 +93,8 @@ importers:
         specifier: ^0.2.0
         version: 0.2.0
       yaml:
-        specifier: ^2.8.1
-        version: 2.8.1
+        specifier: ^2.8.2
+        version: 2.8.2
       yauzl-promise:
         specifier: ^4.0.0
         version: 4.0.0
@@ -1788,8 +1788,8 @@ packages:
   xbits@0.2.0:
     resolution: {integrity: sha512-JMd+tT2WwmbQZxIE9lQ3WoziWgTngKwdMbuk1CBqjos2zn9y5LYYSGRkYqzsFlwITHJehpdHgDdTOf4Qls/Q+w==}
 
-  yaml@2.8.1:
-    resolution: {integrity: sha512-lcYcMxX2PO9XMGvAJkJ3OsNMw+/7FKes7/hgerGUYWIoWu5j/+YQqcZr5JnPZWzOsEBgMbSbiSTn/dv/69Mkpw==}
+  yaml@2.8.2:
+    resolution: {integrity: sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==}
     engines: {node: '>= 14.6'}
     hasBin: true
 
@@ -3458,7 +3458,7 @@ snapshots:
 
   xbits@0.2.0: {}
 
-  yaml@2.8.1: {}
+  yaml@2.8.2: {}
 
   yauzl-promise@4.0.0:
     dependencies:
