@@ -323,19 +323,27 @@ jobs:
           echo "📁 当前 public 目录内容："
           ls -la public/ || echo "public 目录不存在"
 
-          # 检查哪些目录缺失（包含所有可能的规则目录）
+          # 检查哪些目录缺失或为空（包含所有可能的规则目录）
+          # 🔧 修复：不仅检查目录是否存在，还检查是否有内容
           MISSING_DIRS=""
           for dir in Mirror Modules Scripts List Clash sing-box Loon Surfboard GeoIP; do
             if [ ! -d "public/$dir" ]; then
               MISSING_DIRS="$MISSING_DIRS $dir"
               echo "  ❌ $dir/ 缺失"
             else
-              echo "  ✅ $dir/ 存在 ($(find public/$dir -type f 2>/dev/null | wc -l) 个文件)"
+              FILE_COUNT=$(find "public/$dir" -type f 2>/dev/null | wc -l)
+              if [ "$FILE_COUNT" -eq 0 ]; then
+                # 🔧 目录存在但为空，也需要从生产环境下载
+                MISSING_DIRS="$MISSING_DIRS $dir"
+                echo "  ⚠️  $dir/ 存在但为空，将从生产环境下载"
+              else
+                echo "  ✅ $dir/ 存在 ($FILE_COUNT 个文件)"
+              fi
             fi
           done
 
           if [ -z "$MISSING_DIRS" ]; then
-            echo "✅ 所有目录都已存在,无需下载"
+            echo "✅ 所有目录都已存在且有内容,无需下载"
             exit 0
           fi
 
@@ -367,6 +375,11 @@ jobs:
           for dir in $MISSING_DIRS; do
             if [ -d "prod-temp/$dir" ]; then
               FILE_COUNT=$(find "prod-temp/$dir" -type f 2>/dev/null | wc -l)
+              # 🔧 修复：先删除可能存在的空目录，再复制
+              if [ -d "public/$dir" ]; then
+                echo "  🗑️  删除已存在的空目录: public/$dir"
+                rm -rf "public/$dir"
+              fi
               echo "  ✅ 复制 $dir/ ($FILE_COUNT 个文件)"
               cp -r "prod-temp/$dir" "public/$dir"
             else
