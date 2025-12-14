@@ -222,7 +222,7 @@ jobs:
       # - 这样既避免了 "another job may be creating this cache" 错误
       # - 又能最大化利用最近的缓存数据
       - name: Restore cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: .cache
           key: ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}-${{ github.run_id }}
@@ -476,7 +476,7 @@ jobs:
           echo ""
           echo "✅ Build output verified"
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: build-artifact-${{ github.sha }}-${{ github.run_number }}
           path: ${{ steps.build-dir.outputs.dir }}
@@ -485,7 +485,7 @@ jobs:
 
       - name: Save cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: .cache
           key: ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}-${{ github.run_id }}
@@ -503,7 +503,7 @@ jobs:
       needs.build.result == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: build-artifact-${{ github.sha }}-${{ github.run_number }}
           path: public
@@ -543,7 +543,7 @@ jobs:
       needs.build.result == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: build-artifact-${{ github.sha }}-${{ github.run_number }}
           path: public
@@ -603,7 +603,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # 🔧 下载 build artifact 而不是 checkout 源代码
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: build-artifact-${{ github.sha }}-${{ github.run_number }}
           path: public
