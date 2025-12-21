@@ -54,8 +54,8 @@ importers:
         specifier: ^6.5.0
         version: 6.5.0(picomatch@4.0.3)
       foxts:
-        specifier: ^5.0.2
-        version: 5.0.2
+        specifier: ^5.0.4
+        version: 5.0.4
       hash-wasm:
         specifier: ^4.12.0
         version: 4.12.0
@@ -1308,8 +1308,8 @@ packages:
   foxts@3.15.0:
     resolution: {integrity: sha512-XaSnlPKgD23NGdfuUHAX50V9h17bavUEZthg3SBO8ajT3D0pFg6KhYRvKNOlB+t7MpKZ1fj22bUPssH5PY0h4w==}
 
-  foxts@5.0.2:
-    resolution: {integrity: sha512-fi+xLTz/43inmP6C5ZdZjjpq4fcCd8/+1N059K4LkYiQw7lbVcie8BBJ6aR/xlfuQOlWSim/BJQk7OA+vJKLhA==}
+  foxts@5.0.4:
+    resolution: {integrity: sha512-5NcXkeIE+z8pyNQYW3lfJWR6ig80GkrOcdi3JY3bmzHieQHwpVq7JKYUrsgFjW4lXIitqOYkUF9SRauwlBjIjw==}
 
   fs-constants@1.0.0:
     resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
@@ -1880,7 +1880,7 @@ snapshots:
     dependencies:
       '@package-json/types': 0.0.12
       '@typescript-eslint/utils': 8.48.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
-      foxts: 5.0.2
+      foxts: 5.0.4
       oxc-resolver: 11.14.0
     transitivePeerDependencies:
       - eslint
@@ -2615,7 +2615,7 @@ snapshots:
     dependencies:
       debug: 4.4.1
       dns2: https://codeload.github.com/lsongdev/node-dns/tar.gz/3adb7e91b3101c0e4f43ebaca3a568269ea04d11
-      foxts: 5.0.2
+      foxts: 5.0.4
       tldts: 7.0.19
     transitivePeerDependencies:
       - supports-color
@@ -2664,7 +2664,7 @@ snapshots:
       eslint-plugin-promise: 7.2.1(eslint@9.39.1(jiti@1.21.7))
       eslint-plugin-regexp: 2.10.0(eslint@9.39.1(jiti@1.21.7))
       eslint-plugin-unused-imports: 4.3.0(@typescript-eslint/eslint-plugin@8.48.0(@typescript-eslint/parser@8.48.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3))(eslint@9.39.1(jiti@1.21.7))
-      foxts: 5.0.2
+      foxts: 5.0.4
       jsonc-eslint-parser: 2.4.1
       picocolors: 1.1.1
       typescript-eslint: 8.48.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
@@ -2809,7 +2809,7 @@ snapshots:
       '@typescript-eslint/types': 8.48.0
       '@typescript-eslint/utils': 8.48.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
       eslint: 9.39.1(jiti@1.21.7)
-      foxts: 5.0.2
+      foxts: 5.0.4
     optionalDependencies:
       typescript: 5.9.3
     transitivePeerDependencies:
@@ -2944,7 +2944,7 @@ snapshots:
       fast-escape-html: 1.1.0
       fast-escape-regexp: 1.0.1
 
-  foxts@5.0.2: {}
+  foxts@5.0.4: {}
 
   fs-constants@1.0.0: {}
 
