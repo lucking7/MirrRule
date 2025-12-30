@@ -336,13 +336,51 @@ export const RuleValidator = {
   },
 
   /**
-   * 检查是否应该跳过该行（注释、空行或水印）
+   * 检查字符串是否为 HTML 内容
+   *
+   * 当远程数据源返回 HTML 错误页面时，需要过滤掉这些内容
+   * 常见于代理服务器返回广告页面、CDN 挑战页面等
+   *
+   * @param line - 待检查的字符串
+   * @returns 如果是 HTML 内容返回 true，否则返回 false
+   */
+  isHtmlContent(line: string): boolean {
+    const trimmed = line.trim().toLowerCase();
+    return (
+      trimmed.startsWith('<!doctype') ||
+      trimmed.startsWith('<html') ||
+      trimmed.startsWith('<head') ||
+      trimmed.startsWith('<body') ||
+      trimmed.startsWith('<meta') ||
+      trimmed.startsWith('<link') ||
+      trimmed.startsWith('<script') ||
+      trimmed.startsWith('<style') ||
+      trimmed.startsWith('<div') ||
+      trimmed.startsWith('</html') ||
+      trimmed.startsWith('</head') ||
+      trimmed.startsWith('</body') ||
+      trimmed.startsWith('</script') ||
+      trimmed.startsWith('</div') ||
+      // 匹配 window.xxx = 形式的 JS 代码
+      trimmed.startsWith('window.') ||
+      // 匹配 HTML 实体和常见 JS 变量赋值
+      (trimmed.startsWith('<') && trimmed.includes('>'))
+    );
+  },
+
+  /**
+   * 检查是否应该跳过该行（注释、空行、水印或 HTML 内容）
    *
    * @param line - 待检查的字符串
    * @returns 如果应该跳过返回true，否则返回false
    */
   shouldSkipLine(line: string): boolean {
-    return this.isEmptyLine(line) || this.isComment(line) || this.isSukkaWatermark(line);
+    return (
+      this.isEmptyLine(line) ||
+      this.isComment(line) ||
+      this.isSukkaWatermark(line) ||
+      this.isHtmlContent(line)
+    );
   },
 
   /**
