@@ -39,8 +39,8 @@ importers:
         specifier: github:lsongdev/node-dns#e4fa035aca0b8eb730bde3431fbf0c60a31a09c9
         version: https://codeload.github.com/lsongdev/node-dns/tar.gz/e4fa035aca0b8eb730bde3431fbf0c60a31a09c9
       domain-alive:
-        specifier: ^0.1.11
-        version: 0.1.11
+        specifier: ^0.1.17
+        version: 0.1.17
       fast-cidr-tools:
         specifier: ^0.3.2
         version: 0.3.2
@@ -1045,16 +1045,12 @@ packages:
     resolution: {integrity: sha512-k1gCAXAsNgLwEL+Y8Wvl+M6oEFj5bgazfZULpS5CneoPPXRaCCW7dm+q21Ky2VEE5X+VeRDBVg1Pcvvsr4TtNQ==}
     engines: {node: ^10.13.0 || ^12.13.0 || ^14.15.0 || >=15.0.0}
 
-  dns2@https://codeload.github.com/lsongdev/node-dns/tar.gz/3adb7e91b3101c0e4f43ebaca3a568269ea04d11:
-    resolution: {tarball: https://codeload.github.com/lsongdev/node-dns/tar.gz/3adb7e91b3101c0e4f43ebaca3a568269ea04d11}
-    version: 2.1.0
-
   dns2@https://codeload.github.com/lsongdev/node-dns/tar.gz/e4fa035aca0b8eb730bde3431fbf0c60a31a09c9:
     resolution: {tarball: https://codeload.github.com/lsongdev/node-dns/tar.gz/e4fa035aca0b8eb730bde3431fbf0c60a31a09c9}
     version: 2.1.0
 
-  domain-alive@0.1.11:
-    resolution: {integrity: sha512-ztcLT4rQQWHRetdfvcTu8eAi0wL9c6uZEpqZS1EsFQc4K0qMOQofNpTLwI4fJXAUvBpOu2IBdyU+yKoHS+wwPA==}
+  domain-alive@0.1.17:
+    resolution: {integrity: sha512-ACL2WVZ5lldyBnrFjD4Jb9FeJd4SS4vhiKoIfq2qQrWXfAxM+go1WjjykceyjlCj8zqby3Ss0Nh5hDyl1/SFzw==}
 
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
@@ -1310,6 +1306,9 @@ packages:
 
   foxts@5.0.2:
     resolution: {integrity: sha512-fi+xLTz/43inmP6C5ZdZjjpq4fcCd8/+1N059K4LkYiQw7lbVcie8BBJ6aR/xlfuQOlWSim/BJQk7OA+vJKLhA==}
+
+  foxts@5.0.4:
+    resolution: {integrity: sha512-5NcXkeIE+z8pyNQYW3lfJWR6ig80GkrOcdi3JY3bmzHieQHwpVq7JKYUrsgFjW4lXIitqOYkUF9SRauwlBjIjw==}
 
   fs-constants@1.0.0:
     resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
@@ -2607,15 +2606,12 @@ snapshots:
 
   diff-sequences@27.5.1: {}
 
-  dns2@https://codeload.github.com/lsongdev/node-dns/tar.gz/3adb7e91b3101c0e4f43ebaca3a568269ea04d11: {}
-
   dns2@https://codeload.github.com/lsongdev/node-dns/tar.gz/e4fa035aca0b8eb730bde3431fbf0c60a31a09c9: {}
 
-  domain-alive@0.1.11:
+  domain-alive@0.1.17:
     dependencies:
       debug: 4.4.1
-      dns2: https://codeload.github.com/lsongdev/node-dns/tar.gz/3adb7e91b3101c0e4f43ebaca3a568269ea04d11
-      foxts: 5.0.2
+      foxts: 5.0.4
       tldts: 7.0.19
     transitivePeerDependencies:
       - supports-color
@@ -2809,7 +2805,7 @@ snapshots:
       '@typescript-eslint/types': 8.48.0
       '@typescript-eslint/utils': 8.48.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
       eslint: 9.39.1(jiti@1.21.7)
-      foxts: 5.0.2
+      foxts: 5.0.4
     optionalDependencies:
       typescript: 5.9.3
     transitivePeerDependencies:
@@ -2945,6 +2941,8 @@ snapshots:
       fast-escape-regexp: 1.0.1
 
   foxts@5.0.2: {}
+
+  foxts@5.0.4: {}
 
   fs-constants@1.0.0: {}
 
