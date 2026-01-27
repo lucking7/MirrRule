@@ -1,0 +1,232 @@
+# 专业版模块合并配置文件
+# 使用 pro-sgmodules.yaml 中的模块列表
+
+# 基本信息
+name: "All-in-One Pro Ad Blocker"
+version: "2.x"
+description: "Professional Ad-free Experience with comprehensive module coverage"
+category: "🛡️ Esdeath Pro"
+author: "@lucking7"
+
+# 要合并的模块列表
+# 从 pro-sgmodules.yaml 加载
+modules:
+  # HTTPDNS拦截器（基础过滤，固定启用）
+  - url: "file://public/Modules/Converted/HTTPDNS拦截器.sgmodule"
+    header: "HTTPDNS拦截器"
+    scriptToggle: false
+
+  # 可莉广告过滤器（基础过滤，固定启用）
+  - url: "file://public/Modules/Converted/可莉广告过滤器.sgmodule"
+    header: "可莉广告过滤器"
+    scriptToggle: false
+
+  # 高德地图去广告
+  - url: "file://public/Modules/Converted/高德地图去广告.sgmodule"
+    header: "高德地图去广告"
+
+  # 顺丰速运去广告
+  - url: "file://public/Modules/Converted/顺丰速运去广告.sgmodule"
+    header: "顺丰速运去广告"
+
+  # 阿里云盘去广告
+  - url: "file://public/Modules/Converted/阿里云盘去广告.sgmodule"
+    header: "阿里云盘去广告"
+
+  # 闲鱼去广告
+  - url: "file://public/Modules/Converted/闲鱼去广告.sgmodule"
+    header: "闲鱼去广告"
+
+  # 酷我音乐去广告
+  - url: "file://public/Modules/Converted/酷我音乐去广告.sgmodule"
+    header: "酷我音乐去广告"
+
+  # 酷狗铃声去广告
+  - url: "file://public/Modules/Converted/酷狗铃声去广告.sgmodule"
+    header: "酷狗铃声去广告"
+
+  # 酷狗音乐去广告
+  - url: "file://public/Modules/Converted/酷狗音乐去广告.sgmodule"
+    header: "酷狗音乐去广告"
+
+  # 金山文档去广告
+  - url: "file://public/Modules/Converted/金山文档去广告.sgmodule"
+    header: "金山文档去广告"
+
+  # 腾讯文档去广告
+  - url: "file://public/Modules/Converted/腾讯文档去广告.sgmodule"
+    header: "腾讯文档去广告"
+
+  # 腾讯视频去广告
+  - url: "file://public/Modules/Converted/腾讯视频去广告.sgmodule"
+    header: "腾讯视频去广告"
+
+  # 财新去广告
+  - url: "file://public/Modules/Converted/财新去广告.sgmodule"
+    header: "财新去广告"
+
+  # 拼多多去广告
+  - url: "file://public/Modules/Converted/拼多多去广告.sgmodule"
+    header: "拼多多去广告"
+
+  # 微信公众号去广告
+  - url: "file://public/Modules/Converted/微信公众号去广告.sgmodule"
+    header: "微信公众号去广告"
+
+  # 微信外部链接解锁
+  - url: "file://public/Modules/Converted/微信外部链接解锁.sgmodule"
+    header: "微信外部链接解锁"
+
+  # 微信小程序去广告
+  - url: "file://public/Modules/Converted/微信小程序去广告.sgmodule"
+    header: "微信小程序去广告"
+
+  # 微博轻享版去广告
+  - url: "file://public/Modules/Converted/微博轻享版去广告.sgmodule"
+    header: "微博轻享版去广告"
+
+  # 小黑盒去广告
+  - url: "file://public/Modules/Converted/小黑盒去广告.sgmodule"
+    header: "小黑盒去广告"
+
+  # 12306去广告
+  - url: "file://public/Modules/Converted/12306去广告.sgmodule"
+    header: "12306去广告"
+
+  # 彩云天气去广告
+  - url: "file://public/Modules/Converted/彩云天气去广告.sgmodule"
+    header: "彩云天气去广告"
+
+  # 优酷视频去广告
+  - url: "file://public/Modules/Converted/优酷视频去广告.sgmodule"
+    header: "优酷视频去广告"
+
+  # 中华万年历去广告
+  - url: "file://public/Modules/Converted/中华万年历去广告.sgmodule"
+    header: "中华万年历去广告"
+
+  # YouTube去广告
+  - url: "file://public/Modules/Converted/YouTube去广告.sgmodule"
+    header: "YouTube去广告"
+
+  # QQ音乐去广告
+  - url: "file://public/Modules/Converted/QQ音乐去广告.sgmodule"
+    header: "QQ音乐去广告"
+
+  # KOOK去广告
+  - url: "file://public/Modules/Converted/KOOK去广告.sgmodule"
+    header: "KOOK去广告"
+
+  # 小红书去广告
+  - url: "file://public/Modules/Converted/小红书去广告.sgmodule"
+    header: "小红书去广告"
+
+  # 大麦去广告
+  - url: "file://public/Modules/Converted/大麦去广告.sgmodule"
+    header: "大麦去广告"
+
+  # 夸克去广告
+  - url: "file://public/Modules/Converted/夸克去广告.sgmodule"
+    header: "夸克去广告"
+
+  # 哔哩哔哩漫画去广告
+  - url: "file://public/Modules/Converted/哔哩哔哩漫画去广告.sgmodule"
+    header: "哔哩哔哩漫画去广告"
+
+  # 喜马拉雅去广告
+  - url: "file://public/Modules/Converted/喜马拉雅去广告.sgmodule"
+    header: "喜马拉雅去广告"
+
+  # 芒果TV去广告
+  - url: "file://public/Modules/Converted/芒果TV去广告.sgmodule"
+    header: "芒果TV去广告"
+
+  # 菜鸟去广告
+  - url: "file://public/Modules/Converted/菜鸟去广告.sgmodule"
+    header: "菜鸟去广告"
+
+  # 斗鱼去广告
+  - url: "file://public/Modules/Converted/斗鱼去广告.sgmodule"
+    header: "斗鱼去广告"
+
+  # 无他相机去广告
+  - url: "file://public/Modules/Converted/无他相机去广告.sgmodule"
+    header: "无他相机去广告"
+
+  # 有道云笔记去广告
+  - url: "file://public/Modules/Converted/有道云笔记去广告.sgmodule"
+    header: "有道云笔记去广告"
+
+  # 萤石云视频去广告
+  - url: "file://public/Modules/Converted/萤石云视频去广告.sgmodule"
+    header: "萤石云视频去广告"
+
+  # 薄荷健康去广告
+  - url: "file://public/Modules/Converted/薄荷健康去广告.sgmodule"
+    header: "薄荷健康去广告"
+
+  # 航旅纵横去广告
+  - url: "file://public/Modules/Converted/航旅纵横去广告.sgmodule"
+    header: "航旅纵横去广告"
+
+  # 美颜相机去广告
+  - url: "file://public/Modules/Converted/美颜相机去广告.sgmodule"
+    header: "美颜相机去广告"
+
+  # 网易新闻去广告
+  - url: "file://public/Modules/Converted/网易新闻去广告.sgmodule"
+    header: "网易新闻去广告"
+
+  # 知乎去广告
+  - url: "file://public/Modules/Converted/知乎去广告.sgmodule"
+    header: "知乎去广告"
+
+  # 知识星球去水印
+  - url: "file://public/Modules/Converted/知识星球去水印.sgmodule"
+    header: "知识星球去水印"
+
+  # 百度地图去广告
+  - url: "file://public/Modules/Converted/百度地图去广告.sgmodule"
+    header: "百度地图去广告"
+
+  # 百度网盘去广告
+  - url: "file://public/Modules/Converted/百度网盘去广告.sgmodule"
+    header: "百度网盘去广告"
+
+  # 淘宝去广告
+  - url: "file://public/Modules/Converted/淘宝去广告.sgmodule"
+    header: "淘宝去广告"
+
+  # 淘票票去广告
+  - url: "file://public/Modules/Converted/淘票票去广告.sgmodule"
+    header: "淘票票去广告"
+
+  # 滴滴出行去广告
+  - url: "file://public/Modules/Converted/滴滴出行去广告.sgmodule"
+    header: "滴滴出行去广告"
+
+# 输出配置
+output:
+  # 合并后的 .sgmodule 文件路径
+  sgmodule: "public/Modules/Merged/All-in-One-Pro.sgmodule"
+
+  # 提取的规则列表文件路径
+  rulelist: "public/Modules/Rules/reject-pro.list"
+
+  # 模板文件路径
+  template: "Build/lib/module-merger/templates/all-in-one.template"
+
+# 合并选项
+options:
+  # 是否去重 MITM hostnames
+  deduplicateHostnames: true
+
+  # 是否移除注释
+  stripComments: true
+
+  # 是否添加分隔符
+  addDividers: true
+
+  # 分隔符长度
+  dividerLength: 30
+

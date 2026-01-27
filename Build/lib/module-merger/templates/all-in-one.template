@@ -1,0 +1,24 @@
+#!name={{name}}
+#!desc={{description}}
+#!category={{category}}
+#!author={{author}}
+#!homepage=https://github.com/lucking7/esdeath
+#!date={{currentDate}}
+#!arguments = {{{arguments}}}
+#!arguments-desc = {{{arguments_desc}}}
+
+[Rule]
+{{{Rule}}}
+
+[URL Rewrite]
+{{{URL Rewrite}}}
+
+[Map Local]
+{{{Map Local}}}
+
+[Script]
+{{{Script}}}
+
+[MITM]
+hostname = %APPEND% {{hostname_append}}
+
