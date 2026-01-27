@@ -8,7 +8,21 @@ public.zip
 tmp.*
 .BUILD_FINISHED
 
-# 测试和临时文件
+# IDE
+.vscode
+.idea
+
+# AI/Agent configs
+.claude
+AGENTS.md
+docs/plans
+
+# Logs
+*.log
+*-failed*.txt
+
+# Test
 test
 test-output
 2025-*.txt
+2026-*.txt
