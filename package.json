@@ -76,7 +76,7 @@
     "@swc/core": "^1.15.3",
     "@types/better-sqlite3": "^7.6.13",
     "@types/cli-progress": "^3.11.6",
-    "@types/node": "^24.10.1",
+    "@types/node": "^25.2.0",
     "@types/punycode": "^2.1.4",
     "eslint": "^9.39.1",
     "eslint-config-sukka": "^8.0.5",
