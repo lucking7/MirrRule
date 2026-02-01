@@ -127,8 +127,8 @@ importers:
         specifier: ^8.0.5
         version: 8.0.5(@typescript-eslint/utils@8.48.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
       eslint-formatter-sukka:
-        specifier: ^6.23.1
-        version: 6.23.1
+        specifier: ^8.4.0
+        version: 8.4.0(eslint@9.39.1(jiti@1.21.7))
       tinyexec:
         specifier: ^1.0.2
         version: 1.0.2
@@ -969,6 +969,10 @@ packages:
     resolution: {integrity: sha512-Wdy2Igu8OcBpI2pZePZ5oWjPC38tmDVx5WKUXKwlLYkA0ozo85sLsLvkBbBn/sZaSCMFOGZJ14fvW9t5/d7kdA==}
     engines: {node: '>=8'}
 
+  ci-info@4.4.0:
+    resolution: {integrity: sha512-77PSwercCZU2Fc4sX94eF8k8Pxte6JAwL4/ICZLFjJLqegs7kCuAsqqj/70NQF6TvDpgFjkubQB2FW2ZZddvQg==}
+    engines: {node: '>=8'}
+
   cli-progress@3.12.0:
     resolution: {integrity: sha512-tRkV3HJ1ASwm19THiiLIXLO7Im7wlTuKnvkYaTkyoAPefqjNg7W7DHKUlGRxy9vxDvbyCYQkQozvptuMkGCg8A==}
     engines: {node: '>=4'}
@@ -1085,8 +1089,10 @@ packages:
   eslint-config-sukka@8.0.5:
     resolution: {integrity: sha512-++zRNmlwlpsdbEqNK7FfWz1kupF0+tdj+UCTIlb3hKWirVmrVsrt3WdfxwPQuyxlT3N2pRt/jp/ysISemOntcA==}
 
-  eslint-formatter-sukka@6.23.1:
-    resolution: {integrity: sha512-oZydy+iu3yKtcVVONeu+NzW6T8B1MoiZ3dbH/nXFJKiiAKZhBx6IwV9jV7X+VVaLOXn8bZGuTa6Kdybu4dpolg==}
+  eslint-formatter-sukka@8.4.0:
+    resolution: {integrity: sha512-apxtcIKshD1f8FQBRGoANKxRvId5QJRZP0/BZ4UwQgGG9UOgrdywVA2sO9YeUQCImfhAkdEQXUTpfx2GMgNFUg==}
+    peerDependencies:
+      eslint: '*'
 
   eslint-import-context@0.1.9:
     resolution: {integrity: sha512-K9Hb+yRaGAGUbwjhFNHvSmmkZs9+zbuoe3kFQ4V1wYjrepUFYM2dZAfNtjbbj3qsPfUfsA68Bx/ICWQMi+C8Eg==}
@@ -1310,6 +1316,9 @@ packages:
 
   foxts@5.0.2:
     resolution: {integrity: sha512-fi+xLTz/43inmP6C5ZdZjjpq4fcCd8/+1N059K4LkYiQw7lbVcie8BBJ6aR/xlfuQOlWSim/BJQk7OA+vJKLhA==}
+
+  foxts@5.2.1:
+    resolution: {integrity: sha512-EsvV1QDTp8leo7RXluZbiIc1IjO9m06G6ePeX8P8VwJmKodSviS++2AKSXUh1GBMliFl57oH8ZV2fCJWEbh2rw==}
 
   fs-constants@1.0.0:
     resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
@@ -2554,6 +2563,8 @@ snapshots:
 
   ci-info@4.3.1: {}
 
+  ci-info@4.4.0: {}
+
   cli-progress@3.12.0:
     dependencies:
       string-width: 4.2.3
@@ -2677,9 +2688,11 @@ snapshots:
       - supports-color
       - typescript
 
-  eslint-formatter-sukka@6.23.1:
+  eslint-formatter-sukka@8.4.0(eslint@9.39.1(jiti@1.21.7)):
     dependencies:
-      ci-info: 4.3.0
+      ci-info: 4.4.0
+      eslint: 9.39.1(jiti@1.21.7)
+      foxts: 5.2.1
       picocolors: 1.1.1
 
   eslint-import-context@0.1.9(unrs-resolver@1.11.1):
@@ -2809,7 +2822,7 @@ snapshots:
       '@typescript-eslint/types': 8.48.0
       '@typescript-eslint/utils': 8.48.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
       eslint: 9.39.1(jiti@1.21.7)
-      foxts: 5.0.2
+      foxts: 5.2.1
     optionalDependencies:
       typescript: 5.9.3
     transitivePeerDependencies:
@@ -2945,6 +2958,8 @@ snapshots:
       fast-escape-regexp: 1.0.1
 
   foxts@5.0.2: {}
+
+  foxts@5.2.1: {}
 
   fs-constants@1.0.0: {}
 
