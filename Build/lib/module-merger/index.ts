@@ -6,12 +6,21 @@ import process from 'node:process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import picocolors from 'picocolors';
-import type { MergeResult, TemplateData, MergeRuntimeOptions, ModuleSource } from './types';
+import type { MergeResult, TemplateData, MergeRuntimeOptions, ModuleSource, SectionType } from './types';
 import { SectionParser } from './section-parser';
 import { ModuleMerger } from './merger';
 import { TemplateEngine } from './template-engine';
 import { loadMergeConfig } from './config-loader';
 import { ModuleLoader } from './module-loader';
+import { cleanPolicy, cleanPolicyForModule } from '../../core/parsers/policy-cleaner';
+
+/**
+ * .sgmodule 输出中 Section 的固定排列顺序
+ * MITM 单独处理（需要聚合 hostname），不在此列表中
+ */
+const SECTION_OUTPUT_ORDER: SectionType[] = [
+  'General', 'Rule', 'URL Rewrite', 'Map Local', 'Script', 'Panel', 'Task',
+];
 
 /**
  * 合并模块
@@ -41,7 +50,7 @@ export async function mergeModules(
     )
   );
 
-  // 2. 下载模块
+  // 2. 下载模块（已保证按配置顺序返回）
   console.log(picocolors.cyan('\nDownloading modules...'));
   const loader = new ModuleLoader([baseDir, process.cwd()]);
   const { loaded, failures } = await loader.loadAll(selectedModules);
@@ -78,11 +87,56 @@ export async function mergeModules(
   console.log(picocolors.cyan('\nMerging sections...'));
   const { sections, hostnames } = merger.merge();
 
-  // 4. 渲染模板
-  console.log(picocolors.cyan('\nRendering template...'));
-  const template = await TemplateEngine.loadTemplate(config.output.template);
+  // 4. 构建输出内容
+  console.log(picocolors.cyan('\nBuilding output...'));
 
   const { argumentsLine, argumentsDesc } = _buildArgumentsLines(scriptToggleInfo);
+
+  // 4.1 构建模板头部额外信息（arguments 等，仅在有脚本开关时才添加）
+  const headerExtraParts: string[] = [];
+  if (argumentsLine) {
+    headerExtraParts.push(`#!arguments = ${argumentsLine}`);
+    headerExtraParts.push(`#!arguments-desc = ${argumentsDesc}`);
+  }
+
+  // 4.2 动态构建 sections body
+  const sectionParts: string[] = [];
+  const usedSections = new Set<string>();
+
+  for (const sectionType of SECTION_OUTPUT_ORDER) {
+    let content = sections.get(sectionType)?.trim();
+    if (!content) continue;
+
+    usedSections.add(sectionType);
+
+    // Rule section: 为 .sgmodule 输出补全 REJECT 等策略组
+    if (sectionType === 'Rule') {
+      content = content
+        .split('\n')
+        .map(line => cleanPolicyForModule(line))
+        .join('\n');
+    }
+
+    sectionParts.push(`[${sectionType}]\n${content}`);
+  }
+
+  // MITM section（聚合所有模块的 hostname，始终输出）
+  if (hostnames.length > 0) {
+    sectionParts.push(`[MITM]\nhostname = %APPEND% ${hostnames.join(', ')}`);
+  }
+
+  // 检查是否有未被模板使用的 section 类型
+  for (const [type] of sections) {
+    if (type.toLowerCase() !== 'mitm' && !usedSections.has(type)) {
+      console.log(
+        picocolors.yellow(`  ⚠ Section [${type}] 存在于源模块中但未包含在输出中`)
+      );
+    }
+  }
+
+  // 4.3 渲染模板
+  console.log(picocolors.cyan('\nRendering template...'));
+  const template = await TemplateEngine.loadTemplate(config.output.template);
 
   const templateData: TemplateData = {
     name: config.name,
@@ -94,20 +148,18 @@ export async function mergeModules(
       month: '2-digit',
       day: '2-digit',
     }),
-    hostname_append: hostnames.join(', '),
-    arguments: argumentsLine,
-    arguments_desc: argumentsDesc,
+    header_extra: headerExtraParts.join('\n'),
+    sections_body: sectionParts.join('\n\n'),
   };
-
-  // 添加各个 Section
-  for (const [type, content] of sections) {
-    templateData[type] = content;
-  }
 
   const sgmodule = TemplateEngine.render(template, templateData);
 
-  // 5. 生成 rulelist
-  const rulelist = sections.get('Rule') || '';
+  // 5. 生成 rulelist（去除策略组，仅保留规则类型 + 匹配值 + 参数）
+  const ruleContent = sections.get('Rule') || '';
+  const rulelist = ruleContent
+    .split('\n')
+    .map(line => cleanPolicy(line))
+    .join('\n');
 
   // 6. 写入文件
   if (runtimeOptions.dryRun) {
@@ -143,8 +195,9 @@ export async function mergeModules(
 }
 
 interface ScriptToggleInfo {
-  header: string;
-  argumentName: string;
+  header: string,
+  argumentName: string,
+  defaultOn: boolean
 }
 
 /* eslint-disable sukka/no-single-return -- helper functions use explicit early returns for readability */
@@ -214,12 +267,12 @@ function _buildScriptToggleInfo(
       continue;
     }
 
-    // argument 参数命名严格参考配置文件中的 header，本身作为参数名
     const argumentName = source.header.trim();
 
     result.push({
       header: source.header,
       argumentName,
+      defaultOn: source.scriptDefaultOn ?? false,
     });
   }
 
@@ -228,10 +281,11 @@ function _buildScriptToggleInfo(
 
 /**
  * 生成 #!arguments 和 #!arguments-desc 内容
+ * 默认值来自配置文件中各模块的 scriptDefaultOn 字段
  */
 function _buildArgumentsLines(scriptToggles: ScriptToggleInfo[]): {
-  argumentsLine: string;
-  argumentsDesc: string;
+  argumentsLine: string,
+  argumentsDesc: string
 } {
   if (!scriptToggles.length) {
     return {
@@ -240,33 +294,9 @@ function _buildArgumentsLines(scriptToggles: ScriptToggleInfo[]): {
     };
   }
 
-  const defaultOnHeaders = new Set([
-    '高德地图去广告',
-    '阿里云盘去广告',
-    '闲鱼去广告',
-    '微信公众号去广告',
-    '微信外部链接解锁',
-    '微信小程序去广告',
-    '12306去广告',
-    '彩云天气去广告',
-    '中华万年历去广告',
-    'QQ音乐去广告',
-    '小红书去广告',
-    '喜马拉雅去广告',
-    '哔哩哔哩漫画去广告',
-    '萤石云视频去广告',
-    '薄荷健康去广告',
-    '航旅纵横去广告',
-    '美颜相机去广告',
-    '淘宝去广告',
-    '淘票票去广告',
-    '滴滴出行去广告',
-  ]);
-
   const argumentsLine = scriptToggles
     .map(info => {
-      const isDefaultOn = defaultOnHeaders.has(info.header.trim());
-      const defaultValue = isDefaultOn ? '1' : '#';
+      const defaultValue = info.defaultOn ? '1' : '#';
       return `${info.argumentName}:${defaultValue}`;
     })
     .join(',');

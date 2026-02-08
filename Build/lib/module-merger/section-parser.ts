@@ -4,7 +4,6 @@
  */
 
 import type { ParsedSection, SectionType } from './types';
-import { cleanPolicy } from '../../core/parsers/policy-cleaner';
 import { RuleValidator } from '../../utils/validation/validators';
 
 export interface SectionParserOptions {
@@ -70,17 +69,17 @@ export const SectionParser = {
   },
 
   extractHostnames(content: string): string[] {
-    const match = HOSTNAME_REGEX.exec(content);
-    if (!match) {
-      return [];
-    }
-
     const normalized: string[] = [];
-    const rawHostnames = match[1].replaceAll('%APPEND%', '').split(',');
-    for (const raw of rawHostnames) {
-      const host = raw.trim();
-      if (host) {
-        normalized.push(host);
+    const globalRegex = /hostname\s*=\s*(.*)/gi;
+    let match: RegExpExecArray | null;
+
+    while ((match = globalRegex.exec(content)) !== null) {
+      const rawHostnames = match[1].replaceAll('%APPEND%', '').split(',');
+      for (const raw of rawHostnames) {
+        const host = raw.trim();
+        if (host) {
+          normalized.push(host);
+        }
       }
     }
 
@@ -94,16 +93,8 @@ function resolveSectionType(name: string): SectionType {
   return SECTION_ALIASES[key] ?? normalized;
 }
 
-function cleanSectionContent(content: string, type: SectionType, stripComments: boolean): string {
-  let cleaned = content.trim();
-
-  if (type.toLowerCase() === 'rule') {
-    const normalizedRules: string[] = [];
-    for (const line of cleaned.split('\n')) {
-      normalizedRules.push(cleanPolicy(line));
-    }
-    cleaned = normalizedRules.join('\n');
-  }
+function cleanSectionContent(content: string, _type: SectionType, stripComments: boolean): string {
+  const cleaned = content.trim();
 
   if (!stripComments) {
     return cleaned;
