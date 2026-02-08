@@ -13,7 +13,7 @@ const AVAILABLE_PARALLELISM =
 const DEFAULT_CONCURRENCY = Math.max(2, Math.min(8, AVAILABLE_PARALLELISM));
 
 /** HTTP 请求超时时间 (ms) */
-const HTTP_TIMEOUT = 30_000;
+const HTTP_TIMEOUT = 30000;
 
 /** HTTP 请求最大重试次数 */
 const HTTP_MAX_RETRIES = 2;
@@ -102,7 +102,7 @@ export class ModuleLoader {
         lastError = error;
         if (attempt < HTTP_MAX_RETRIES) {
           const delay = 1000 * (attempt + 1);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await new Promise<void>(resolve => { setTimeout(resolve, delay); });
         }
       }
     }

@@ -12,7 +12,6 @@ export interface SectionParserOptions {
 }
 
 const SECTION_HEADER_REGEX = /^\s*\[([^\]]+)]\s*$/;
-const HOSTNAME_REGEX = /hostname\s*=\s*(.*)/i;
 const SECTION_ALIASES: Record<string, SectionType> = {
   rule: 'Rule',
   rules: 'Rule',
