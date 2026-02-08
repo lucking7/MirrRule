@@ -289,6 +289,41 @@ jobs:
           CI: true
           PROXY_BASE: ${{ secrets.PROXY_BASE }}
 
+      # 🔧 步骤 3.5: 确保转换后的模块文件存在（当跳过插件转换时从生产环境下载）
+      - name: Ensure converted modules exist
+        if: |
+          needs.prepare.outputs.should_merge_modules == 'true' &&
+          needs.prepare.outputs.should_convert_plugins != 'true'
+        run: |
+          CONVERTED_DIR="public/Modules/Converted"
+          if [ -d "$CONVERTED_DIR" ]; then
+            FILE_COUNT=$(find "$CONVERTED_DIR" -type f -name '*.sgmodule' 2>/dev/null | wc -l)
+          else
+            FILE_COUNT=0
+          fi
+
+          if [ "$FILE_COUNT" -gt 0 ]; then
+            echo "✅ 已有 $FILE_COUNT 个转换后的模块文件，无需下载"
+            exit 0
+          fi
+
+          echo "📥 转换后的模块文件缺失，从生产环境下载..."
+          git clone --depth=1 --filter=blob:none --sparse \
+            https://github.com/lucking7/NRRule.git ./temp-converted 2>/dev/null || {
+            echo "⚠️ 无法下载生产环境的模块文件，模块合并可能失败"
+            exit 0
+          }
+          cd ./temp-converted
+          git sparse-checkout set Modules/Converted
+          cd ..
+
+          mkdir -p "$CONVERTED_DIR"
+          if [ -d "temp-converted/Modules/Converted" ]; then
+            cp -r temp-converted/Modules/Converted/* "$CONVERTED_DIR/" 2>/dev/null || true
+            echo "✅ 从生产环境下载了 $(find "$CONVERTED_DIR" -type f -name '*.sgmodule' 2>/dev/null | wc -l) 个模块文件"
+          fi
+          rm -rf ./temp-converted
+
       # 🔧 步骤 4: 模块合并（如果需要）
       - name: Merge modules
         if: needs.prepare.outputs.should_merge_modules == 'true'

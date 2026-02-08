@@ -1,5 +1,4 @@
 # 专业版模块合并配置文件
-# 使用 pro-sgmodules.yaml 中的模块列表
 
 # 基本信息
 name: "All-in-One Pro Ad Blocker"
@@ -9,7 +8,13 @@ category: "🛡️ Esdeath Pro"
 author: "@lucking7"
 
 # 要合并的模块列表
-# 从 pro-sgmodules.yaml 加载
+#
+# 字段说明:
+#   url:              模块文件路径（支持 file:// 本地路径或 http(s):// 远程地址）
+#   header:           模块显示名称（用于分隔符和参数命名）
+#   scriptToggle:     是否为该模块生成脚本开关参数（默认 true，基础过滤模块设为 false）
+#   scriptDefaultOn:  脚本开关是否默认开启（默认 false，用户常用模块设为 true）
+#
 modules:
   # HTTPDNS拦截器（基础过滤，固定启用）
   - url: "file://public/Modules/Converted/HTTPDNS拦截器.sgmodule"
@@ -24,6 +29,7 @@ modules:
   # 高德地图去广告
   - url: "file://public/Modules/Converted/高德地图去广告.sgmodule"
     header: "高德地图去广告"
+    scriptDefaultOn: true
 
   # 顺丰速运去广告
   - url: "file://public/Modules/Converted/顺丰速运去广告.sgmodule"
@@ -32,10 +38,12 @@ modules:
   # 阿里云盘去广告
   - url: "file://public/Modules/Converted/阿里云盘去广告.sgmodule"
     header: "阿里云盘去广告"
+    scriptDefaultOn: true
 
   # 闲鱼去广告
   - url: "file://public/Modules/Converted/闲鱼去广告.sgmodule"
     header: "闲鱼去广告"
+    scriptDefaultOn: true
 
   # 酷我音乐去广告
   - url: "file://public/Modules/Converted/酷我音乐去广告.sgmodule"
@@ -72,14 +80,17 @@ modules:
   # 微信公众号去广告
   - url: "file://public/Modules/Converted/微信公众号去广告.sgmodule"
     header: "微信公众号去广告"
+    scriptDefaultOn: true
 
   # 微信外部链接解锁
   - url: "file://public/Modules/Converted/微信外部链接解锁.sgmodule"
     header: "微信外部链接解锁"
+    scriptDefaultOn: true
 
   # 微信小程序去广告
   - url: "file://public/Modules/Converted/微信小程序去广告.sgmodule"
     header: "微信小程序去广告"
+    scriptDefaultOn: true
 
   # 微博轻享版去广告
   - url: "file://public/Modules/Converted/微博轻享版去广告.sgmodule"
@@ -92,10 +103,12 @@ modules:
   # 12306去广告
   - url: "file://public/Modules/Converted/12306去广告.sgmodule"
     header: "12306去广告"
+    scriptDefaultOn: true
 
   # 彩云天气去广告
   - url: "file://public/Modules/Converted/彩云天气去广告.sgmodule"
     header: "彩云天气去广告"
+    scriptDefaultOn: true
 
   # 优酷视频去广告
   - url: "file://public/Modules/Converted/优酷视频去广告.sgmodule"
@@ -104,6 +117,7 @@ modules:
   # 中华万年历去广告
   - url: "file://public/Modules/Converted/中华万年历去广告.sgmodule"
     header: "中华万年历去广告"
+    scriptDefaultOn: true
 
   # YouTube去广告
   - url: "file://public/Modules/Converted/YouTube去广告.sgmodule"
@@ -112,6 +126,7 @@ modules:
   # QQ音乐去广告
   - url: "file://public/Modules/Converted/QQ音乐去广告.sgmodule"
     header: "QQ音乐去广告"
+    scriptDefaultOn: true
 
   # KOOK去广告
   - url: "file://public/Modules/Converted/KOOK去广告.sgmodule"
@@ -120,6 +135,7 @@ modules:
   # 小红书去广告
   - url: "file://public/Modules/Converted/小红书去广告.sgmodule"
     header: "小红书去广告"
+    scriptDefaultOn: true
 
   # 大麦去广告
   - url: "file://public/Modules/Converted/大麦去广告.sgmodule"
@@ -132,10 +148,12 @@ modules:
   # 哔哩哔哩漫画去广告
   - url: "file://public/Modules/Converted/哔哩哔哩漫画去广告.sgmodule"
     header: "哔哩哔哩漫画去广告"
+    scriptDefaultOn: true
 
   # 喜马拉雅去广告
   - url: "file://public/Modules/Converted/喜马拉雅去广告.sgmodule"
     header: "喜马拉雅去广告"
+    scriptDefaultOn: true
 
   # 芒果TV去广告
   - url: "file://public/Modules/Converted/芒果TV去广告.sgmodule"
@@ -160,18 +178,22 @@ modules:
   # 萤石云视频去广告
   - url: "file://public/Modules/Converted/萤石云视频去广告.sgmodule"
     header: "萤石云视频去广告"
+    scriptDefaultOn: true
 
   # 薄荷健康去广告
   - url: "file://public/Modules/Converted/薄荷健康去广告.sgmodule"
     header: "薄荷健康去广告"
+    scriptDefaultOn: true
 
   # 航旅纵横去广告
   - url: "file://public/Modules/Converted/航旅纵横去广告.sgmodule"
     header: "航旅纵横去广告"
+    scriptDefaultOn: true
 
   # 美颜相机去广告
   - url: "file://public/Modules/Converted/美颜相机去广告.sgmodule"
     header: "美颜相机去广告"
+    scriptDefaultOn: true
 
   # 网易新闻去广告
   - url: "file://public/Modules/Converted/网易新闻去广告.sgmodule"
@@ -196,14 +218,17 @@ modules:
   # 淘宝去广告
   - url: "file://public/Modules/Converted/淘宝去广告.sgmodule"
     header: "淘宝去广告"
+    scriptDefaultOn: true
 
   # 淘票票去广告
   - url: "file://public/Modules/Converted/淘票票去广告.sgmodule"
     header: "淘票票去广告"
+    scriptDefaultOn: true
 
   # 滴滴出行去广告
   - url: "file://public/Modules/Converted/滴滴出行去广告.sgmodule"
     header: "滴滴出行去广告"
+    scriptDefaultOn: true
 
 # 输出配置
 output:
@@ -229,4 +254,3 @@ options:
 
   # 分隔符长度
   dividerLength: 30
-

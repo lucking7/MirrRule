@@ -14,6 +14,30 @@ const ALLOWED_PARAMETERS = [
 ] as const;
 
 /**
+ * Surge 内置策略（可在模块中直接使用，不依赖外部策略组）
+ *
+ * - DIRECT:          直连
+ * - REJECT:          拦截并返回错误页面/RST
+ * - REJECT-DROP:     静默丢弃连接（不回复）
+ * - REJECT-TINYGIF:  拦截并返回 1×1 透明 GIF（适用于图片广告）
+ * - REJECT-NO-DROP:  同 REJECT，但保证不会被自动优化为 DROP
+ * - REJECT-DICT:     拦截并返回空 JSON 字典 {}
+ * - REJECT-ARRAY:    拦截并返回空 JSON 数组 []
+ */
+const SURGE_BUILTIN_POLICIES = new Set([
+  'direct',
+  'reject',
+  'reject-drop',
+  'reject-tinygif',
+  'reject-no-drop',
+  'reject-dict',
+  'reject-array'
+]);
+
+/** 模块规则中缺失策略时的默认策略 */
+const DEFAULT_MODULE_POLICY = 'REJECT';
+
+/**
  * 清理单条 Surge 规则的策略组
  *
  * 处理逻辑：
@@ -164,4 +188,133 @@ export function getRetainedParameters(rule: string): string[] {
   }
 
   return retained;
+}
+
+/**
+ * 为模块输出清理规则策略
+ *
+ * 与 cleanPolicy 不同，此函数：
+ * 1. 保留 Surge 内置策略（REJECT、REJECT-DROP、DIRECT 等）
+ * 2. 将自定义策略组替换为 REJECT（模块不应引用外部策略组）
+ * 3. 为缺失策略的规则补充默认 REJECT 策略
+ * 4. 始终保留允许的参数（no-resolve、pre-matching、extended-matching）
+ *
+ * @param rule - 原始规则字符串
+ * @returns 清理后的规则（保留内置策略 + 参数）
+ *
+ * @example
+ * cleanPolicyForModule('DOMAIN-SUFFIX,ad.com,MyProxy')
+ * // => 'DOMAIN-SUFFIX,ad.com,REJECT'
+ *
+ * @example
+ * cleanPolicyForModule('DOMAIN-SUFFIX,ad.com,REJECT-DROP,no-resolve')
+ * // => 'DOMAIN-SUFFIX,ad.com,REJECT-DROP,no-resolve'
+ *
+ * @example
+ * cleanPolicyForModule('DOMAIN-SUFFIX,ad.com')
+ * // => 'DOMAIN-SUFFIX,ad.com,REJECT'
+ *
+ * @example
+ * cleanPolicyForModule('IP-CIDR,1.2.3.0/24,no-resolve')
+ * // => 'IP-CIDR,1.2.3.0/24,REJECT,no-resolve'
+ */
+export function cleanPolicyForModule(rule: string): string {
+  const trimmed = rule.trim();
+
+  // 跳过注释和空行
+  if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.startsWith('!')) {
+    return rule;
+  }
+
+  // 处理逻辑规则（AND, OR, NOT）
+  const firstComma = trimmed.indexOf(',');
+  if (firstComma !== -1) {
+    const ruleType = trimmed.slice(0, Math.max(0, firstComma)).trim().toUpperCase();
+    if (ruleType === 'AND' || ruleType === 'OR' || ruleType === 'NOT') {
+      return _cleanLogicalRuleForModule(trimmed);
+    }
+  }
+
+  // 常规规则处理
+  const parts = rule.split(',').map(p => p.trim());
+  if (parts.length < 2) {
+    return rule;
+  }
+
+  const result = [parts[0], parts[1]];
+  let foundPolicy = false;
+  const params: string[] = [];
+
+  for (let i = 2; i < parts.length; i++) {
+    const part = parts[i];
+    const partLower = part.toLowerCase();
+
+    if (SURGE_BUILTIN_POLICIES.has(partLower) && !foundPolicy) {
+      // 保留 Surge 内置策略，规范大小写
+      result.push(part.toUpperCase());
+      foundPolicy = true;
+    } else if (ALLOWED_PARAMETERS.includes(partLower as any)) {
+      // 收集允许的参数，最后统一追加
+      params.push(part);
+    } else if (!foundPolicy) {
+      // 自定义策略组 → 替换为默认 REJECT
+      result.push(DEFAULT_MODULE_POLICY);
+      foundPolicy = true;
+    }
+    // 其他内容（重复策略、未知参数）直接忽略
+  }
+
+  // 如果没有找到任何策略，补充默认 REJECT
+  if (!foundPolicy) {
+    result.push(DEFAULT_MODULE_POLICY);
+  }
+
+  // 参数追加在策略之后
+  result.push(...params);
+  return result.join(',');
+}
+
+/**
+ * 清理逻辑规则（AND, OR, NOT）的策略，保留内置策略
+ */
+function _cleanLogicalRuleForModule(rule: string): string {
+  const lastDoubleParen = rule.lastIndexOf('))');
+  if (lastDoubleParen === -1) {
+    return rule;
+  }
+
+  const logicalPart = rule.slice(0, lastDoubleParen + 2);
+  const afterParens = rule.slice(lastDoubleParen + 2).trim();
+
+  // 闭合括号后没有逗号，补充默认策略
+  if (!afterParens.startsWith(',')) {
+    return `${logicalPart},${DEFAULT_MODULE_POLICY}`;
+  }
+
+  const remaining = afterParens.slice(1).trim();
+  const remainingParts = remaining.split(',').map(p => p.trim());
+
+  let foundPolicy = false;
+  const kept: string[] = [];
+  const params: string[] = [];
+
+  for (const part of remainingParts) {
+    const partLower = part.toLowerCase();
+    if (SURGE_BUILTIN_POLICIES.has(partLower) && !foundPolicy) {
+      kept.push(part.toUpperCase());
+      foundPolicy = true;
+    } else if (ALLOWED_PARAMETERS.includes(partLower as any)) {
+      params.push(part);
+    } else if (!foundPolicy) {
+      kept.push(DEFAULT_MODULE_POLICY);
+      foundPolicy = true;
+    }
+  }
+
+  if (!foundPolicy) {
+    kept.push(DEFAULT_MODULE_POLICY);
+  }
+
+  kept.push(...params);
+  return `${logicalPart},${kept.join(',')}`;
 }

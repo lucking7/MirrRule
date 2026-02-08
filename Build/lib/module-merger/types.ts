@@ -46,7 +46,9 @@ export interface ModuleSource {
   /** 是否默认启用此模块（未指定时默认为 true） */
   enabledByDefault?: boolean,
   /** 是否为该模块生成脚本开关参数（未指定时默认为 true） */
-  scriptToggle?: boolean
+  scriptToggle?: boolean,
+  /** 脚本开关参数是否默认开启（未指定时默认为 false，即默认关闭） */
+  scriptDefaultOn?: boolean
 }
 
 /**
@@ -167,12 +169,10 @@ export interface TemplateData {
   author: string,
   /** 当前日期 */
   currentDate: string,
-  /** MITM hostname 列表 */
-  hostname_append: string,
-  /** 合并后生成的 #!arguments 内容 */
-  arguments: string,
-  /** 合并后生成的 #!arguments-desc 内容 */
-  arguments_desc: string,
-  /** 各个 Section 的内容 */
+  /** 模板头部额外行（arguments 等） */
+  header_extra: string,
+  /** 动态生成的 sections 内容 */
+  sections_body: string,
+  /** 其他动态字段 */
   [key: string]: string
 }
