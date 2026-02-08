@@ -8,10 +8,11 @@ import type { ScriptInfo } from './types';
 
 /**
  * 镜像配置
+ * 脚本镜像到项目自身的 Cloudflare Pages 部署（CDN 加速，无 GitHub 限流）
  */
 const MIRROR_CONFIG = {
-  rawBase: 'https://github.com/bunizao/Surge-master-3/raw/main/public/Scripts',
-  keyPattern: 'github.com/bunizao/Surge-master-3'
+  rawBase: 'https://nrrule.pages.dev/Scripts',
+  keyPattern: 'nrrule.pages.dev/Scripts'
 } as const;
 
 /**
