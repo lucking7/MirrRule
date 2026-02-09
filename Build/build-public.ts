@@ -59,11 +59,10 @@ export const buildPublic = task(
     compareAndWriteFile(
       span,
       [
-        '# This is a Robot-managed repo containing only output',
-        '# The source code is located at [Sukkaw/Surge](https://github.com/Sukkaw/Surge)',
-        '# Please follow the development at the source code repo instead',
+        '# NRRule - Surge / Clash 规则部署仓库',
+        '# 源码位于 [lucking7/esdeath](https://github.com/lucking7/esdeath)',
         '',
-        '![GitHub repo size](https://img.shields.io/github/repo-size/sukkalab/ruleset.skk.moe?style=flat-square)',
+        '![GitHub repo size](https://img.shields.io/github/repo-size/lucking7/NRRule?style=flat-square)',
       ],
       path.join(PUBLIC_DIR, 'README.md')
     ),
