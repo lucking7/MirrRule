@@ -5,7 +5,7 @@
   "description": "",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lucking7/esdeath-main.git"
+    "url": "git+https://github.com/lucking7/esdeath.git"
   },
   "type": "commonjs",
   "scripts": {
