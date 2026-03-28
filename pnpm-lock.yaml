@@ -54,8 +54,8 @@ importers:
         specifier: ^6.5.0
         version: 6.5.0(picomatch@4.0.3)
       foxts:
-        specifier: ^5.0.2
-        version: 5.0.2
+        specifier: ^5.3.0
+        version: 5.3.0
       hash-wasm:
         specifier: ^4.12.0
         version: 4.12.0
@@ -1306,9 +1306,6 @@ packages:
 
   foxts@3.15.0:
     resolution: {integrity: sha512-XaSnlPKgD23NGdfuUHAX50V9h17bavUEZthg3SBO8ajT3D0pFg6KhYRvKNOlB+t7MpKZ1fj22bUPssH5PY0h4w==}
-
-  foxts@5.0.2:
-    resolution: {integrity: sha512-fi+xLTz/43inmP6C5ZdZjjpq4fcCd8/+1N059K4LkYiQw7lbVcie8BBJ6aR/xlfuQOlWSim/BJQk7OA+vJKLhA==}
 
   foxts@5.3.0:
     resolution: {integrity: sha512-mj26vbVZmsu183PXwE7Nike91vuxhaDHtQGJmiEpQkdiuJYhDB91ZsdKJN54oSqUhMWj1DmUTEqSkguJCNM2Sg==}
@@ -2613,7 +2610,7 @@ snapshots:
     dependencies:
       debug: 4.4.1
       dns2: https://codeload.github.com/lsongdev/node-dns/tar.gz/3adb7e91b3101c0e4f43ebaca3a568269ea04d11
-      foxts: 5.0.2
+      foxts: 5.3.0
       tldts: 7.0.19
     transitivePeerDependencies:
       - supports-color
@@ -2917,8 +2914,6 @@ snapshots:
     dependencies:
       fast-escape-html: 1.1.0
       fast-escape-regexp: 1.0.1
-
-  foxts@5.0.2: {}
 
   foxts@5.3.0: {}
 
