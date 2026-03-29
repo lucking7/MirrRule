@@ -40,7 +40,11 @@ export const buildRuleset = task(
 
       const totalErrors = groupStats.errors.length + ruleStats.errors.length;
       if (totalErrors > 0) {
-        console.log(`${totalErrors} errors occurred`);
+        console.error(`${totalErrors} errors occurred during rule processing`);
+        const allErrors = [...groupStats.errors, ...ruleStats.errors];
+        for (const { file, error } of allErrors) {
+          console.error(`[rule-processing] ${file}: ${error}`);
+        }
       }
     } catch (error) {
       console.error('Rule processing failed:', error);

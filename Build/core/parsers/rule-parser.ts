@@ -2,8 +2,7 @@
  * 规则解析器 - 核心解析逻辑
  */
 
-import type {
-  ProxyPlatform } from '../../constants/rule-formats';
+import type { ProxyPlatform } from '../../constants/rule-formats';
 import {
   RuleType,
   PolicyType,

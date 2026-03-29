@@ -2,7 +2,7 @@ import type { FileConfig, RuleGroup, SpecialRuleConfig } from './rule-source-typ
 import path from 'node:path';
 
 const currentDir = path.dirname(__filename);
-export const REPO_PATH = path.join(currentDir, '../../..');
+export const REPO_PATH = path.join(currentDir, '../..');
 
 export const DEFAULT_FILE_CONFIG = {
   validate: false,

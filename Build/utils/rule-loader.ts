@@ -16,6 +16,10 @@ type RuleSource =
   | (() => string[]) // 函数（同步）
   | (() => Promise<string[]>); // 函数（异步）
 
+interface LoadRulesOptions {
+  throwOnError?: boolean;
+}
+
 /**
  * 判断是否为 URL
  */
@@ -77,7 +81,10 @@ function isSingboxJsonUrl(url: string): boolean {
 /**
  * 从 sing-box JSON 格式加载规则并转换为 Surge 格式
  */
-async function loadFromSingboxJson(url: string): Promise<string[]> {
+async function loadFromSingboxJson(
+  url: string,
+  options: LoadRulesOptions = {}
+): Promise<string[]> {
   console.log(picocolors.gray(`[rule-loader] Loading sing-box JSON: ${url}`));
 
   try {
@@ -126,6 +133,9 @@ async function loadFromSingboxJson(url: string): Promise<string[]> {
     return rules;
   } catch (error) {
     console.error(picocolors.red(`[rule-loader] Failed to load sing-box JSON: ${url}`), error);
+    if (options.throwOnError) {
+      throw error;
+    }
     return [];
   }
 }
@@ -134,10 +144,13 @@ async function loadFromSingboxJson(url: string): Promise<string[]> {
  * 从 TS 模块加载规则
  * 支持导出 getAllRules() 函数或 rules 数组
  */
-async function loadFromTsModule(modulePath: string): Promise<string[]> {
+async function loadFromTsModule(
+  modulePath: string,
+  options: LoadRulesOptions = {}
+): Promise<string[]> {
   try {
-    // 动态导入 TS 模块
-    const module = await import(modulePath);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- runtime TS modules are loaded through @swc-node/register
+    const module = require(modulePath);
 
     // 优先使用 getAllRules 函数
     if (typeof module.getAllRules === 'function') {
@@ -173,6 +186,9 @@ async function loadFromTsModule(modulePath: string): Promise<string[]> {
       picocolors.red(`[rule-loader] Failed to load TS module: ${modulePath}`),
       error
     );
+    if (options.throwOnError) {
+      throw error;
+    }
     return [];
   }
 }
@@ -183,7 +199,10 @@ async function loadFromTsModule(modulePath: string): Promise<string[]> {
  * @param source - URL、本地文件路径、或返回规则的函数
  * @returns 规则数组
  */
-export async function loadRules(source: RuleSource): Promise<string[]> {
+export async function loadRules(
+  source: RuleSource,
+  options: LoadRulesOptions = {}
+): Promise<string[]> {
   // 函数类型
   if (typeof source === 'function') {
     return source();
@@ -195,7 +214,7 @@ export async function loadRules(source: RuleSource): Promise<string[]> {
     if (isUrl(source)) {
       // sing-box JSON 格式
       if (isSingboxJsonUrl(source)) {
-        return loadFromSingboxJson(source);
+        return loadFromSingboxJson(source, options);
       }
       // 普通文本格式
       return fetchAssets(source, null, true);
@@ -203,7 +222,7 @@ export async function loadRules(source: RuleSource): Promise<string[]> {
 
     // TS 模块
     if (source.endsWith('.ts')) {
-      return loadFromTsModule(source);
+      return loadFromTsModule(source, options);
     }
 
     // 本地文件

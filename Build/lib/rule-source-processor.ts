@@ -19,6 +19,17 @@ interface ProcessorStats {
 export class RuleSourceProcessor {
   constructor(private readonly span: Span, private readonly outputDir = 'public') {}
 
+  private static recordError(this: void,
+    stats: ProcessorStats,
+    file: string | undefined,
+    error: unknown
+  ) {
+    stats.errors.push({
+      file: file || 'unknown',
+      error: getErrorMessage(error)
+    });
+  }
+
   private createOutput(
     span: Span,
     fileName: string,
@@ -116,14 +127,21 @@ export class RuleSourceProcessor {
             try {
               const rules = await ruleSpan
                 .traceChild('load')
-                .traceAsyncFn(() => loadRules(source));
+                .traceAsyncFn(() => loadRules(source, { throwOnError: true }));
               allRules.push(...rules);
-            } catch {
-              // Source load failed, continue with others
+            } catch (error) {
+              RuleSourceProcessor.recordError(stats, source, error);
             }
           }
 
-          if (allRules.length === 0) return;
+          if (allRules.length === 0) {
+            RuleSourceProcessor.recordError(
+              stats,
+              ruleConfig.targetFile,
+              new Error(`No rules loaded for special rule "${ruleConfig.name}"`)
+            );
+            return;
+          }
 
           const mergedConfig = applyDefaultConfig(ruleConfig);
           const fileName = ruleConfig.targetFile
@@ -165,8 +183,7 @@ export class RuleSourceProcessor {
           }
         });
       } catch (error) {
-        const errorMsg = getErrorMessage(error);
-        stats.errors.push({ file: ruleConfig.targetFile, error: errorMsg });
+        RuleSourceProcessor.recordError(stats, ruleConfig.targetFile, error);
       }
     }
 

@@ -110,6 +110,7 @@ export async function syncRepository(
       }
 
       // 3.3 检查是否需要更新
+      const fileExisted = await fs.access(outputPath).then(() => true).catch(() => false);
       const needsUpdate = await shouldUpdateFile(outputPath, buffer);
 
       if (!needsUpdate) {
@@ -136,7 +137,7 @@ export async function syncRepository(
       await fs.writeFile(outputPath, content, 'utf-8');
 
       // 3.7 记录结果
-      const isNew = !(await fs.access(outputPath).then(() => true).catch(() => false));
+      const isNew = !fileExisted;
       if (isNew) {
         result.newFiles.push(asset.name);
         console.log(picocolors.green(`[Sync] ✓ Added: ${asset.name}`));

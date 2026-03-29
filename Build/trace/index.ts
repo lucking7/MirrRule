@@ -106,8 +106,11 @@ export function task(importMetaMain: boolean, importMetaPath: string) {
   ) => {
     const taskName = customName ?? basename(importMetaPath, extname(importMetaPath));
     let cleanup: () => Promise<void> | void = noop;
-    const onCleanup = (cb: () => void) => {
+    const onCleanup = (cb: () => Promise<void> | void) => {
       cleanup = cb;
+    };
+    const runCleanup = async () => {
+      await cleanup();
     };
 
     const dummySpan = createSpan(taskName);
@@ -121,21 +124,43 @@ export function task(importMetaMain: boolean, importMetaPath: string) {
         process.exit(1);
       });
 
-      dummySpan
-        .traceChildAsync('dummy', childSpan => fn(childSpan, onCleanup))
-        .finally(() => {
+      void (async () => {
+        let exitCode = 0;
+        try {
+          await dummySpan.traceChildAsync('dummy', childSpan => fn(childSpan, onCleanup));
+        } catch (error) {
+          exitCode = 1;
+          console.error(error);
+        } finally {
+          try {
+            await runCleanup();
+          } catch (error) {
+            exitCode = 1;
+            console.error('Cleanup failed:', error);
+          }
           dummySpan.stop();
           printTraceResult(dummySpan.traceResult);
-          process.nextTick(whyIsNodeRunning);
-          process.nextTick(() => process.exit(0));
-        });
+          await whyIsNodeRunning();
+          process.exit(exitCode);
+        }
+      })();
     }
 
     return async (span?: Span) => {
       if (span) {
-        return span.traceChildAsync(taskName, childSpan => fn(childSpan, onCleanup).finally(() => cleanup()));
+        return span.traceChildAsync(taskName, async childSpan => {
+          try {
+            return await fn(childSpan, onCleanup);
+          } finally {
+            await runCleanup();
+          }
+        });
       }
-      return fn(dummySpan, onCleanup).finally(() => cleanup());
+      try {
+        return await fn(dummySpan, onCleanup);
+      } finally {
+        await runCleanup();
+      }
     };
   };
 }

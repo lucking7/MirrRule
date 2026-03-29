@@ -32,7 +32,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "validate": "pnpm run lint && pnpm run typecheck",
-    "validate:rules": "node -r @swc-node/register Build/lib/validators/rule-validator.ts",
+    "validate:rules": "node -r @swc-node/register Build/lib/validators/rule-validator.ts public",
     "security:audit": "pnpm audit --production",
     "security:check": "pnpm audit && pnpm run validate",
     "deploy": "pnpm build && echo 'Ready for GitHub Pages deployment'",

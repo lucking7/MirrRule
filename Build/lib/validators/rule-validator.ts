@@ -212,6 +212,16 @@ class RuleValidator {
     console.log(picocolors.blue('\nValidating rule files...'));
     console.log(picocolors.gray(`找到 ${files.length} 个文件\n`));
 
+    if (files.length === 0) {
+      this.results.push({
+        file: dirPath,
+        errors: ['未找到任何匹配的规则文件'],
+        warnings: [],
+        passed: false,
+      });
+      return this.getSummary();
+    }
+
     files.forEach(file => {
       console.log(picocolors.gray(`验证: ${file}`));
       this.validateFile(file);
