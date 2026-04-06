@@ -22,6 +22,8 @@ export const buildRuleset = task(
   console.log('Starting ruleset build...');
   await downloadGEOIP(span);
 
+  let buildFailed = false;
+
   await span.traceChildAsync('unified rule processing system', async span => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic require for lazy loading
@@ -40,6 +42,7 @@ export const buildRuleset = task(
 
       const totalErrors = groupStats.errors.length + ruleStats.errors.length;
       if (totalErrors > 0) {
+        buildFailed = true;
         console.error(`${totalErrors} errors occurred during rule processing`);
         const allErrors = [...groupStats.errors, ...ruleStats.errors];
         for (const { file, error } of allErrors) {
@@ -47,6 +50,7 @@ export const buildRuleset = task(
         }
       }
     } catch (error) {
+      buildFailed = true;
       console.error('Rule processing failed:', error);
       throw error;
     }
@@ -58,11 +62,18 @@ export const buildRuleset = task(
       const { buildPublic } = require('./build-public.ts');
       await buildPublic();
     } catch (error) {
+      buildFailed = true;
       console.error('Web page build failed:', error);
     }
   });
 
-  fs.writeFileSync(buildFinishedLock, 'BUILD_FINISHED\n');
+  if (buildFailed) {
+    console.error('Build completed with errors — .BUILD_FINISHED not written');
+    process.exitCode = 1;
+  } else {
+    fs.writeFileSync(buildFinishedLock, 'BUILD_FINISHED\n');
+  }
+
   printTraceResult(span.traceResult);
   await whyIsNodeRunning();
 });

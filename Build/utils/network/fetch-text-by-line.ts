@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import readline from 'node:readline';
 
 import { TextLineStream } from 'foxts/text-line-stream';
-import type { ReadableStream } from 'node:stream/web';
+import type { ReadableStream, ReadableWritablePair } from 'node:stream/web';
 import { TextDecoderStream } from 'node:stream/web';
 import { processLine, ProcessLineStream } from '../../lib/process-line';
 import { $$fetch } from './fetch-retry';
@@ -30,7 +30,8 @@ export const createReadlineInterfaceFromResponse: ((resp: UndiciResponseData | U
   }
 
   const resultStream = webStream
-    .pipeThrough(new TextDecoderStream())
+    // eslint-disable-next-line sukka/type/no-force-cast-via-top-type -- node:stream/web TextDecoderStream.writable is WritableStream<BufferSource>; TS generic invariance blocks direct assignment to WritableStream<Uint8Array>
+    .pipeThrough(new TextDecoderStream() as unknown as ReadableWritablePair<string, Uint8Array>)
     .pipeThrough(new TextLineStream({ skipEmptyLines: processLine }));
 
   if (processLine) {

@@ -48,13 +48,10 @@ export async function syncRepository(
     const error = releaseResult.error;
     console.log(picocolors.red(`[Sync] ✗ Failed to fetch release: ${error.message}`));
 
-    // 如果可以重试，记录为失败但不中断
-    if (error.canRetry) {
-      result.failedFiles.push({
-        file: repository.repo,
-        error: error.message
-      });
-    }
+    result.failedFiles.push({
+      file: repository.repo,
+      error: error.message
+    });
 
     return result;
   }
