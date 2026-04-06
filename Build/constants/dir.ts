@@ -21,7 +21,3 @@ export const OUTPUT_SUKKA_MIRROR_DIR = path.resolve(PUBLIC_DIR, 'Mirror', 'Sukka
 export const OUTPUT_MOCK_DIR = path.resolve(OUTPUT_SUKKA_MIRROR_DIR, 'mock');
 export const OUTPUT_MODULES_DIR = path.resolve(OUTPUT_SUKKA_MIRROR_DIR, 'sgmodule');
 export const OUTPUT_MODULES_RULES_DIR = path.resolve(OUTPUT_MODULES_DIR, 'Rules');
-
-// 遗留导出（兼容性）- 如果这些目录不再使用，应该删除引用
-export const OUTPUT_SURFBOARD_DIR = path.resolve(PUBLIC_DIR, 'Surfboard');
-export const OUTPUT_LEAGCY_CLASH_PREMIUM_DIR = path.resolve(PUBLIC_DIR, 'Clash', 'Premium');

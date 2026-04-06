@@ -10,7 +10,7 @@ import { createRetrieKeywordFilter as createKeywordFilter } from 'foxts/retrie';
 import path from 'node:path';
 import { SurgeMitmSgmodule } from '../../core/output/writing-strategy/surge';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
-import { RuleValidator } from '../../utils/validation/validators';
+import { RuleLineUtils } from '../../utils/validation/validators';
 import { stripTrailingHashComment } from './rule-line-utils.ts';
 
 /**
@@ -111,7 +111,7 @@ export class FileOutput {
   }
 
   addDomain(domain: string) {
-    if (!RuleValidator.isSukkaWatermark(domain)) {
+    if (!RuleLineUtils.isSukkaWatermark(domain)) {
       this.domainTrie.add(domain);
     }
     return this;
@@ -122,7 +122,7 @@ export class FileOutput {
     for (let i = 0, len = domains.length; i < len; i++) {
       d = domains[i];
 
-      if (d !== null && !RuleValidator.isSukkaWatermark(d)) {
+      if (d !== null && !RuleLineUtils.isSukkaWatermark(d)) {
         this.domainTrie.add(d, false, null, 0);
       }
     }
@@ -130,7 +130,7 @@ export class FileOutput {
   }
 
   addDomainSuffix(domain: string, lineFromDot = domain[0] === '.') {
-    if (!RuleValidator.isSukkaWatermark(domain)) {
+    if (!RuleLineUtils.isSukkaWatermark(domain)) {
       this.domainTrie.add(domain, true, null, lineFromDot ? 1 : 0);
     }
     return this;
@@ -181,7 +181,7 @@ export class FileOutput {
     for await (let line of await source) {
       line = stripTrailingHashComment(line);
 
-      if (RuleValidator.isSukkaWatermark(line)) {
+      if (RuleLineUtils.isSukkaWatermark(line)) {
         continue;
       }
 
@@ -231,13 +231,13 @@ export class FileOutput {
       switch (type) {
         case 'DOMAIN':
 
-          if (!RuleValidator.isSukkaWatermark(value)) {
+          if (!RuleLineUtils.isSukkaWatermark(value)) {
             this.domainTrie.add(value, false, null, 0);
           }
           break;
         case 'DOMAIN-SUFFIX':
 
-          if (!RuleValidator.isSukkaWatermark(value)) {
+          if (!RuleLineUtils.isSukkaWatermark(value)) {
             this.addDomainSuffix(value, false);
           }
           break;
@@ -425,7 +425,7 @@ export class FileOutput {
         return;
       }
 
-      if (RuleValidator.isSukkaWatermark(domain)) {
+      if (RuleLineUtils.isSukkaWatermark(domain)) {
         return;
       }
 

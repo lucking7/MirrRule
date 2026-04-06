@@ -367,7 +367,7 @@ jobs:
           # 检查哪些目录缺失或为空（包含所有可能的规则目录）
           # 🔧 修复：不仅检查目录是否存在，还检查是否有内容
           MISSING_DIRS=""
-          for dir in Mirror Modules Scripts List Clash sing-box Loon Surfboard GeoIP; do
+          for dir in Mirror Modules Scripts List Clash sing-box Loon GeoIP; do
             if [ ! -d "public/$dir" ]; then
               MISSING_DIRS="$MISSING_DIRS $dir"
               echo "  ❌ $dir/ 缺失"
@@ -434,7 +434,7 @@ jobs:
 
           echo ""
           echo "📊 最终目录状态："
-          for dir in Mirror Modules Scripts List Clash sing-box Loon Surfboard GeoIP; do
+          for dir in Mirror Modules Scripts List Clash sing-box Loon GeoIP; do
             if [ -d "public/$dir" ]; then
               FILE_COUNT=$(find "public/$dir" -type f 2>/dev/null | wc -l)
               echo "  ✅ $dir/: $FILE_COUNT 个文件"
@@ -480,7 +480,7 @@ jobs:
           echo "  Clash: $(find public/Clash -type f 2>/dev/null | wc -l) files"
           echo "  sing-box: $(find public/sing-box -type f 2>/dev/null | wc -l) files"
           echo "  Loon: $(find public/Loon -type f 2>/dev/null | wc -l) files"
-          echo "  Surfboard: $(find public/Surfboard -type f 2>/dev/null | wc -l) files"
+
           echo "  GeoIP: $(find public/GeoIP -type f 2>/dev/null | wc -l) files"
 
           # 模块和脚本
@@ -675,7 +675,7 @@ jobs:
           SYNC_DESC=""
 
           # 规则构建（始终执行）- 包含所有规则格式
-          SYNC_PATHS="$SYNC_PATHS List/ Clash/ sing-box/ Loon/ Surfboard/ GeoIP/"
+          SYNC_PATHS="$SYNC_PATHS List/ Clash/ sing-box/ Loon/ GeoIP/"
           SYNC_DESC="rules"
 
           # 镜像同步

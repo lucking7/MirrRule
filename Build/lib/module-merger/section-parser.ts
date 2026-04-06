@@ -4,7 +4,7 @@
  */
 
 import type { ParsedSection, SectionType } from './types';
-import { RuleValidator } from '../../utils/validation/validators';
+import { RuleLineUtils } from '../../utils/validation/validators';
 
 export interface SectionParserOptions {
   header: string,
@@ -102,7 +102,7 @@ function cleanSectionContent(content: string, _type: SectionType, stripComments:
   const preserved: string[] = [];
   for (const line of cleaned.split('\n')) {
     const trimmed = line.trim();
-    if (trimmed && !RuleValidator.isComment(trimmed)) {
+    if (trimmed && !RuleLineUtils.isComment(trimmed)) {
       preserved.push(trimmed);
     }
   }

@@ -19,7 +19,7 @@ interface ValidationSummary {
   results: ValidationResult[];
 }
 
-class RuleValidator {
+class RuleFileValidator {
   private readonly results: ValidationResult[] = [];
 
   validateFile(filePath: string): ValidationResult {
@@ -339,7 +339,7 @@ class RuleValidator {
 
 // CLI 入口
 if (require.main === module) {
-  const validator = new RuleValidator();
+  const validator = new RuleFileValidator();
 
   // 从命令行参数获取目录,默认为当前目录
   const targetDir = process.argv[2] || process.cwd();
@@ -348,4 +348,4 @@ if (require.main === module) {
   validator.printReport();
 }
 
-export { RuleValidator, type ValidationResult, type ValidationSummary };
+export { RuleFileValidator, type ValidationResult, type ValidationSummary };

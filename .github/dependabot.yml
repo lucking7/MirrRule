@@ -18,7 +18,6 @@ updates:
     # PR 标签
     labels:
       - "dependencies"
-      - "automated"
 
     # 提交消息前缀
     commit-message:
@@ -81,7 +80,6 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
-      - "automated"
 
     commit-message:
       prefix: "ci"

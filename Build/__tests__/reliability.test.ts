@@ -83,8 +83,8 @@ describe('validate-domain-alive entry point', () => {
 describe('rule-validator compound rules', () => {
   it('does not flag AND/OR/NOT rules as having bad policy names', () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- CJS project
-    const { RuleValidator } = require('../lib/validators/rule-validator');
-    const validator = new RuleValidator();
+    const { RuleFileValidator } = require('../lib/validators/rule-validator');
+    const validator = new RuleFileValidator();
 
     const tmpFile = path.join(os.tmpdir(), `test-rules-${Date.now()}.list`);
     fs.writeFileSync(tmpFile, [

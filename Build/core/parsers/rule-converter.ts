@@ -12,7 +12,7 @@ import {
   STRATEGY_CLEANUP_CONFIG,
 } from '../../constants/rule-formats';
 import type { ParsedRule } from './types';
-import { RuleValidator } from './rule-validator';
+import { PlatformRuleValidator } from './rule-validator';
 import { WildcardAnalyzer } from './wildcard-analyzer';
 import { cleanPolicy } from './policy-cleaner';
 
@@ -142,7 +142,7 @@ export class RuleConverter {
     let result = `${targetRuleType},${parsedRule.value}`;
 
     if (parsedRule.parameters) {
-      const allowedParams = RuleValidator.filterRuleSetParameters(
+      const allowedParams = PlatformRuleValidator.filterRuleSetParameters(
         parsedRule.parameters,
         parsedRule.type
       );

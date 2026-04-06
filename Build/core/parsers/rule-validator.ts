@@ -15,7 +15,7 @@ import type { ParsedRule, RuleValidationResult, ParameterValidationResult } from
 /**
  * 规则验证器类
  */
-export class RuleValidator {
+export class PlatformRuleValidator {
   /**
    * 验证规则的完整性
    *
@@ -41,7 +41,7 @@ export class RuleValidator {
 
     // 检查参数支持
     if (parsed.parameters) {
-      const paramErrors = RuleValidator.validatePlatformParameterSupport(
+      const paramErrors = PlatformRuleValidator.validatePlatformParameterSupport(
         parsed.parameters,
         targetPlatform
       );
@@ -50,7 +50,7 @@ export class RuleValidator {
 
     // 检查逻辑规则支持
     if (parsed.isLogical && parsed.logicalOperator) {
-      const operatorError = RuleValidator.validateLogicalOperator(
+      const operatorError = PlatformRuleValidator.validateLogicalOperator(
         parsed.logicalOperator,
         targetPlatform
       );
@@ -156,13 +156,13 @@ export class RuleValidator {
       switch (param) {
         case RuleParameter.NO_RESOLVE:
           // 仅适用于IP类规则
-          if (RuleValidator.isIpRule(ruleType)) {
+          if (PlatformRuleValidator.isIpRule(ruleType)) {
             allowedParams.push('no-resolve');
           }
           break;
         case RuleParameter.EXTENDED_MATCHING:
           // 仅适用于域名类规则
-          if (RuleValidator.isDomainRule(ruleType)) {
+          if (PlatformRuleValidator.isDomainRule(ruleType)) {
             allowedParams.push('extended-matching');
           }
           break;

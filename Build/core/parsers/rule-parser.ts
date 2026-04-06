@@ -14,7 +14,7 @@ import {
 } from '../../constants/rule-formats';
 import type { ParsedRule } from './types';
 import { PlatformDetector } from './platform-detector';
-import { RuleValidator } from './rule-validator';
+import { PlatformRuleValidator } from './rule-validator';
 
 /**
  * 规则解析器类
@@ -136,7 +136,7 @@ export class RuleParser {
       policy = RuleParser.inferDefaultPolicy(ruleType, value);
     }
 
-    const validatedParameters = RuleValidator.validateParameters(ruleType, policy, parameters);
+    const validatedParameters = PlatformRuleValidator.validateParameters(ruleType, policy, parameters);
     parameters = validatedParameters.validParameters;
 
     return { policy, parameters, options };

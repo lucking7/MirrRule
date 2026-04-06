@@ -7,7 +7,7 @@ import type { ParsedRule, RuleValidationResult, RuleStats } from './types';
 import { PlatformDetector } from './platform-detector';
 import { RuleParser } from './rule-parser';
 import { RuleConverter } from './rule-converter';
-import { RuleValidator } from './rule-validator';
+import { PlatformRuleValidator } from './rule-validator';
 import { WildcardAnalyzer } from './wildcard-analyzer';
 import { convertRulesBase } from './convert-helpers.ts';
 
@@ -195,7 +195,7 @@ export const CrossPlatformRuleParser = {
       return result;
     }
 
-    return RuleValidator.validateRule(parsed, platform);
+    return PlatformRuleValidator.validateRule(parsed, platform);
   },
 
   /**
@@ -286,4 +286,4 @@ export type {
 } from './types';
 
 // 导出子模块（供高级用户使用）
-export { PlatformDetector, RuleParser, RuleConverter, RuleValidator, WildcardAnalyzer };
+export { PlatformDetector, RuleParser, RuleConverter, PlatformRuleValidator, WildcardAnalyzer };

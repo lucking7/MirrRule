@@ -7,7 +7,7 @@ import { createStrategiesForTargets, normalizeTargets } from './platform-config'
 import type { SupportedPlatform } from './platform-config';
 import type { FileConfig, RuleGroup, SpecialRuleConfig } from './rule-source-types';
 import { cleanPolicy } from '../core/parsers/policy-cleaner';
-import { RuleValidator } from '../utils/validation/validators';
+import { RuleLineUtils } from '../utils/validation/validators';
 
 type EnhancedFileConfig = FileConfig & {
   validate?: boolean;
@@ -69,15 +69,15 @@ export class EnhancedFileOutput extends FileOutput {
       return this;
     }
 
-    if (RuleValidator.shouldSkipLine(trimmed)) {
-      if (this.config.keepComments && RuleValidator.isComment(trimmed)) {
+    if (RuleLineUtils.shouldSkipLine(trimmed)) {
+      if (this.config.keepComments && RuleLineUtils.isComment(trimmed)) {
         this.otherRules.push(trimmed);
       }
       return this;
     }
 
     if (!this.config.keepInlineComments) {
-      trimmed = RuleValidator.removeInlineComment(trimmed);
+      trimmed = RuleLineUtils.removeInlineComment(trimmed);
     }
 
     let normalizedRule = trimmed;
@@ -85,7 +85,7 @@ export class EnhancedFileOutput extends FileOutput {
       normalizedRule = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.SURGE);
     }
 
-    if (this.config.validate && !RuleValidator.isValidRule(normalizedRule)) {
+    if (this.config.validate && !RuleLineUtils.isValidRule(normalizedRule)) {
       return this;
     }
 
@@ -102,7 +102,7 @@ export class EnhancedFileOutput extends FileOutput {
       case 'domain': {
         const domain = this.extractDomain(processedRule);
 
-        if (domain && !RuleValidator.isSukkaWatermark(domain)) {
+        if (domain && !RuleLineUtils.isSukkaWatermark(domain)) {
           this.domainTrie.add(domain, false);
           if (process.env.DEBUG) this.stats.inputDomains++;
         }
@@ -112,7 +112,7 @@ export class EnhancedFileOutput extends FileOutput {
       case 'domain-suffix': {
         const suffix = this.extractDomain(processedRule);
 
-        if (suffix && !RuleValidator.isSukkaWatermark(suffix)) {
+        if (suffix && !RuleLineUtils.isSukkaWatermark(suffix)) {
           const lineFromDot = suffix.startsWith('.');
           this.domainTrie.add(
             lineFromDot ? suffix.slice(1) : suffix,
