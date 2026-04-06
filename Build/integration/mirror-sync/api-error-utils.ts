@@ -13,7 +13,7 @@ interface StatusLikeError {
   message?: string;
 }
 
-function createApiError(
+export function createApiError(
   type: ApiErrorType,
   message: string,
   url: string,
@@ -74,24 +74,6 @@ export function mapGitHubApiError(
       'GitHub API endpoint moved permanently',
       url,
       true
-    );
-  }
-
-  if (message === 'NULL_RESPONSE') {
-    return createApiError(
-      ApiErrorType.NULL_RESPONSE,
-      options.nullResponseMessage ?? 'Response data is null',
-      url,
-      true
-    );
-  }
-
-  if (message === 'EMPTY_RESPONSE') {
-    return createApiError(
-      ApiErrorType.EMPTY_RESPONSE,
-      options.emptyResponseMessage ?? 'Response data is empty',
-      url,
-      false
     );
   }
 

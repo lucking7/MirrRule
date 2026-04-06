@@ -7,28 +7,16 @@ import process from 'node:process';
 import { Buffer } from 'node:buffer';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import { UA_MIRROR } from '../../constants/user-agents';
-import type { GitHubRelease, ApiError, ApiErrorType } from './types';
+import type { GitHubRelease, ApiError } from './types';
 import { ApiErrorType as ApiErrorTypes } from './types';
 import picocolors from 'picocolors';
 import { getErrorMessage } from '../../utils/cli/logger';
-import { mapGitHubApiError } from './api-error-utils';
+import { createApiError, mapGitHubApiError } from './api-error-utils';
 
 /**
  * GitHub API 基础 URL
  */
 const GITHUB_API_BASE = 'https://api.github.com';
-
-/**
- * 创建 API 错误对象
- */
-function createApiError(
-  type: ApiErrorType,
-  message: string,
-  url: string,
-  canRetry = false
-): ApiError {
-  return { type, message, url, canRetry };
-}
 
 /**
  * 获取 GitHub Token（从环境变量）
@@ -184,7 +172,7 @@ export async function downloadAsset(assetUrl: string): Promise<Buffer | { error:
     if (buffer.length === 0) {
       return {
         error: createApiError(
-          'EMPTY_RESPONSE' as ApiErrorType,
+          ApiErrorTypes.EMPTY_RESPONSE,
           'Downloaded file is empty',
           assetUrl,
           false

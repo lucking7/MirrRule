@@ -4,6 +4,8 @@
  * 运行: pnpm test
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports -- CJS project, node:test requires require() for SWC compat */
+
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -13,7 +15,6 @@ import process from 'node:process';
 
 describe('build pipeline result model', () => {
   it('summarizeBuildSteps treats any failed step as a failed build', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- CJS project
     const { summarizeBuildSteps } = require('../lib/build-pipeline');
 
     const summary = summarizeBuildSteps([
@@ -28,7 +29,6 @@ describe('build pipeline result model', () => {
   });
 
   it('summarizeBuildSteps allows writing .BUILD_FINISHED when all steps succeed', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- CJS project
     const { summarizeBuildSteps } = require('../lib/build-pipeline');
 
     const summary = summarizeBuildSteps([
@@ -45,7 +45,6 @@ describe('build pipeline result model', () => {
 
 describe('mirror-sync api error mapping', () => {
   it('maps 404 into a non-retryable not-found error', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- CJS project
     const { mapGitHubApiError } = require('../integration/mirror-sync/api-error-utils');
 
     const error = mapGitHubApiError(
@@ -60,7 +59,6 @@ describe('mirror-sync api error mapping', () => {
   });
 
   it('maps 403 into a retryable rate-limit error', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- CJS project
     const { mapGitHubApiError } = require('../integration/mirror-sync/api-error-utils');
 
     const error = mapGitHubApiError(
@@ -82,7 +80,6 @@ describe('validate-domain-alive entry point', () => {
 
 describe('rule-validator compound rules', () => {
   it('does not flag AND/OR/NOT rules as having bad policy names', () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- CJS project
     const { RuleFileValidator } = require('../lib/validators/rule-validator');
     const validator = new RuleFileValidator();
 
