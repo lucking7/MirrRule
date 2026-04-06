@@ -20,7 +20,7 @@ if (!fs.existsSync(CACHE_DIR)) {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
 }
 
-const dispatcher = new Agent({ allowH2: true }).compose(
+export const dispatcher = new Agent({ allowH2: true }).compose(
   interceptors.dns({
     // disable IPv6
     dualStack: false,
