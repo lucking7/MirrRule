@@ -63,7 +63,7 @@
     "picocolors": "^1.1.1",
     "punycode": "^2.3.1",
     "tar-fs": "^3.1.2",
-    "tldts": "^7.0.19",
+    "tldts": "^7.0.28",
     "tldts-experimental": "^7.0.28",
     "undici": "^7.24.7",
     "undici-cache-store-better-sqlite3": "^1.0.0",
