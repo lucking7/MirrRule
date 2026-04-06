@@ -73,16 +73,16 @@
     "yauzl-promise": "^4.0.0"
   },
   "devDependencies": {
-    "@eslint-sukka/node": "^8.8.0",
+    "@eslint-sukka/node": "^8.9.1",
     "@swc-node/register": "^1.11.1",
-    "@swc/core": "^1.15.18",
+    "@swc/core": "^1.15.24",
     "@types/better-sqlite3": "^7.6.13",
     "@types/cli-progress": "^3.11.6",
-    "@types/node": "^25.5.0",
+    "@types/node": "^25.5.2",
     "@types/punycode": "^2.1.4",
     "eslint": "^9.39.1",
-    "eslint-config-sukka": "^8.8.0",
-    "eslint-formatter-sukka": "^8.9.0",
+    "eslint-config-sukka": "^8.9.1",
+    "eslint-formatter-sukka": "^8.9.1",
     "tinyexec": "^1.0.4",
     "typescript": "^5.9.3",
     "why-is-node-running": "^3.2.2"
