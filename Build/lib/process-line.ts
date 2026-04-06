@@ -1,8 +1,8 @@
 import { TransformStream } from 'node:stream/web';
-import { RuleValidator } from '../utils/validation/validators';
+import { RuleLineUtils } from '../utils/validation/validators';
 
 /**
- * 处理单行规则 - 统一使用 RuleValidator 进行注释检测
+ * 处理单行规则 - 统一使用 RuleLineUtils 进行注释检测
  *
  * 支持的注释格式:
  * - # - 井号注释 (最常见)
@@ -16,7 +16,7 @@ import { RuleValidator } from '../utils/validation/validators';
 export function processLine(line: string): string | null {
   const trimmed: string = line.trim();
 
-  if (RuleValidator.shouldSkipLine(trimmed)) {
+  if (RuleLineUtils.shouldSkipLine(trimmed)) {
     return null;
   }
 

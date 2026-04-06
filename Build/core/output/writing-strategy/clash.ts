@@ -5,7 +5,7 @@ import { notSupported, withBannerArray } from '../../../lib/misc';
 import { fastIpVersion } from 'foxts/fast-ip-version';
 import { OUTPUT_CLASH_DIR } from '../../../constants/dir';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
-import { RuleValidator } from '../../../utils/validation/validators';
+import { RuleLineUtils } from '../../../utils/validation/validators';
 import { CrossPlatformRuleParser } from '../../parsers';
 import { ProxyPlatform } from '../../../constants/rule-formats';
 
@@ -25,13 +25,13 @@ export class ClashDomainSet extends BaseWriteStrategy {
   withPadding = withBannerArray;
 
   writeDomain(domain: string): void {
-    if (!RuleValidator.isSukkaWatermark(domain)) {
+    if (!RuleLineUtils.isSukkaWatermark(domain)) {
       this.result.push(domain);
     }
   }
 
   writeDomainSuffix(domain: string): void {
-    if (!RuleValidator.isSukkaWatermark(domain)) {
+    if (!RuleLineUtils.isSukkaWatermark(domain)) {
       this.result.push('+.' + domain);
     }
   }
@@ -74,7 +74,7 @@ export class ClashDomainSet extends BaseWriteStrategy {
    */
   private processClashRuleIntelligently(rule: string): void {
     const trimmed = rule.trim();
-    if (RuleValidator.shouldSkipLine(trimmed)) {
+    if (RuleLineUtils.shouldSkipLine(trimmed)) {
       return;
     }
 
@@ -162,7 +162,7 @@ export class ClashIPSet extends BaseWriteStrategy {
    */
   private processClashRuleSetIntelligently(rule: string): void {
     const trimmed = rule.trim();
-    if (RuleValidator.shouldSkipLine(trimmed)) {
+    if (RuleLineUtils.shouldSkipLine(trimmed)) {
       return;
     }
 
@@ -180,7 +180,7 @@ export class ClashIPSet extends BaseWriteStrategy {
       case 'DOMAIN':
       case 'DOMAIN-SUFFIX':
       case 'DOMAIN-KEYWORD':
-        if (!RuleValidator.isSukkaWatermark(value)) {
+        if (!RuleLineUtils.isSukkaWatermark(value)) {
           this.result.push(`${ruleType},${value}${params ? ',' + params : ''}`);
         }
         break;
@@ -319,7 +319,7 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
     for (const rule of rules) {
       const trimmed = rule.trim();
 
-      if (RuleValidator.shouldSkipLine(trimmed)) continue;
+      if (RuleLineUtils.shouldSkipLine(trimmed)) continue;
       const converted = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.CLASH);
       this.result.push(converted);
     }

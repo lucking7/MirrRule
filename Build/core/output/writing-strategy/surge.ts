@@ -8,7 +8,7 @@ import { normalizeDomain } from '../../../utils/domain/normalize-domain';
 import { OUTPUT_MODULES_DIR, OUTPUT_SURGE_DIR } from '../../../constants/dir';
 import { withBannerArray, withIdentityContent } from '../../../lib/misc';
 import { CrossPlatformRuleParser } from '../../parsers';
-import { DomainValidator, IPValidator, RuleValidator } from '../../../utils/validation/validators';
+import { DomainValidator, IPValidator, RuleLineUtils } from '../../../utils/validation/validators';
 
 export class SurgeDomainSet extends BaseWriteStrategy {
   public readonly name = 'surge domainset';
@@ -27,13 +27,13 @@ export class SurgeDomainSet extends BaseWriteStrategy {
   withPadding = withBannerArray;
 
   writeDomain(domain: string): void {
-    if (!RuleValidator.isSukkaWatermark(domain)) {
+    if (!RuleLineUtils.isSukkaWatermark(domain)) {
       this.result.push(domain);
     }
   }
 
   writeDomainSuffix(domain: string): void {
-    if (!RuleValidator.isSukkaWatermark(domain)) {
+    if (!RuleLineUtils.isSukkaWatermark(domain)) {
       this.result.push('.' + domain);
     }
   }
@@ -73,14 +73,14 @@ export class SurgeRuleSet extends BaseWriteStrategy {
   withPadding = withBannerArray;
 
   writeDomain(domain: string): void {
-    if (!RuleValidator.isSukkaWatermark(domain)) {
+    if (!RuleLineUtils.isSukkaWatermark(domain)) {
       // 生成无策略的纯RULE-SET格式
       this.result.push(BaseWriteStrategy.normalizeSurgeRule(`DOMAIN,${domain}`));
     }
   }
 
   writeDomainSuffix(domain: string): void {
-    if (!RuleValidator.isSukkaWatermark(domain)) {
+    if (!RuleLineUtils.isSukkaWatermark(domain)) {
       // 生成无策略的纯RULE-SET格式
       this.result.push(BaseWriteStrategy.normalizeSurgeRule(`DOMAIN-SUFFIX,${domain}`));
     }
@@ -420,7 +420,7 @@ export class SurgeRuleSetPayload extends BaseWriteStrategy {
     const trimmed = line.trim();
 
     // 使用共享验证器检查注释和空行
-    if (RuleValidator.shouldSkipLine(trimmed)) {
+    if (RuleLineUtils.shouldSkipLine(trimmed)) {
       if (trimmed) {
         this.result.push(trimmed);
       }

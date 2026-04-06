@@ -84,7 +84,7 @@ export const ruleGroups: RuleGroup[] = [
     targets: ['surge', 'clash', 'singbox', 'loon'], // 广告拦截支持多平台
     files: [
       applyDefaultConfig({
-        path: 'List/Reject-fmz.list',
+        path: 'List/reject-fmz.list',
         url: 'https://github.com/fmz200/wool_scripts/raw/main/QuantumultX/filter/filter.list',
         keepComments: false,
         dedup: true,
@@ -110,7 +110,7 @@ export const ruleGroups: RuleGroup[] = [
     targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
       applyDefaultConfig({
-        path: 'List/Direct-fmz.list',
+        path: 'List/direct-fmz.list',
         url: 'https://github.com/fmz200/wool_scripts/raw/main/QuantumultX/filter/filterFix.list',
         keepComments: false,
         dedup: true,

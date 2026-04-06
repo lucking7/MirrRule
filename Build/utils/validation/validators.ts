@@ -60,7 +60,7 @@ export class URLValidator {
   }
 }
 
-export const RuleValidator = {
+export const RuleLineUtils = {
   isComment(line: string): boolean {
     const trimmed = line.trim();
     return (

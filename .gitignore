@@ -16,6 +16,7 @@ tmp.*
 .claude
 AGENTS.md
 docs/plans
+plans
 
 # Logs
 *.log

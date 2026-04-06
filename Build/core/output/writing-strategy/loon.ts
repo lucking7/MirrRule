@@ -5,7 +5,7 @@ import { withBannerArray } from '../../../lib/misc';
 import { OUTPUT_LOON_DIR } from '../../../constants/dir';
 import { CrossPlatformRuleParser } from '../../parsers';
 import { ProxyPlatform } from '../../../constants/rule-formats';
-import { RuleValidator } from '../../../utils/validation/validators';
+import { RuleLineUtils } from '../../../utils/validation/validators';
 
 /**
  * Loon规则集输出策略
@@ -29,14 +29,14 @@ export class LoonRuleSet extends BaseWriteStrategy {
 
   writeDomain(domain: string): void {
 
-    if (!RuleValidator.isSukkaWatermark(domain)) {
+    if (!RuleLineUtils.isSukkaWatermark(domain)) {
       this.result.push('DOMAIN,' + domain);
     }
   }
 
   writeDomainSuffix(domain: string): void {
 
-    if (!RuleValidator.isSukkaWatermark(domain)) {
+    if (!RuleLineUtils.isSukkaWatermark(domain)) {
       this.result.push('DOMAIN-SUFFIX,' + domain);
     }
   }
@@ -108,7 +108,7 @@ export class LoonRuleSet extends BaseWriteStrategy {
       const trimmed = rule.trim();
 
 
-      if (RuleValidator.shouldSkipLine(trimmed)) {
+      if (RuleLineUtils.shouldSkipLine(trimmed)) {
         continue;
       }
 

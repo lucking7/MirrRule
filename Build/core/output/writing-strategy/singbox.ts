@@ -4,7 +4,7 @@ import { noop } from 'foxts/noop';
 import { withIdentityContent } from '../../../lib/misc';
 import stringify from 'json-stringify-pretty-compact';
 import { OUTPUT_SINGBOX_DIR } from '../../../constants/dir';
-import { DomainValidator, RuleValidator } from '../../../utils/validation/validators';
+import { DomainValidator, RuleLineUtils } from '../../../utils/validation/validators';
 
 interface SingboxHeadlessRule {
   domain: string[];
@@ -58,14 +58,14 @@ export class SingboxSource extends BaseWriteStrategy {
 
   writeDomain(domain: string): void {
 
-    if (!RuleValidator.isSukkaWatermark(domain)) {
+    if (!RuleLineUtils.isSukkaWatermark(domain)) {
       this.singbox.domain.push(domain);
     }
   }
 
   writeDomainSuffix(domain: string): void {
 
-    if (!RuleValidator.isSukkaWatermark(domain)) {
+    if (!RuleLineUtils.isSukkaWatermark(domain)) {
       this.singbox.domain_suffix.push(domain);
     }
   }
@@ -141,7 +141,7 @@ export class SingboxSource extends BaseWriteStrategy {
   private processSingboxRuleIntelligently(rule: string): void {
     const trimmed = rule.trim();
     // 使用共享验证器检查是否应跳过
-    if (RuleValidator.shouldSkipLine(trimmed)) {
+    if (RuleLineUtils.shouldSkipLine(trimmed)) {
       return; // sing-box不输出注释
     }
 
@@ -154,13 +154,13 @@ export class SingboxSource extends BaseWriteStrategy {
     switch (ruleType) {
       case 'DOMAIN':
 
-        if (!RuleValidator.isSukkaWatermark(value)) {
+        if (!RuleLineUtils.isSukkaWatermark(value)) {
           this.singbox.domain.push(value);
         }
         break;
       case 'DOMAIN-SUFFIX':
 
-        if (!RuleValidator.isSukkaWatermark(value)) {
+        if (!RuleLineUtils.isSukkaWatermark(value)) {
           this.singbox.domain_suffix.push(value);
         }
         break;
