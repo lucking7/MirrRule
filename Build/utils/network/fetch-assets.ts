@@ -7,8 +7,8 @@ import { ProcessLineStream } from '../../lib/process-line';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { applyProxyIfNeeded } from './proxy';
 
-// eslint-disable-next-line sukka/unicorn/custom-error-definition -- typescript is better
 class CustomAbortError extends Error {
+  // eslint-disable-next-line sukka/unicorn/custom-error-definition -- intentionally mimics built-in AbortError
   public readonly name = 'AbortError';
   public readonly digest = 'AbortError';
 }
