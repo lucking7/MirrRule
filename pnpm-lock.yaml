@@ -85,8 +85,8 @@ importers:
         specifier: ^7.24.7
         version: 7.24.7
       undici-cache-store-better-sqlite3:
-        specifier: ^1.0.0
-        version: 1.0.0(undici@7.24.7)
+        specifier: ^1.0.1
+        version: 1.0.1(undici@7.24.7)
       worktank:
         specifier: ^3.0.2
         version: 3.0.2
@@ -958,9 +958,6 @@ packages:
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
 
-  better-sqlite3@11.10.0:
-    resolution: {integrity: sha512-EwhOpyXiOEL/lKzHz9AW1msWFNzGc/z+LzeB3/jnFJpxu+th2yqvzsSWas1v9jgs9+xiXJcD5A8CJxAG2TaghQ==}
-
   better-sqlite3@12.8.0:
     resolution: {integrity: sha512-RxD2Vd96sQDjQr20kdP+F+dK/1OUNiVOl200vKBZY8u0vTwysfolF6Hq+3ZK2+h8My9YvZhHsF+RSGZW2VYrPQ==}
     engines: {node: 20.x || 22.x || 23.x || 24.x || 25.x}
@@ -1258,12 +1255,6 @@ packages:
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
 
-  fast-escape-html@1.1.0:
-    resolution: {integrity: sha512-nRvjfywv8gzIBs0fM/ht6S5scNUamm+o+91p/69cYYNWODb7b/UiQfjFx+6n8NMtdHs6K80kh+hW1dPNS/opIA==}
-
-  fast-escape-regexp@1.0.1:
-    resolution: {integrity: sha512-VSnAgWEYHdyyVegVfN/TUCa6hDQ7PIxdIJVWq4RWqyegkG9zFwNb21uykT0hAyvKlKnFR+zOu/25434pHBXtLA==}
-
   fast-fifo@1.3.2:
     resolution: {integrity: sha512-/d9sfos4yxzpwkDkuN7k2SqFKtYNmCTzgfEpz82x34IM9/zc8KGxQoXg1liNC/izpRM/MBdt44Nmx41ZWqk+FQ==}
 
@@ -1302,9 +1293,6 @@ packages:
 
   flatted@3.3.3:
     resolution: {integrity: sha512-GX+ysw4PBCz0PzosHDepZGANEuFCMLrnRTiEy9McGjmkCQYwRq4A/X786G/fjM/+OjsWSU1ZrY5qyARZmO/uwg==}
-
-  foxts@3.15.0:
-    resolution: {integrity: sha512-XaSnlPKgD23NGdfuUHAX50V9h17bavUEZthg3SBO8ajT3D0pFg6KhYRvKNOlB+t7MpKZ1fj22bUPssH5PY0h4w==}
 
   foxts@5.4.0:
     resolution: {integrity: sha512-guuVqmx+BTI8Sv8C+KGCREvpGmirdUDFTiENJdi3Zru+0odfcc/bhOdc5DQUUkAAmaDx4XnudGO9ZGS3aamndw==}
@@ -1732,8 +1720,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  undici-cache-store-better-sqlite3@1.0.0:
-    resolution: {integrity: sha512-bYwnd02xu+q7UVCR20Cnb+tVJVB5f1cKP7BUc/sxafEMhgWbRQ5S/pRNZP9Ykl2sasy2bHzSJPGXlOF+/ju4+Q==}
+  undici-cache-store-better-sqlite3@1.0.1:
+    resolution: {integrity: sha512-UHrN400SOCqM3Lq59VSNMGnjr2M3GpdTNZPaGVmATsjEBMaBaCjPXfYycM5Dz7P+0RsJ3T/RD+oLpFsV1e8qPg==}
     peerDependencies:
       undici: '>=7.0.0'
 
@@ -2515,11 +2503,6 @@ snapshots:
 
   base64-js@1.5.1: {}
 
-  better-sqlite3@11.10.0:
-    dependencies:
-      bindings: 1.5.0
-      prebuild-install: 7.1.3
-
   better-sqlite3@12.8.0:
     dependencies:
       bindings: 1.5.0
@@ -2878,10 +2861,6 @@ snapshots:
 
   fast-deep-equal@3.1.3: {}
 
-  fast-escape-html@1.1.0: {}
-
-  fast-escape-regexp@1.0.1: {}
-
   fast-fifo@1.3.2: {}
 
   fast-json-stable-stringify@2.1.0: {}
@@ -2911,11 +2890,6 @@ snapshots:
       keyv: 4.5.4
 
   flatted@3.3.3: {}
-
-  foxts@3.15.0:
-    dependencies:
-      fast-escape-html: 1.1.0
-      fast-escape-regexp: 1.0.1
 
   foxts@5.4.0: {}
 
@@ -3367,10 +3341,10 @@ snapshots:
 
   typescript@5.9.3: {}
 
-  undici-cache-store-better-sqlite3@1.0.0(undici@7.24.7):
+  undici-cache-store-better-sqlite3@1.0.1(undici@7.24.7):
     dependencies:
-      better-sqlite3: 11.10.0
-      foxts: 3.15.0
+      better-sqlite3: 12.8.0
+      foxts: 5.4.0
       undici: 7.24.7
 
   undici-types@7.18.2: {}
