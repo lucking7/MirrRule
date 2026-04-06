@@ -127,8 +127,8 @@ importers:
         specifier: ^8.8.0
         version: 8.8.0(@typescript-eslint/utils@8.57.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
       eslint-formatter-sukka:
-        specifier: ^6.23.1
-        version: 6.23.1
+        specifier: ^8.9.0
+        version: 8.9.0(eslint@9.39.1(jiti@1.21.7))
       tinyexec:
         specifier: ^1.0.4
         version: 1.0.4
@@ -1101,8 +1101,10 @@ packages:
   eslint-config-sukka@8.8.0:
     resolution: {integrity: sha512-qFRph+swOENI3J3rb5i9hqIjrfyeEFsNJpcYg4Tcskvol/xDxOyPVPY9420wIsVHSR7p+jZhMZEWOkyiQMBnDA==}
 
-  eslint-formatter-sukka@6.23.1:
-    resolution: {integrity: sha512-oZydy+iu3yKtcVVONeu+NzW6T8B1MoiZ3dbH/nXFJKiiAKZhBx6IwV9jV7X+VVaLOXn8bZGuTa6Kdybu4dpolg==}
+  eslint-formatter-sukka@8.9.0:
+    resolution: {integrity: sha512-VKOhorsmrzIx2qsroBlapTzE7/nN3PnYr5spWz3eIldBCMhHRxkLUXCpVN3tZjyl0g8vHM+ZOQdtWm7YuX3kWA==}
+    peerDependencies:
+      eslint: '*'
 
   eslint-import-context@0.1.9:
     resolution: {integrity: sha512-K9Hb+yRaGAGUbwjhFNHvSmmkZs9+zbuoe3kFQ4V1wYjrepUFYM2dZAfNtjbbj3qsPfUfsA68Bx/ICWQMi+C8Eg==}
@@ -1312,6 +1314,9 @@ packages:
 
   foxts@5.3.0:
     resolution: {integrity: sha512-mj26vbVZmsu183PXwE7Nike91vuxhaDHtQGJmiEpQkdiuJYhDB91ZsdKJN54oSqUhMWj1DmUTEqSkguJCNM2Sg==}
+
+  foxts@5.4.0:
+    resolution: {integrity: sha512-guuVqmx+BTI8Sv8C+KGCREvpGmirdUDFTiENJdi3Zru+0odfcc/bhOdc5DQUUkAAmaDx4XnudGO9ZGS3aamndw==}
 
   fs-constants@1.0.0:
     resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
@@ -1878,7 +1883,7 @@ snapshots:
       '@package-json/types': 0.0.12
       '@typescript-eslint/utils': 8.57.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
       eslint: 9.39.1(jiti@1.21.7)
-      foxts: 5.3.0
+      foxts: 5.4.0
       oxc-resolver: 11.19.1
     transitivePeerDependencies:
       - supports-color
@@ -2668,9 +2673,11 @@ snapshots:
       - supports-color
       - typescript
 
-  eslint-formatter-sukka@6.23.1:
+  eslint-formatter-sukka@8.9.0(eslint@9.39.1(jiti@1.21.7)):
     dependencies:
-      ci-info: 4.3.0
+      ci-info: 4.4.0
+      eslint: 9.39.1(jiti@1.21.7)
+      foxts: 5.4.0
       picocolors: 1.1.1
 
   eslint-import-context@0.1.9(unrs-resolver@1.11.1):
@@ -2788,7 +2795,7 @@ snapshots:
       '@typescript-eslint/types': 8.57.0
       '@typescript-eslint/utils': 8.57.0(eslint@9.39.1(jiti@1.21.7))(typescript@5.9.3)
       eslint: 9.39.1(jiti@1.21.7)
-      foxts: 5.3.0
+      foxts: 5.4.0
       typescript: 5.9.3
     transitivePeerDependencies:
       - supports-color
@@ -2921,6 +2928,8 @@ snapshots:
   foxts@5.0.2: {}
 
   foxts@5.3.0: {}
+
+  foxts@5.4.0: {}
 
   fs-constants@1.0.0: {}
 
