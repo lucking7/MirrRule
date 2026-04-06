@@ -112,6 +112,13 @@ class RuleValidator {
     }
 
     const ruleType = parts[0].trim().toUpperCase();
+
+    // 复合规则 (AND/OR/NOT) 的语法为 AND,((SUB),(SUB)),POLICY,
+    // 逗号分割无法正确解析嵌套结构,跳过字段级校验避免误报
+    if (ruleType === 'AND' || ruleType === 'OR' || ruleType === 'NOT') {
+      return;
+    }
+
     const value = parts[1]?.trim();
     const policy = parts[2]?.trim();
 

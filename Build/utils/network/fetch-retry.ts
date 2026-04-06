@@ -20,9 +20,7 @@ if (!fs.existsSync(CACHE_DIR)) {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
 }
 
-const agent = new Agent({ allowH2: true });
-
-agent.compose(
+export const dispatcher = new Agent({ allowH2: true }).compose(
   interceptors.dns({
     // disable IPv6
     dualStack: false,
@@ -163,7 +161,7 @@ export const defaultRequestInit = {
 
 export async function $$fetch(url: string, init: RequestInit = defaultRequestInit) {
   try {
-    const res = await undici.fetch(url, init);
+    const res = await undici.fetch(url, { ...init, dispatcher });
     if (res.status >= 400) {
       throw new ResponseError(res, url);
     }
@@ -189,7 +187,7 @@ export async function $$fetch(url: string, init: RequestInit = defaultRequestIni
 /** @deprecated -- undici.requests doesn't support gzip/br/deflate, and has difficulty w/ undidi cache */
 export async function requestWithLog(url: string, opt?: Parameters<typeof undici.request>[1]) {
   try {
-    const res = await undici.request(url, opt);
+    const res = await undici.request(url, { ...opt, dispatcher });
     if (res.statusCode >= 400) {
       throw new ResponseError(res, url);
     }

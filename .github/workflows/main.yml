@@ -237,6 +237,9 @@ jobs:
       - name: Validate code quality
         run: pnpm run validate
 
+      - name: Run regression tests
+        run: pnpm test
+
       # 🔧 步骤 1: 镜像同步（如果需要）
       - name: Sync mirrors (iRingo, DualSubs, BiliUniverse)
         if: needs.prepare.outputs.should_mirror_sync == 'true'

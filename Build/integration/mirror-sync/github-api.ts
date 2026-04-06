@@ -8,8 +8,10 @@ import { Buffer } from 'node:buffer';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import { UA_MIRROR } from '../../constants/user-agents';
 import type { GitHubRelease, ApiError, ApiErrorType } from './types';
+import { ApiErrorType as ApiErrorTypes } from './types';
 import picocolors from 'picocolors';
 import { getErrorMessage } from '../../utils/cli/logger';
+import { mapGitHubApiError } from './api-error-utils';
 
 /**
  * GitHub API 基础 URL
@@ -81,47 +83,11 @@ export async function fetchLatestRelease(
       headers: createHeaders(),
     });
 
-    // 检查响应状态
-    if (!response.ok) {
-      if (response.status === 404) {
-        return {
-          error: createApiError(
-            '404' as ApiErrorType,
-            `Repository ${repo} not found or has no releases`,
-            url,
-            false
-          ),
-        };
-      }
-      if (response.status === 403) {
-        return {
-          error: createApiError('403' as ApiErrorType, 'GitHub API rate limit exceeded', url, true),
-        };
-      }
-      if (response.status === 301) {
-        // 处理重定向
-        const redirectUrl = response.headers.get('Location');
-        if (redirectUrl) {
-          console.log(picocolors.yellow(`[GitHub API] Following redirect to ${redirectUrl}`));
-          return await fetchLatestReleaseFromUrl(redirectUrl);
-        }
-      }
-
-      return {
-        error: createApiError(
-          'UNKNOWN' as ApiErrorType,
-          `HTTP ${response.status}: ${response.statusText}`,
-          url,
-          response.status >= 500
-        ),
-      };
-    }
-
     const data = (await response.json()) as GitHubRelease;
 
     if (!data) {
       return {
-        error: createApiError('NULL_RESPONSE' as ApiErrorType, 'Response data is null', url, true),
+        error: createApiError(ApiErrorTypes.NULL_RESPONSE, 'Response data is null', url, true),
       };
     }
 
@@ -136,14 +102,14 @@ export async function fetchLatestRelease(
       }
 
       return {
-        error: createApiError('UNKNOWN' as ApiErrorType, message, url, false),
+        error: createApiError(ApiErrorTypes.UNKNOWN, message, url, false),
       };
     }
 
     if (!data.assets || !Array.isArray(data.assets) || data.assets.length === 0) {
       return {
         error: createApiError(
-          'EMPTY_RESPONSE' as ApiErrorType,
+          ApiErrorTypes.EMPTY_RESPONSE,
           'No assets found in release',
           url,
           false
@@ -155,12 +121,9 @@ export async function fetchLatestRelease(
     return data;
   } catch (error) {
     return {
-      error: createApiError(
-        'NETWORK_ERROR' as ApiErrorType,
-        getErrorMessage(error),
-        url,
-        true
-      ),
+      error: mapGitHubApiError(url, error, {
+        notFoundMessage: `Repository ${repo} not found or has no releases`,
+      }),
     };
   }
 }
@@ -177,23 +140,12 @@ async function fetchLatestReleaseFromUrl(
       headers: createHeaders(),
     });
 
-    if (!response.ok) {
-      return {
-        error: createApiError(
-          'UNKNOWN' as ApiErrorType,
-          `HTTP ${response.status}: ${response.statusText}`,
-          url,
-          response.status >= 500
-        ),
-      };
-    }
-
     const data = (await response.json()) as GitHubRelease;
 
     if (!data?.assets || data.assets.length === 0) {
       return {
         error: createApiError(
-          'EMPTY_RESPONSE' as ApiErrorType,
+          ApiErrorTypes.EMPTY_RESPONSE,
           'No assets found in redirected release',
           url,
           false
@@ -204,12 +156,9 @@ async function fetchLatestReleaseFromUrl(
     return data;
   } catch (error) {
     return {
-      error: createApiError(
-        'NETWORK_ERROR' as ApiErrorType,
-        getErrorMessage(error),
-        url,
-        true
-      ),
+      error: mapGitHubApiError(url, error, {
+        emptyResponseMessage: 'No assets found in redirected release',
+      }),
     };
   }
 }
@@ -230,17 +179,6 @@ export async function downloadAsset(assetUrl: string): Promise<Buffer | { error:
       },
     });
 
-    if (!response.ok) {
-      return {
-        error: createApiError(
-          'UNKNOWN' as ApiErrorType,
-          `Failed to download asset: HTTP ${response.status}`,
-          assetUrl,
-          response.status >= 500
-        ),
-      };
-    }
-
     const buffer = Buffer.from(await response.arrayBuffer());
 
     if (buffer.length === 0) {
@@ -257,12 +195,7 @@ export async function downloadAsset(assetUrl: string): Promise<Buffer | { error:
     return buffer;
   } catch (error) {
     return {
-      error: createApiError(
-        'NETWORK_ERROR' as ApiErrorType,
-        getErrorMessage(error),
-        assetUrl,
-        true
-      ),
+      error: mapGitHubApiError(assetUrl, error),
     };
   }
 }

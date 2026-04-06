@@ -5,8 +5,13 @@ import path from 'node:path';
 
 import { task } from './trace';
 import { printTraceResult, whyIsNodeRunning } from './trace';
-import { downloadGEOIP } from './download-geoip';
 import { ROOT_DIR } from './constants/dir';
+import {
+  executeGeoIpBuildStep,
+  executeRuleProcessingBuildStep,
+  executeWebBuildStep,
+} from './lib/build-executors';
+import { summarizeBuildSteps } from './lib/build-pipeline';
 
 export const buildRuleset = task(
   require.main === module,
@@ -20,49 +25,25 @@ export const buildRuleset = task(
   }
 
   console.log('Starting ruleset build...');
-  await downloadGEOIP(span);
+  const steps = [
+    await span.traceChildAsync('download GEOIP', stepSpan => executeGeoIpBuildStep(stepSpan)),
+    await span.traceChildAsync('unified rule processing system', stepSpan =>
+      executeRuleProcessingBuildStep(stepSpan, 'public')
+    ),
+    await span.traceChildAsync('build web page', () => executeWebBuildStep()),
+  ];
 
-  await span.traceChildAsync('unified rule processing system', async span => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic require for lazy loading
-      const { RuleSourceProcessor } = require('./lib/rule-source-processor.ts');
-      // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic require for lazy loading
-      const { ruleGroups, specialRules } = require('./lib/rule-sources.ts');
-
-      const processor = new RuleSourceProcessor(span, 'public');
-      console.log(`Processing ${ruleGroups.length} groups, ${specialRules.length} special rules`);
-
-      const groupStats = await processor.processRuleGroups(ruleGroups);
-      console.log(`Groups: ${groupStats.filesProcessed} files, ${groupStats.errors.length} errors`);
-
-      const ruleStats = await processor.processSpecialRules(specialRules);
-      console.log(`Special: ${ruleStats.filesProcessed} files, ${ruleStats.rulesMerged} rules merged`);
-
-      const totalErrors = groupStats.errors.length + ruleStats.errors.length;
-      if (totalErrors > 0) {
-        console.error(`${totalErrors} errors occurred during rule processing`);
-        const allErrors = [...groupStats.errors, ...ruleStats.errors];
-        for (const { file, error } of allErrors) {
-          console.error(`[rule-processing] ${file}: ${error}`);
-        }
-      }
-    } catch (error) {
-      console.error('Rule processing failed:', error);
-      throw error;
+  const summary = summarizeBuildSteps(steps);
+  if (!summary.success) {
+    for (const error of summary.errors) {
+      console.error(error);
     }
-  });
+    console.error('Build completed with errors — .BUILD_FINISHED not written');
+    process.exitCode = 1;
+  } else {
+    fs.writeFileSync(buildFinishedLock, 'BUILD_FINISHED\n');
+  }
 
-  await span.traceChildAsync('build web page', async () => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic require for lazy loading
-      const { buildPublic } = require('./build-public.ts');
-      await buildPublic();
-    } catch (error) {
-      console.error('Web page build failed:', error);
-    }
-  });
-
-  fs.writeFileSync(buildFinishedLock, 'BUILD_FINISHED\n');
   printTraceResult(span.traceResult);
   await whyIsNodeRunning();
 });
