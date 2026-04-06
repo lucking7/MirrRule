@@ -4,8 +4,8 @@
 
 ## Requirements
 
-- **Node.js** >= 24 (see `.node-version`)
-- **pnpm** >= 10
+- **Node.js** 24.x (see `.node-version`)
+- **pnpm** 10.x
 
 ## Quick Start
 
@@ -13,6 +13,8 @@
 pnpm install
 pnpm run build
 ```
+
+`pnpm install` will fail fast on unsupported Node.js versions instead of letting native dependencies fail later during compilation.
 
 ## Available Commands
 
