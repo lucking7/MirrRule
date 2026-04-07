@@ -1,33 +1,91 @@
-# RULE-AGGREGATOR
+# Rule Aggregator
 
-> A comprehensive aggregation repository for network proxy modules and rules.
+Aggregates and distributes network proxy rules from multiple upstream sources, automatically built and deployed via GitHub Actions.
 
-## Requirements
+## Supported Platforms
 
-- **Node.js** 24.x (see `.node-version`)
-- **pnpm** 10.x
+| Platform | Rule Format | Directory |
+|---|---|---|
+| **Surge** | `.list` (RULE-SET) | `List/` |
+| **Clash** | `.txt` (classical ruleset) | `Clash/` |
+| **Loon** | `.list` (Rule) | `Loon/` |
+| **sing-box** | `.json` (rule-set) | `sing-box/` |
 
-## Quick Start
+## Usage
+
+Base URL:
+
+```
+https://nrrule.pages.dev
+```
+
+Example subscription URLs:
+
+```
+# Surge
+https://nrrule.pages.dev/List/reject.list
+https://nrrule.pages.dev/List/direct.list
+https://nrrule.pages.dev/List/stream.list
+
+# Clash
+https://nrrule.pages.dev/Clash/reject.txt
+https://nrrule.pages.dev/Clash/direct.txt
+
+# Loon
+https://nrrule.pages.dev/Loon/reject.list
+https://nrrule.pages.dev/Loon/direct.list
+
+# sing-box
+https://nrrule.pages.dev/sing-box/reject.json
+https://nrrule.pages.dev/sing-box/direct.json
+```
+
+Full file listing available at: https://nrrule.pages.dev
+
+## Rule Sets
+
+| Rule Set | Description |
+|---|---|
+| `reject` | Ad blocking and privacy protection |
+| `reject-no-drop` | Ad blocking (no connection drop) |
+| `reject-drop` | Ad blocking (drop connection) |
+| `direct` | Direct connection without proxy |
+| `stream` | Streaming services (all regions) |
+| `streaming_cn` | Streaming services (China) |
+| `streaming_!cn` | Streaming services (international) |
+| `telegram` | Telegram |
+| `youtube` | YouTube |
+| `spotify` | Spotify |
+| `tiktok` | TikTok |
+| `wechat` | WeChat |
+| `apple` | Apple services |
+| `microsoft` | Microsoft services |
+| `domestic` | China domestic sites |
+| `lan` | Local network |
+| `speedtest` | Speedtest servers |
+
+## Surge Modules
+
+Mirrored Surge modules from [iRingo](https://github.com/NSRingo), [DualSubs](https://github.com/DualSubs), and [BiliUniverse](https://github.com/BiliUniverse) are available under `Mirror/`.
+
+## Update Schedule
+
+Rules are automatically rebuilt and deployed on a schedule:
+
+- **Full build** (mirror sync + plugins + rules): twice daily
+- **Quick update** (rules only): every 4 hours
+- **Mirror sync**: three times daily
+- **Plugin conversion**: twice daily
+
+## Development
+
+Requires **Node.js 24.x** and **pnpm 10.x**.
 
 ```bash
 pnpm install
 pnpm run build
 ```
 
-`pnpm install` will fail fast on unsupported Node.js versions instead of letting native dependencies fail later during compilation.
-
-## Available Commands
-
-| Command | Description |
-|---|---|
-| `pnpm run build` | Build all rulesets |
-| `pnpm run validate` | Run ESLint + TypeScript type check |
-| `pnpm run validate:rules` | Validate generated rule files |
-| `pnpm run security:audit` | Audit production dependencies |
-| `pnpm run sync-mirrors` | Sync mirror repositories |
-| `pnpm run convert-plugins` | Convert plugins |
-| `pnpm run merge-modules` | Merge modules |
-
 ## License
 
-This project is licensed under the **GNU Affero General Public License v3.0**. See the [LICENSE](./LICENSE) file for details.
+[GNU Affero General Public License v3.0](./LICENSE)
