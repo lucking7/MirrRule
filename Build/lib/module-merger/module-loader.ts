@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fetch } from 'undici';
 
 import type { LoadedModule, ModuleLoadError, ModuleSource } from './types';
-import { getErrorMessage } from '../../utils/cli/logger';
+import { getErrorMessage } from '../../lib/misc';
 
 const AVAILABLE_PARALLELISM =
   typeof os.availableParallelism === 'function'

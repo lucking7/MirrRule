@@ -7,11 +7,145 @@ import process from 'node:process';
 import { Buffer } from 'node:buffer';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import { UA_MIRROR } from '../../constants/user-agents';
-import type { GitHubRelease, ApiError } from './types';
-import { ApiErrorType as ApiErrorTypes } from './types';
 import picocolors from 'picocolors';
-import { getErrorMessage } from '../../utils/cli/logger';
-import { createApiError, mapGitHubApiError } from './api-error-utils';
+import { getErrorMessage } from '../../lib/misc';
+
+// --- Types (from types.ts) ---
+
+/**
+ * GitHub Release Asset 信息
+ */
+export interface GitHubAsset {
+  name: string,
+  url: string,
+  size: number,
+  browser_download_url: string
+}
+
+/**
+ * GitHub Release 信息
+ */
+export interface GitHubRelease {
+  tag_name: string,
+  name: string,
+  assets: GitHubAsset[],
+  html_url: string
+}
+
+/**
+ * API 错误类型
+ */
+export enum ApiErrorType {
+  EMPTY_RESPONSE = 'EMPTY_RESPONSE',
+  NULL_RESPONSE = 'NULL_RESPONSE',
+  NOT_FOUND = '404',
+  MOVED_PERMANENTLY = '301',
+  RATE_LIMIT = '403',
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  UNKNOWN = 'UNKNOWN'
+}
+
+/**
+ * API 错误信息
+ */
+export interface ApiError {
+  type: ApiErrorType,
+  message: string,
+  url: string,
+  canRetry: boolean
+}
+
+// --- API error helpers (from api-error-utils.ts) ---
+
+interface ApiErrorMappingOptions {
+  notFoundMessage?: string;
+  emptyResponseMessage?: string;
+  nullResponseMessage?: string;
+}
+
+interface StatusLikeError {
+  status?: number;
+  statusCode?: number;
+  message?: string;
+}
+
+export function createApiError(
+  type: ApiErrorType,
+  message: string,
+  url: string,
+  canRetry: boolean
+): ApiError {
+  return { type, message, url, canRetry };
+}
+
+function getStatusCode(error: unknown): number | null {
+  if (typeof error !== 'object' || error === null) {
+    return null;
+  }
+
+  const statusLikeError = error as StatusLikeError;
+  if (typeof statusLikeError.statusCode === 'number') {
+    return statusLikeError.statusCode;
+  }
+
+  if (typeof statusLikeError.status === 'number') {
+    return statusLikeError.status;
+  }
+
+  return null;
+}
+
+export function mapGitHubApiError(
+  url: string,
+  error: unknown,
+  options: ApiErrorMappingOptions = {}
+): ApiError {
+  const statusCode = getStatusCode(error);
+  const message =
+    typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
+      ? error.message
+      : String(error);
+
+  if (statusCode === 404) {
+    return createApiError(
+      ApiErrorType.NOT_FOUND,
+      options.notFoundMessage ?? 'Repository not found or has no releases',
+      url,
+      false
+    );
+  }
+
+  if (statusCode === 403) {
+    return createApiError(
+      ApiErrorType.RATE_LIMIT,
+      'GitHub API rate limit exceeded',
+      url,
+      true
+    );
+  }
+
+  if (statusCode === 301) {
+    return createApiError(
+      ApiErrorType.MOVED_PERMANENTLY,
+      'GitHub API endpoint moved permanently',
+      url,
+      true
+    );
+  }
+
+  if (statusCode !== null) {
+    return createApiError(
+      ApiErrorType.UNKNOWN,
+      `HTTP ${statusCode}: ${message}`,
+      url,
+      statusCode >= 500
+    );
+  }
+
+  return createApiError(ApiErrorType.NETWORK_ERROR, message, url, true);
+}
+
+// --- GitHub API functions ---
 
 /**
  * GitHub API 基础 URL
@@ -75,7 +209,7 @@ export async function fetchLatestRelease(
 
     if (!data) {
       return {
-        error: createApiError(ApiErrorTypes.NULL_RESPONSE, 'Response data is null', url, true),
+        error: createApiError(ApiErrorType.NULL_RESPONSE, 'Response data is null', url, true),
       };
     }
 
@@ -90,14 +224,14 @@ export async function fetchLatestRelease(
       }
 
       return {
-        error: createApiError(ApiErrorTypes.UNKNOWN, message, url, false),
+        error: createApiError(ApiErrorType.UNKNOWN, message, url, false),
       };
     }
 
     if (!data.assets || !Array.isArray(data.assets) || data.assets.length === 0) {
       return {
         error: createApiError(
-          ApiErrorTypes.EMPTY_RESPONSE,
+          ApiErrorType.EMPTY_RESPONSE,
           'No assets found in release',
           url,
           false
@@ -133,7 +267,7 @@ async function fetchLatestReleaseFromUrl(
     if (!data?.assets || data.assets.length === 0) {
       return {
         error: createApiError(
-          ApiErrorTypes.EMPTY_RESPONSE,
+          ApiErrorType.EMPTY_RESPONSE,
           'No assets found in redirected release',
           url,
           false
@@ -172,7 +306,7 @@ export async function downloadAsset(assetUrl: string): Promise<Buffer | { error:
     if (buffer.length === 0) {
       return {
         error: createApiError(
-          ApiErrorTypes.EMPTY_RESPONSE,
+          ApiErrorType.EMPTY_RESPONSE,
           'Downloaded file is empty',
           assetUrl,
           false

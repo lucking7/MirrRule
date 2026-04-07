@@ -3,10 +3,7 @@
  * 导出所有公共 API
  */
 
-export * from './types';
 export * from './github-api';
-export * from './file-classifier';
-export * from './checksum';
 export * from './sync-engine';
 export * from './mirror-config';
 
@@ -18,7 +15,7 @@ import {
   printSyncSummary
 } from './sync-engine';
 import { MIRROR_GROUPS } from './mirror-config';
-import type { SyncResult } from './types';
+import type { SyncResult } from './sync-engine';
 
 /**
  * 同步所有镜像组

@@ -11,7 +11,7 @@ import undici from 'undici';
 import picocolors from 'picocolors';
 import { OUTPUT_MOCK_DIR, OUTPUT_MODULES_DIR, OUTPUT_SUKKA_MIRROR_DIR } from './constants/dir';
 import { UA_MIRROR } from './constants/user-agents';
-import { shouldUpdateFile } from './integration/mirror-sync/checksum';
+import { shouldUpdateFile } from './integration/mirror-sync/sync-engine';
 import { headStatus } from './lib/tarball-utils.ts';
 
 const GITHUB_CODELOAD_URL = 'https://codeload.github.com/SukkaLab/ruleset.skk.moe/tar.gz/master';

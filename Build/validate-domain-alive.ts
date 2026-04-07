@@ -14,7 +14,7 @@ import picocolors from 'picocolors';
 import { task } from './trace';
 import { getMethods } from './utils/domain/is-domain-alive';
 import { SOURCE_DIR } from './constants/dir';
-import { getErrorMessage } from './utils/cli/logger';
+import { getErrorMessage } from './lib/misc';
 
 const validateDomainAlive = task(
   require.main === module,

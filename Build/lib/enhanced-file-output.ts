@@ -1,12 +1,11 @@
 import process from 'node:process';
 import type { Span } from '../trace';
 import { FileOutput } from './rules/base';
-import { CrossPlatformRuleParser } from '../core/parsers';
-import { ProxyPlatform } from '../constants/rule-formats';
 import { createStrategiesForTargets, normalizeTargets } from './platform-config';
 import type { SupportedPlatform } from './platform-config';
 import type { FileConfig, RuleGroup, SpecialRuleConfig } from './rule-source-types';
-import { cleanPolicy } from '../core/parsers/policy-cleaner';
+import { cleanPolicy } from './policy-cleaner';
+import { smartConvertRule } from './misc';
 import { RuleLineUtils } from '../utils/validation/validators';
 
 type EnhancedFileConfig = FileConfig & {
@@ -82,7 +81,7 @@ export class EnhancedFileOutput extends FileOutput {
 
     let normalizedRule = trimmed;
     if (this.config.formatConversion) {
-      normalizedRule = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.SURGE);
+      normalizedRule = smartConvertRule(trimmed);
     }
 
     if (this.config.validate && !RuleLineUtils.isValidRule(normalizedRule)) {

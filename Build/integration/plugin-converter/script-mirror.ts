@@ -9,7 +9,7 @@ import picocolors from 'picocolors';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import { UA_SURGE_MAC } from '../../constants/user-agents';
 import type { ScriptInfo, MirrorResult } from './types';
-import { getErrorMessage } from '../../utils/cli/logger';
+import { getErrorMessage } from '../../lib/misc';
 
 // CommonJS 中的 __dirname 直接可用
 

@@ -89,3 +89,33 @@ export function isDirectoryEmptySync(path: PathLike) {
     directoryHandle.closeSync();
   }
 }
+
+export function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * 简单规则格式转换：处理点前缀和纯域名格式
+ * - `.example.com` → `DOMAIN-SUFFIX,example.com`
+ * - `example.com`（纯域名，无逗号）→ `DOMAIN,example.com`
+ * - 其他规则原样返回
+ */
+export function smartConvertRule(rule: string): string {
+  const trimmed = rule.trim();
+  if (!trimmed || trimmed.includes(',')) return trimmed;
+
+  if (trimmed.startsWith('.')) {
+    const domain = trimmed.slice(1);
+    if (domain) return `DOMAIN-SUFFIX,${domain}`;
+  } else if (
+    !trimmed.startsWith('#') &&
+    !trimmed.startsWith('!') &&
+    !trimmed.startsWith('//') &&
+    !trimmed.startsWith(';') &&
+    !/^\d/.test(trimmed)
+  ) {
+    return `DOMAIN,${trimmed}`;
+  }
+
+  return trimmed;
+}

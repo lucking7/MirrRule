@@ -8,7 +8,7 @@ import { ClashClassicRuleSet } from '../core/output/writing-strategy/clash';
 import { SingboxSource } from '../core/output/writing-strategy/singbox';
 import { LoonRuleSet } from '../core/output/writing-strategy/loon';
 import type { BaseWriteStrategy } from '../core/output/writing-strategy/base';
-import { getErrorMessage } from '../utils/cli/logger';
+import { getErrorMessage } from './misc';
 
 export type SupportedPlatform = 'surge' | 'clash' | 'singbox' | 'loon';
 

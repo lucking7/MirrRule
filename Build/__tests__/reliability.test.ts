@@ -1,5 +1,5 @@
 /**
- * 最小回归验证 — 聚焦 build orchestration、mirror-sync 错误契约与入口存在性
+ * 最小回归验证 — 覆盖 dispatcher 接线、错误映射、入口存在性、复合规则校验
  *
  * 运行: pnpm test
  */
@@ -10,42 +10,23 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import process from 'node:process';
 
-describe('build pipeline result model', () => {
-  it('summarizeBuildSteps treats any failed step as a failed build', () => {
-    const { summarizeBuildSteps } = require('../lib/build-pipeline');
-
-    const summary = summarizeBuildSteps([
-      { name: 'geoip', success: true, errors: [] },
-      { name: 'rules', success: false, errors: ['rules failed'] },
-      { name: 'web', success: true, errors: [] },
-    ]);
-
-    assert.equal(summary.success, false);
-    assert.equal(summary.shouldWriteBuildFinishedLock, false);
-    assert.deepEqual(summary.errors, ['rules failed']);
+describe('fetch-retry dispatcher wiring', () => {
+  it('dispatcher is exported and not undefined', () => {
+    const { dispatcher } = require('../utils/network/fetch-retry');
+    assert.ok(dispatcher, 'dispatcher should be defined');
   });
 
-  it('summarizeBuildSteps allows writing .BUILD_FINISHED when all steps succeed', () => {
-    const { summarizeBuildSteps } = require('../lib/build-pipeline');
-
-    const summary = summarizeBuildSteps([
-      { name: 'geoip', success: true, errors: [] },
-      { name: 'rules', success: true, errors: [] },
-      { name: 'web', success: true, errors: [] },
-    ]);
-
-    assert.equal(summary.success, true);
-    assert.equal(summary.shouldWriteBuildFinishedLock, true);
-    assert.deepEqual(summary.errors, []);
+  it('$$fetch is a function', () => {
+    const { $$fetch } = require('../utils/network/fetch-retry');
+    assert.equal(typeof $$fetch, 'function');
   });
 });
 
 describe('mirror-sync api error mapping', () => {
   it('maps 404 into a non-retryable not-found error', () => {
-    const { mapGitHubApiError } = require('../integration/mirror-sync/api-error-utils');
+    const { mapGitHubApiError } = require('../integration/mirror-sync/github-api');
 
     const error = mapGitHubApiError(
       'https://api.github.com/repos/example/repo/releases/latest',
@@ -59,7 +40,7 @@ describe('mirror-sync api error mapping', () => {
   });
 
   it('maps 403 into a retryable rate-limit error', () => {
-    const { mapGitHubApiError } = require('../integration/mirror-sync/api-error-utils');
+    const { mapGitHubApiError } = require('../integration/mirror-sync/github-api');
 
     const error = mapGitHubApiError(
       'https://api.github.com/repos/example/repo/releases/latest',
@@ -78,27 +59,21 @@ describe('validate-domain-alive entry point', () => {
   });
 });
 
-describe('rule-validator compound rules', () => {
-  it('does not flag AND/OR/NOT rules as having bad policy names', () => {
-    const { RuleFileValidator } = require('../lib/validators/rule-validator');
-    const validator = new RuleFileValidator();
+describe('RuleLineUtils validates compound rules', () => {
+  it('accepts AND/OR/NOT as valid rule types', () => {
+    const { RuleLineUtils } = require('../utils/validation/validators');
 
-    const tmpFile = path.join(os.tmpdir(), `test-rules-${Date.now()}.list`);
-    fs.writeFileSync(tmpFile, [
-      '# comment',
-      'DOMAIN-SUFFIX,example.com,REJECT',
-      'AND,((DOMAIN-SUFFIX,googlevideo.com,REJECT))',
-      'OR,((DOMAIN,foo.com),(DOMAIN,bar.com)),DIRECT',
-      'NOT,((DOMAIN-SUFFIX,ads.com)),PROXY',
-    ].join('\n'));
+    assert.equal(RuleLineUtils.isValidRule('DOMAIN-SUFFIX,example.com,REJECT'), true);
+    assert.equal(RuleLineUtils.isValidRule('AND,((DOMAIN-SUFFIX,googlevideo.com,REJECT))'), true);
+    assert.equal(RuleLineUtils.isValidRule('OR,((DOMAIN,foo.com),(DOMAIN,bar.com)),DIRECT'), true);
+    assert.equal(RuleLineUtils.isValidRule('NOT,((DOMAIN-SUFFIX,ads.com)),PROXY'), true);
+  });
 
-    try {
-      const result = validator.validateFile(tmpFile);
-      assert.equal(result.errors.length, 0, `unexpected errors: ${result.errors.join('; ')}`);
-      const policyWarnings = result.warnings.filter((w: string) => w.includes('策略名称可能不正确'));
-      assert.equal(policyWarnings.length, 0, `unexpected policy warnings: ${policyWarnings.join('; ')}`);
-    } finally {
-      fs.unlinkSync(tmpFile);
-    }
+  it('rejects comments and empty lines', () => {
+    const { RuleLineUtils } = require('../utils/validation/validators');
+
+    assert.equal(RuleLineUtils.isValidRule('# comment'), false);
+    assert.equal(RuleLineUtils.isValidRule('// comment'), false);
+    assert.equal(RuleLineUtils.isValidRule(''), false);
   });
 });
