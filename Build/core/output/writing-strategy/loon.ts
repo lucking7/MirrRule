@@ -3,9 +3,9 @@ import { BaseWriteStrategy } from './base';
 import { noop } from 'foxts/noop';
 import { withBannerArray } from '../../../lib/misc';
 import { OUTPUT_LOON_DIR } from '../../../constants/dir';
-import { CrossPlatformRuleParser } from '../../parsers';
-import { ProxyPlatform } from '../../../constants/rule-formats';
 import { RuleLineUtils } from '../../../utils/validation/validators';
+import { smartConvertRule } from '../../../lib/misc';
+import { cleanPolicy } from '../../../lib/policy-cleaner';
 
 /**
  * Loon规则集输出策略
@@ -113,7 +113,7 @@ export class LoonRuleSet extends BaseWriteStrategy {
       }
 
 
-      const converted = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.LOON);
+      const converted = cleanPolicy(smartConvertRule(trimmed));
       this.result.push(converted);
     }
   }

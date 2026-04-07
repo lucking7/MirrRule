@@ -9,7 +9,7 @@ import picocolors from 'picocolors';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import { getPluginContent } from './plugin-mirror';
 import type { PluginInfo } from './types';
-import { getErrorMessage } from '../../utils/cli/logger';
+import { getErrorMessage } from '../../lib/misc';
 
 /**
  * 参数类型

@@ -5,7 +5,7 @@ import picocolors from 'picocolors';
 import { task } from './trace';
 import { $$fetch } from './utils/network/fetch-retry';
 import { mkdirp } from './lib/misc';
-import { getErrorMessage } from './utils/cli/logger';
+import { getErrorMessage } from './lib/misc';
 
 export interface GEOIPFile {
   path: string;

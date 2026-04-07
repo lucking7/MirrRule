@@ -8,8 +8,8 @@ import path from 'node:path';
 import picocolors from 'picocolors';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry.ts';
 import type { PluginInfo } from './types.ts';
-import { applyProxyIfNeeded } from './proxy-utils.ts';
-import { getErrorMessage } from '../../utils/cli/logger';
+import { applyProxyIfNeeded } from '../../utils/network/proxy';
+import { getErrorMessage } from '../../lib/misc';
 
 /**
  * 镜像目录（放在 .cache 目录下，不部署到生产环境）

@@ -1,3 +1,4 @@
+import process from 'node:process';
 import { dirname } from 'node:path';
 import fs from 'node:fs';
 import type { PathLike } from 'node:fs';
@@ -88,4 +89,46 @@ export function isDirectoryEmptySync(path: PathLike) {
   } finally {
     directoryHandle.closeSync();
   }
+}
+
+export function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+const STARTS_WITH_DIGIT = /^\d/;
+
+/**
+ * 简单规则格式转换（输入应已 trim）：
+ * - `.example.com` → `DOMAIN-SUFFIX,example.com`
+ * - `example.com`（纯域名，无逗号）→ `DOMAIN,example.com`
+ * - 其他规则原样返回
+ */
+export function smartConvertRule(rule: string): string {
+  if (!rule || rule.includes(',')) return rule;
+
+  if (rule.startsWith('.')) {
+    const domain = rule.slice(1);
+    if (domain) return `DOMAIN-SUFFIX,${domain}`;
+  } else if (
+    !rule.startsWith('#') &&
+    !rule.startsWith('!') &&
+    !rule.startsWith('//') &&
+    !rule.startsWith(';') &&
+    !STARTS_WITH_DIGIT.test(rule)
+  ) {
+    return `DOMAIN,${rule}`;
+  }
+
+  return rule;
+}
+
+export function registerGlobalErrorHandlers(): void {
+  process.on('uncaughtException', (error) => {
+    console.error('Uncaught exception:', error);
+    process.exit(1);
+  });
+  process.on('unhandledRejection', (reason) => {
+    console.error('Unhandled rejection:', reason);
+    process.exit(1);
+  });
 }

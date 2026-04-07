@@ -6,10 +6,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import picocolors from 'picocolors';
 import { $$fetch } from '../../utils/network/fetch-retry';
-import { delay } from '../../utils/async';
 import { UA_SURGE_MAC } from '../../constants/user-agents';
 import type { PluginInfo } from './types';
-import { getErrorMessage } from '../../utils/cli/logger';
+import { getErrorMessage } from '../../lib/misc';
 
 const TEMP_DIR = path.join(__dirname, '../../../.cache/plugins');
 
@@ -67,7 +66,7 @@ export async function downloadPlugin(
             )}s)...`
           )
         );
-        await delay(retryDelay);
+        await new Promise<void>(resolve => { setTimeout(resolve, retryDelay); });
       }
 
       const response = await $$fetch(plugin.url, {

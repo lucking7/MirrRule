@@ -7,8 +7,8 @@ import process from 'node:process';
 import picocolors from 'picocolors';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import type { PluginInfo } from './types';
-import { buildProxyUrlCandidates } from './proxy-utils';
-import { getErrorMessage } from '../../utils/cli/logger';
+import { buildProxyUrlCandidates } from '../../utils/network/proxy';
+import { getErrorMessage } from '../../lib/misc';
 
 /**
  * 插件列表 URL（可通过环境变量覆盖）

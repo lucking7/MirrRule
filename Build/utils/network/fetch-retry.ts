@@ -16,9 +16,7 @@ import fs from 'node:fs';
 import { CACHE_DIR } from '../../constants/dir';
 import { UA_SURGE_MAC } from '../../constants/user-agents';
 
-if (!fs.existsSync(CACHE_DIR)) {
-  fs.mkdirSync(CACHE_DIR, { recursive: true });
-}
+fs.mkdirSync(CACHE_DIR, { recursive: true });
 
 export const dispatcher = new Agent({ allowH2: true }).compose(
   interceptors.dns({

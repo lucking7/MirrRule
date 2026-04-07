@@ -7,8 +7,9 @@ import picocolors from 'picocolors';
 import { normalizeDomain } from '../../../utils/domain/normalize-domain';
 import { OUTPUT_MODULES_DIR, OUTPUT_SURGE_DIR } from '../../../constants/dir';
 import { withBannerArray, withIdentityContent } from '../../../lib/misc';
-import { CrossPlatformRuleParser } from '../../parsers';
 import { DomainValidator, IPValidator, RuleLineUtils } from '../../../utils/validation/validators';
+import { smartConvertRule } from '../../../lib/misc';
+import { cleanPolicy } from '../../../lib/policy-cleaner';
 
 export class SurgeDomainSet extends BaseWriteStrategy {
   public readonly name = 'surge domainset';
@@ -65,7 +66,8 @@ export class SurgeRuleSet extends BaseWriteStrategy {
 
   constructor(
     public readonly type: '' | 'ip' | 'non_ip' | (string & {}),
-    public readonly outputDir = OUTPUT_SURGE_DIR
+    public readonly outputDir = OUTPUT_SURGE_DIR,
+    private readonly stripPolicy: boolean = false
   ) {
     super(outputDir);
   }
@@ -153,8 +155,13 @@ export class SurgeRuleSet extends BaseWriteStrategy {
   }
 
   writeOtherRules(rule: string[]): void {
-    // 智能处理所有规则类型，不依赖预分类
-    rule.forEach(r => this.processRuleIntelligently(r));
+    if (this.stripPolicy) {
+      const convertedRules = rule.map(r => cleanPolicy(smartConvertRule(r)));
+      appendArrayInPlace(this.result, convertedRules);
+    } else {
+      // 智能处理所有规则类型，不依赖预分类
+      rule.forEach(r => this.processRuleIntelligently(r));
+    }
   }
 
   /**
@@ -389,131 +396,3 @@ export class SurgeMitmSgmodule extends BaseWriteStrategy {
   writeOtherRules = noop;
 }
 
-/**
- * Surge RULE-SET Payload 输出策略
- * 严格遵循RULE-SET格式规范：规则类型,匹配值[,允许的参数]
- * 不包含策略组，仅保留no-resolve和extended-matching参数
- */
-export class SurgeRuleSetPayload extends BaseWriteStrategy {
-  public readonly name: string = 'surge ruleset payload';
-
-  readonly fileExtension = 'conf';
-
-  // 移除签名行,保持结果数组为空
-  protected result: string[] = [];
-
-  constructor(
-    /** Surge RULE-SET payload 类型 */
-    public readonly type: 'ip' | 'non_ip' | (string & {}),
-    public readonly outputDir = OUTPUT_SURGE_DIR
-  ) {
-    super(outputDir);
-  }
-
-  withPadding = withBannerArray;
-
-  /**
-   * 处理输入行，转换为RULE-SET payload格式
-   * 重构：使用共享验证器检查注释和空行
-   */
-  protected processLine(line: string): void {
-    const trimmed = line.trim();
-
-    // 使用共享验证器检查注释和空行
-    if (RuleLineUtils.shouldSkipLine(trimmed)) {
-      if (trimmed) {
-        this.result.push(trimmed);
-      }
-      return;
-    }
-
-    // 转换为RULE-SET payload格式
-    const converted = CrossPlatformRuleParser.smartConvertToRuleSet(trimmed);
-
-    if (converted && converted !== trimmed) {
-      this.result.push(converted);
-    } else if (converted) {
-      this.result.push(converted);
-    }
-  }
-
-  writeDomain(domain: string): void {
-    this.result.push('DOMAIN,' + domain);
-  }
-
-  writeDomainSuffix(domain: string): void {
-    this.result.push('DOMAIN-SUFFIX,' + domain);
-  }
-
-  writeDomainKeywords(keyword: Set<string>): void {
-    appendSetElementsToArray(this.result, keyword, i => `DOMAIN-KEYWORD,${i}`);
-  }
-
-  writeDomainWildcard(wildcard: string): void {
-    this.result.push(`DOMAIN-WILDCARD,${wildcard}`);
-  }
-
-  writeUserAgents(userAgent: Set<string>): void {
-    appendSetElementsToArray(this.result, userAgent, i => `USER-AGENT,${i}`);
-  }
-
-  writeProcessNames(processName: Set<string>): void {
-    appendSetElementsToArray(this.result, processName, i => `PROCESS-NAME,${i}`);
-  }
-
-  writeProcessPaths(processPath: Set<string>): void {
-    appendSetElementsToArray(this.result, processPath, i => `PROCESS-NAME,${i}`);
-  }
-
-  writeUrlRegexes(urlRegex: Set<string>): void {
-    appendSetElementsToArray(this.result, urlRegex, i => `URL-REGEX,${i}`);
-  }
-
-  writeIpCidrs(ipCidr: string[], noResolve: boolean): void {
-    this.writeCidrRules(this.result, ipCidr, 'IP-CIDR', noResolve);
-  }
-
-  writeIpCidr6s(ipCidr6: string[], noResolve: boolean): void {
-    this.writeCidrRules(this.result, ipCidr6, 'IP-CIDR6', noResolve);
-  }
-
-  writeGeoip(geoip: Set<string>, noResolve: boolean): void {
-    appendSetElementsToArray(
-      this.result,
-      geoip,
-      i => `GEOIP,${i}${noResolve ? ',no-resolve' : ''}`
-    );
-  }
-
-  writeIpAsns(asns: Set<string>, noResolve: boolean): void {
-    appendSetElementsToArray(
-      this.result,
-      asns,
-      i => `IP-ASN,${i}${noResolve ? ',no-resolve' : ''}`
-    );
-  }
-
-  writeSourceIpCidrs(sourceIpCidr: string[]): void {
-    for (let i = 0, len = sourceIpCidr.length; i < len; i++) {
-      this.result.push(`SRC-IP,${sourceIpCidr[i]}`);
-    }
-  }
-
-  writeSourcePorts(port: Set<string>): void {
-    appendSetElementsToArray(this.result, port, i => `SRC-PORT,${i}`);
-  }
-
-  writeDestinationPorts(port: Set<string>): void {
-    appendSetElementsToArray(this.result, port, i => `DEST-PORT,${i}`);
-  }
-
-  writeProtocols(protocol: Set<string>): void {
-    appendSetElementsToArray(this.result, protocol, i => `PROTOCOL,${i}`);
-  }
-
-  writeOtherRules(rule: string[]): void {
-    // 对其他规则也应用RULE-SET格式转换
-    const convertedRules = rule.map(r => CrossPlatformRuleParser.smartConvertToRuleSet(r));
-    appendArrayInPlace(this.result, convertedRules);
-  }
-}

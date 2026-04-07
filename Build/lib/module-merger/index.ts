@@ -12,7 +12,7 @@ import { ModuleMerger } from './merger';
 import { TemplateEngine } from './template-engine';
 import { loadMergeConfig } from './config-loader';
 import { ModuleLoader } from './module-loader';
-import { cleanPolicy, cleanPolicyForModule } from '../../core/parsers/policy-cleaner';
+import { cleanPolicy, cleanPolicyForModule } from '../policy-cleaner';
 
 /**
  * .sgmodule 输出中 Section 的固定排列顺序

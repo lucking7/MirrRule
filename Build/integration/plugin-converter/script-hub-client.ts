@@ -6,12 +6,11 @@
 import process from 'node:process';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import picocolors from 'picocolors';
-import { delay } from '../../utils/async';
 import { UA_SURGE_MAC } from '../../constants/user-agents';
-import { applyProxyIfNeeded, shouldUseProxy } from './proxy-utils.ts';
+import { applyProxyIfNeeded, shouldUseProxy } from '../../utils/network/proxy';
 import type { PluginInfo, ConversionConfig } from './types.ts';
 import type { DownloadResult } from './plugin-downloader.ts';
-import { getErrorMessage } from '../../utils/cli/logger';
+import { getErrorMessage } from '../../lib/misc';
 
 /**
  * Script-Hub API 配置
@@ -210,7 +209,7 @@ export async function convertPluginFromLocal(
             )}s)...`
           )
         );
-        await delay(retryDelay);
+        await new Promise<void>(resolve => { setTimeout(resolve, retryDelay); });
       }
 
       const response = await $$fetch(url, {

@@ -5,7 +5,7 @@ import { EnhancedFileOutput } from './enhanced-file-output';
 import type { RuleGroup, SpecialRuleConfig } from './rule-source-types';
 import { normalizeTargets } from './platform-config';
 import { applyDefaultConfig } from './rule-sources';
-import { getErrorMessage } from '../utils/cli/logger';
+import { getErrorMessage } from './misc';
 import path from 'node:path';
 import fs from 'node:fs';
 

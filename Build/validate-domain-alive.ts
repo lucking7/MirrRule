@@ -14,6 +14,7 @@ import picocolors from 'picocolors';
 import { task } from './trace';
 import { getMethods } from './utils/domain/is-domain-alive';
 import { SOURCE_DIR } from './constants/dir';
+import { getErrorMessage } from './lib/misc';
 
 const validateDomainAlive = task(
   require.main === module,
@@ -78,7 +79,7 @@ const validateDomainAlive = task(
         console.log(picocolors.red(`[Domain Check] \u2717 Dead: ${domain}`));
       }
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
+      const msg = getErrorMessage(error);
       console.log(picocolors.yellow(`[Domain Check] ? Error checking ${domain}: ${msg}`));
     }
   }

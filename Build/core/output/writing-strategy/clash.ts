@@ -6,8 +6,8 @@ import { fastIpVersion } from 'foxts/fast-ip-version';
 import { OUTPUT_CLASH_DIR } from '../../../constants/dir';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { RuleLineUtils } from '../../../utils/validation/validators';
-import { CrossPlatformRuleParser } from '../../parsers';
-import { ProxyPlatform } from '../../../constants/rule-formats';
+import { smartConvertRule } from '../../../lib/misc';
+import { cleanPolicy } from '../../../lib/policy-cleaner';
 
 export class ClashDomainSet extends BaseWriteStrategy {
   public readonly name = 'clash domainset';
@@ -198,7 +198,7 @@ export class ClashIPSet extends BaseWriteStrategy {
         break;
       default:
         // 其他规则（包括逻辑规则 AND/OR/NOT），转换为 Clash 格式
-        const converted = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.CLASH);
+        const converted = cleanPolicy(smartConvertRule(trimmed));
         this.result.push(converted);
     }
   }
@@ -320,7 +320,7 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
       const trimmed = rule.trim();
 
       if (RuleLineUtils.shouldSkipLine(trimmed)) continue;
-      const converted = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.CLASH);
+      const converted = cleanPolicy(smartConvertRule(trimmed));
       this.result.push(converted);
     }
   }

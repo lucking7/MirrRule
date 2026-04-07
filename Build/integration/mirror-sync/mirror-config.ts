@@ -4,8 +4,8 @@
  */
 
 import path from 'node:path';
-import { FileType } from './types';
-import type { MirrorGroup } from './types';
+import { FileType } from './sync-engine';
+import type { MirrorGroup } from './sync-engine';
 
 // CommonJS 中的 __dirname 直接可用
 

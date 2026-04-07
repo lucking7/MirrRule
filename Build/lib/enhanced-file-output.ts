@@ -1,13 +1,25 @@
 import process from 'node:process';
 import type { Span } from '../trace';
 import { FileOutput } from './rules/base';
-import { CrossPlatformRuleParser } from '../core/parsers';
-import { ProxyPlatform } from '../constants/rule-formats';
 import { createStrategiesForTargets, normalizeTargets } from './platform-config';
 import type { SupportedPlatform } from './platform-config';
 import type { FileConfig, RuleGroup, SpecialRuleConfig } from './rule-source-types';
-import { cleanPolicy } from '../core/parsers/policy-cleaner';
+import { cleanPolicy } from './policy-cleaner';
+import { smartConvertRule } from './misc';
 import { RuleLineUtils } from '../utils/validation/validators';
+
+const RULE_TYPE_MAP: Record<string, string> = {
+  DOMAIN: 'domain',
+  'DOMAIN-SUFFIX': 'domain-suffix',
+  'DOMAIN-KEYWORD': 'domain-keyword',
+  'DOMAIN-WILDCARD': 'domain-wildcard',
+  'IP-CIDR': 'ip-cidr',
+  'IP-CIDR6': 'ip-cidr6',
+  'IP-ASN': 'ip-asn',
+  'USER-AGENT': 'user-agent',
+  'PROCESS-NAME': 'process-name',
+  'URL-REGEX': 'url-regex',
+};
 
 type EnhancedFileConfig = FileConfig & {
   validate?: boolean;
@@ -82,7 +94,7 @@ export class EnhancedFileOutput extends FileOutput {
 
     let normalizedRule = trimmed;
     if (this.config.formatConversion) {
-      normalizedRule = CrossPlatformRuleParser.smartConvert(trimmed, ProxyPlatform.SURGE);
+      normalizedRule = smartConvertRule(trimmed);
     }
 
     if (this.config.validate && !RuleLineUtils.isValidRule(normalizedRule)) {
@@ -211,25 +223,10 @@ export class EnhancedFileOutput extends FileOutput {
    */
   // eslint-disable-next-line @typescript-eslint/class-methods-use-this -- helper for rule classification does not depend on instance state
   private detectRuleType(rule: string): string {
-    const parts = rule.split(',');
-    if (parts.length === 0) return 'other';
-
-    const type = parts[0].toUpperCase().trim();
-
-    const typeMap: Record<string, string> = {
-      DOMAIN: 'domain',
-      'DOMAIN-SUFFIX': 'domain-suffix',
-      'DOMAIN-KEYWORD': 'domain-keyword',
-      'DOMAIN-WILDCARD': 'domain-wildcard',
-      'IP-CIDR': 'ip-cidr',
-      'IP-CIDR6': 'ip-cidr6',
-      'IP-ASN': 'ip-asn',
-      'USER-AGENT': 'user-agent',
-      'PROCESS-NAME': 'process-name',
-      'URL-REGEX': 'url-regex',
-    };
-
-    return typeMap[type] || 'other';
+    const comma = rule.indexOf(',');
+    if (comma === -1) return 'other';
+    const type = rule.slice(0, comma).toUpperCase().trim();
+    return RULE_TYPE_MAP[type] || 'other';
   }
 
   /**
