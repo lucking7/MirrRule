@@ -386,7 +386,6 @@ export const specialRules: SpecialRuleConfig[] = [
     sourceFiles: [
       'https://ruleset.skk.moe/List/domainset/reject.conf',
       'https://ruleset.skk.moe/List/non_ip/reject.conf',
-      'https://ruleset.skk.moe/List/domainset/reject_extra.conf',
       'https://ruleset.skk.moe/List/ip/reject.conf',
       'https://ruleset.skk.moe/List/non_ip/my_reject.conf',
     ],
@@ -404,6 +403,28 @@ export const specialRules: SpecialRuleConfig[] = [
       title: 'Ruleset - Privacy & Security Protection',
       description:
         'This file contains rulesets covering advertising, telemetry, malware, and phishing infrastructure',
+    },
+  },
+  {
+    name: 'lucking - Reject Extra',
+    targetFile: 'List/reject_extra.list',
+    sourceFiles: [
+      'https://ruleset.skk.moe/List/domainset/reject_extra.conf',
+    ],
+    defaultPolicy: 'REJECT',
+    targets: ['surge', 'clash', 'singbox', 'loon'],
+    dedup: true,
+    sort: true,
+    keepComments: false,
+    keepEmptyLines: false,
+    applyNoResolve: true,
+    formatConversion: true,
+    deleteSourceFiles: true,
+    header: {
+      enable: true,
+      title: 'Ruleset - Privacy & Security Protection Extra',
+      description:
+        'This file contains extra privacy and security reject rules separated from the main reject list',
     },
   },
 
