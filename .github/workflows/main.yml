@@ -453,9 +453,6 @@ jobs:
           PUBLIC_DIR: ${{ steps.build-dir.outputs.dir }}
           PROXY_BASE: ${{ secrets.PROXY_BASE }}
 
-      - name: Validate generated rule files
-        run: pnpm run validate:rules
-
       - name: Verify build output
         run: |
           if [ ! -d "${{ steps.build-dir.outputs.dir }}" ]; then

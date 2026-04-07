@@ -5,15 +5,9 @@
 
 import process from 'node:process';
 import { convertAndMirrorPlugins, printConversionSummary } from './integration/plugin-converter';
+import { getErrorMessage, registerGlobalErrorHandlers } from './lib/misc';
 
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught exception:', error);
-  process.exit(1);
-});
-process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled rejection:', reason);
-  process.exit(1);
-});
+registerGlobalErrorHandlers();
 
 async function main() {
   const args = new Set(process.argv.slice(2));
@@ -41,7 +35,7 @@ async function main() {
   console.log(`转换统计: 总数=${results.length} 成功=${successCount} 失败=${failedCount} 耗时=${duration}s`);
 
   if (failedCount > 0) {
-    console.warn(`转换完成，但有 ${failedCount} 个插件转换失败`);
+    console.error(`转换完成，但有 ${failedCount} 个插件转换失败`);
     process.exit(1);
   }
 
@@ -49,5 +43,8 @@ async function main() {
 }
 
 if (require.main === module) {
-  main();
+  main().catch((error) => {
+    console.error('转换失败:', getErrorMessage(error));
+    process.exit(1);
+  });
 }

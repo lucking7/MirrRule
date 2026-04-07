@@ -6,15 +6,9 @@
 import process from 'node:process';
 import path from 'node:path';
 import { mergeModules } from './lib/module-merger';
+import { getErrorMessage, registerGlobalErrorHandlers } from './lib/misc';
 
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught exception:', error);
-  process.exit(1);
-});
-process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled rejection:', reason);
-  process.exit(1);
-});
+registerGlobalErrorHandlers();
 
 function parseArgs(argv: string[]) {
   let config = path.join(__dirname, 'lib/module-merger/configs/pro-merge-config.yaml');
@@ -58,7 +52,7 @@ async function main() {
 
 if (require.main === module) {
   main().catch((error) => {
-    console.error('模块合并失败:', error instanceof Error ? error.message : error);
+    console.error('模块合并失败:', getErrorMessage(error));
     process.exit(1);
   });
 }

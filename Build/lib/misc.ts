@@ -1,3 +1,4 @@
+import process from 'node:process';
 import { dirname } from 'node:path';
 import fs from 'node:fs';
 import type { PathLike } from 'node:fs';
@@ -94,28 +95,40 @@ export function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+const STARTS_WITH_DIGIT = /^\d/;
+
 /**
- * 简单规则格式转换：处理点前缀和纯域名格式
+ * 简单规则格式转换（输入应已 trim）：
  * - `.example.com` → `DOMAIN-SUFFIX,example.com`
  * - `example.com`（纯域名，无逗号）→ `DOMAIN,example.com`
  * - 其他规则原样返回
  */
 export function smartConvertRule(rule: string): string {
-  const trimmed = rule.trim();
-  if (!trimmed || trimmed.includes(',')) return trimmed;
+  if (!rule || rule.includes(',')) return rule;
 
-  if (trimmed.startsWith('.')) {
-    const domain = trimmed.slice(1);
+  if (rule.startsWith('.')) {
+    const domain = rule.slice(1);
     if (domain) return `DOMAIN-SUFFIX,${domain}`;
   } else if (
-    !trimmed.startsWith('#') &&
-    !trimmed.startsWith('!') &&
-    !trimmed.startsWith('//') &&
-    !trimmed.startsWith(';') &&
-    !/^\d/.test(trimmed)
+    !rule.startsWith('#') &&
+    !rule.startsWith('!') &&
+    !rule.startsWith('//') &&
+    !rule.startsWith(';') &&
+    !STARTS_WITH_DIGIT.test(rule)
   ) {
-    return `DOMAIN,${trimmed}`;
+    return `DOMAIN,${rule}`;
   }
 
-  return trimmed;
+  return rule;
+}
+
+export function registerGlobalErrorHandlers(): void {
+  process.on('uncaughtException', (error) => {
+    console.error('Uncaught exception:', error);
+    process.exit(1);
+  });
+  process.on('unhandledRejection', (reason) => {
+    console.error('Unhandled rejection:', reason);
+    process.exit(1);
+  });
 }

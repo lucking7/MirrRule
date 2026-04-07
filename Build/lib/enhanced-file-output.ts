@@ -8,6 +8,19 @@ import { cleanPolicy } from './policy-cleaner';
 import { smartConvertRule } from './misc';
 import { RuleLineUtils } from '../utils/validation/validators';
 
+const RULE_TYPE_MAP: Record<string, string> = {
+  DOMAIN: 'domain',
+  'DOMAIN-SUFFIX': 'domain-suffix',
+  'DOMAIN-KEYWORD': 'domain-keyword',
+  'DOMAIN-WILDCARD': 'domain-wildcard',
+  'IP-CIDR': 'ip-cidr',
+  'IP-CIDR6': 'ip-cidr6',
+  'IP-ASN': 'ip-asn',
+  'USER-AGENT': 'user-agent',
+  'PROCESS-NAME': 'process-name',
+  'URL-REGEX': 'url-regex',
+};
+
 type EnhancedFileConfig = FileConfig & {
   validate?: boolean;
 };
@@ -210,25 +223,10 @@ export class EnhancedFileOutput extends FileOutput {
    */
   // eslint-disable-next-line @typescript-eslint/class-methods-use-this -- helper for rule classification does not depend on instance state
   private detectRuleType(rule: string): string {
-    const parts = rule.split(',');
-    if (parts.length === 0) return 'other';
-
-    const type = parts[0].toUpperCase().trim();
-
-    const typeMap: Record<string, string> = {
-      DOMAIN: 'domain',
-      'DOMAIN-SUFFIX': 'domain-suffix',
-      'DOMAIN-KEYWORD': 'domain-keyword',
-      'DOMAIN-WILDCARD': 'domain-wildcard',
-      'IP-CIDR': 'ip-cidr',
-      'IP-CIDR6': 'ip-cidr6',
-      'IP-ASN': 'ip-asn',
-      'USER-AGENT': 'user-agent',
-      'PROCESS-NAME': 'process-name',
-      'URL-REGEX': 'url-regex',
-    };
-
-    return typeMap[type] || 'other';
+    const comma = rule.indexOf(',');
+    if (comma === -1) return 'other';
+    const type = rule.slice(0, comma).toUpperCase().trim();
+    return RULE_TYPE_MAP[type] || 'other';
   }
 
   /**
