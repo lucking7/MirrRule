@@ -44,7 +44,7 @@
     "better-sqlite3": "^12.8.0",
     "ci-info": "^4.4.0",
     "cli-progress": "^3.12.0",
-    "csv-parse": "^6.1.0",
+    "csv-parse": "^6.2.1",
     "dns2": "github:lsongdev/node-dns#e4fa035aca0b8eb730bde3431fbf0c60a31a09c9",
     "domain-alive": "^0.1.11",
     "fast-cidr-tools": "^0.3.2",
