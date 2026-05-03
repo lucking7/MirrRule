@@ -64,7 +64,7 @@
     "undici-cache-store-better-sqlite3": "^1.0.1",
     "worktank": "^3.0.2",
     "xbits": "^0.2.0",
-    "yaml": "^2.8.3",
+    "yaml": "^2.8.4",
     "yauzl-promise": "^4.0.0"
   },
   "devDependencies": {
