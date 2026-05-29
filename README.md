@@ -1,4 +1,4 @@
-# Rule Aggregator
+# MirrRule
 
 Aggregates and distributes network proxy rules from multiple upstream sources, automatically built and deployed via GitHub Actions.
 

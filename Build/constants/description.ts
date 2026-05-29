@@ -2,7 +2,7 @@ export function createFileDescription(license = 'AGPL 3.0') {
   return [
     `License: ${license}`,
     'Homepage: https://nrrule.pages.dev',
-    'GitHub: https://github.com/lucking7/esdeath'
+    'GitHub: https://github.com/lucking7/MirrRule'
   ];
 }
 

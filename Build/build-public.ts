@@ -60,7 +60,7 @@ export const buildPublic = task(
       span,
       [
         '# NRRule - Surge / Clash 规则部署仓库',
-        '# 源码位于 [lucking7/esdeath](https://github.com/lucking7/esdeath)',
+        '# 源码位于 [lucking7/esdeath](https://github.com/lucking7/MirrRule)',
         '',
         '![GitHub repo size](https://img.shields.io/github/repo-size/lucking7/NRRule?style=flat-square)',
       ],
@@ -115,11 +115,11 @@ function generateHtml(tree: TreeTypeArray) {
 
         <meta property="og:title" content="Surge Ruleset | Luck (@lucking7)" />
         <meta property="og:type" content="Website" />
-        <meta property="og:url" content="https://github.com/lucking7/esdeath" />
+        <meta property="og:url" content="https://github.com/lucking7/MirrRule" />
         <meta property="og:image" content="/favicon.svg" />
         <meta property="og:description" content="Luck 自用的 Surge / Clash Premium 规则组" />
         <meta name="twitter:card" content="summary" />
-        <link rel="canonical" href="https://github.com/lucking7/esdeath" />
+        <link rel="canonical" href="https://github.com/lucking7/MirrRule" />
         <style>
           :root {
             --font-family: system-ui, -apple-system, 'Segoe UI', 'Roboto', 'Ubuntu', 'Cantarell',
@@ -748,7 +748,7 @@ function generateHtml(tree: TreeTypeArray) {
             <span style="color:var(--muted-color);user-select:none" aria-hidden="true">•</span>
             <span style="display:inline-flex;align-items:center;gap:0.25rem;white-space:nowrap"
               ><a
-                href="https://github.com/lucking7/esdeath"
+                href="https://github.com/lucking7/MirrRule"
                 style="display:inline-flex;align-items:center;gap:0.25rem"
                 >Source @ GitHub</a
               ></span
