@@ -1,16 +1,9 @@
-/**
- * 最小回归验证 — 覆盖 dispatcher 接线、错误映射、入口存在性、复合规则校验
- *
- * 运行: pnpm test
- */
-
 /* eslint-disable @typescript-eslint/no-require-imports -- CJS project, node:test requires require() for SWC compat */
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import process from 'node:process';
 
 describe('fetch-retry dispatcher wiring', () => {
   it('dispatcher is exported and not undefined', () => {

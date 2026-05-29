@@ -1,13 +1,3 @@
-/**
- * 域名可用性校验 CLI 入口
- *
- * 用法: pnpm run node Build/validate-domain-alive.ts
- *
- * 扫描规则源中的域名，使用 DNS over HTTPS 检查域名是否存活。
- * 对应 workflow: .github/workflows/check-source-domain.yml
- */
-
-import process from 'node:process';
 import path from 'node:path';
 import fs from 'node:fs';
 import picocolors from 'picocolors';
@@ -16,7 +6,7 @@ import { getMethods } from './utils/domain/is-domain-alive';
 import { SOURCE_DIR } from './constants/dir';
 import { getErrorMessage } from './lib/misc';
 
-const validateDomainAlive = task(
+export const validateDomainAlive = task(
   require.main === module,
   __filename
 )(async () => {
@@ -32,7 +22,6 @@ const validateDomainAlive = task(
     return;
   }
 
-  // Scan files in Source/ for domain patterns
   const files = fs.readdirSync(SOURCE_DIR, { recursive: true });
   const domainRegex = /['"]((?:[\da-z](?:[\da-z-]*[\da-z])?\.)+[a-z]{2,})['"]/gi;
 
@@ -61,7 +50,6 @@ const validateDomainAlive = task(
     return;
   }
 
-  // Check domains
   const deadDomains: string[] = [];
   let checked = 0;
 
@@ -84,7 +72,6 @@ const validateDomainAlive = task(
     }
   }
 
-  // Summary
   console.log(picocolors.cyan('\n[Domain Check] Summary:'));
   console.log(picocolors.green(`  \u2713 Alive: ${domains.size - deadDomains.length}`));
   console.log(picocolors.red(`  \u2717 Dead: ${deadDomains.length}`));
@@ -97,5 +84,3 @@ const validateDomainAlive = task(
     process.exitCode = 1;
   }
 });
-
-export { validateDomainAlive };

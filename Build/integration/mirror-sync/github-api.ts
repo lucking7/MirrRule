@@ -1,20 +1,10 @@
-/**
- * GitHub API 交互模块
- * 处理 API 重定向、空响应、404 等异常
- */
-
 import process from 'node:process';
-import { Buffer } from 'node:buffer';
+
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import { UA_MIRROR } from '../../constants/user-agents';
 import picocolors from 'picocolors';
 import { getErrorMessage } from '../../lib/misc';
 
-// --- Types (from types.ts) ---
-
-/**
- * GitHub Release Asset 信息
- */
 export interface GitHubAsset {
   name: string,
   url: string,
@@ -22,9 +12,6 @@ export interface GitHubAsset {
   browser_download_url: string
 }
 
-/**
- * GitHub Release 信息
- */
 export interface GitHubRelease {
   tag_name: string,
   name: string,
@@ -32,9 +19,6 @@ export interface GitHubRelease {
   html_url: string
 }
 
-/**
- * API 错误类型
- */
 export enum ApiErrorType {
   EMPTY_RESPONSE = 'EMPTY_RESPONSE',
   NULL_RESPONSE = 'NULL_RESPONSE',
@@ -45,9 +29,6 @@ export enum ApiErrorType {
   UNKNOWN = 'UNKNOWN'
 }
 
-/**
- * API 错误信息
- */
 export interface ApiError {
   type: ApiErrorType,
   message: string,
@@ -55,18 +36,9 @@ export interface ApiError {
   canRetry: boolean
 }
 
-// --- API error helpers (from api-error-utils.ts) ---
-
 interface ApiErrorMappingOptions {
   notFoundMessage?: string;
   emptyResponseMessage?: string;
-  nullResponseMessage?: string;
-}
-
-interface StatusLikeError {
-  status?: number;
-  statusCode?: number;
-  message?: string;
 }
 
 export function createApiError(
@@ -83,7 +55,7 @@ function getStatusCode(error: unknown): number | null {
     return null;
   }
 
-  const statusLikeError = error as StatusLikeError;
+  const statusLikeError = error as { statusCode?: number; status?: number };
   if (typeof statusLikeError.statusCode === 'number') {
     return statusLikeError.statusCode;
   }
@@ -145,23 +117,12 @@ export function mapGitHubApiError(
   return createApiError(ApiErrorType.NETWORK_ERROR, message, url, true);
 }
 
-// --- GitHub API functions ---
-
-/**
- * GitHub API 基础 URL
- */
 const GITHUB_API_BASE = 'https://api.github.com';
 
-/**
- * 获取 GitHub Token（从环境变量）
- */
 function getGitHubToken(): string | undefined {
   return process.env.GITHUB_TOKEN;
 }
 
-/**
- * 创建 GitHub API 请求头
- */
 function createHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3+json',
@@ -176,22 +137,6 @@ function createHeaders(): Record<string, string> {
   return headers;
 }
 
-/**
- * 获取仓库的最新 Release
- *
- * @param repo - 仓库名称，格式: "owner/repo"
- * @returns Release 信息或错误
- *
- * @example
- * ```ts
- * const result = await fetchLatestRelease('NSRingo/WeatherKit');
- * if ('error' in result) {
- *   console.error('Failed:', result.error.message);
- * } else {
- *   console.log('Release:', result.tag_name);
- * }
- * ```
- */
 export async function fetchLatestRelease(
   repo: string
 ): Promise<GitHubRelease | { error: ApiError }> {
@@ -205,7 +150,7 @@ export async function fetchLatestRelease(
       headers: createHeaders(),
     });
 
-    const data = (await response.json()) as GitHubRelease;
+    const data = (await response.json()) as GitHubRelease & { message?: string; url?: string };
 
     if (!data) {
       return {
@@ -214,9 +159,9 @@ export async function fetchLatestRelease(
     }
 
     if ('message' in data) {
-      const message = (data as any).message;
+      const message = data.message ?? 'Unknown error';
       if (message === 'Moved Permanently') {
-        const redirectUrl = (data as any).url;
+        const redirectUrl = data.url;
         if (redirectUrl) {
           console.log(picocolors.yellow(`[GitHub API] Following redirect to ${redirectUrl}`));
           return await fetchLatestReleaseFromUrl(redirectUrl);
@@ -250,9 +195,6 @@ export async function fetchLatestRelease(
   }
 }
 
-/**
- * 从指定 URL 获取 Release 信息（用于处理重定向）
- */
 async function fetchLatestReleaseFromUrl(
   url: string
 ): Promise<GitHubRelease | { error: ApiError }> {
@@ -285,12 +227,6 @@ async function fetchLatestReleaseFromUrl(
   }
 }
 
-/**
- * 下载 Release Asset
- *
- * @param assetUrl - Asset 的 API URL
- * @returns 文件内容的 Buffer
- */
 export async function downloadAsset(assetUrl: string): Promise<Buffer | { error: ApiError }> {
   try {
     const response = await $$fetch(assetUrl, {
