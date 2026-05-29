@@ -360,6 +360,25 @@ export const specialRules: SpecialRuleConfig[] = [
     },
   },
   {
+    name: 'Amazon',
+    targetFile: 'List/amazon.list',
+    sourceFiles: [
+      'https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/amazon.list',
+    ],
+    targets: ['surge', 'clash', 'singbox', 'loon'],
+    dedup: true,
+    sort: true,
+    keepComments: false,
+    keepEmptyLines: false,
+    formatConversion: true,
+    header: {
+      enable: true,
+      title: 'Ruleset - Amazon',
+      description:
+        'This file contains rules for Amazon retail, AWS, Prime Video, Kindle, IMDb, and related services',
+    },
+  },
+  {
     name: 'Reject',
     targetFile: 'List/ads.list',
     sourceFiles: [

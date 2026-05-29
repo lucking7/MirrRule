@@ -77,3 +77,28 @@ describe('RuleLineUtils validates compound rules', () => {
     assert.equal(RuleLineUtils.isValidRule(''), false);
   });
 });
+
+describe('smartConvertRule handles MetaCubeX geosite syntax', () => {
+  it('converts geosite suffix entries into domain suffix rules', () => {
+    const { smartConvertRule } = require('../lib/misc');
+
+    assert.equal(smartConvertRule('+.amazon'), 'DOMAIN-SUFFIX,amazon');
+    assert.equal(smartConvertRule('+.amazonimages.com'), 'DOMAIN-SUFFIX,amazonimages.com');
+  });
+
+  it('keeps existing domain conversions stable', () => {
+    const { smartConvertRule } = require('../lib/misc');
+
+    assert.equal(smartConvertRule('.example.com'), 'DOMAIN-SUFFIX,example.com');
+    assert.equal(smartConvertRule('example.com'), 'DOMAIN,example.com');
+    assert.equal(smartConvertRule('DOMAIN,example.com'), 'DOMAIN,example.com');
+  });
+
+  it('converts common geosite prefixes', () => {
+    const { smartConvertRule } = require('../lib/misc');
+
+    assert.equal(smartConvertRule('full:example.com'), 'DOMAIN,example.com');
+    assert.equal(smartConvertRule('domain:example.com'), 'DOMAIN-SUFFIX,example.com');
+    assert.equal(smartConvertRule('keyword:amazon'), 'DOMAIN-KEYWORD,amazon');
+  });
+});

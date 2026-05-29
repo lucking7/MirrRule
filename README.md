@@ -60,6 +60,7 @@ Full file listing available at: https://nrrule.pages.dev
 | `wechat` | WeChat |
 | `apple` | Apple services |
 | `microsoft` | Microsoft services |
+| `amazon` | Amazon, AWS, Prime Video, Kindle, IMDb, and related services |
 | `domestic` | China domestic sites |
 | `lan` | Local network |
 | `speedtest` | Speedtest servers |

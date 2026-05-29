@@ -99,12 +99,36 @@ const STARTS_WITH_DIGIT = /^\d/;
 
 /**
  * 简单规则格式转换（输入应已 trim）：
+ * - `+.example.com` → `DOMAIN-SUFFIX,example.com`
+ * - `full:example.com` → `DOMAIN,example.com`
+ * - `domain:example.com` → `DOMAIN-SUFFIX,example.com`
+ * - `keyword:example` → `DOMAIN-KEYWORD,example`
  * - `.example.com` → `DOMAIN-SUFFIX,example.com`
  * - `example.com`（纯域名，无逗号）→ `DOMAIN,example.com`
  * - 其他规则原样返回
  */
 export function smartConvertRule(rule: string): string {
   if (!rule || rule.includes(',')) return rule;
+
+  if (rule.startsWith('+.')) {
+    const domain = rule.slice(2);
+    if (domain) return `DOMAIN-SUFFIX,${domain}`;
+  }
+
+  if (rule.startsWith('full:')) {
+    const domain = rule.slice(5);
+    if (domain) return `DOMAIN,${domain}`;
+  }
+
+  if (rule.startsWith('domain:')) {
+    const domain = rule.slice(7);
+    if (domain) return `DOMAIN-SUFFIX,${domain.startsWith('+.') ? domain.slice(2) : domain}`;
+  }
+
+  if (rule.startsWith('keyword:')) {
+    const keyword = rule.slice(8);
+    if (keyword) return `DOMAIN-KEYWORD,${keyword}`;
+  }
 
   if (rule.startsWith('.')) {
     const domain = rule.slice(1);
