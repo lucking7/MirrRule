@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import process from 'node:process';
 import picocolors from 'picocolors';
 import { task } from './trace';
 import { getMethods } from './utils/domain/is-domain-alive';

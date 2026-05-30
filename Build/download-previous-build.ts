@@ -13,9 +13,9 @@ import { extract as tarExtract } from 'tar-fs';
 import { isCI } from 'ci-info';
 import { headStatus } from './lib/tarball-utils.ts';
 
-const GITHUB_CODELOAD_URL = 'https://codeload.github.com/lucking7/NRRule/tar.gz/master';
+const GITHUB_CODELOAD_URL = 'https://codeload.github.com/lucking7/NRRule/tar.gz/main';
 const GITLAB_CODELOAD_URL =
-  'https://gitlab.com/lucking7/NRRule/-/archive/master/NRRule-master.tar.gz';
+  'https://gitlab.com/lucking7/NRRule/-/archive/main/NRRule-main.tar.gz';
 
 export const downloadPreviousBuild = task(
   require.main === module,
@@ -65,7 +65,7 @@ export const downloadPreviousBuild = task(
       )
       .end();
 
-    const pathPrefix = 'ruleset.skk.moe-master/';
+    const pathPrefix = 'NRRule-main/';
 
     return pipeline(
       respBody,

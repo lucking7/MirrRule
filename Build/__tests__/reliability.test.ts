@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import process from 'node:process';
 
 describe('fetch-retry dispatcher wiring', () => {
   it('dispatcher is exported and not undefined', () => {

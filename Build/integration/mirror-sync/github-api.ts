@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import process from 'node:process';
 
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';

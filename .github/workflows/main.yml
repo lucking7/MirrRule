@@ -689,7 +689,7 @@ jobs:
           fi
 
           # Scripts 目录（如果存在）
-          if [ -d "../public/Scripts" ]; then
+          if [ -d "public/Scripts" ]; then
             SYNC_PATHS="$SYNC_PATHS Scripts/"
             SYNC_DESC="$SYNC_DESC+scripts"
           fi
