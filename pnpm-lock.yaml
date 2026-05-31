@@ -28,8 +28,8 @@ importers:
         specifier: ^0.3.2
         version: 0.3.2
       foxts:
-        specifier: ^5.4.0
-        version: 5.4.0
+        specifier: ^5.4.2
+        version: 5.4.2
       json-stringify-pretty-compact:
         specifier: 3.0.0
         version: 3.0.0
@@ -1265,9 +1265,6 @@ packages:
     resolution: {integrity: sha512-9XNj/o4wrRFyhSMJOvsuyMwy8aUfBaZ1VrqHVfohyXf0Sw0e+yfKG+xZaY3arGCOMdwFsqObtzVOc1gU9KiT9w==}
     engines: {node: '>=18.3.0'}
     hasBin: true
-
-  foxts@5.4.0:
-    resolution: {integrity: sha512-guuVqmx+BTI8Sv8C+KGCREvpGmirdUDFTiENJdi3Zru+0odfcc/bhOdc5DQUUkAAmaDx4XnudGO9ZGS3aamndw==}
 
   foxts@5.4.2:
     resolution: {integrity: sha512-FKzYjarnrPNwMOiqaGT6S+/V4jDd3nt/MuJK5CjmJla7VSfyA8ZKjYGcoAvIr17ldYKj79eBBEYiRrYklsDRFA==}
@@ -2548,7 +2545,7 @@ snapshots:
   domain-alive@0.1.22:
     dependencies:
       debug: 4.4.1
-      foxts: 5.4.0
+      foxts: 5.4.2
       tldts: 7.0.28
     transitivePeerDependencies:
       - supports-color
@@ -2591,7 +2588,7 @@ snapshots:
       eslint-plugin-promise: 7.2.1(eslint@9.39.1(jiti@2.7.0))
       eslint-plugin-regexp: 3.1.0(eslint@9.39.1(jiti@2.7.0))
       eslint-plugin-unused-imports: 4.4.1(@typescript-eslint/eslint-plugin@8.58.2(@typescript-eslint/parser@8.58.2(eslint@9.39.1(jiti@2.7.0))(typescript@6.0.3))(eslint@9.39.1(jiti@2.7.0))(typescript@6.0.3))(eslint@9.39.1(jiti@2.7.0))
-      foxts: 5.4.0
+      foxts: 5.4.2
       jsonc-eslint-parser: 3.1.0
       picocolors: 1.1.1
       typescript-eslint: 8.58.2(eslint@9.39.1(jiti@2.7.0))(typescript@6.0.3)
@@ -2608,7 +2605,7 @@ snapshots:
     dependencies:
       ci-info: 4.4.0
       eslint: 9.39.1(jiti@2.7.0)
-      foxts: 5.4.0
+      foxts: 5.4.2
       picocolors: 1.1.1
 
   eslint-import-context@0.1.9(unrs-resolver@1.11.1):
@@ -2851,8 +2848,6 @@ snapshots:
   formatly@0.3.0:
     dependencies:
       fd-package-json: 2.0.0
-
-  foxts@5.4.0: {}
 
   foxts@5.4.2: {}
 
@@ -3322,7 +3317,7 @@ snapshots:
   undici-cache-store-better-sqlite3@1.0.1(undici@8.3.0):
     dependencies:
       better-sqlite3: 12.10.0
-      foxts: 5.4.0
+      foxts: 5.4.2
       undici: 8.3.0
 
   undici-types@7.19.2: {}
