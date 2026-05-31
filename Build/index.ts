@@ -84,14 +84,14 @@ export const buildRuleset = task(
   const allErrors = steps.flatMap(step => step.errors);
   const allSuccess = steps.every(step => step.success);
 
-  if (!allSuccess) {
+  if (allSuccess) {
+    fs.writeFileSync(buildFinishedLock, 'BUILD_FINISHED\n');
+  } else {
     for (const error of allErrors) {
       console.error(error);
     }
     console.error('Build completed with errors — .BUILD_FINISHED not written');
     process.exitCode = 1;
-  } else {
-    fs.writeFileSync(buildFinishedLock, 'BUILD_FINISHED\n');
   }
 
   printTraceResult(span.traceResult);

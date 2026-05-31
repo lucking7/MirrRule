@@ -82,7 +82,7 @@ Rules are automatically rebuilt and deployed on a schedule:
 
 ## Development
 
-Requires **Node.js 24.x** and **pnpm 10.x**.
+Requires **Node.js 26.x** and **pnpm 10.x**.
 
 ```bash
 pnpm install

@@ -7,7 +7,8 @@ import { SingboxSource } from '../core/output/writing-strategy/singbox';
 import { SurgeRuleSet } from '../core/output/writing-strategy/surge';
 
 function parseSingbox(strategy: SingboxSource) {
-  return JSON.parse(strategy.content!.join('\n')) as {
+  assert.ok(strategy.content, 'sing-box content should be present');
+  return JSON.parse(strategy.content.join('\n')) as {
     version: number;
     rules: Array<{
       domain?: string[];

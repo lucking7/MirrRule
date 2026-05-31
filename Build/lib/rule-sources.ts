@@ -84,40 +84,12 @@ export const ruleGroups: RuleGroup[] = [
     targets: ['surge', 'clash', 'singbox', 'loon'], // 广告拦截支持多平台
     files: [
       applyDefaultConfig({
-        path: 'List/reject-fmz.list',
-        url: 'https://github.com/fmz200/wool_scripts/raw/main/QuantumultX/filter/filter.list',
-        keepComments: false,
-        dedup: true,
-        sort: true,
-        validate: true,
-        keepEmptyLines: false,
-        deleteSourceFiles: true,
-      }),
-      applyDefaultConfig({
         path: 'List/reject-no-drop.list',
         url: 'https://ruleset.skk.moe/List/non_ip/reject-no-drop.conf',
       }),
       applyDefaultConfig({
         path: 'List/reject-drop.list',
         url: 'https://ruleset.skk.moe/List/non_ip/reject-drop.conf',
-      }),
-    ],
-  },
-  {
-    name: 'Direct',
-    description: 'Rules for direct connection without proxy',
-    defaultPolicy: 'DIRECT',
-    targets: ['surge', 'clash', 'singbox', 'loon'],
-    files: [
-      applyDefaultConfig({
-        path: 'List/direct-fmz.list',
-        url: 'https://github.com/fmz200/wool_scripts/raw/main/QuantumultX/filter/filterFix.list',
-        keepComments: false,
-        dedup: true,
-        sort: true,
-        validate: true,
-        keepEmptyLines: false,
-        deleteSourceFiles: true,
       }),
     ],
   },
