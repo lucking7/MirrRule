@@ -1,7 +1,8 @@
 name: Dependabot auto-merge
 
 # 对 Dependabot 的 patch / minor 更新自动开启 auto-merge。
-# auto-merge 仅在 PR 通过分支保护要求（必需检查 Build）后才会真正合并，
+# 使用 on: pull_request + permissions（GitHub 官方推荐，权限最小化），
+# auto-merge 仅在通过分支保护要求（必需检查 Build）后才会真正合并；
 # major 更新不在此列，仍需人工审查。
 
 on: pull_request
@@ -13,17 +14,18 @@ permissions:
 jobs:
   dependabot:
     runs-on: ubuntu-latest
-    if: ${{ github.actor == 'dependabot[bot]' }}
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
     steps:
       - name: Fetch Dependabot metadata
         id: metadata
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable auto-merge for patch and minor updates
-        if: ${{ steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor' }}
-        run: gh pr merge --auto --squash "$PR_URL"
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: gh pr merge --auto --squash "${{ github.event.pull_request.html_url }}"
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
