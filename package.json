@@ -38,7 +38,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@ghostery/adblocker": "^2.14.1",
+    "@ghostery/adblocker": "^2.14.4",
     "@henrygd/queue": "^1.2.0",
     "@mitata/counters": "^0.0.8",
     "better-sqlite3": "^12.9.0",
