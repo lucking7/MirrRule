@@ -40,8 +40,8 @@ importers:
         specifier: github:lsongdev/node-dns#e4fa035aca0b8eb730bde3431fbf0c60a31a09c9
         version: https://codeload.github.com/lsongdev/node-dns/tar.gz/e4fa035aca0b8eb730bde3431fbf0c60a31a09c9
       domain-alive:
-        specifier: ^0.1.11
-        version: 0.1.11
+        specifier: ^0.1.22
+        version: 0.1.22
       fast-cidr-tools:
         specifier: ^0.3.2
         version: 0.3.2
@@ -1079,16 +1079,12 @@ packages:
     resolution: {integrity: sha512-EjePK1srD3P08o2j4f0ExnylqRs5B9tJjcp9t1krH2qRi8CCdsYfwe9JgSLurFBWwq4uOlipzfk5fHNvwFKr8Q==}
     engines: {node: ^14.15.0 || ^16.10.0 || >=18.0.0}
 
-  dns2@https://codeload.github.com/lsongdev/node-dns/tar.gz/3adb7e91b3101c0e4f43ebaca3a568269ea04d11:
-    resolution: {tarball: https://codeload.github.com/lsongdev/node-dns/tar.gz/3adb7e91b3101c0e4f43ebaca3a568269ea04d11}
-    version: 2.1.0
-
   dns2@https://codeload.github.com/lsongdev/node-dns/tar.gz/e4fa035aca0b8eb730bde3431fbf0c60a31a09c9:
     resolution: {tarball: https://codeload.github.com/lsongdev/node-dns/tar.gz/e4fa035aca0b8eb730bde3431fbf0c60a31a09c9}
     version: 2.1.0
 
-  domain-alive@0.1.11:
-    resolution: {integrity: sha512-ztcLT4rQQWHRetdfvcTu8eAi0wL9c6uZEpqZS1EsFQc4K0qMOQofNpTLwI4fJXAUvBpOu2IBdyU+yKoHS+wwPA==}
+  domain-alive@0.1.22:
+    resolution: {integrity: sha512-jmGCN6EOuLs7BwitNEUVhqF5tTFGvFtXAhhANbKR60tLCCWNuER72+YSiSCsO8OVXgXV1jL/zQ6RyrBUPmogaA==}
 
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
@@ -2624,14 +2620,11 @@ snapshots:
 
   diff-sequences@29.6.3: {}
 
-  dns2@https://codeload.github.com/lsongdev/node-dns/tar.gz/3adb7e91b3101c0e4f43ebaca3a568269ea04d11: {}
-
   dns2@https://codeload.github.com/lsongdev/node-dns/tar.gz/e4fa035aca0b8eb730bde3431fbf0c60a31a09c9: {}
 
-  domain-alive@0.1.11:
+  domain-alive@0.1.22:
     dependencies:
       debug: 4.4.1
-      dns2: https://codeload.github.com/lsongdev/node-dns/tar.gz/3adb7e91b3101c0e4f43ebaca3a568269ea04d11
       foxts: 5.4.0
       tldts: 7.0.28
     transitivePeerDependencies:
