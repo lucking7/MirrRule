@@ -74,7 +74,7 @@ const PLUGIN_URL_REGEX = /https?:\/\/[^"]+\.(?:plugin|lpx)/g;
  *
  * @returns 插件列表 JSON 字符串
  */
-export async function downloadPluginList(): Promise<string | { error: string }> {
+async function downloadPluginList(): Promise<string | { error: string }> {
   const sources = resolvePluginListSources();
   const errors: string[] = [];
 
@@ -139,7 +139,7 @@ export async function downloadPluginList(): Promise<string | { error: string }> 
  * @param jsonText - 插件列表 JSON
  * @returns 插件 URL 数组
  */
-export function extractPluginUrls(jsonText: string): string[] {
+function extractPluginUrls(jsonText: string): string[] {
   const urls: string[] = [];
   const seen = new Set<string>();
 
@@ -165,7 +165,7 @@ export function extractPluginUrls(jsonText: string): string[] {
  * @param url - 插件 URL
  * @returns 插件信息
  */
-export function urlToPluginInfo(url: string): PluginInfo {
+function urlToPluginInfo(url: string): PluginInfo {
   const urlWithoutQuery = url.split('?')[0];
   const parts = urlWithoutQuery.split('/');
   const filename = parts[parts.length - 1];
@@ -228,7 +228,7 @@ export async function getPluginList(): Promise<PluginInfo[] | { error: string }>
  * @param plugins - 插件列表
  * @returns 分组后的 Map
  */
-export function groupPluginsByExtension(
+function groupPluginsByExtension(
   plugins: PluginInfo[]
 ): Map<'plugin' | 'lpx', PluginInfo[]> {
   const groups = new Map<'plugin' | 'lpx', PluginInfo[]>([

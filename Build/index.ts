@@ -3,10 +3,13 @@ import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { task } from './trace';
-import { printTraceResult, whyIsNodeRunning } from './trace';
+import { printTraceResult, task, whyIsNodeRunning } from './trace';
 import { ROOT_DIR } from './constants/dir';
 import { getErrorMessage } from './lib/misc';
+import { downloadGEOIP } from './download-geoip';
+import { buildPublic } from './build-public';
+import { RuleSourceProcessor } from './lib/rule-source-processor';
+import { ruleGroups, specialRules } from './lib/rule-sources';
 import type { Span } from './trace';
 
 interface BuildStepResult {
@@ -17,8 +20,6 @@ interface BuildStepResult {
 
 async function executeGeoIpBuildStep(span: Span): Promise<BuildStepResult> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy loading
-    const { downloadGEOIP } = require('./download-geoip.ts');
     const stats = await downloadGEOIP(span);
     return {
       name: 'geoip',
@@ -32,11 +33,6 @@ async function executeGeoIpBuildStep(span: Span): Promise<BuildStepResult> {
 
 async function executeRuleProcessingBuildStep(span: Span, outputDir = 'public'): Promise<BuildStepResult> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy loading
-    const { RuleSourceProcessor } = require('./lib/rule-source-processor.ts');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy loading
-    const { ruleGroups, specialRules } = require('./lib/rule-sources.ts');
-
     const processor = new RuleSourceProcessor(span, outputDir);
     console.log(`Processing ${ruleGroups.length} groups, ${specialRules.length} special rules`);
 
@@ -58,8 +54,6 @@ async function executeRuleProcessingBuildStep(span: Span, outputDir = 'public'):
 
 async function executeWebBuildStep(): Promise<BuildStepResult> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy loading
-    const { buildPublic } = require('./build-public.ts');
     await buildPublic();
     return { name: 'web', success: true, errors: [] };
   } catch (error) {

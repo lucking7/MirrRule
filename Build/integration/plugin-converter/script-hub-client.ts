@@ -41,7 +41,7 @@ function encodeURIComponentSafe(str: string): string {
  * @returns 转换 API URL
  * @deprecated 使用 buildConversionUrlFromLocal 代替，避免 Script-Hub 访问外网
  */
-export function buildConversionUrl(plugin: PluginInfo, config: ConversionConfig): string {
+function buildConversionUrl(plugin: PluginInfo, config: ConversionConfig): string {
   const encodedName = encodeURIComponentSafe(plugin.name);
   const encodedCategory = config.category
     ? encodeURIComponentSafe(config.category)
@@ -61,7 +61,7 @@ export function buildConversionUrl(plugin: PluginInfo, config: ConversionConfig)
  * @param config - 转换配置
  * @returns 转换 API URL
  */
-export function buildConversionUrlFromRemote(
+function buildConversionUrlFromRemote(
   sourceUrl: string,
   pluginName: string,
   config: ConversionConfig
@@ -91,7 +91,7 @@ export function buildConversionUrlFromRemote(
  * @param config - 转换配置
  * @returns 转换 API URL
  */
-export function buildConversionUrlFromLocal(
+function buildConversionUrlFromLocal(
   localPath: string,
   pluginName: string,
   config: ConversionConfig
@@ -118,7 +118,7 @@ export function buildConversionUrlFromLocal(
  * @returns sgmodule 内容或错误
  * @deprecated 使用 convertPluginFromLocal 代替，避免 Script-Hub 访问外网
  */
-export async function convertPlugin(
+async function convertPlugin(
   plugin: PluginInfo,
   config?: ConversionConfig
 ): Promise<string | { error: string }> {
@@ -179,7 +179,7 @@ export async function convertPlugin(
  * @param maxRetries - 最大重试次数
  * @returns sgmodule 内容或错误
  */
-export async function convertPluginFromLocal(
+async function convertPluginFromLocal(
   localPath: string,
   pluginName: string,
   config?: ConversionConfig,
@@ -312,9 +312,9 @@ export async function convertPluginFromLocal(
  * @param config - 转换配置
  * @param concurrency - 并发数
  * @returns 转换结果数组
- * @deprecated 使用 convertPluginsBatchFromLocal 代替，避免 Script-Hub 访问外网
+ * @deprecated 使用 __convertPluginsBatchFromLocal 代替，避免 Script-Hub 访问外网
  */
-export async function convertPluginsBatch(
+async function _convertPluginsBatch(
   plugins: PluginInfo[],
   config?: ConversionConfig,
   concurrency = 5
@@ -509,14 +509,14 @@ export async function convertPluginsBatchFromRemote(
 /**
  * 批量转换插件 (从本地文件)
  *
- * @deprecated 使用 convertPluginsBatchFromRemote 代替，避免本地文件路径问题
+ * @deprecated 使用 _convertPluginsBatchFromRemote 代替，避免本地文件路径问题
  *
  * @param downloadResults - 下载结果数组（只处理成功下载的插件）
  * @param config - 转换配置
  * @param concurrency - 并发数
  * @returns 转换结果数组
  */
-export async function convertPluginsBatchFromLocal(
+async function __convertPluginsBatchFromLocal(
   downloadResults: DownloadResult[],
   config?: ConversionConfig,
   concurrency = 5
@@ -576,7 +576,7 @@ export async function convertPluginsBatchFromLocal(
  *
  * @returns 是否可用
  */
-export async function checkScriptHubAvailability(): Promise<boolean> {
+async function checkScriptHubAvailability(): Promise<boolean> {
   try {
     const response = await fetch(`${SCRIPT_HUB_CONFIG.baseUrl}/`, {
       method: 'HEAD',

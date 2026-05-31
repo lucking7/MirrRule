@@ -22,7 +22,7 @@ interface SingboxHeadlessRule {
   network?: string[];
 }
 
-export interface SingboxSourceFormat {
+interface SingboxSourceFormat {
   version: 2 | (number & {});
   rules: SingboxHeadlessRule[];
 }

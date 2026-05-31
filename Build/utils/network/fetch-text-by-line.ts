@@ -17,7 +17,7 @@ export function readFileByLine(file: string): AsyncIterable<string> {
   });
 }
 
-export const createReadlineInterfaceFromResponse: ((resp: UndiciResponseData | UnidiciWebResponse, processLine?: boolean) => ReadableStream<string>) = (resp, processLine = false) => {
+const createReadlineInterfaceFromResponse: ((resp: UndiciResponseData | UnidiciWebResponse, processLine?: boolean) => ReadableStream<string>) = (resp, processLine = false) => {
   invariant(resp.body, 'Failed to fetch remote text');
   if ('bodyUsed' in resp && resp.bodyUsed) {
     throw new Error('Body has already been consumed.');
@@ -40,11 +40,11 @@ export const createReadlineInterfaceFromResponse: ((resp: UndiciResponseData | U
   return resultStream;
 };
 
-export function fetchRemoteTextByLine(url: string, processLine = false): Promise<AsyncIterable<string>> {
+function _fetchRemoteTextByLine(url: string, processLine = false): Promise<AsyncIterable<string>> {
   return $$fetch(url).then(resp => createReadlineInterfaceFromResponse(resp, processLine));
 }
 
-export async function readFileIntoProcessedArray(file: string /* | FileHandle */) {
+async function _readFileIntoProcessedArray(file: string /* | FileHandle */) {
   const results = [];
   let processed: string | null = '';
   for await (const line of readFileByLine(file)) {

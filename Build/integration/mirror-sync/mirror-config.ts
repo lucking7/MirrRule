@@ -150,20 +150,20 @@ export const MIRROR_GROUPS: MirrorGroup[] = [
 /**
  * 获取所有仓库列表
  */
-export function getAllRepositories() {
+function _getAllRepositories() {
   return MIRROR_GROUPS.flatMap(group => group.repositories);
 }
 
 /**
  * 获取所有额外下载项
  */
-export function getAllExtraDownloads() {
+function _getAllExtraDownloads() {
   return MIRROR_GROUPS.flatMap(group => group.extraDownloads || []);
 }
 
 /**
  * 根据名称获取镜像组
  */
-export function getMirrorGroup(name: string): MirrorGroup | undefined {
+function _getMirrorGroup(name: string): MirrorGroup | undefined {
   return MIRROR_GROUPS.find(group => group.name === name);
 }

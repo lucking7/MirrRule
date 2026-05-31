@@ -97,7 +97,7 @@ export function createSpan(name: string, parentTraceResult?: TraceResult): Span 
   return span;
 }
 
-export const dummySpan = createSpan('');
+const _dummySpan = createSpan('');
 
 export function task(importMetaMain: boolean, importMetaPath: string) {
   return <T>(
@@ -113,7 +113,7 @@ export function task(importMetaMain: boolean, importMetaPath: string) {
       await cleanup();
     };
 
-    const dummySpan = createSpan(taskName);
+    const _dummySpan = createSpan(taskName);
     if (importMetaMain) {
       process.on('uncaughtException', error => {
         console.error('Uncaught exception:', error);
@@ -127,7 +127,7 @@ export function task(importMetaMain: boolean, importMetaPath: string) {
       void (async () => {
         let exitCode = 0;
         try {
-          await dummySpan.traceChildAsync('dummy', childSpan => fn(childSpan, onCleanup));
+          await _dummySpan.traceChildAsync('dummy', childSpan => fn(childSpan, onCleanup));
         } catch (error) {
           exitCode = 1;
           console.error(error);
@@ -138,8 +138,8 @@ export function task(importMetaMain: boolean, importMetaPath: string) {
             exitCode = 1;
             console.error('Cleanup failed:', error);
           }
-          dummySpan.stop();
-          printTraceResult(dummySpan.traceResult);
+          _dummySpan.stop();
+          printTraceResult(_dummySpan.traceResult);
           await whyIsNodeRunning();
           process.exit(exitCode);
         }
@@ -157,7 +157,7 @@ export function task(importMetaMain: boolean, importMetaPath: string) {
         });
       }
       try {
-        return await fn(dummySpan, onCleanup);
+        return await fn(_dummySpan, onCleanup);
       } finally {
         await runCleanup();
       }

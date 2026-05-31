@@ -17,7 +17,7 @@ const PROXY_REQUIRED_DOMAINS = ['kelee.one'] as const;
  * 获取代理基础 URL（从环境变量读取）
  * @returns 代理 URL 或 undefined（如果未配置）
  */
-function getProxyBaseFromEnv(): string | undefined {
+function _getProxyBaseFromEnv(): string | undefined {
   const proxyBase = process.env.PROXY_BASE?.trim();
   if (proxyBase) {
     // 确保代理 URL 格式正确（以 ? 或 / 结尾便于拼接）
@@ -32,8 +32,8 @@ function getProxyBaseFromEnv(): string | undefined {
 /**
  * 检查代理是否已配置
  */
-export function isProxyConfigured(): boolean {
-  return getProxyBaseFromEnv() !== undefined;
+function _isProxyConfigured(): boolean {
+  return _getProxyBaseFromEnv() !== undefined;
 }
 
 /**
@@ -61,7 +61,7 @@ export function applyProxyIfNeeded(url: string): string {
     return url;
   }
 
-  const proxyBase = getProxyBaseFromEnv();
+  const proxyBase = _getProxyBaseFromEnv();
   if (!proxyBase) {
     // 未配置代理，返回原始 URL
     return url;
@@ -74,8 +74,8 @@ export function applyProxyIfNeeded(url: string): string {
  * 获取当前代理基础 URL
  * @returns 代理 URL 或空字符串（如果未配置）
  */
-export function getProxyBase(): string {
-  return getProxyBaseFromEnv() || '';
+function _getProxyBase(): string {
+  return _getProxyBaseFromEnv() || '';
 }
 
 /**
@@ -91,7 +91,7 @@ export function buildProxyUrlCandidates(
   url: string,
   options?: { forceProxy?: boolean }
 ): string[] {
-  const proxyBase = getProxyBaseFromEnv();
+  const proxyBase = _getProxyBaseFromEnv();
 
   // 如果未配置代理，返回原始 URL
   if (!proxyBase) {

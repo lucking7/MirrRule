@@ -2,6 +2,8 @@
 
 Aggregates and distributes network proxy rules from multiple upstream sources, automatically built and deployed via GitHub Actions.
 
+MirrRule is the source repository name. Generated artifacts are published for the NRRule service at `https://nrrule.pages.dev`.
+
 ## Supported Platforms
 
 | Platform | Rule Format | Directory |
@@ -90,3 +92,5 @@ pnpm run build
 ## License
 
 [GNU Affero General Public License v3.0](./LICENSE)
+
+This project derives part of its build and rule-output code from [SukkaW/Surge](https://github.com/SukkaW/Surge), which is licensed under AGPL-3.0. MirrRule keeps the same AGPL-3.0 license and preserves attribution here.

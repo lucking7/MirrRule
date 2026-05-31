@@ -26,7 +26,7 @@ async function ensureTempDirectory(): Promise<void> {
   }
 }
 
-export async function cleanupTempDirectory(): Promise<void> {
+async function _cleanupTempDirectory(): Promise<void> {
   try {
     await fs.rm(TEMP_DIR, { recursive: true, force: true });
     console.log(picocolors.gray('[Cleanup] Removed temporary plugin directory'));
@@ -41,7 +41,7 @@ export async function cleanupTempDirectory(): Promise<void> {
  * @param maxRetries - 最大重试次数
  * @returns 本地文件路径或错误信息
  */
-export async function downloadPlugin(
+async function downloadPlugin(
   plugin: PluginInfo,
   maxRetries = 3
 ): Promise<string | { error: string }> {
@@ -165,7 +165,7 @@ export async function downloadPlugin(
  * @param concurrency - 并发数
  * @returns 下载结果数组
  */
-export async function downloadPluginsBatch(
+async function _downloadPluginsBatch(
   plugins: PluginInfo[],
   concurrency = 5
 ): Promise<DownloadResult[]> {
@@ -206,7 +206,7 @@ export async function downloadPluginsBatch(
 /**
  * 获取下载统计信息
  */
-export interface DownloadStats {
+interface DownloadStats {
   total: number;
   success: number;
   failed: number;
@@ -216,7 +216,7 @@ export interface DownloadStats {
   };
 }
 
-export function getDownloadStats(results: DownloadResult[]): DownloadStats {
+function getDownloadStats(results: DownloadResult[]): DownloadStats {
   const stats: DownloadStats = {
     total: results.length,
     success: 0,
@@ -243,7 +243,7 @@ export function getDownloadStats(results: DownloadResult[]): DownloadStats {
 /**
  * 打印下载统计信息
  */
-export function printDownloadStats(results: DownloadResult[]): void {
+function _printDownloadStats(results: DownloadResult[]): void {
   const stats = getDownloadStats(results);
 
   console.log(picocolors.cyan('\n[Download] Statistics:'));

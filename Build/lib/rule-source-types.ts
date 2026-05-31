@@ -61,7 +61,7 @@ export interface RuleGroup {
 /**
  * 头部信息配置
  */
-export interface HeaderConfig {
+interface HeaderConfig {
   /** 是否启用头部信息 */
   enable: boolean,
   /** 自定义标题 */
@@ -118,7 +118,7 @@ export interface SpecialRuleConfig {
 /**
  * 规则源配置文件结构
  */
-export interface RuleSourceConfig {
+interface _RuleSourceConfig {
   /** 规则组列表 */
   ruleGroups: RuleGroup[],
   /** 特殊规则合并配置列表 */
@@ -139,7 +139,7 @@ export interface RuleSourceConfig {
 /**
  * 处理结果统计信息
  */
-export interface ProcessingStats {
+interface _ProcessingStats {
   /** 处理的文件数量 */
   filesProcessed: number,
   /** 下载的文件数量 */
@@ -165,7 +165,7 @@ export interface ProcessingStats {
 /**
  * 文件类型枚举
  */
-export enum FileType {
+enum _FileType {
   /** GEOIP数据库文件 */
   GEODB = 'geodb',
   /** 规则列表文件 */

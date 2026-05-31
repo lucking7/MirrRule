@@ -43,11 +43,11 @@ export class IPValidator {
   }
 }
 
-export class URLValidator {
+class URL_Validator {
   private static readonly URL_REGEX = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(:\d+)?(\/.*)?$/i;
 
   static isValidURL(this: void, text: string): boolean {
-    return URLValidator.URL_REGEX.test(text);
+    return URL_Validator.URL_REGEX.test(text);
   }
 
   static extractHostname(this: void, url: string): string | null {
@@ -148,13 +148,13 @@ export const RuleLineUtils = {
   },
 };
 
-export const Validator = {
+const _Validator = {
   identifyType(text: string): 'domain' | 'domain-suffix' | 'ipv4' | 'ipv6' | 'url' | 'unknown' {
     if (DomainValidator.isDomainSuffix(text)) return 'domain-suffix';
     const ipType = IPValidator.getIpType(text);
     if (ipType) return ipType;
     if (DomainValidator.isDomainLike(text)) return 'domain';
-    if (URLValidator.isValidURL(text)) return 'url';
+    if (URL_Validator.isValidURL(text)) return 'url';
     return 'unknown';
   },
 

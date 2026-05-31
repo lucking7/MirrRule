@@ -66,7 +66,7 @@ export function extractScriptUrls(content: string): ScriptInfo[] {
  * @param url - 脚本 URL
  * @returns 文件名
  */
-export function extractFilename(url: string): string {
+function extractFilename(url: string): string {
   // 移除查询参数和锚点
   const urlWithoutQuery = url.split(/[#?]/)[0];
 
@@ -87,7 +87,7 @@ export function extractFilename(url: string): string {
  * @param filename - 文件名
  * @returns 镜像 URL
  */
-export function buildMirrorUrl(filename: string): string {
+function buildMirrorUrl(filename: string): string {
   return `${MIRROR_CONFIG.rawBase}/${filename}`;
 }
 
@@ -133,7 +133,7 @@ export function replaceScriptUrls(content: string, scripts: ScriptInfo[]): strin
  * @param contents - sgmodule 内容数组
  * @returns 所有脚本信息（去重）
  */
-export function extractScriptsFromMultiple(contents: string[]): ScriptInfo[] {
+function _extractScriptsFromMultiple(contents: string[]): ScriptInfo[] {
   const allScripts: ScriptInfo[] = [];
   const seen = new Set<string>();
 

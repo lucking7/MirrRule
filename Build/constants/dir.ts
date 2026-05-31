@@ -14,7 +14,7 @@ export const OUTPUT_SURGE_DIR = path.join(PUBLIC_DIR, 'List');
 export const OUTPUT_CLASH_DIR = path.resolve(PUBLIC_DIR, 'Clash');
 export const OUTPUT_SINGBOX_DIR = path.resolve(PUBLIC_DIR, 'sing-box');
 export const OUTPUT_LOON_DIR = path.resolve(PUBLIC_DIR, 'Loon');
-export const OUTPUT_INTERNAL_DIR = path.resolve(PUBLIC_DIR, 'Internal');
+const _OUTPUT_INTERNAL_DIR = path.resolve(PUBLIC_DIR, 'Internal');
 
 // Sukka 镜像目录 - 统一放在 Mirror/Sukka 下
 export const OUTPUT_SUKKA_MIRROR_DIR = path.resolve(PUBLIC_DIR, 'Mirror', 'Sukka');

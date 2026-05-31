@@ -70,7 +70,7 @@ export function withBannerArray(title: string, description: string[] | readonly 
   return result;
 };
 
-export function notSupported(name: string) {
+function _notSupported(name: string) {
   return (...args: unknown[]) => {
     console.error(`${name}: not supported.`, args);
     throw new Error(`${name}: not implemented.`);

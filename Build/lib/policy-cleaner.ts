@@ -147,7 +147,7 @@ export function cleanPolicy(rule: string): string {
  * @returns 清理后的规则数组
  *
  * @example
- * cleanPolicies([
+ * _cleanPolicies([
  *   'DOMAIN-SUFFIX,example.com,PROXY',
  *   'IP-CIDR,1.2.3.0/24,REJECT,no-resolve'
  * ])
@@ -156,7 +156,7 @@ export function cleanPolicy(rule: string): string {
  * //   'IP-CIDR,1.2.3.0/24,no-resolve'
  * // ]
  */
-export function cleanPolicies(rules: string[]): string[] {
+function _cleanPolicies(rules: string[]): string[] {
   return rules.map(cleanPolicy);
 }
 
@@ -166,7 +166,7 @@ export function cleanPolicies(rules: string[]): string[] {
  * @param rule - 规则字符串
  * @returns 如果规则包含策略返回 true
  */
-export function hasPolicy(rule: string): boolean {
+function _hasPolicy(rule: string): boolean {
   const cleaned = cleanPolicy(rule);
   return cleaned !== rule;
 }
@@ -177,7 +177,7 @@ export function hasPolicy(rule: string): boolean {
  * @param rule - 规则字符串
  * @returns 包含的允许参数列表
  */
-export function getRetainedParameters(rule: string): string[] {
+function _getRetainedParameters(rule: string): string[] {
   const parts = rule.split(',').map(p => p.trim().toLowerCase());
   const retained: string[] = [];
 

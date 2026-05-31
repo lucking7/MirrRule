@@ -20,7 +20,7 @@ export interface GitHubRelease {
   html_url: string
 }
 
-export enum ApiErrorType {
+enum ApiErrorType {
   EMPTY_RESPONSE = 'EMPTY_RESPONSE',
   NULL_RESPONSE = 'NULL_RESPONSE',
   NOT_FOUND = '404',
@@ -42,7 +42,7 @@ interface ApiErrorMappingOptions {
   emptyResponseMessage?: string;
 }
 
-export function createApiError(
+function createApiError(
   type: ApiErrorType,
   message: string,
   url: string,

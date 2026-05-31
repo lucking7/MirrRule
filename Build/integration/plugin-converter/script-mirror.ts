@@ -56,7 +56,7 @@ async function fileExists(filename: string): Promise<boolean> {
  * @param script - 脚本信息
  * @returns 是否成功
  */
-export async function downloadScript(script: ScriptInfo): Promise<boolean> {
+async function downloadScript(script: ScriptInfo): Promise<boolean> {
   const filePath = path.join(SCRIPT_OUTPUT_DIR, script.filename);
 
   console.log(picocolors.gray(`[Mirror] ${script.filename}`));
@@ -186,7 +186,7 @@ export function printMirrorSummary(result: MirrorResult): void {
  * @param usedFilenames - 正在使用的文件名集合
  * @returns 删除的文件数
  */
-export async function cleanupUnusedScripts(usedFilenames: Set<string>): Promise<number> {
+async function _cleanupUnusedScripts(usedFilenames: Set<string>): Promise<number> {
   try {
     const files = await fs.readdir(SCRIPT_OUTPUT_DIR);
     let deletedCount = 0;

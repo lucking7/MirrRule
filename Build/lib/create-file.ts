@@ -8,14 +8,14 @@ import { readFileByLine } from '../utils/network/fetch-text-by-line';
 import { writeFile, mkdirp } from './misc';
 import { createCompareSource, fileEqualWithCommentComparator } from 'foxts/compare-source';
 
-export const fileEqual = createCompareSource(fileEqualWithCommentComparator);
+const fileEqual = createCompareSource(fileEqualWithCommentComparator);
 
 /**
  * 输出文件（兼容旧代码）
  * @param filePath - 文件路径
  * @param content - 文件内容
  */
-export async function outputFile(filePath: string, content: string): Promise<void> {
+async function _outputFile(filePath: string, content: string): Promise<void> {
   await mkdirp(dirname(filePath));
   return writeFile(filePath, content);
 }

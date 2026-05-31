@@ -44,7 +44,7 @@ function getPluginMirrorPath(plugin: PluginInfo): string {
 /**
  * 检查插件是否已镜像
  */
-export async function isPluginMirrored(plugin: PluginInfo): Promise<boolean> {
+async function isPluginMirrored(plugin: PluginInfo): Promise<boolean> {
   try {
     const mirrorPath = getPluginMirrorPath(plugin);
     await fs.access(mirrorPath);
@@ -57,7 +57,7 @@ export async function isPluginMirrored(plugin: PluginInfo): Promise<boolean> {
 /**
  * 下载并镜像 Loon 插件
  */
-export async function mirrorPlugin(
+async function mirrorPlugin(
   plugin: PluginInfo
 ): Promise<{ success: boolean; content?: string; error?: string }> {
   console.log(picocolors.gray(`  [Mirror] Downloading ${plugin.name}...`));
@@ -98,7 +98,7 @@ export async function mirrorPlugin(
 /**
  * 从镜像读取插件内容
  */
-export async function readMirroredPlugin(plugin: PluginInfo): Promise<string | null> {
+async function readMirroredPlugin(plugin: PluginInfo): Promise<string | null> {
   try {
     const mirrorPath = getPluginMirrorPath(plugin);
     return await fs.readFile(mirrorPath, 'utf-8');
@@ -189,7 +189,7 @@ export async function mirrorPluginsBatch(
 /**
  * 获取镜像统计信息
  */
-export async function getMirrorStats(): Promise<{
+async function _getMirrorStats(): Promise<{
   totalMirrored: number;
   mirrorPath: string;
 }> {

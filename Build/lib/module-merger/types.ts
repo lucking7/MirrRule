@@ -144,7 +144,7 @@ export interface MergeResult {
 /**
  * 合并统计信息
  */
-export interface MergeStats {
+interface MergeStats {
   /** 处理的模块数量 */
   modulesProcessed: number,
   /** 失败的模块数量 */

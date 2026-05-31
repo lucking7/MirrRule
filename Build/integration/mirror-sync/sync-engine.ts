@@ -31,7 +31,7 @@ export interface MirrorGroup {
   }>
 }
 
-export interface FileChecksum {
+interface FileChecksum {
   filePath: string,
   checksum: string,
   size: number
@@ -47,7 +47,7 @@ export interface SyncResult {
   }>
 }
 
-export function calculateBufferChecksum(buffer: Buffer): string {
+function calculateBufferChecksum(buffer: Buffer): string {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
@@ -78,16 +78,16 @@ export async function shouldUpdateFile(filePath: string, newBuffer: Buffer): Pro
   return existingChecksum.checksum !== newChecksum;
 }
 
-export function isValidFileSize(size: number, minSize = 10, maxSize = 100 * 1024 * 1024): boolean {
+function isValidFileSize(size: number, minSize = 10, maxSize = 100 * 1024 * 1024): boolean {
   return size >= minSize && size <= maxSize;
 }
 
-export function getFileExtension(filename: string): string {
+function getFileExtension(filename: string): string {
   const parts = filename.split('.');
   return parts.length > 1 ? parts[parts.length - 1] : '';
 }
 
-export function extensionToFileType(extension: string): FileType {
+function extensionToFileType(extension: string): FileType {
   const ext = extension.toLowerCase();
 
   switch (ext) {
@@ -104,7 +104,7 @@ export function extensionToFileType(extension: string): FileType {
   }
 }
 
-export function getOutputDirectory(baseDir: string, fileType: FileType): string | null {
+function getOutputDirectory(baseDir: string, fileType: FileType): string | null {
   switch (fileType) {
     case FileType.PLUGIN:
       return path.join(baseDir, 'plugin');
@@ -119,14 +119,14 @@ export function getOutputDirectory(baseDir: string, fileType: FileType): string 
   }
 }
 
-export interface ClassifiedAsset {
+interface ClassifiedAsset {
   asset: GitHubAsset,
   fileType: FileType,
   outputPath: string | null,
   shouldProcess: boolean
 }
 
-export function classifyAsset(
+function classifyAsset(
   asset: GitHubAsset,
   baseDir: string,
   allowedTypes: FileType[] = [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE]
@@ -152,7 +152,7 @@ export function classifyAsset(
   };
 }
 
-export function classifyAssets(
+function classifyAssets(
   assets: GitHubAsset[],
   baseDir: string,
   allowedTypes?: FileType[]
@@ -160,20 +160,20 @@ export function classifyAssets(
   return assets.map(asset => classifyAsset(asset, baseDir, allowedTypes));
 }
 
-export function filterProcessableAssets(
+function filterProcessableAssets(
   classifiedAssets: ClassifiedAsset[]
 ): ClassifiedAsset[] {
   return classifiedAssets.filter(c => c.shouldProcess && c.outputPath !== null);
 }
 
-export interface FileTypeStats {
+interface FileTypeStats {
   total: number,
   byType: Record<string, number>,
   processable: number,
   skipped: number
 }
 
-export function getFileTypeStats(classifiedAssets: ClassifiedAsset[]): FileTypeStats {
+function getFileTypeStats(classifiedAssets: ClassifiedAsset[]): FileTypeStats {
   const stats: FileTypeStats = {
     total: classifiedAssets.length,
     byType: {},

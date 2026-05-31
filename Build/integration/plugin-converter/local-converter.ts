@@ -648,7 +648,7 @@ class LoonPluginParser {
 /**
  * 本地插件转换器
  */
-export class LocalPluginConverter {
+class LocalPluginConverter {
   /**
    * 默认开启的脚本开关（使用转换后的参数名）
    */
@@ -1159,7 +1159,7 @@ export class LocalPluginConverter {
  * 下载并本地转换插件
  * 使用镜像系统缓存插件文件
  */
-export async function convertPluginLocally(
+async function convertPluginLocally(
   plugin: PluginInfo,
   forceUpdate = false
 ): Promise<LocalConversionResult> {

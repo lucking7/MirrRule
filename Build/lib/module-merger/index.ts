@@ -313,22 +313,4 @@ function _buildArgumentsLines(scriptToggles: ScriptToggleInfo[]): {
 
 /* eslint-enable sukka/no-single-return */
 
-// 导出类型 & 类
-export type {
-  MergeConfig,
-  MergeConfigFile,
-  MergeOptions,
-  MergeRuntimeOptions,
-  ModuleSource,
-  OutputConfig,
-  SectionType,
-  ParsedSection,
-  LoadedModule,
-  ModuleLoadError,
-  MergeResult,
-  MergeStats,
-  TemplateData,
-} from './types';
-export { SectionParser } from './section-parser';
-export { ModuleMerger } from './merger';
-export { TemplateEngine } from './template-engine';
+export type { MergeRuntimeOptions, MergeResult } from './types';

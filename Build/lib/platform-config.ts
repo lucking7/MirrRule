@@ -12,7 +12,7 @@ import { getErrorMessage } from './misc';
 
 export type SupportedPlatform = 'surge' | 'clash' | 'singbox' | 'loon';
 
-export interface PlatformConfig {
+interface PlatformConfig {
   /** 启用的目标平台（默认仅Surge） */
   targets: SupportedPlatform[];
   /** 全局默认策略 */
@@ -21,7 +21,7 @@ export interface PlatformConfig {
   outputDirs: Record<SupportedPlatform, string>;
 }
 
-export function isSupportedPlatform(target: string): target is SupportedPlatform {
+function isSupportedPlatform(target: string): target is SupportedPlatform {
   return target === 'surge' ||
     target === 'clash' ||
     target === 'singbox' ||
@@ -36,7 +36,7 @@ export function normalizeTargets(
   return targets.length > 0 ? targets : fallback;
 }
 
-export const DEFAULT_PLATFORM_CONFIG: PlatformConfig = {
+const DEFAULT_PLATFORM_CONFIG: PlatformConfig = {
   targets: ['surge'],
   globalDefaultPolicy: null,
   outputDirs: {
@@ -96,7 +96,7 @@ export function createStrategiesForTargets(
 /**
  * 策略组清理配置 - 针对不支持策略的平台
  */
-export const PLATFORM_POLICY_SUPPORT: Record<SupportedPlatform, boolean> = {
+const _PLATFORM_POLICY_SUPPORT: Record<SupportedPlatform, boolean> = {
   surge: true, // 完整策略支持
   clash: false, // 不支持策略组
   singbox: false, // 不支持策略组

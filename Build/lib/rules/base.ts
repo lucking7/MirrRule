@@ -8,7 +8,6 @@ import type { BaseWriteStrategy } from '../../core/output/writing-strategy/base'
 import { merge as mergeCidr } from 'fast-cidr-tools';
 import { createRetrieKeywordFilter as createKeywordFilter } from 'foxts/retrie';
 import path from 'node:path';
-import { SurgeMitmSgmodule } from '../../core/output/writing-strategy/surge';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { RuleLineUtils } from '../../utils/validation/validators';
 import { stripTrailingHashComment } from './rule-line-utils.ts';
@@ -609,12 +608,5 @@ export class FileOutput {
       acc.push(strategy.content);
       return acc;
     }, []);
-  }
-
-  withMitmSgmodulePath(moduleName: string | null) {
-    if (moduleName) {
-      this.withExtraStrategies(new SurgeMitmSgmodule(moduleName));
-    }
-    return this;
   }
 }

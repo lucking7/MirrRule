@@ -1,0 +1,30 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "Build/index.ts",
+    "Build/build-public.ts",
+    "Build/download-geoip.ts",
+    "Build/download-fmz200-split.ts",
+    "Build/sync-mirrors.ts",
+    "Build/convert-plugins.ts",
+    "Build/merge-modules.ts",
+    "Build/download-mock-modules.ts",
+    "Build/download-previous-build.ts",
+    "Build/validate-domain-alive.ts",
+    "Build/__tests__/*.test.ts",
+    ".github/workflows/*.yml"
+  ],
+  "project": [
+    "Build/**/*.ts",
+    "Source/**/*.ts"
+  ],
+  "ignore": [
+    "Source/ai-custom.ts"
+  ],
+  "ignoreDependencies": [
+    "@eslint-sukka/node",
+    "@types/punycode",
+    "better-sqlite3",
+    "punycode"
+  ]
+}

@@ -615,7 +615,7 @@ function cleanUpEmptyTrailNode<Meta>(node: TrieNode<Meta>) {
   }
 }
 
-export class HostnameTrie<Meta = unknown> extends Triebase<Meta> {
+class _HostnameTrie<Meta = unknown> extends Triebase<Meta> {
   get size() {
     return this.$size;
   }

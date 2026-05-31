@@ -2,7 +2,7 @@ import type { FileConfig, RuleGroup, SpecialRuleConfig } from './rule-source-typ
 import path from 'node:path';
 
 const currentDir = path.dirname(__filename);
-export const REPO_PATH = path.join(currentDir, '../..');
+const REPO_PATH = path.join(currentDir, '../..');
 
 export const DEFAULT_FILE_CONFIG = {
   validate: false,
@@ -564,7 +564,7 @@ export const specialRules: SpecialRuleConfig[] = [
   },
 ];
 
-export const ruleGroupDefaults = {
+const _ruleGroupDefaults = {
   keepComments: true,
   dedup: true,
   sort: false,
@@ -572,7 +572,7 @@ export const ruleGroupDefaults = {
   keepEmptyLines: true,
 };
 
-export const specialRuleDefaults = {
+const _specialRuleDefaults = {
   keepComments: false,
   dedup: true,
   sort: true,
@@ -581,7 +581,7 @@ export const specialRuleDefaults = {
   deleteSourceFiles: true,
 };
 
-export const config = {
+const _config = {
   repoPath: REPO_PATH,
   defaultFormat: 'Surge',
   deleteSourceFiles: true,

@@ -18,7 +18,7 @@ export interface LoadedMergeConfig {
   baseDir: string
 }
 
-export const DEFAULT_MERGE_OPTIONS: MergeOptions = {
+const DEFAULT_MERGE_OPTIONS: MergeOptions = {
   deduplicateHostnames: true,
   stripComments: true,
   addDividers: true,
