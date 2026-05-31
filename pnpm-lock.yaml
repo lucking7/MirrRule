@@ -82,11 +82,11 @@ importers:
         specifier: ^7.0.30
         version: 7.0.30
       undici:
-        specifier: ^8.0.2
-        version: 8.0.2
+        specifier: ^8.2.0
+        version: 8.2.0
       undici-cache-store-better-sqlite3:
         specifier: ^1.0.1
-        version: 1.0.1(undici@8.0.2)
+        version: 1.0.1(undici@8.2.0)
       worktank:
         specifier: ^3.0.2
         version: 3.0.2
@@ -1749,8 +1749,8 @@ packages:
   undici-types@7.19.2:
     resolution: {integrity: sha512-qYVnV5OEm2AW8cJMCpdV20CDyaN3g0AjDlOGf1OW4iaDEx8MwdtChUp4zu4H0VP3nDRF/8RKWH+IPp9uW0YGZg==}
 
-  undici@8.0.2:
-    resolution: {integrity: sha512-B9MeU5wuFhkFAuNeA19K2GDFcQXZxq33fL0nRy2Aq30wdufZbyyvxW3/ChaeipXVfy/wUweZyzovQGk39+9k2w==}
+  undici@8.2.0:
+    resolution: {integrity: sha512-Z+4Hx9GE26Lh9Upwfnc8C7SsrpBPGaM/Gm6kMFtiG7c+5IvQKlXi/t+9x9DrrCh29cww5TSP9YdVaBcnLDs5fQ==}
     engines: {node: '>=22.19.0'}
 
   unrs-resolver@1.11.1:
@@ -3387,15 +3387,15 @@ snapshots:
 
   typescript@5.9.3: {}
 
-  undici-cache-store-better-sqlite3@1.0.1(undici@8.0.2):
+  undici-cache-store-better-sqlite3@1.0.1(undici@8.2.0):
     dependencies:
       better-sqlite3: 12.9.0
       foxts: 5.4.0
-      undici: 8.0.2
+      undici: 8.2.0
 
   undici-types@7.19.2: {}
 
-  undici@8.0.2: {}
+  undici@8.2.0: {}
 
   unrs-resolver@1.11.1:
     dependencies:
