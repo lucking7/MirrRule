@@ -78,7 +78,7 @@ describe('GitHub Actions workflow contract', () => {
 
     const uploadStep = getStep(convertJob, 'Upload plugin conversion output');
     assert.match(String(uploadStep.if), /always\(\)/);
-    assert.match(String(uploadStep.with?.path), /public\/.artifacts/);
+    assert.match(String(uploadStep.with?.path), /public\/_artifacts/);
   });
 
   it('merges modules without starting a Script-Hub service', () => {

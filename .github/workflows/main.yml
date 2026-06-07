@@ -236,8 +236,8 @@ jobs:
       - name: Prepare plugin artifact marker
         if: always()
         run: |
-          mkdir -p public/.artifacts
-          printf 'plugin-output-ready\n' > public/.artifacts/plugin-output-ready
+          mkdir -p public/_artifacts
+          printf 'plugin-output-ready\n' > public/_artifacts/plugin-output-ready
 
       - name: Upload plugin conversion output
         if: always()
@@ -245,7 +245,7 @@ jobs:
         with:
           name: plugin-output-${{ github.sha }}-${{ github.run_number }}
           path: |
-            public/.artifacts
+            public/_artifacts
             public/Modules/Converted
             public/Scripts
           retention-days: 1
