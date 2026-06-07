@@ -172,20 +172,176 @@ jobs:
           echo "  Deploy: $DEPLOY (target: $DEPLOY_TARGET)"
 
   # ============================================
-  # 核心构建任务 - 包含所有生成步骤
+  # 插件转换任务 - 只有需要插件转换时才启动 Script-Hub
   # ============================================
-  build:
-    name: Build
+  convert-plugins:
+    name: Convert Plugins
     needs: prepare
-    if: needs.prepare.outputs.should_build == 'true'
+    if: needs.prepare.outputs.should_convert_plugins == 'true'
     runs-on: ubuntu-latest
     services:
-      # 🔧 添加 Script-Hub 服务（用于插件转换）
       script-hub:
         image: xream/script-hub:latest
         ports:
           - 9100:9100
           - 9101:9101
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".node-version"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Setup plugin output directories
+        run: mkdir -p public/Modules/Converted public/Scripts
+
+      - name: Configure Script-Hub
+        run: |
+          echo "127.0.0.1 script.hub" | sudo tee -a /etc/hosts
+          echo "⏳ 等待 Script-Hub 服务启动..."
+          for i in {1..30}; do
+            if curl -f -s http://script.hub:9101/ > /dev/null 2>&1; then
+              echo "✓ Script-Hub 服务就绪 (尝试 $i/30)"
+              sleep 10
+              exit 0
+            fi
+            echo "  尝试 $i/30 失败，等待 5 秒后重试..."
+            sleep 5
+          done
+          echo "❌ Script-Hub 服务启动超时"
+          exit 1
+
+      - name: Convert plugins
+        continue-on-error: true
+        run: |
+          pnpm run convert-plugins --wait-service --timeout 600 || {
+            echo "⚠️ 首次转换失败，等待 10 秒后重试..."
+            sleep 10
+            pnpm run convert-plugins --wait-service --timeout 600 || {
+              echo "❌ 两次转换都失败，继续构建流程"
+            }
+          }
+        env:
+          CI: true
+          PROXY_BASE: ${{ secrets.PROXY_BASE }}
+
+      - name: Upload plugin conversion output
+        uses: actions/upload-artifact@v7
+        with:
+          name: plugin-output-${{ github.sha }}-${{ github.run_number }}
+          path: |
+            public/Modules/Converted
+            public/Scripts
+          retention-days: 1
+          compression-level: 4
+          if-no-files-found: warn
+
+  # ============================================
+  # 模块合并任务 - 不需要 Script-Hub 服务
+  # ============================================
+  merge-modules:
+    name: Merge Modules
+    needs: [prepare, convert-plugins]
+    if: |
+      always() &&
+      needs.prepare.outputs.should_merge_modules == 'true' &&
+      (needs.convert-plugins.result == 'success' || needs.convert-plugins.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".node-version"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Setup module output directories
+        run: mkdir -p public/Modules/Converted public/Modules/Merged public/Modules/Rules public/Scripts
+
+      - name: Download plugin conversion output
+        if: needs.prepare.outputs.should_convert_plugins == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: plugin-output-${{ github.sha }}-${{ github.run_number }}
+          path: public
+
+      - name: Ensure converted modules exist
+        if: needs.prepare.outputs.should_convert_plugins != 'true'
+        run: |
+          CONVERTED_DIR="public/Modules/Converted"
+          if [ -d "$CONVERTED_DIR" ]; then
+            FILE_COUNT=$(find "$CONVERTED_DIR" -type f -name '*.sgmodule' 2>/dev/null | wc -l)
+          else
+            FILE_COUNT=0
+          fi
+
+          if [ "$FILE_COUNT" -gt 0 ]; then
+            echo "✅ 已有 $FILE_COUNT 个转换后的模块文件，无需下载"
+            exit 0
+          fi
+
+          echo "📥 转换后的模块文件缺失，从生产环境下载..."
+          git clone --depth=1 --filter=blob:none --sparse \
+            https://github.com/lucking7/NRRule.git ./temp-converted 2>/dev/null || {
+            echo "⚠️ 无法下载生产环境的模块文件，模块合并可能失败"
+            exit 0
+          }
+          cd ./temp-converted
+          git sparse-checkout set Modules/Converted
+          cd ..
+
+          mkdir -p "$CONVERTED_DIR"
+          if [ -d "temp-converted/Modules/Converted" ]; then
+            cp -r temp-converted/Modules/Converted/* "$CONVERTED_DIR/" 2>/dev/null || true
+            echo "✅ 从生产环境下载了 $(find "$CONVERTED_DIR" -type f -name '*.sgmodule' 2>/dev/null | wc -l) 个模块文件"
+          fi
+          rm -rf ./temp-converted
+
+      - name: Merge modules
+        run: |
+          mkdir -p public/Modules/Rules
+          pnpm run node ./Build/merge-modules.ts --config Build/lib/module-merger/configs/pro-merge-config.yaml
+        env:
+          CI: true
+
+      - name: Upload module output
+        uses: actions/upload-artifact@v7
+        with:
+          name: module-output-${{ github.sha }}-${{ github.run_number }}
+          path: |
+            public/Modules
+            public/Scripts
+          retention-days: 1
+          compression-level: 4
+          if-no-files-found: warn
+
+  # ============================================
+  # 核心构建任务 - 包含规则生成与最终产物
+  # ============================================
+  build:
+    name: Build
+    needs: [prepare, convert-plugins, merge-modules]
+    if: |
+      always() &&
+      needs.prepare.outputs.should_build == 'true' &&
+      (needs.convert-plugins.result == 'success' || needs.convert-plugins.result == 'skipped') &&
+      (needs.merge-modules.result == 'success' || needs.merge-modules.result == 'skipped')
+    runs-on: ubuntu-latest
     steps:
       # 🚀 网络性能优化
       - uses: smorimoto/tune-github-hosted-runner-network@v1
@@ -263,84 +419,24 @@ jobs:
         env:
           CI: true
 
-      # 🔧 步骤 2: 插件转换（如果需要）
+      - name: Download plugin conversion output
+        if: |
+          needs.prepare.outputs.should_convert_plugins == 'true' &&
+          needs.prepare.outputs.should_merge_modules != 'true' &&
+          needs.convert-plugins.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: plugin-output-${{ github.sha }}-${{ github.run_number }}
+          path: public
 
-      # 🔧 步骤 3: 插件转换（如果需要）
-      - name: Configure Script-Hub
-        if: needs.prepare.outputs.should_convert_plugins == 'true'
-        run: |
-          echo "127.0.0.1 script.hub" | sudo tee -a /etc/hosts
-          echo "⏳ 等待 Script-Hub 服务启动..."
-          for i in {1..30}; do
-            if curl -f -s http://script.hub:9101/ > /dev/null 2>&1; then
-              echo "✓ Script-Hub 服务就绪 (尝试 $i/30)"
-              sleep 10
-              exit 0
-            fi
-            echo "  尝试 $i/30 失败，等待 5 秒后重试..."
-            sleep 5
-          done
-          echo "❌ Script-Hub 服务启动超时"
-          exit 1
-
-      - name: Convert plugins
-        if: needs.prepare.outputs.should_convert_plugins == 'true'
-        continue-on-error: true
-        run: |
-          pnpm run convert-plugins --wait-service --timeout 600 || {
-            echo "⚠️ 首次转换失败，等待 10 秒后重试..."
-            sleep 10
-            pnpm run convert-plugins --wait-service --timeout 600 || {
-              echo "❌ 两次转换都失败，继续构建流程"
-            }
-          }
-        env:
-          CI: true
-          PROXY_BASE: ${{ secrets.PROXY_BASE }}
-
-      # 🔧 步骤 3.5: 确保转换后的模块文件存在（当跳过插件转换时从生产环境下载）
-      - name: Ensure converted modules exist
+      - name: Download module output
         if: |
           needs.prepare.outputs.should_merge_modules == 'true' &&
-          needs.prepare.outputs.should_convert_plugins != 'true'
-        run: |
-          CONVERTED_DIR="public/Modules/Converted"
-          if [ -d "$CONVERTED_DIR" ]; then
-            FILE_COUNT=$(find "$CONVERTED_DIR" -type f -name '*.sgmodule' 2>/dev/null | wc -l)
-          else
-            FILE_COUNT=0
-          fi
-
-          if [ "$FILE_COUNT" -gt 0 ]; then
-            echo "✅ 已有 $FILE_COUNT 个转换后的模块文件，无需下载"
-            exit 0
-          fi
-
-          echo "📥 转换后的模块文件缺失，从生产环境下载..."
-          git clone --depth=1 --filter=blob:none --sparse \
-            https://github.com/lucking7/NRRule.git ./temp-converted 2>/dev/null || {
-            echo "⚠️ 无法下载生产环境的模块文件，模块合并可能失败"
-            exit 0
-          }
-          cd ./temp-converted
-          git sparse-checkout set Modules/Converted
-          cd ..
-
-          mkdir -p "$CONVERTED_DIR"
-          if [ -d "temp-converted/Modules/Converted" ]; then
-            cp -r temp-converted/Modules/Converted/* "$CONVERTED_DIR/" 2>/dev/null || true
-            echo "✅ 从生产环境下载了 $(find "$CONVERTED_DIR" -type f -name '*.sgmodule' 2>/dev/null | wc -l) 个模块文件"
-          fi
-          rm -rf ./temp-converted
-
-      # 🔧 步骤 4: 模块合并（如果需要）
-      - name: Merge modules
-        if: needs.prepare.outputs.should_merge_modules == 'true'
-        run: |
-          mkdir -p public/Modules/Rules
-          pnpm run node ./Build/merge-modules.ts --config Build/lib/module-merger/configs/pro-merge-config.yaml
-        env:
-          CI: true
+          needs.merge-modules.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: module-output-${{ github.sha }}-${{ github.run_number }}
+          path: public
 
       # 🔧 步骤 4.2: 清理 Modules 根目录中的历史 .sgmodule 文件
       - name: Clean legacy Modules root files
