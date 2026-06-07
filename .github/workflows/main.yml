@@ -233,11 +233,19 @@ jobs:
           CI: true
           PROXY_BASE: ${{ secrets.PROXY_BASE }}
 
+      - name: Prepare plugin artifact marker
+        if: always()
+        run: |
+          mkdir -p public/.artifacts
+          printf 'plugin-output-ready\n' > public/.artifacts/plugin-output-ready
+
       - name: Upload plugin conversion output
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: plugin-output-${{ github.sha }}-${{ github.run_number }}
           path: |
+            public/.artifacts
             public/Modules/Converted
             public/Scripts
           retention-days: 1
@@ -281,7 +289,6 @@ jobs:
           path: public
 
       - name: Ensure converted modules exist
-        if: needs.prepare.outputs.should_convert_plugins != 'true'
         run: |
           CONVERTED_DIR="public/Modules/Converted"
           if [ -d "$CONVERTED_DIR" ]; then

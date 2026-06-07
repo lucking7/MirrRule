@@ -43,6 +43,12 @@ function hasStep(job: WorkflowJob, name: string) {
   return job.steps?.some(step => step.name === name) ?? false;
 }
 
+function getStep(job: WorkflowJob, name: string) {
+  const step = job.steps?.find(item => item.name === name);
+  assert.ok(step, `step ${name} should exist`);
+  return step;
+}
+
 describe('GitHub Actions workflow contract', () => {
   it('keeps Script-Hub out of the generic Build job', () => {
     const buildJob = getJob('build');
@@ -67,7 +73,12 @@ describe('GitHub Actions workflow contract', () => {
     assert.match(convertJob.if ?? '', /should_convert_plugins == 'true'/);
     assert.equal(hasStep(convertJob, 'Configure Script-Hub'), true);
     assert.equal(hasStep(convertJob, 'Convert plugins'), true);
+    assert.equal(hasStep(convertJob, 'Prepare plugin artifact marker'), true);
     assert.equal(hasStep(convertJob, 'Upload plugin conversion output'), true);
+
+    const uploadStep = getStep(convertJob, 'Upload plugin conversion output');
+    assert.match(String(uploadStep.if), /always\(\)/);
+    assert.match(String(uploadStep.with?.path), /public\/.artifacts/);
   });
 
   it('merges modules without starting a Script-Hub service', () => {
@@ -81,6 +92,10 @@ describe('GitHub Actions workflow contract', () => {
     assert.match(mergeJob.if ?? '', /needs\.convert-plugins\.result == 'skipped'/);
     assert.equal(hasStep(mergeJob, 'Download plugin conversion output'), true);
     assert.equal(hasStep(mergeJob, 'Ensure converted modules exist'), true);
+
+    const ensureStep = getStep(mergeJob, 'Ensure converted modules exist');
+    assert.equal(ensureStep.if, undefined);
+
     assert.equal(hasStep(mergeJob, 'Merge modules'), true);
     assert.equal(hasStep(mergeJob, 'Upload module output'), true);
   });
