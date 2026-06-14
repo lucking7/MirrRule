@@ -28,8 +28,8 @@ importers:
         specifier: ^0.3.2
         version: 0.3.2
       foxts:
-        specifier: ^5.4.2
-        version: 5.4.2
+        specifier: ^5.5.1
+        version: 5.5.1
       json-stringify-pretty-compact:
         specifier: 3.0.0
         version: 3.0.0
@@ -1266,8 +1266,8 @@ packages:
     engines: {node: '>=18.3.0'}
     hasBin: true
 
-  foxts@5.4.2:
-    resolution: {integrity: sha512-FKzYjarnrPNwMOiqaGT6S+/V4jDd3nt/MuJK5CjmJla7VSfyA8ZKjYGcoAvIr17ldYKj79eBBEYiRrYklsDRFA==}
+  foxts@5.5.1:
+    resolution: {integrity: sha512-jBm7lzO/D8CK2S/BhVHUbFb4n3NdjkCTRbvHgtqYitFzUYqK2iH6jEQNEI/Erde6WjLnrmZfdxAoIXbkm4pfxA==}
 
   fs-constants@1.0.0:
     resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
@@ -1820,7 +1820,7 @@ snapshots:
       '@package-json/types': 0.0.13
       '@typescript-eslint/utils': 8.60.0(eslint@9.39.1(jiti@2.7.0))(typescript@6.0.3)
       eslint: 9.39.1(jiti@2.7.0)
-      foxts: 5.4.2
+      foxts: 5.5.1
       oxc-resolver: 11.20.0
     transitivePeerDependencies:
       - supports-color
@@ -2545,7 +2545,7 @@ snapshots:
   domain-alive@0.1.22:
     dependencies:
       debug: 4.4.1
-      foxts: 5.4.2
+      foxts: 5.5.1
       tldts: 7.0.28
     transitivePeerDependencies:
       - supports-color
@@ -2588,7 +2588,7 @@ snapshots:
       eslint-plugin-promise: 7.2.1(eslint@9.39.1(jiti@2.7.0))
       eslint-plugin-regexp: 3.1.0(eslint@9.39.1(jiti@2.7.0))
       eslint-plugin-unused-imports: 4.4.1(@typescript-eslint/eslint-plugin@8.58.2(@typescript-eslint/parser@8.58.2(eslint@9.39.1(jiti@2.7.0))(typescript@6.0.3))(eslint@9.39.1(jiti@2.7.0))(typescript@6.0.3))(eslint@9.39.1(jiti@2.7.0))
-      foxts: 5.4.2
+      foxts: 5.5.1
       jsonc-eslint-parser: 3.1.0
       picocolors: 1.1.1
       typescript-eslint: 8.58.2(eslint@9.39.1(jiti@2.7.0))(typescript@6.0.3)
@@ -2605,7 +2605,7 @@ snapshots:
     dependencies:
       ci-info: 4.4.0
       eslint: 9.39.1(jiti@2.7.0)
-      foxts: 5.4.2
+      foxts: 5.5.1
       picocolors: 1.1.1
 
   eslint-import-context@0.1.9(unrs-resolver@1.11.1):
@@ -2722,7 +2722,7 @@ snapshots:
       '@typescript-eslint/types': 8.60.0
       '@typescript-eslint/utils': 8.60.0(eslint@9.39.1(jiti@2.7.0))(typescript@6.0.3)
       eslint: 9.39.1(jiti@2.7.0)
-      foxts: 5.4.2
+      foxts: 5.5.1
       typescript: 6.0.3
     transitivePeerDependencies:
       - supports-color
@@ -2849,7 +2849,7 @@ snapshots:
     dependencies:
       fd-package-json: 2.0.0
 
-  foxts@5.4.2: {}
+  foxts@5.5.1: {}
 
   fs-constants@1.0.0: {}
 
@@ -3317,7 +3317,7 @@ snapshots:
   undici-cache-store-better-sqlite3@1.0.1(undici@8.4.1):
     dependencies:
       better-sqlite3: 12.10.1
-      foxts: 5.4.2
+      foxts: 5.5.1
       undici: 8.4.1
 
   undici-types@7.19.2: {}
