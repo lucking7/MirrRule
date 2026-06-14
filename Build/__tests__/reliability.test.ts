@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { spawnSync } from 'node:child_process';
 
 describe('fetch-retry dispatcher wiring', () => {
   it('dispatcher is exported and not undefined', () => {
@@ -50,6 +51,27 @@ describe('validate-domain-alive entry point', () => {
   it('script exists at the workflow target path', () => {
     const entryPath = path.join(process.cwd(), 'Build', 'validate-domain-alive.ts');
     assert.equal(fs.existsSync(entryPath), true);
+  });
+});
+
+describe('task runner exit handling', () => {
+  it('preserves process.exitCode set by a CLI task', () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        '-r',
+        '@swc-node/register',
+        '-e',
+        'require(\'./Build/trace\').task(true, __filename)(async () => { process.exitCode = 7; });',
+      ],
+      {
+        cwd: process.cwd(),
+        env: { ...process.env, SWC_NODE_IGNORE_DYNAMIC: 'true' },
+        encoding: 'utf8',
+      }
+    );
+
+    assert.equal(result.status, 7, result.stderr || result.stdout);
   });
 });
 

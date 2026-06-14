@@ -30,23 +30,23 @@ export const ruleGroups: RuleGroup[] = [
     files: [
       applyDefaultConfig({
         path: 'List/netflix.list',
-        url: 'https://rule.kelee.one/Loon/Netflix.lsr',
+        url: 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Netflix/Netflix.list',
       }),
       applyDefaultConfig({
         path: 'List/disney.list',
-        url: 'https://rule.kelee.one/Loon/Disney.lsr',
+        url: 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Disney/Disney.list',
       }),
       applyDefaultConfig({
         path: 'List/spotify.list',
-        url: 'https://rule.kelee.one/Loon/Spotify.lsr',
+        url: 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Spotify/Spotify.list',
       }),
       applyDefaultConfig({
         path: 'List/primevideo.list',
-        url: 'https://rule.kelee.one/Loon/PrimeVideo.lsr',
+        url: 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/PrimeVideo/PrimeVideo.list',
       }),
       applyDefaultConfig({
         path: 'List/youtube.list',
-        url: 'https://rule.kelee.one/Loon/YouTube.lsr',
+        url: 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/YouTube/YouTube.list',
       }),
       /**
       applyDefaultConfig({
@@ -61,11 +61,11 @@ export const ruleGroups: RuleGroup[] = [
       }),
       applyDefaultConfig({
         path: 'List/bilibili.list',
-        url: 'https://rule.kelee.one/Loon/BiliBili.lsr',
+        url: 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/BiliBili/BiliBili.list',
       }),
       applyDefaultConfig({
         path: 'List/tiktok.list',
-        url: 'https://kelee.one/Tool/Loon/Lsr/TikTok.lsr',
+        url: 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/TikTok/TikTok.list',
       }),
       applyDefaultConfig({
         path: 'List/streaming_cn.list',
@@ -101,7 +101,7 @@ export const ruleGroups: RuleGroup[] = [
     files: [
       applyDefaultConfig({
         path: 'List/wechat.list',
-        url: 'https://rule.kelee.one/Loon/WeChat.lsr',
+        url: 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/WeChat/WeChat.list',
       }),
     ],
   },
@@ -111,11 +111,11 @@ export const ruleGroups: RuleGroup[] = [
     files: [
       applyDefaultConfig({
         path: 'List/download_global.list',
-        url: 'https://kelee.one/Tool/Loon/Lsr/InternationalDownloadCDN.lsr',
+        url: 'https://ruleset.skk.moe/List/domainset/download.conf',
       }),
       applyDefaultConfig({
         path: 'List/download_cn.list',
-        url: 'https://kelee.one/Tool/Loon/Lsr/ChinaDownloadCDN.lsr',
+        url: 'https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Download.list',
       }),
     ],
   },
@@ -152,11 +152,11 @@ export const ruleGroups: RuleGroup[] = [
     files: [
       applyDefaultConfig({
         path: 'List/speedtest_china.list',
-        url: 'https://kelee.one/Tool/Loon/Lsr/SpeedtestChina.lsr',
+        url: 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Speedtest/Speedtest.list',
       }),
       applyDefaultConfig({
         path: 'List/speedtest_international.list',
-        url: 'https://kelee.one/Tool/Loon/Lsr/SpeedtestInternational.lsr',
+        url: 'https://ruleset.skk.moe/List/domainset/speedtest.conf',
       }),
       applyDefaultConfig({
         path: 'List/speedtest.list',
@@ -205,7 +205,7 @@ export const ruleGroups: RuleGroup[] = [
     files: [
       applyDefaultConfig({
         path: 'List/google.list',
-        url: 'https://rule.kelee.one/Loon/Google.lsr',
+        url: 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/Google/Google.list',
       }),
     ],
   },
@@ -215,7 +215,7 @@ export const ruleGroups: RuleGroup[] = [
     files: [
       applyDefaultConfig({
         path: 'List/github.list',
-        url: 'https://rule.kelee.one/Loon/GitHub.lsr',
+        url: 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/GitHub/GitHub.list',
       }),
     ],
   },
@@ -267,7 +267,6 @@ export const specialRules: SpecialRuleConfig[] = [
     targetFile: 'List/ai.list',
     sourceFiles: [
       'https://ruleset.skk.moe/List/non_ip/ai.conf',
-      'https://kelee.one/Tool/Loon/Lsr/AI.lsr',
       'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/AI.list',
       'https://github.com/dler-io/Rules/raw/main/Surge/Surge%203/Provider/AI%20Suite.list',
       // MetaCubeX sing-box 格式 AI 规则（自动转换为 Surge 格式）

@@ -569,6 +569,10 @@ jobs:
             echo "❌ Build directory is empty"
             exit 1
           fi
+          if [ ! -f ".BUILD_FINISHED" ]; then
+            echo "❌ Build finished marker not found"
+            exit 1
+          fi
 
           echo "📊 Build output statistics:"
           echo ""

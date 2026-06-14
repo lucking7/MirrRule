@@ -128,6 +128,9 @@ export function task(importMetaMain: boolean, importMetaPath: string) {
         let exitCode = 0;
         try {
           await _dummySpan.traceChildAsync('dummy', childSpan => fn(childSpan, onCleanup));
+          if (typeof process.exitCode === 'number') {
+            exitCode = process.exitCode;
+          }
         } catch (error) {
           exitCode = 1;
           console.error(error);

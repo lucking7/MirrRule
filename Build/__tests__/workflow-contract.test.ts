@@ -9,6 +9,7 @@ interface WorkflowStep {
   name?: string;
   uses?: string;
   if?: string;
+  run?: string;
   with?: Record<string, unknown>;
 }
 
@@ -64,6 +65,12 @@ describe('GitHub Actions workflow contract', () => {
     assert.match(condition, /needs\.convert-plugins\.result == 'skipped'/);
     assert.match(condition, /needs\.merge-modules\.result == 'success'/);
     assert.match(condition, /needs\.merge-modules\.result == 'skipped'/);
+  });
+
+  it('requires the build finished marker before uploading artifacts', () => {
+    const buildJob = getJob('build');
+    const verifyStep = getStep(buildJob, 'Verify build output');
+    assert.match(String(verifyStep.run), /\.BUILD_FINISHED/);
   });
 
   it('runs Script-Hub only in the plugin conversion job', () => {
