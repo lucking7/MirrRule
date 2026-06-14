@@ -152,6 +152,8 @@ export class RuleSourceProcessor {
         // Keep special rules sequential to preserve deterministic trace ordering.
         // eslint-disable-next-line no-await-in-loop -- deterministic build trace/output order
         await this.span.traceChildAsync(`process special: ${ruleConfig.name}`, async ruleSpan => {
+          const errorCountBeforeSources = stats.errors.length;
+
           const allRules: string[] = [];
           for (const source of ruleConfig.sourceFiles) {
             // Keep source loading sequential so partial failures are reported in config order.
@@ -162,6 +164,10 @@ export class RuleSourceProcessor {
               stats
             );
             allRules.push(...loadedRules);
+          }
+
+          if (stats.errors.length > errorCountBeforeSources) {
+            return;
           }
 
           if (allRules.length === 0) {
