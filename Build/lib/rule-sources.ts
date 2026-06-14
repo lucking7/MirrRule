@@ -271,8 +271,6 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://github.com/dler-io/Rules/raw/main/Surge/Surge%203/Provider/AI%20Suite.list',
       // MetaCubeX sing-box 格式 AI 规则（自动转换为 Surge 格式）
       'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/category-ai-!cn.json',
-      // 自定义 AI 规则补充（TS 模块，支持注释和分组）
-      path.join(REPO_PATH, 'Source/ai-custom.ts'),
     ],
     defaultPolicy: null, // 无策略，纯RULE-SET格式
     targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持

@@ -18,9 +18,6 @@
     "Build/**/*.ts",
     "Source/**/*.ts"
   ],
-  "ignore": [
-    "Source/ai-custom.ts"
-  ],
   "ignoreDependencies": [
     "@eslint-sukka/node",
     "@types/punycode",
