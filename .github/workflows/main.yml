@@ -844,6 +844,28 @@ jobs:
           echo ""
           echo "📄 复制根目录文件..."
           find ../public/ -maxdepth 1 -type f -exec cp {} ./ \; 2>/dev/null || true
+
+          # 清理当前发布结构之外的顶层目录，避免增量部署保留废弃目录
+          echo ""
+          echo "🧹 清理当前发布结构之外的顶层目录..."
+          # 有效发布根目录可能在增量构建 artifact 中缺失；同时追加当前 artifact 中的新目录。
+          PUBLISHED_TOP_LEVEL_DIRS=$({
+            printf '%s\n' List Clash sing-box Loon GeoIP Mirror Modules Scripts
+            find ../public -mindepth 1 -maxdepth 1 -type d -exec basename {} \;
+          } | sort -u | tr '\n' ' ')
+          echo "  ✅ 保留目录: $PUBLISHED_TOP_LEVEL_DIRS"
+          find . -mindepth 1 -maxdepth 1 -type d ! -name .git -print | while IFS= read -r dir_path; do
+            dir="${dir_path#./}"
+            case " $PUBLISHED_TOP_LEVEL_DIRS " in
+              *" $dir "*)
+                ;;
+              *)
+                echo "  🗑️  删除过期目录: $dir"
+                rm -rf "./$dir"
+                ;;
+            esac
+          done
+
           echo "📊 部署后的文件统计："
           echo "  List: $(find ./List -type f 2>/dev/null | wc -l) 个文件"
           echo "  Clash: $(find ./Clash -type f 2>/dev/null | wc -l) 个文件"

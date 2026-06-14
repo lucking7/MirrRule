@@ -9,6 +9,7 @@ import { $$fetch } from './fetch-retry';
 import type { UndiciResponseData } from './fetch-retry';
 import type { Response as UnidiciWebResponse } from 'undici';
 import { invariant } from 'foxts/guard';
+import { getTextEncodingFromHeaders } from './charset';
 
 export function readFileByLine(file: string): AsyncIterable<string> {
   return readline.createInterface({
@@ -31,7 +32,7 @@ const createReadlineInterfaceFromResponse: ((resp: UndiciResponseData | UnidiciW
 
   const resultStream = webStream
     // eslint-disable-next-line sukka/type/no-force-cast-via-top-type -- node:stream/web TextDecoderStream.writable is WritableStream<BufferSource>; TS generic invariance blocks direct assignment to WritableStream<Uint8Array>
-    .pipeThrough(new TextDecoderStream() as unknown as ReadableWritablePair<string, Uint8Array>)
+    .pipeThrough(new TextDecoderStream(getTextEncodingFromHeaders(resp.headers)) as unknown as ReadableWritablePair<string, Uint8Array>)
     .pipeThrough(new TextLineStream({ skipEmptyLines: processLine }));
 
   if (processLine) {

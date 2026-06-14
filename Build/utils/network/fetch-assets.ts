@@ -5,7 +5,9 @@ import { nullthrow } from 'foxts/guard';
 import { TextLineStream } from 'foxts/text-line-stream';
 import { ProcessLineStream } from '../../lib/process-line';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
-import { applyProxyIfNeeded } from './proxy';
+import { buildProxyUrlCandidates } from './proxy';
+import { getTextEncodingFromHeaders } from './charset';
+import { assertRuleTextResponse } from './rule-text-response';
 
 class CustomAbortError extends Error {
   // eslint-disable-next-line sukka/unicorn/custom-error-definition -- intentionally mimics built-in AbortError
@@ -14,6 +16,12 @@ class CustomAbortError extends Error {
 }
 
 const reusedCustomAbortError = new CustomAbortError();
+
+function pushUnique(items: string[], item: string): void {
+  if (!items.includes(item)) {
+    items.push(item);
+  }
+}
 
 export async function fetchAssets(
   url: string,
@@ -37,12 +45,10 @@ export async function fetchAssets(
       console.log(picocolors.gray('[fetch cancelled]'), picocolors.gray(url));
       throw reusedCustomAbortError;
     }
-    // 应用代理（如果需要，例如 kelee.one 域名）
-    const finalUrl = applyProxyIfNeeded(url);
-    const res = await $$fetch(finalUrl, { signal: controller.signal, ...defaultRequestInit });
+    const res = await $$fetch(url, { signal: controller.signal, ...defaultRequestInit });
 
     let stream = nullthrow(res.body, url + ' has an empty body')
-      .pipeThrough(new TextDecoderStream())
+      .pipeThrough(new TextDecoderStream(getTextEncodingFromHeaders(res.headers)))
       .pipeThrough(new TextLineStream({ skipEmptyLines: processLine }));
     if (processLine) {
       stream = stream.pipeThrough(new ProcessLineStream());
@@ -52,17 +58,30 @@ export async function fetchAssets(
     if (arr.length < 1 && !allowEmpty) {
       throw new ResponseError(res, url, 'empty response w/o 304');
     }
+    assertRuleTextResponse(res, url, arr);
 
     controller.abort();
     return arr;
   };
 
-  const primaryPromise = createFetchFallbackPromise(url, -1);
+  const candidates: string[] = [];
+  for (const candidate of buildProxyUrlCandidates(url, { preferDirect: true })) {
+    pushUnique(candidates, candidate);
+  }
 
-  if (!fallbackUrls || fallbackUrls.length === 0) {
+  for (const fallbackUrl of fallbackUrls ?? []) {
+    for (const candidate of buildProxyUrlCandidates(fallbackUrl, { preferDirect: true })) {
+      pushUnique(candidates, candidate);
+    }
+  }
+
+  const [primaryUrl, ...fallbackCandidates] = candidates;
+  const primaryPromise = createFetchFallbackPromise(primaryUrl, -1);
+
+  if (fallbackCandidates.length === 0) {
     return primaryPromise;
   }
   return Promise.any(
-    appendArrayInPlace([primaryPromise], fallbackUrls.map(createFetchFallbackPromise))
+    appendArrayInPlace([primaryPromise], fallbackCandidates.map(createFetchFallbackPromise))
   );
 }

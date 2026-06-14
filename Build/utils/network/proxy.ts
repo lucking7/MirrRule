@@ -86,10 +86,11 @@ function _getProxyBase(): string {
  * @param url - 原始 URL
  * @param options - 可选配置
  * @param options.forceProxy - 强制使用代理（即使域名不在代理列表中）
+ * @param options.preferDirect - 命中代理域名时优先直连，代理作为兜底
  */
 export function buildProxyUrlCandidates(
   url: string,
-  options?: { forceProxy?: boolean }
+  options?: { forceProxy?: boolean; preferDirect?: boolean }
 ): string[] {
   const proxyBase = _getProxyBaseFromEnv();
 
@@ -106,5 +107,8 @@ export function buildProxyUrlCandidates(
   }
 
   const proxied = proxyBase + url;
+  if (options?.preferDirect) {
+    return [url, proxied];
+  }
   return [proxied, url];
 }
