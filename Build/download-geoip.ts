@@ -2,10 +2,10 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import picocolors from 'picocolors';
+import type { Span } from './trace';
 import { task } from './trace';
 import { $$fetch } from './utils/network/fetch-retry';
-import { mkdirp } from './lib/misc';
-import { getErrorMessage } from './lib/misc';
+import { getErrorMessage, mkdirp } from './lib/misc';
 
 export interface GEOIPFile {
   path: string;
@@ -31,19 +31,26 @@ export const geoipFiles: GEOIPFile[] = [
   },
 ];
 
-export const downloadGEOIP = task(
-  require.main === module,
-  __filename
-)(async span => {
-  const files = geoipFiles;
+export interface DownloadGeoipOptions {
+  outputRoot?: string;
+  fetchFn?: typeof $$fetch;
+}
+
+export async function downloadGEOIPFiles(
+  span: Span,
+  files: GEOIPFile[],
+  options: DownloadGeoipOptions = {}
+) {
+  const outputRoot = options.outputRoot ?? 'public';
+  const fetchFn = options.fetchFn ?? $$fetch;
   const stats = { success: 0, failed: 0, total: files.length };
 
   console.log(picocolors.cyan(`\nDownloading ${stats.total} GEOIP MMDB files...\n`));
 
-  for (const file of files) {
-    await span.traceChildAsync(`download: ${file.path}`, async () => {
+  await Promise.all(files.map(file =>
+    span.traceChildAsync(`download: ${file.path}`, async () => {
       try {
-        const outputPath = path.join('public', file.path);
+        const outputPath = path.join(outputRoot, file.path);
         const outputDir = path.dirname(outputPath);
 
         const p = mkdirp(outputDir);
@@ -52,7 +59,7 @@ export const downloadGEOIP = task(
         console.log(picocolors.gray(`  Downloading: ${file.path}`));
         console.log(picocolors.gray(`     URL: ${file.url}`));
 
-        const res = await $$fetch(file.url);
+        const res = await fetchFn(file.url);
         if (!res.body) {
           throw new Error('Empty response body');
         }
@@ -68,8 +75,8 @@ export const downloadGEOIP = task(
         console.error(picocolors.red(`  [FAIL] ${file.path}: ${getErrorMessage(error)}\n`));
         stats.failed++;
       }
-    });
-  }
+    })
+  ));
 
   console.log(picocolors.cyan('\nGEOIP Download Summary:'));
   console.log(picocolors.green(`  Success: ${stats.success}`));
@@ -79,4 +86,9 @@ export const downloadGEOIP = task(
   console.log(picocolors.gray(`  Total: ${stats.total}\n`));
 
   return stats;
-});
+}
+
+export const downloadGEOIP = task(
+  require.main === module,
+  __filename
+)(async span => downloadGEOIPFiles(span, geoipFiles));
