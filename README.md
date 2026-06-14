@@ -86,8 +86,16 @@ Requires **Node.js 26.x** and **pnpm 10.x**.
 
 ```bash
 pnpm install
+pnpm run validate
+pnpm test
+pnpm run knip
 pnpm run build
 ```
+
+- `pnpm run validate` runs lint and typecheck.
+- `pnpm test` runs Node's test runner for `Build/__tests__/*.test.ts`.
+- `pnpm run knip` checks for unused code and dependencies.
+- `pnpm run build` performs the full artifact build; it downloads upstream assets and writes generated files under `public/**`, so only run it when you intend to produce a full artifact build.
 
 ## License
 
