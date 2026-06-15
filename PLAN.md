@@ -1,6 +1,6 @@
 # MirrRule 收口与清理计划
 
-> 状态：草案（分析完成，待执行）
+> 状态：执行中（A/B 已完成，C2 分批推进中）
 > 背景：本项目核心代码与逻辑源自 [SukkaW/Surge](https://github.com/SukkaW/Surge)（AGPL-3.0），
 > 之后从"自行解析 adblock 过滤表生成规则"发散为"聚合上游成品规则文件、按平台转发输出"。
 > 规模：74 个 TS 文件，约 14.4k 行。
@@ -79,6 +79,7 @@ Build/index.ts
 - [x] **C1. 补测试覆盖**：当前 1.44 万行仅 1 个测试文件。优先覆盖核心管线
   （`rule-source-processor`、`enhanced-file-output`、`policy-cleaner`、各 writing-strategy）
 - [ ] **C2. 收紧类型**：清理 150 条 lint warning（`any`、`await-in-loop`、`no-unnecessary-condition` 等），逐步收紧 `tsconfig`
+  - 已推进：移除 Script-Hub 插件转换中不再使用的 deprecated 兼容路径，统一到远程 URL 转换路径。
 - [ ] **C3. 优化 CI**：4 个 cron + 频繁全量构建 + 双部署；合并/降频；升级 `cloudflare/wrangler-action@v3`（仍跑 Node 20，将弃用）
 - [ ] **C4. 依赖瘦身收益**：B2 后 `pnpm install` 更快、锁文件更小、供应链攻击面更小
 - [x] **C5. 补架构文档**：`ARCHITECTURE.md` 说明"源自 Sukka、已发散为聚合器"，标注死代码区，避免再次踩坑

@@ -8,7 +8,6 @@ export * from './script-hub-client';
 export * from './script-extractor';
 export * from './script-mirror';
 export * from './plugin-list';
-export * from './plugin-downloader';
 export * from './local-converter';
 export * from './plugin-mirror';
 
