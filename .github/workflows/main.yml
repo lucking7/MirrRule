@@ -231,7 +231,7 @@ jobs:
           }
         env:
           CI: true
-          PROXY_BASE: ${{ secrets.PROXY_BASE }}
+          PROXY_BASE: ${{ secrets.PROXY_BASE || 'https://cloudflare-proxy.lucking.workers.dev' }}
 
       - name: Prepare plugin artifact marker
         if: always()
@@ -557,7 +557,7 @@ jobs:
       - run: pnpm run build
         env:
           PUBLIC_DIR: ${{ steps.build-dir.outputs.dir }}
-          PROXY_BASE: ${{ secrets.PROXY_BASE }}
+          PROXY_BASE: ${{ secrets.PROXY_BASE || 'https://cloudflare-proxy.lucking.workers.dev' }}
 
       - name: Verify build output
         run: |
