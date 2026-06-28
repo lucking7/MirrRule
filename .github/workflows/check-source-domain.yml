@@ -13,7 +13,7 @@ jobs:
       #   # https://github.com/actions/runner-images/issues/1187
       #   uses: smorimoto/tune-github-hosted-runner-network@v1
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: pnpm/action-setup@v6
@@ -34,7 +34,7 @@ jobs:
           echo "minute=$(date +'%M')" >> $GITHUB_OUTPUT
           echo "second=$(date +'%S')" >> $GITHUB_OUTPUT
       - name: Restore cache.db
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         id: cache-db-restore
         with:
           path: |
@@ -54,7 +54,7 @@ jobs:
           DEBUG: domain-alive:dead-domain
       - name: Cache cache.db
         if: always()
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: |
             .cache
