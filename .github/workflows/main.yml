@@ -186,7 +186,7 @@ jobs:
           - 9100:9100
           - 9101:9101
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 1
@@ -264,7 +264,7 @@ jobs:
       (needs.convert-plugins.result == 'success' || needs.convert-plugins.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 1
@@ -353,7 +353,7 @@ jobs:
       # 🚀 网络性能优化
       - uses: smorimoto/tune-github-hosted-runner-network@v1
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 1
@@ -385,7 +385,7 @@ jobs:
       # - 这样既避免了 "another job may be creating this cache" 错误
       # - 又能最大化利用最近的缓存数据
       - name: Restore cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .cache
           key: ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}-${{ github.run_id }}
@@ -636,7 +636,7 @@ jobs:
 
       - name: Save cache
         if: always()
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: .cache
           key: ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}-${{ github.run_id }}
