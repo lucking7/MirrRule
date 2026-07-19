@@ -22,8 +22,8 @@ importers:
         specifier: ^4.4.0
         version: 4.4.0
       domain-alive:
-        specifier: ^0.1.22
-        version: 0.1.22
+        specifier: ^0.1.23
+        version: 0.1.23
       fast-cidr-tools:
         specifier: ^0.3.2
         version: 0.3.2
@@ -1051,8 +1051,8 @@ packages:
     resolution: {integrity: sha512-EjePK1srD3P08o2j4f0ExnylqRs5B9tJjcp9t1krH2qRi8CCdsYfwe9JgSLurFBWwq4uOlipzfk5fHNvwFKr8Q==}
     engines: {node: ^14.15.0 || ^16.10.0 || >=18.0.0}
 
-  domain-alive@0.1.22:
-    resolution: {integrity: sha512-jmGCN6EOuLs7BwitNEUVhqF5tTFGvFtXAhhANbKR60tLCCWNuER72+YSiSCsO8OVXgXV1jL/zQ6RyrBUPmogaA==}
+  domain-alive@0.1.23:
+    resolution: {integrity: sha512-tbnnnf8t8LhNcWNzQusV9k95yi5JnvPIngduEDsYlvQFMwvFTAUAivSJPJhFAGRotBA/q1E7mCaZqu2ttygwfg==}
 
   end-of-stream@1.4.5:
     resolution: {integrity: sha512-ooEGc6HP26xXq/N+GCGOT0JKCLDGrq2bQUZrQ7gyrJiZANJ/8YDTxTpQBXGMn+WbIQXNVpyWymm7KYVICQnyOg==}
@@ -1656,11 +1656,11 @@ packages:
     resolution: {integrity: sha512-pn99VhoACYR8nFHhxqix+uvsbXineAasWm5ojXoN8xEwK5Kd3/TrhNn1wByuD52UxWRLy8pu+kRMniEi6Eq9Zg==}
     engines: {node: '>=12.0.0'}
 
-  tldts-core@7.0.28:
-    resolution: {integrity: sha512-7W5Efjhsc3chVdFhqtaU0KtK32J37Zcr9RKtID54nG+tIpcY79CQK/veYPODxtD/LJ4Lue66jvrQzIX2Z2/pUQ==}
+  tldts-core@7.4.9:
+    resolution: {integrity: sha512-DxKfPBI52p2msTEu7MPhdpdDTBhhVQg1a/8PjQckeyAvO13eMYElX545grIp6nnTGIMZlRvFZPvFhvI/WIz2Vg==}
 
-  tldts@7.0.28:
-    resolution: {integrity: sha512-+Zg3vWhRUv8B1maGSTFdev9mjoo8Etn2Ayfs4cnjlD3CsGkxXX4QyW3j2WJ0wdjYcYmy7Lx2RDsZMhgCWafKIw==}
+  tldts@7.4.9:
+    resolution: {integrity: sha512-3kZ8wQQ/k5DrChD4X4FVvr2D7E5uoRgAqkPyLpSCGUvqOvqu+JEdr3mwMUaVWb+vMHZaKhF5fp2PBigKsui7hA==}
     hasBin: true
 
   ts-api-utils@2.5.0:
@@ -2569,11 +2569,11 @@ snapshots:
 
   diff-sequences@29.6.3: {}
 
-  domain-alive@0.1.22:
+  domain-alive@0.1.23:
     dependencies:
       debug: 4.4.1
       foxts: 5.8.0
-      tldts: 7.0.28
+      tldts: 7.4.9
     transitivePeerDependencies:
       - supports-color
 
@@ -3320,11 +3320,11 @@ snapshots:
       fdir: 6.5.0(picomatch@4.0.4)
       picomatch: 4.0.4
 
-  tldts-core@7.0.28: {}
+  tldts-core@7.4.9: {}
 
-  tldts@7.0.28:
+  tldts@7.4.9:
     dependencies:
-      tldts-core: 7.0.28
+      tldts-core: 7.4.9
 
   ts-api-utils@2.5.0(typescript@6.0.3):
     dependencies:
