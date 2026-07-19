@@ -46,8 +46,8 @@ importers:
         specifier: ^8.7.0
         version: 8.7.0
       undici-cache-store-better-sqlite3:
-        specifier: ^1.0.1
-        version: 1.0.1(undici@8.7.0)
+        specifier: ^1.1.0
+        version: 1.1.0(undici@8.7.0)
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
@@ -1700,8 +1700,8 @@ packages:
     resolution: {integrity: sha512-FeFPZ/WFT0mbRCuydiZzpPFlrYN8ZUpphQKoq4EeElVIYjYyGzPMxQR/simUwCOJIyVhpFk4RbtyO7RuMpMnHA==}
     engines: {node: '>=14'}
 
-  undici-cache-store-better-sqlite3@1.0.1:
-    resolution: {integrity: sha512-UHrN400SOCqM3Lq59VSNMGnjr2M3GpdTNZPaGVmATsjEBMaBaCjPXfYycM5Dz7P+0RsJ3T/RD+oLpFsV1e8qPg==}
+  undici-cache-store-better-sqlite3@1.1.0:
+    resolution: {integrity: sha512-8x10TW1i+fp3oNX4r3Yg1Kxc5H0LH+C9ax1f807s/5kmq1Ynt4ihMipddag+rT6Z5km4v0MMgE2/4vNwmUFamQ==}
     peerDependencies:
       undici: '>=7.0.0'
 
@@ -3360,7 +3360,7 @@ snapshots:
 
   unbash@3.0.0: {}
 
-  undici-cache-store-better-sqlite3@1.0.1(undici@8.7.0):
+  undici-cache-store-better-sqlite3@1.1.0(undici@8.7.0):
     dependencies:
       better-sqlite3: 12.11.1
       foxts: 5.8.0
