@@ -278,7 +278,7 @@ export async function runFmz200Split(): Promise<PipelineResult> {
         if (downloadResult.success) {
           result.succeeded++;
         } else {
-          result.failed.push({ asset: moduleUrl, error: 'Download failed', required: true });
+          result.failed.push({ asset: moduleUrl, error: 'Download failed', required: false });
         }
       }
 
@@ -313,7 +313,7 @@ export async function runFmz200Split(): Promise<PipelineResult> {
             });
           }
         } catch (error) {
-          result.failed.push({ asset: dir.name, error: getErrorMessage(error), required: true });
+          result.failed.push({ asset: dir.name, error: getErrorMessage(error), required: false });
         }
       }
       return result;
