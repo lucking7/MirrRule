@@ -27,10 +27,7 @@ const SKIP_INDEX_FILES = new Set([
 ]);
 
 function shouldListFile(name: string): boolean {
-  if (name.startsWith('_')) return false;
-  if (name.endsWith('.html')) return false;
-  if (SKIP_INDEX_FILES.has(name)) return false;
-  return true;
+  return !name.startsWith('_') && !name.endsWith('.html') && !SKIP_INDEX_FILES.has(name);
 }
 
 export const buildPublic = task(
@@ -86,8 +83,11 @@ export const buildPublic = task(
 
 function buildTimestampGmt8(): string {
   const now = new Date();
-  const offset = 8 * 60;
-  const gmtPlus8 = new Date(now.getTime() + (offset - now.getTimezoneOffset()) * 60_000);
+  const offsetMinutes = 8 * 60;
+  const msPerMinute = 60 * 1000;
+  const gmtPlus8 = new Date(
+    now.getTime() + (offsetMinutes - now.getTimezoneOffset()) * msPerMinute
+  );
   return gmtPlus8.toISOString().replace('Z', '+08:00');
 }
 
@@ -100,10 +100,10 @@ function rootFolderNames(tree: TreeTypeArray): string[] {
 
 function platformChipsHtml(roots: string[]): string {
   const chips = [
-    `<button type="button" class="chip is-on" data-platform="all" aria-pressed="true">All</button>`,
+    html`<button type="button" class="chip is-on" data-platform="all" aria-pressed="true">All</button>`,
     ...roots.map(
       name =>
-        `<button type="button" class="chip" data-platform="${name}" aria-pressed="false">${name}</button>`
+        html`<button type="button" class="chip" data-platform="${name}" aria-pressed="false">${name}</button>`
     ),
   ];
   return chips.join('\n');
@@ -111,8 +111,7 @@ function platformChipsHtml(roots: string[]): string {
 
 function quickChipsHtml(): string {
   return QUICK_SEARCHES.map(
-    q =>
-      `<button type="button" class="quick-chip" data-query="${q}">${q}</button>`
+    q => html`<button type="button" class="quick-chip" data-query="${q}">${q}</button>`
   ).join('\n');
 }
 
@@ -124,18 +123,32 @@ function treeHtml(tree: TreeTypeArray, level = 0): string {
     const entry = tree[i];
 
     if (entry.type === TreeFileType.DIRECTORY) {
-      const openAttr = level === 0 && openRootFolders.has(entry.name) ? 'open' : '';
-      const rootAttr = level === 0 ? ` data-root="${entry.name}"` : '';
-      result += html`
-        <li class="folder" data-name="${entry.name.toLowerCase()}"${rootAttr}>
-          <details ${openAttr}>
-            <summary>${entry.name}</summary>
-            <ul>
-              ${treeHtml(entry.children, level + 1)}
-            </ul>
-          </details>
-        </li>
-      `;
+      const isOpenRoot = level === 0 && openRootFolders.has(entry.name);
+      const openAttr = isOpenRoot ? 'open' : '';
+      const children = treeHtml(entry.children, level + 1);
+      if (level === 0) {
+        result += html`
+          <li class="folder" data-name="${entry.name.toLowerCase()}" data-root="${entry.name}">
+            <details ${openAttr}>
+              <summary>${entry.name}</summary>
+              <ul>
+                ${children}
+              </ul>
+            </details>
+          </li>
+        `;
+      } else {
+        result += html`
+          <li class="folder" data-name="${entry.name.toLowerCase()}">
+            <details>
+              <summary>${entry.name}</summary>
+              <ul>
+                ${children}
+              </ul>
+            </details>
+          </li>
+        `;
+      }
     } else if (shouldListFile(entry.name)) {
       result += html`
         <li class="file" data-name="${entry.name.toLowerCase()}" data-path="${entry.path}">
