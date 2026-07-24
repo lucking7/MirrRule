@@ -1,3 +1,5 @@
+import { isIP } from 'node:net';
+
 export class DomainValidator {
   private static readonly DOMAIN_REGEX = /^\w([\w-]*\w)?(\.\w([\w-]*\w)?)*$/;
 
@@ -16,20 +18,25 @@ export class DomainValidator {
 }
 
 export class IPValidator {
-  private static readonly IPV4_CIDR_REGEX = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
-  private static readonly IPV6_CIDR_REGEX = /^([\da-f]{1,4}:){2,7}[\da-f]{1,4}(\/\d{1,3})?$/i;
+  private static isCidr(this: void, text: string, family: 4 | 6, maxPrefix: number): boolean {
+    const parts = text.split('/');
+    if (parts.length > 2) return false;
+
+    const [address, prefix] = parts;
+    if (isIP(address) !== family) return false;
+    if (prefix === undefined) return true;
+    if (!/^\d+$/.test(prefix)) return false;
+
+    const prefixLength = Number(prefix);
+    return prefixLength >= 0 && prefixLength <= maxPrefix;
+  }
 
   static isIPv4Cidr(this: void, text: string): boolean {
-    if (!IPValidator.IPV4_CIDR_REGEX.test(text)) return false;
-    const parts = text.split('/')[0].split('.');
-    return parts.every(part => {
-      const num = Number.parseInt(part, 10);
-      return num >= 0 && num <= 255;
-    });
+    return IPValidator.isCidr(text, 4, 32);
   }
 
   static isIPv6Cidr(this: void, text: string): boolean {
-    return IPValidator.IPV6_CIDR_REGEX.test(text);
+    return IPValidator.isCidr(text, 6, 128);
   }
 
   static isIpCidr(this: void, text: string): boolean {
