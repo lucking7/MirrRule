@@ -94,6 +94,60 @@ describe('fetchAssets empty responses', () => {
 });
 
 describe('RuleSourceProcessor ordinary rules', () => {
+  it('downloads concurrently but applies success and error stats in configuration order', async () => {
+    let activeRequests = 0;
+    let maximumActiveRequests = 0;
+    const pending: Array<{ url: string; response: http.ServerResponse }> = [];
+    const server = http.createServer((request, response) => {
+      activeRequests++;
+      maximumActiveRequests = Math.max(maximumActiveRequests, activeRequests);
+      pending.push({ url: request.url ?? '', response });
+      if (pending.length === 3) {
+        for (const item of pending) {
+          item.response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
+          item.response.end(item.url === '/second' ? '' : `DOMAIN,${item.url.slice(1)}.example\n`);
+          activeRequests--;
+        }
+      }
+    });
+    await new Promise<void>(resolve => {
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const { port } = server.address() as AddressInfo;
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-concurrent-rule-'));
+
+    try {
+      const baseUrl = `http://127.0.0.1:${port}`;
+      const processor = new RuleSourceProcessor(fakeSpan as any, tempDir);
+      const stats = await processor.processRuleGroups([{
+        name: 'Concurrent Test',
+        files: [
+          { path: 'List/first.list', url: `${baseUrl}/first` },
+          { path: 'List/second.list', url: `${baseUrl}/second` },
+          { path: 'List/third.list', url: `${baseUrl}/third` },
+        ],
+        targets: ['surge'],
+        defaultPolicy: null,
+      }]);
+
+      assert.ok(maximumActiveRequests > 1, 'expected overlapping source downloads');
+      assert.equal(stats.filesProcessed, 2);
+      assert.equal(stats.rulesMerged, 2);
+      assert.deepEqual(stats.errors.map(error => error.file), ['List/second.list']);
+      assert.equal(fs.existsSync(path.join(tempDir, 'List', 'first.list')), true);
+      assert.equal(fs.existsSync(path.join(tempDir, 'List', 'second.list')), false);
+      assert.equal(fs.existsSync(path.join(tempDir, 'List', 'third.list')), true);
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+      await new Promise<void>((resolve, reject) => {
+        server.close(error => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+    }
+  });
+
   it('records an empty 200 as an error and writes no output by default', async () => {
     await withRuleServer(async baseUrl => {
       const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-ordinary-rule-'));

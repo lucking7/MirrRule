@@ -1,4 +1,5 @@
 import type { Span } from '../trace';
+import { boundedMap } from '../utils/concurrency';
 import { fetchAssets } from '../utils/network/fetch-assets';
 import { loadRules } from '../utils/rule-loader';
 import { EnhancedFileOutput } from './enhanced-file-output';
@@ -14,6 +15,14 @@ interface ProcessorStats {
   rulesMerged: number;
   processingTime: number;
   errors: Array<{ file: string; error: string }>;
+}
+
+type DownloadResult =
+  | { ok: true; rules: string[] }
+  | { ok: false; error: Error };
+
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(getErrorMessage(error));
 }
 
 function createProcessorStats(): ProcessorStats {
@@ -62,19 +71,16 @@ export class RuleSourceProcessor {
     groupSpan: Span,
     group: RuleGroup,
     fileConfig: RuleGroup['files'][number],
-    stats: ProcessorStats
+    stats: ProcessorStats,
+    downloadResult: DownloadResult
   ) {
+    if (!downloadResult.ok) {
+      RuleSourceProcessor.recordError(stats, fileConfig.path, downloadResult.error);
+      return;
+    }
+
     try {
-      const rules = await groupSpan
-        .traceChild('download')
-        .traceAsyncFn(() =>
-          fetchAssets(
-            fileConfig.url,
-            fileConfig.fallbackUrls || null,
-            true,
-            fileConfig.allowEmpty ?? false
-          )
-        );
+      const rules = downloadResult.rules;
 
       const mergedConfig = applyDefaultConfig(fileConfig);
       const fileExt = path.extname(fileConfig.path);
@@ -109,16 +115,15 @@ export class RuleSourceProcessor {
     this: void,
     ruleSpan: Span,
     source: string,
-    allowEmpty: boolean,
-    stats: ProcessorStats
-  ): Promise<string[]> {
+    allowEmpty: boolean
+  ): Promise<DownloadResult> {
     try {
-      return await ruleSpan
+      const rules = await ruleSpan
         .traceChild('load')
         .traceAsyncFn(() => loadRules(source, { throwOnError: true, allowEmpty }));
+      return { ok: true, rules };
     } catch (error) {
-      RuleSourceProcessor.recordError(stats, source, error);
-      return [];
+      return { ok: false, error: toError(error) };
     }
   }
 
@@ -133,10 +138,28 @@ export class RuleSourceProcessor {
         await this.span.traceChildAsync(`process group: ${group.name}`, async groupSpan => {
           if (group.files.length === 0) return;
 
-          for (const fileConfig of group.files) {
-            // Keep file processing sequential so trace output and generated files remain deterministic.
+          const downloads = await boundedMap(group.files, async (fileConfig): Promise<DownloadResult> => {
+            try {
+              const rules = await groupSpan
+                .traceChild('download')
+                .traceAsyncFn(() =>
+                  fetchAssets(
+                    fileConfig.url,
+                    fileConfig.fallbackUrls || null,
+                    true,
+                    fileConfig.allowEmpty ?? false
+                  )
+                );
+              return { ok: true, rules };
+            } catch (error) {
+              return { ok: false, error: toError(error) };
+            }
+          });
+
+          for (const [index, fileConfig] of group.files.entries()) {
+            // Downloads are collected by index; writes and stats remain in configuration order.
             // eslint-disable-next-line no-await-in-loop -- deterministic build trace/output order
-            await this.processFileConfig(groupSpan, group, fileConfig, stats);
+            await this.processFileConfig(groupSpan, group, fileConfig, stats, downloads[index]);
           }
         });
       } catch (error) {
@@ -160,17 +183,22 @@ export class RuleSourceProcessor {
         await this.span.traceChildAsync(`process special: ${ruleConfig.name}`, async ruleSpan => {
           const errorCountBeforeSources = stats.errors.length;
 
-          const allRules: string[] = [];
-          for (const source of ruleConfig.sourceFiles) {
-            // Keep source loading sequential so partial failures are reported in config order.
-            // eslint-disable-next-line no-await-in-loop -- deterministic error reporting order
-            const loadedRules = await RuleSourceProcessor.loadSpecialRuleSource(
+          const sourceResults = await boundedMap(ruleConfig.sourceFiles, source =>
+            RuleSourceProcessor.loadSpecialRuleSource(
               ruleSpan,
               source,
-              ruleConfig.allowEmpty ?? false,
-              stats
-            );
-            allRules.push(...loadedRules);
+              ruleConfig.allowEmpty ?? false
+            )
+          );
+
+          const allRules: string[] = [];
+          for (const [index, source] of ruleConfig.sourceFiles.entries()) {
+            const result = sourceResults[index];
+            if (!result.ok) {
+              RuleSourceProcessor.recordError(stats, source, result.error);
+            } else {
+              allRules.push(...result.rules);
+            }
           }
 
           if (stats.errors.length > errorCountBeforeSources) {
