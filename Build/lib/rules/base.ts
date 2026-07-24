@@ -4,7 +4,8 @@ import { not, nullthrow } from 'foxts/guard';
 import { fastIpVersion } from 'foxts/fast-ip-version';
 import { addArrayElementsToSet } from 'foxts/add-array-elements-to-set';
 import type { MaybePromise } from '../misc';
-import type { BaseWriteStrategy } from '../../core/output/writing-strategy/base';
+import type { BaseWriteStrategy, RuleDropSummary } from '../../core/output/writing-strategy/base';
+import type { RulePlatform } from '../../core/output/rule-support-matrix';
 import { merge as mergeCidr } from 'fast-cidr-tools';
 import { createRetrieKeywordFilter as createKeywordFilter } from 'foxts/retrie';
 import path from 'node:path';
@@ -494,6 +495,9 @@ export class FileOutput {
       if (this.otherRules.length) {
         strategy.writeOtherRules(this.otherRules);
       }
+      if (this.geoip.size) {
+        strategy.writeGeoip(this.geoip, false);
+      }
       if (this.urlRegex.size) {
         strategy.writeUrlRegexes(this.urlRegex);
       }
@@ -542,9 +546,6 @@ export class FileOutput {
       }
       if (this.ipasn.size) {
         strategy.writeIpAsns(this.ipasn, false);
-      }
-      if (this.geoip.size) {
-        strategy.writeGeoip(this.geoip, false);
       }
     }
   }
@@ -608,5 +609,13 @@ export class FileOutput {
       acc.push(strategy.content);
       return acc;
     }, []);
+  }
+
+  public getRuleDropSummaries(): Partial<Record<RulePlatform, RuleDropSummary>> {
+    const summaries: Partial<Record<RulePlatform, RuleDropSummary>> = {};
+    for (const strategy of [...this.strategies].sort((a, b) => a.platform.localeCompare(b.platform))) {
+      summaries[strategy.platform] = strategy.ruleDropSummary;
+    }
+    return summaries;
   }
 }

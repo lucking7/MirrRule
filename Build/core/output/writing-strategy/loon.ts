@@ -1,6 +1,5 @@
 import { appendSetElementsToArray } from 'foxts/append-set-elements-to-array';
 import { BaseWriteStrategy } from './base';
-import { noop } from 'foxts/noop';
 import { withBannerArray } from '../../../lib/misc';
 import { OUTPUT_LOON_DIR } from '../../../constants/dir';
 import { RuleLineUtils } from '../../../utils/validation/validators';
@@ -11,6 +10,7 @@ import { cleanPolicy } from '../../../lib/policy-cleaner';
  * Loon规则集输出策略
  */
 export class LoonRuleSet extends BaseWriteStrategy {
+  public readonly platform = 'loon' as const;
   public readonly name = 'loon ruleset';
 
   readonly fileExtension = 'list' as const;
@@ -45,13 +45,17 @@ export class LoonRuleSet extends BaseWriteStrategy {
     appendSetElementsToArray(this.result, keyword, i => `DOMAIN-KEYWORD,${i}`);
   }
 
-  writeDomainWildcard = noop; // Loon 不支持 DOMAIN-WILDCARD
+  writeDomainWildcard(_wildcard: string): void {
+    this.accepts('DOMAIN-WILDCARD');
+  }
 
   writeUserAgents(userAgent: Set<string>): void {
     appendSetElementsToArray(this.result, userAgent, i => `USER-AGENT,${i}`);
   }
 
-  writeProcessNames = noop; // Loon 不支持 PROCESS-NAME
+  writeProcessNames(processName: Set<string>): void {
+    this.accepts('PROCESS-NAME', processName.size);
+  }
 
   writeProcessPaths(processPath: Set<string>): void {
     appendSetElementsToArray(this.result, processPath, i => `PROCESS-PATH,${i}`);
@@ -85,7 +89,9 @@ export class LoonRuleSet extends BaseWriteStrategy {
     );
   }
 
-  writeSourceIpCidrs = noop; // Loon 不支持 SRC-IP-CIDR
+  writeSourceIpCidrs(sourceIpCidr: string[]): void {
+    this.accepts('SRC-IP-CIDR', sourceIpCidr.length);
+  }
 
   writeSourcePorts(sourcePorts: Set<string>): void {
     appendSetElementsToArray(this.result, sourcePorts, i => `SRC-PORT,${i}`);
@@ -111,8 +117,8 @@ export class LoonRuleSet extends BaseWriteStrategy {
       if (RuleLineUtils.shouldSkipLine(trimmed)) {
         continue;
       }
-
-
+      const type = this.accountOtherRule(trimmed);
+      if (type === 'skip' || type === 'unknown' || !this.accepts(type)) continue;
       const converted = cleanPolicy(smartConvertRule(trimmed));
       this.result.push(converted);
     }

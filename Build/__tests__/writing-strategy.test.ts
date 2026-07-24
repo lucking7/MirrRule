@@ -5,6 +5,7 @@ import { ClashClassicRuleSet } from '../core/output/writing-strategy/clash';
 import { LoonRuleSet } from '../core/output/writing-strategy/loon';
 import { SingboxSource } from '../core/output/writing-strategy/singbox';
 import { SurgeRuleSet } from '../core/output/writing-strategy/surge';
+import { CANONICAL_RULE_TYPES, RULE_SUPPORT_MATRIX } from '../core/output/rule-support-matrix';
 
 function parseSingbox(strategy: SingboxSource) {
   assert.ok(strategy.content, 'sing-box content should be present');
@@ -21,6 +22,12 @@ function parseSingbox(strategy: SingboxSource) {
 }
 
 describe('writing strategies', () => {
+  it('defines every canonical rule type for every platform', () => {
+    for (const platform of ['surge', 'clash', 'loon', 'singbox'] as const) {
+      assert.deepEqual(Object.keys(RULE_SUPPORT_MATRIX[platform]).sort(), [...CANONICAL_RULE_TYPES].sort());
+    }
+  });
+
   it('writes Surge rules in normalized ruleset form', () => {
     const strategy = new SurgeRuleSet('', 'out');
 
@@ -91,5 +98,43 @@ describe('writing strategies', () => {
     assert.deepEqual(json.rules[0].domain_keyword, ['video']);
     assert.deepEqual(json.rules[0].domain_regex, [String.raw`^[\w.-]*?\.wild\.example$`]);
     assert.deepEqual(json.rules[0].ip_cidr, ['1.2.3.0/24']);
+  });
+
+  it('accounts unsupported, malformed, and unknown rules deterministically per strategy', () => {
+    const clash = new ClashClassicRuleSet('', 'out');
+    clash.writeUserAgents(new Set(['Agent*', 'Other*']));
+    clash.writeUrlRegexes(new Set(['^https://example']));
+    clash.writeOtherRules(['BROKEN', 'DOMAIN,', 'FUTURE-RULE,value']);
+    assert.deepEqual(clash.ruleDropSummary, {
+      unsupported: { 'USER-AGENT': 2, 'URL-REGEX': 1 },
+      malformed: 2,
+      unknown: { 'FUTURE-RULE': 1 },
+    });
+    assert.deepEqual(clash.getRuleDropMessages(), [
+      'clash: dropped 1 rules of type URL-REGEX (unsupported)',
+      'clash: dropped 2 rules of type USER-AGENT (unsupported)',
+      'clash: dropped 2 malformed rules',
+      'clash: dropped 1 rules of type FUTURE-RULE (unknown)',
+    ]);
+
+    const loon = new LoonRuleSet('', 'out');
+    loon.writeDomainWildcard('*.example');
+    loon.writeProcessNames(new Set(['App']));
+    loon.writeSourceIpCidrs(['192.0.2.1']);
+    assert.deepEqual(loon.ruleDropSummary.unsupported, {
+      'DOMAIN-WILDCARD': 1, 'PROCESS-NAME': 1, 'SRC-IP-CIDR': 1,
+    });
+
+    const singbox = new SingboxSource('', 'out');
+    singbox.writeGeoip(new Set(['US']));
+    singbox.writeIpAsns(new Set(['64512']));
+    singbox.writeProtocols(new Set(['TCP']));
+    assert.deepEqual(singbox.ruleDropSummary.unsupported, {
+      GEOIP: 1, 'IP-ASN': 1, PROTOCOL: 1,
+    });
+
+    assert.deepEqual(new SurgeRuleSet('', 'out').ruleDropSummary, {
+      unsupported: {}, malformed: 0, unknown: {},
+    });
   });
 });

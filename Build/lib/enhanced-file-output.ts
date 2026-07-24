@@ -19,6 +19,15 @@ const RULE_TYPE_MAP: Record<string, string> = {
   'USER-AGENT': 'user-agent',
   'PROCESS-NAME': 'process-name',
   'URL-REGEX': 'url-regex',
+  GEOIP: 'geoip',
+  'SRC-IP': 'source-ip-cidr',
+  'SRC-IP-CIDR': 'source-ip-cidr',
+  'SRC-IP-CIDR6': 'source-ip-cidr',
+  'SRC-PORT': 'source-port',
+  'DEST-PORT': 'destination-port',
+  'DST-PORT': 'destination-port',
+  PROTOCOL: 'protocol',
+  NETWORK: 'protocol',
 };
 
 type EnhancedFileConfig = FileConfig & {
@@ -207,6 +216,45 @@ export class EnhancedFileOutput extends FileOutput {
         if (regex) {
           this.urlRegex.add(regex);
         }
+        break;
+      }
+
+      case 'geoip': {
+        const value = processedRule.split(',')[1]?.trim();
+        if (value) {
+          const noResolve = processedRule.toLowerCase().includes('no-resolve');
+          (noResolve ? this.groipNoResolve : this.geoip).add(value);
+        } else {
+          this.otherRules.push(processedRule);
+        }
+        break;
+      }
+
+      case 'source-ip-cidr': {
+        const value = processedRule.split(',')[1]?.trim();
+        if (value) this.sourceIpOrCidr.add(value);
+        else this.otherRules.push(processedRule);
+        break;
+      }
+
+      case 'source-port': {
+        const value = processedRule.split(',')[1]?.trim();
+        if (value) this.sourcePort.add(value);
+        else this.otherRules.push(processedRule);
+        break;
+      }
+
+      case 'destination-port': {
+        const value = processedRule.split(',')[1]?.trim();
+        if (value) this.destPort.add(value);
+        else this.otherRules.push(processedRule);
+        break;
+      }
+
+      case 'protocol': {
+        const value = processedRule.split(',')[1]?.trim();
+        if (value) this.protocol.add(value.toUpperCase());
+        else this.otherRules.push(processedRule);
         break;
       }
 

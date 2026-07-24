@@ -1,6 +1,5 @@
 import { appendSetElementsToArray } from 'foxts/append-set-elements-to-array';
 import { BaseWriteStrategy } from './base';
-import { noop } from 'foxts/noop';
 import { withBannerArray } from '../../../lib/misc';
 import { fastIpVersion } from 'foxts/fast-ip-version';
 import { OUTPUT_CLASH_DIR } from '../../../constants/dir';
@@ -9,6 +8,7 @@ import { smartConvertRule } from '../../../lib/misc';
 import { cleanPolicy } from '../../../lib/policy-cleaner';
 
 export class ClashClassicRuleSet extends BaseWriteStrategy {
+  public readonly platform = 'clash' as const;
   public readonly name: string = 'clash classic ruleset';
 
   readonly fileExtension = 'txt';
@@ -40,7 +40,9 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
     this.result.push(`DOMAIN-WILDCARD,${wildcard}`);
   }
 
-  writeUserAgents = noop; // Clash不支持USER-AGENT
+  writeUserAgents(userAgent: Set<string>): void {
+    this.accepts('USER-AGENT', userAgent.size);
+  }
 
   writeProcessNames(processName: Set<string>): void {
     appendSetElementsToArray(this.result, processName, i => `PROCESS-NAME,${i}`);
@@ -50,7 +52,9 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
     appendSetElementsToArray(this.result, processPath, i => `PROCESS-PATH,${i}`);
   }
 
-  writeUrlRegexes = noop; // Clash不支持URL-REGEX
+  writeUrlRegexes(urlRegex: Set<string>): void {
+    this.accepts('URL-REGEX', urlRegex.size);
+  }
 
   writeIpCidrs(ipCidr: string[], noResolve: boolean): void {
     this.writeCidrRules(this.result, ipCidr, 'IP-CIDR', noResolve);
@@ -122,8 +126,9 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
   writeOtherRules(rules: string[]): void {
     for (const rule of rules) {
       const trimmed = rule.trim();
-
       if (RuleLineUtils.shouldSkipLine(trimmed)) continue;
+      const type = this.accountOtherRule(trimmed);
+      if (type === 'skip' || type === 'unknown' || !this.accepts(type)) continue;
       const converted = cleanPolicy(smartConvertRule(trimmed));
       this.result.push(converted);
     }

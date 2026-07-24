@@ -1,6 +1,6 @@
 import { isIP } from 'node:net';
 
-export class DomainValidator {
+class DomainValidator {
   private static readonly DOMAIN_REGEX = /^\w([\w-]*\w)?(\.\w([\w-]*\w)?)*$/;
 
   static isDomainLike(this: void, text: string): boolean {

@@ -1,11 +1,20 @@
 import type { Span } from '../../../trace';
 import { compareAndWriteFile } from '../../../lib/create-file';
+import type { CanonicalRuleType, RulePlatform } from '../rule-support-matrix';
+import { MALFORMED_RULE_POLICY, RULE_SUPPORT_MATRIX } from '../rule-support-matrix';
+
+export interface RuleDropSummary {
+  unsupported: Partial<Record<CanonicalRuleType, number>>;
+  malformed: number;
+  unknown: Record<string, number>;
+}
 
 /**
  * The class is not about holding rule data, instead it determines how the
  * date is written to a file.
  */
 export abstract class BaseWriteStrategy {
+  public abstract readonly platform: RulePlatform;
   public abstract readonly name: string;
 
   /**
@@ -68,6 +77,51 @@ export abstract class BaseWriteStrategy {
 
   constructor(public readonly outputDir: string) {}
 
+  private readonly dropSummary: RuleDropSummary = { unsupported: {}, malformed: 0, unknown: {} };
+
+  protected accepts(type: CanonicalRuleType, count = 1): boolean {
+    const support = RULE_SUPPORT_MATRIX[this.platform][type];
+    if (support.status !== 'explicitly-unsupported') return true;
+    this.dropSummary.unsupported[type] = (this.dropSummary.unsupported[type] ?? 0) + count;
+    return false;
+  }
+
+  protected accountOtherRule(rule: string): 'skip' | 'unknown' | CanonicalRuleType {
+    const trimmed = rule.trim();
+    if (trimmed.startsWith('#') || trimmed.startsWith('!')) return 'skip';
+    const comma = trimmed.indexOf(',');
+    if (comma < 1 || !trimmed.slice(comma + 1).trim()) {
+      this.dropSummary.malformed++;
+      if (MALFORMED_RULE_POLICY.failBuild) throw new Error(`${this.platform}: malformed rule: ${rule}`);
+      return 'skip';
+    }
+    const type = trimmed.slice(0, comma).trim().toUpperCase();
+    if (type in RULE_SUPPORT_MATRIX[this.platform]) return type as CanonicalRuleType;
+    this.dropSummary.unknown[type || '(empty)'] = (this.dropSummary.unknown[type || '(empty)'] ?? 0) + 1;
+    return 'unknown';
+  }
+
+  public get ruleDropSummary(): RuleDropSummary {
+    return {
+      unsupported: { ...this.dropSummary.unsupported },
+      malformed: this.dropSummary.malformed,
+      unknown: { ...this.dropSummary.unknown },
+    };
+  }
+
+  public getRuleDropMessages(): string[] {
+    const messages: string[] = [];
+    for (const type of Object.keys(this.dropSummary.unsupported).sort()) {
+      const count = this.dropSummary.unsupported[type as CanonicalRuleType] ?? 0;
+      messages.push(`${this.platform}: dropped ${count} rules of type ${type} (unsupported)`);
+    }
+    if (this.dropSummary.malformed) messages.push(`${this.platform}: dropped ${this.dropSummary.malformed} malformed rules`);
+    for (const type of Object.keys(this.dropSummary.unknown).sort()) {
+      messages.push(`${this.platform}: dropped ${this.dropSummary.unknown[type]} rules of type ${type} (unknown)`);
+    }
+    return messages;
+  }
+
   protected abstract result: string[] | null;
 
   abstract writeDomain(domain: string): void;
@@ -126,6 +180,8 @@ export abstract class BaseWriteStrategy {
     if (!this.result) {
       return;
     }
+
+    for (const message of this.getRuleDropMessages()) console.warn(message);
 
     return compareAndWriteFile(
       span,

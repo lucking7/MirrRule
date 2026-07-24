@@ -3,11 +3,12 @@ import { BaseWriteStrategy } from './base';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { OUTPUT_SURGE_DIR } from '../../../constants/dir';
 import { withBannerArray } from '../../../lib/misc';
-import { DomainValidator, IPValidator, RuleLineUtils } from '../../../utils/validation/validators';
+import { RuleLineUtils } from '../../../utils/validation/validators';
 import { smartConvertRule } from '../../../lib/misc';
 import { cleanPolicy } from '../../../lib/policy-cleaner';
 
 export class SurgeRuleSet extends BaseWriteStrategy {
+  public readonly platform = 'surge' as const;
   public readonly name: string = 'surge ruleset';
 
   readonly fileExtension = 'list'; // 修改为 .list 扩展名
@@ -120,18 +121,13 @@ export class SurgeRuleSet extends BaseWriteStrategy {
    */
   private processRuleIntelligently(rule: string): void {
     const trimmed = BaseWriteStrategy.normalizeSurgeRule(rule);
-    if (!trimmed || trimmed.startsWith('#')) {
-      this.result.push(trimmed);
+    const accountedType = this.accountOtherRule(trimmed);
+    if (accountedType === 'skip' || accountedType === 'unknown') {
       return;
     }
 
     // 解析规则结构
     const parts = trimmed.split(',');
-    if (parts.length < 2) {
-      this.intelligentRuleIdentification(trimmed);
-      return;
-    }
-
     const ruleType = parts[0].trim().toUpperCase();
     const value = parts[1].trim();
 
@@ -175,41 +171,14 @@ export class SurgeRuleSet extends BaseWriteStrategy {
         const asnParams = parts.slice(2).join(',');
         this.result.push(`IP-ASN,${value}${asnParams ? ',' + asnParams : ''}`);
         break;
+      case 'AND':
+      case 'OR':
+      case 'NOT':
+        this.result.push(trimmed);
+        break;
       default:
-        // 未知规则类型，尝试智能识别
-        this.intelligentRuleIdentification(trimmed);
+        // accountOtherRule exhaustively handles unknown types above.
     }
   }
 
-  /**
-   * 智能规则识别 - 无类型前缀的规则
-   * 重构：使用共享验证器替代内联正则表达式
-   */
-  private intelligentRuleIdentification(rule: string): void {
-    // 纯域名识别
-    if (DomainValidator.isDomainLike(rule)) {
-      this.result.push(`DOMAIN,${rule}`);
-      return;
-    }
-
-    // 域名后缀识别 (.example.com)
-    if (DomainValidator.isDomainSuffix(rule)) {
-      this.result.push(`DOMAIN-SUFFIX,${rule.substring(1)}`);
-      return;
-    }
-
-    // IP CIDR识别
-    const ipType = IPValidator.getIpType(rule);
-    if (ipType === 'ipv4') {
-      this.result.push(`IP-CIDR,${rule}`);
-      return;
-    }
-    if (ipType === 'ipv6') {
-      this.result.push(`IP-CIDR6,${rule}`);
-      return;
-    }
-
-    // 其他未识别规则，保持原样
-    this.result.push(rule);
-  }
 }

@@ -1,10 +1,9 @@
 import { BaseWriteStrategy } from './base';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
-import { noop } from 'foxts/noop';
 import { withIdentityContent } from '../../../lib/misc';
 import stringify from 'json-stringify-pretty-compact';
 import { OUTPUT_SINGBOX_DIR } from '../../../constants/dir';
-import { DomainValidator, RuleLineUtils } from '../../../utils/validation/validators';
+import { RuleLineUtils } from '../../../utils/validation/validators';
 
 interface SingboxHeadlessRule {
   domain: string[];
@@ -28,6 +27,7 @@ interface SingboxSourceFormat {
 }
 
 export class SingboxSource extends BaseWriteStrategy {
+  public readonly platform = 'singbox' as const;
   public readonly name = 'singbox';
 
   readonly fileExtension = 'json';
@@ -79,9 +79,13 @@ export class SingboxSource extends BaseWriteStrategy {
     this.singbox.domain_regex.push(SingboxSource.domainWildCardToRegex(wildcard));
   }
 
-  writeUserAgents = noop;
+  writeUserAgents(userAgent: Set<string>): void {
+    this.accepts('USER-AGENT', userAgent.size);
+  }
 
-  writeProcessNames = noop;
+  writeProcessNames(processName: Set<string>): void {
+    this.accepts('PROCESS-NAME', processName.size);
+  }
   // writeProcessNames(processName: Set<string>): void {
   //   appendArrayInPlace(
   //     this.singbox.process_name ??= [],
@@ -89,7 +93,9 @@ export class SingboxSource extends BaseWriteStrategy {
   //   );
   // }
 
-  writeProcessPaths = noop;
+  writeProcessPaths(processPath: Set<string>): void {
+    this.accepts('PROCESS-PATH', processPath.size);
+  }
   // writeProcessPaths(processPath: Set<string>): void {
   //   appendArrayInPlace(
   //     this.singbox.process_path ??= [],
@@ -97,7 +103,9 @@ export class SingboxSource extends BaseWriteStrategy {
   //   );
   // }
 
-  writeUrlRegexes = noop;
+  writeUrlRegexes(urlRegex: Set<string>): void {
+    this.accepts('URL-REGEX', urlRegex.size);
+  }
 
   writeIpCidrs(ipCidr: string[]): void {
     appendArrayInPlace((this.singbox.ip_cidr ??= []), ipCidr);
@@ -107,17 +115,29 @@ export class SingboxSource extends BaseWriteStrategy {
     appendArrayInPlace((this.singbox.ip_cidr ??= []), ipCidr6);
   }
 
-  writeGeoip = noop;
+  writeGeoip(geoip: Set<string>): void {
+    this.accepts('GEOIP', geoip.size);
+  }
 
-  writeIpAsns = noop;
+  writeIpAsns(asns: Set<string>): void {
+    this.accepts('IP-ASN', asns.size);
+  }
 
-  writeSourceIpCidrs = noop;
+  writeSourceIpCidrs(sourceIpCidr: string[]): void {
+    this.accepts('SRC-IP-CIDR', sourceIpCidr.length);
+  }
 
-  writeSourcePorts = noop;
+  writeSourcePorts(sourcePort: Set<string>): void {
+    this.accepts('SRC-PORT', sourcePort.size);
+  }
 
-  writeDestinationPorts = noop;
+  writeDestinationPorts(destinationPort: Set<string>): void {
+    this.accepts('DEST-PORT', destinationPort.size);
+  }
 
-  writeProtocols = noop;
+  writeProtocols(protocol: Set<string>): void {
+    this.accepts('PROTOCOL', protocol.size);
+  }
   // writeProtocols(protocol: Set<string>): void {
   //   this.singbox.network ??= [];
   //   // protocol has already be normalized and will only be uppercase
@@ -144,9 +164,10 @@ export class SingboxSource extends BaseWriteStrategy {
     if (RuleLineUtils.shouldSkipLine(trimmed)) {
       return; // sing-box不输出注释
     }
+    const accountedType = this.accountOtherRule(trimmed);
+    if (accountedType === 'skip' || accountedType === 'unknown' || !this.accepts(accountedType)) return;
 
     const parts = trimmed.split(',');
-    if (parts.length < 2) return;
 
     const ruleType = parts[0].trim().toUpperCase();
     const value = parts[1].trim();
@@ -171,19 +192,8 @@ export class SingboxSource extends BaseWriteStrategy {
       case 'IP-CIDR6':
         (this.singbox.ip_cidr ??= []).push(value);
         break;
-      case 'GEOIP':
-        // sing-box doesn't support GEOIP in array format
-        break;
-      case 'USER-AGENT':
-      case 'PROCESS-NAME':
-      case 'URL-REGEX':
-        // sing-box doesn't support these rule types
-        break;
       default:
-        // 使用共享验证器智能识别纯文本域名规则
-        if (DomainValidator.isDomainLike(trimmed)) {
-          this.singbox.domain.push(trimmed);
-        }
+        // All supported other-rule forms are handled above.
     }
   }
 }
