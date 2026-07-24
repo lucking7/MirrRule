@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "rules": [
+    {
+      "domain": ["exact.example", "a.example"],
+      "domain_suffix": ["shorthand.example", "z.example"],
+      "domain_keyword": ["keyword"],
+      "domain_regex": ["^[\\w.-]*?\\.wild\\.example$"],
+      "ip_cidr": ["192.0.2.0/24", "2001:db8::/32"]
+    }
+  ]
+}

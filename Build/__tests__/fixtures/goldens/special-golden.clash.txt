@@ -1,0 +1,20 @@
+#########################################
+# Special Golden
+# Last Updated: 2026-01-01T00:00:00.000Z
+# Size: 11
+# Offline merged special-rule pipeline fixture
+# Merged from 2 sources
+#########################################
+DOMAIN-SUFFIX,shorthand.example
+DOMAIN,exact.example
+DOMAIN-SUFFIX,z.example
+DOMAIN,a.example
+DOMAIN-KEYWORD,keyword
+DOMAIN-WILDCARD,*.wild.example
+PROCESS-NAME,Example App
+GEOIP,US
+IP-CIDR,192.0.2.0/24
+IP-CIDR6,2001:db8::/32
+IP-ASN,64512
+################## EOF ##################
+
