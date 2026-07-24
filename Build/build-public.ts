@@ -203,12 +203,13 @@ function generateHtml(tree: TreeTypeArray) {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
-          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
           rel="stylesheet"
         />
         <style>
-          /* Hallmark · macrostructure: Workbench · tone: austere · anchor hue: warm umber
-           * paper: oklch(96% 0.01 85) · accent: oklch(42% 0.09 45) · display: Source Serif 4 · mono: IBM Plex Mono
+          /* Impeccable · typeset · Workbench / Austere
+           * font system: IBM Plex only — Sans (UI) + Mono (paths / data)
+           * paper: oklch(96% 0.01 85) · accent: oklch(42% 0.09 45)
            */
           :root {
             --color-paper: oklch(96% 0.01 85);
@@ -219,7 +220,8 @@ function generateHtml(tree: TreeTypeArray) {
             --color-accent: oklch(42% 0.09 45);
             --color-hot: oklch(93% 0.015 85);
             --color-focus: oklch(42% 0.09 45 / 0.28);
-            --font-display: 'Source Serif 4', 'Source Serif Pro', 'Times New Roman', serif;
+            /* Single family: Plex Sans for UI, Plex Mono for paths / data only */
+            --font-ui: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
             --font-mono: 'IBM Plex Mono', ui-monospace, 'Menlo', 'Consolas', monospace;
             --text-base: 1rem;
             --text-sm: 0.875rem;
@@ -268,10 +270,12 @@ function generateHtml(tree: TreeTypeArray) {
             padding: 0;
             background: var(--color-paper);
             color: var(--color-ink);
-            font-family: var(--font-display);
+            font-family: var(--font-ui);
             font-size: var(--text-base);
             line-height: 1.5;
             overflow-x: clip;
+            font-synthesis: none;
+            text-rendering: optimizeLegibility;
           }
 
           a {
@@ -343,7 +347,7 @@ function generateHtml(tree: TreeTypeArray) {
 
           .brand h1 {
             margin: 0;
-            font-family: var(--font-display);
+            font-family: var(--font-ui);
             font-size: var(--text-xl);
             font-weight: 600;
             font-style: normal;
@@ -646,7 +650,7 @@ function generateHtml(tree: TreeTypeArray) {
             display: none;
             padding: var(--space-10) var(--space-4);
             text-align: left;
-            font-family: var(--font-mono);
+            font-family: var(--font-ui);
             color: var(--color-muted);
           }
 
@@ -660,6 +664,7 @@ function generateHtml(tree: TreeTypeArray) {
           }
 
           .empty-state .hint {
+            font-family: var(--font-mono);
             font-size: var(--text-xs);
           }
 
