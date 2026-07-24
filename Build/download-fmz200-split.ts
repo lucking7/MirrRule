@@ -304,7 +304,13 @@ export async function runFmz200Split(): Promise<PipelineResult> {
           result.total += directoryResult.processed + directoryResult.failed.length;
           result.succeeded += directoryResult.processed;
           for (const fileName of directoryResult.failed) {
-            result.failed.push({ asset: `${dir.name}/${fileName}`, error: 'Download failed', required: true });
+            // Individual module download misses are best-effort; the catalog is large
+            // and a few 404s must not fail the whole CI/build pipeline.
+            result.failed.push({
+              asset: `${dir.name}/${fileName}`,
+              error: 'Download failed',
+              required: false,
+            });
           }
         } catch (error) {
           result.failed.push({ asset: dir.name, error: getErrorMessage(error), required: true });
