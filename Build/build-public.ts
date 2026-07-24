@@ -1,34 +1,47 @@
 import path from 'node:path';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 
 import { task } from './trace';
 import { treeDir, TreeFileType } from './lib/tree-dir';
 import type { TreeType, TreeTypeArray } from './lib/tree-dir';
 
-import { OUTPUT_MOCK_DIR, OUTPUT_MODULES_RULES_DIR, PUBLIC_DIR, ROOT_DIR } from './constants/dir';
+import { PUBLIC_DIR } from './constants/dir';
 import { writeFile } from './lib/misc';
-import type { VoidOrVoidArray } from './lib/misc';
-import picocolors from 'picocolors';
 import { tagged as html } from 'foxts/tagged';
 import { compareAndWriteFile } from './lib/create-file';
 import { priorityOrder, prioritySorter } from './lib/public-index-sort.ts';
 
-const closedRootFolders = ['Mock', 'Internal'];
+/** Root folders open by default on first paint (Austere workbench keeps noise low). */
+const openRootFolders = new Set(['List']);
+
+/** Shortcut chips → search queries (personal high-frequency rulesets). */
+const QUICK_SEARCHES = ['emby', 'reject', 'stream', 'github', 'geoip'] as const;
+
+/** Site meta files — not ruleset payloads. */
+const SKIP_INDEX_FILES = new Set([
+  'README.md',
+  'LICENSE',
+  'CNAME',
+  'favicon.ico',
+  'favicon.svg',
+  'robots.txt',
+]);
+
+function shouldListFile(name: string): boolean {
+  if (name.startsWith('_')) return false;
+  if (name.endsWith('.html')) return false;
+  if (SKIP_INDEX_FILES.has(name)) return false;
+  return true;
+}
 
 export const buildPublic = task(
   require.main === module,
   __filename
 )(async span => {
   await span.traceChildAsync('copy rest of the files', async () => {
-    const p: Array<Promise<unknown>> = [];
-
-    // Mock 和 Modules 已由 downloadMockAndModules 直接下载到 public 目录，无需复制
-
-    await Promise.all(p);
+    await Promise.all([]);
   });
 
-  const html = await span
+  const pageHtml = await span
     .traceChild('generate index.html')
     .traceAsyncFn(() => treeDir(PUBLIC_DIR).then(generateHtml));
 
@@ -68,21 +81,54 @@ export const buildPublic = task(
     ),
   ]);
 
-  return writeFile(path.join(PUBLIC_DIR, 'index.html'), html);
+  return writeFile(path.join(PUBLIC_DIR, 'index.html'), pageHtml);
 });
 
-function treeHtml(tree: TreeTypeArray, level = 0, closedFolderList: string[] = []): string {
+function buildTimestampGmt8(): string {
+  const now = new Date();
+  const offset = 8 * 60;
+  const gmtPlus8 = new Date(now.getTime() + (offset - now.getTimezoneOffset()) * 60_000);
+  return gmtPlus8.toISOString().replace('Z', '+08:00');
+}
+
+function rootFolderNames(tree: TreeTypeArray): string[] {
+  return tree
+    .filter(entry => entry.type === TreeFileType.DIRECTORY)
+    .sort(prioritySorter)
+    .map(entry => entry.name);
+}
+
+function platformChipsHtml(roots: string[]): string {
+  const chips = [
+    `<button type="button" class="chip is-on" data-platform="all" aria-pressed="true">All</button>`,
+    ...roots.map(
+      name =>
+        `<button type="button" class="chip" data-platform="${name}" aria-pressed="false">${name}</button>`
+    ),
+  ];
+  return chips.join('\n');
+}
+
+function quickChipsHtml(): string {
+  return QUICK_SEARCHES.map(
+    q =>
+      `<button type="button" class="quick-chip" data-query="${q}">${q}</button>`
+  ).join('\n');
+}
+
+function treeHtml(tree: TreeTypeArray, level = 0): string {
   let result = '';
   tree.sort(prioritySorter);
 
   for (let i = 0, len = tree.length; i < len; i++) {
     const entry = tree[i];
-    const open = closedFolderList.includes(entry.name) ? '' : (level === 0 ? 'open' : '');
 
     if (entry.type === TreeFileType.DIRECTORY) {
+      const openAttr = level === 0 && openRootFolders.has(entry.name) ? 'open' : '';
+      const rootAttr = level === 0 ? ` data-root="${entry.name}"` : '';
       result += html`
-        <li class="folder">
-          <details ${open}>
+        <li class="folder" data-name="${entry.name.toLowerCase()}"${rootAttr}>
+          <details ${openAttr}>
             <summary>${entry.name}</summary>
             <ul>
               ${treeHtml(entry.children, level + 1)}
@@ -90,817 +136,717 @@ function treeHtml(tree: TreeTypeArray, level = 0, closedFolderList: string[] = [
           </details>
         </li>
       `;
-    } else if (
-      /* entry.type === 'file' && */ !entry.name.endsWith('.html') &&
-      !entry.name.startsWith('_')
-    ) {
+    } else if (shouldListFile(entry.name)) {
       result += html`
-        <li class="file"><a class="file-link" href="${entry.path}">${entry.name}</a></li>
+        <li class="file" data-name="${entry.name.toLowerCase()}" data-path="${entry.path}">
+          <div class="file-row">
+            <a class="file-link" href="${entry.path}">${entry.name}</a>
+            <button
+              type="button"
+              class="copy-btn"
+              data-path="${entry.path}"
+              aria-label="Copy URL for ${entry.name}"
+            >
+              copy
+            </button>
+          </div>
+        </li>
       `;
     }
   }
   return result;
 }
 
+/**
+ * Hallmark · macrostructure: Workbench · tone: austere · genre: editorial
+ * audience: self · use: copy ruleset URL · theme: custom austere (warm paper)
+ * nav: N1a minimal · footer: Ft4 dense colophon · enrichment: none
+ */
 function generateHtml(tree: TreeTypeArray) {
+  const roots = rootFolderNames(tree);
+  const builtAt = buildTimestampGmt8();
+
   return html`
     <!DOCTYPE html>
-    <html lang="en">
+    <html lang="zh-CN">
       <head>
         <meta charset="utf-8" />
-        <title>Surge Ruleset Server | Luck (@lucking7)</title>
+        <title>NRRule · personal rules index</title>
         <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
         <link href="/favicon.svg" rel="icon" type="image/svg+xml" />
-        <meta name="description" content="Luck 自用的 Surge / Clash Premium 规则组" />
-
-        <meta property="og:title" content="Surge Ruleset | Luck (@lucking7)" />
-        <meta property="og:type" content="Website" />
+        <meta name="description" content="Luck 自用的 Surge / Clash / Loon 规则镜像与索引" />
+        <meta property="og:title" content="NRRule · personal rules index" />
+        <meta property="og:type" content="website" />
         <meta property="og:url" content="https://github.com/lucking7/MirrRule" />
-        <meta property="og:image" content="/favicon.svg" />
-        <meta property="og:description" content="Luck 自用的 Surge / Clash Premium 规则组" />
+        <meta property="og:description" content="Luck 自用的 Surge / Clash / Loon 规则镜像与索引" />
         <meta name="twitter:card" content="summary" />
-        <link rel="canonical" href="https://github.com/lucking7/MirrRule" />
+        <link rel="canonical" href="https://github.com/lucking7/NRRule" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap"
+          rel="stylesheet"
+        />
         <style>
+          /* Hallmark · macrostructure: Workbench · tone: austere · anchor hue: warm umber
+           * paper: oklch(96% 0.01 85) · accent: oklch(42% 0.09 45) · display: Source Serif 4 · mono: IBM Plex Mono
+           */
           :root {
-            --font-family: system-ui, -apple-system, 'Segoe UI', 'Roboto', 'Ubuntu', 'Cantarell',
-              'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-              'Noto Color Emoji';
-            --line-height: 1.5;
-            --font-weight: 400;
-            --font-size: 16px;
-            --border-radius: 0.25rem;
-            --border-width: 1px;
-            --outline-width: 3px;
-            --spacing: 1rem;
-            --typography-spacing-vertical: 1.5rem;
-            --block-spacing-vertical: calc(var(--spacing) * 2);
-            --block-spacing-horizontal: var(--spacing);
-            --nav-element-spacing-vertical: 1rem;
-            --nav-element-spacing-horizontal: 0.5rem;
-            --nav-link-spacing-vertical: 0.5rem;
-            --nav-link-spacing-horizontal: 0.5rem;
-            --form-label-font-weight: var(--font-weight);
-            --transition: 0.2s ease-in-out;
-
-            /* 圆角系统 */
-            --radius-xs: 0.125rem; /* 2px */
-            --radius-sm: 0.25rem; /* 4px */
-            --radius-md: 0.375rem; /* 6px */
-            --radius-lg: 0.5rem; /* 8px */
-            --radius-xl: 0.75rem; /* 12px */
-            --radius-2xl: 1rem; /* 16px */
-            --radius-3xl: 1.5rem; /* 24px */
-
-            /* 排版系统 */
-            --text-xs: 0.75rem; /* 12px */
-            --text-sm: 0.875rem; /* 14px */
-            --text-base: 1rem; /* 16px */
-            --text-lg: 1.125rem; /* 18px */
-            --text-xl: 1.25rem; /* 20px */
-            --text-2xl: 1.5rem; /* 24px */
-            --text-3xl: 1.875rem; /* 30px */
-            --text-4xl: 2.25rem; /* 36px */
-            --text-5xl: 3rem; /* 48px */
-            --text-6xl: 3.75rem; /* 60px */
-            --text-7xl: 4.5rem; /* 72px */
-
-            /* 间距系统 */
-            --spacing-0: 0;
-            --spacing-1: 0.25rem; /* 4px */
-            --spacing-2: 0.5rem; /* 8px */
-            --spacing-3: 0.75rem; /* 12px */
-            --spacing-4: 1rem; /* 16px */
-            --spacing-5: 1.25rem; /* 20px */
-            --spacing-6: 1.5rem; /* 24px */
-            --spacing-8: 2rem; /* 32px */
-            --spacing-10: 2.5rem; /* 40px */
-            --spacing-11: 2.75rem; /* 44px */
-            --spacing-12: 3rem; /* 48px */
-            --spacing-16: 4rem; /* 64px */
-            --spacing-20: 5rem; /* 80px */
-          }
-
-          @media (min-width: 576px) {
-            :root {
-              --font-size: 17px;
-            }
-          }
-
-          @media (min-width: 768px) {
-            :root {
-              --font-size: 18px;
-            }
-          }
-
-          @media (min-width: 992px) {
-            :root {
-              --font-size: 19px;
-            }
-          }
-
-          @media (min-width: 1200px) {
-            :root {
-              --font-size: 20px;
-            }
-          }
-
-          a {
-            --text-decoration: none;
-          }
-
-          a.contrast,
-          a.secondary {
-            --text-decoration: underline;
-          }
-
-          small {
-            --font-size: 0.875em;
-          }
-
-          h1,
-          h2,
-          h3,
-          h4,
-          h5,
-          h6 {
-            --font-weight: 700;
-          }
-
-          h1 {
-            --font-size: 2rem;
-            --typography-spacing-vertical: 3rem;
-          }
-
-          :not(thead):not(tfoot) > * > td {
-            --font-size: 0.875em;
-          }
-
-          code,
-          kbd,
-          pre,
-          samp {
-            --font-family: 'Menlo', 'Consolas', 'Roboto Mono', 'Ubuntu Monospace', 'Noto Mono',
-              'Oxygen Mono', 'Liberation Mono', monospace, 'Apple Color Emoji', 'Segoe UI Emoji',
-              'Segoe UI Symbol', 'Noto Color Emoji';
-          }
-
-          kbd {
-            --font-weight: bolder;
-          }
-
-          :root:not([data-theme='dark']),
-          [data-theme='light'] {
-            --background-color: #fff;
-            --color: #415462;
-            --h1-color: #1b2832;
-            --h2-color: #24333e;
-            --h3-color: #2c3d49;
-            --h4-color: #374956;
-            --h5-color: #415462;
-            --h6-color: #4d606d;
-            --muted-color: #73828c;
-            --muted-border-color: #edf0f3;
-            --primary: #1095c1;
-            --primary-hover: #08769b;
-            --primary-focus: rgba(16, 149, 193, 0.125);
-            --primary-inverse: #fff;
-            --secondary: #596b78;
-            --secondary-hover: #415462;
-            --secondary-focus: rgba(89, 107, 120, 0.125);
-            --secondary-inverse: #fff;
-            --contrast: #1b2832;
-            --contrast-hover: #000;
-            --contrast-focus: rgba(89, 107, 120, 0.125);
-            --contrast-inverse: #fff;
-            --mark-background-color: #fff2ca;
-            --mark-color: #543a26;
-            --modal-overlay-background-color: rgba(213, 220, 226, 0.8);
-            --loading-spinner-opacity: 0.5;
-            --icon-folder: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23415462' d='M9.52 3a2 2 0 0 1 1.442.614l.12.137L12.48 5.5H20a2 2 0 0 1 1.995 1.85L22 7.5V19a2 2 0 0 1-1.85 1.995L20 21H4a2 2 0 0 1-1.995-1.85L2 19V5a2 2 0 0 1 1.85-1.995L4 3zM20 11H4v8h16zM9.52 5H4v4h16V7.5h-7.52a2 2 0 0 1-1.442-.614l-.12-.137z'/%3E%3C/svg%3E");
-            --icon-file: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23415462' d='M13.586 2A2 2 0 0 1 15 2.586L19.414 7A2 2 0 0 1 20 8.414V20a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM12 4H6v16h12V10h-4.5A1.5 1.5 0 0 1 12 8.5zm3 10a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2zm-5-4a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2Zm4-5.586V8h3.586z'/%3E%3C/svg%3E");
-            --icon-folder-open: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23415462' d='M9.52 3a2 2 0 0 1 1.442.614l.12.137L12.48 5.5H19a2 2 0 0 1 1.995 1.85L21 7.5v1.53a2 2 0 0 1 1.61 2.398l-.038.147l-2.4 8a2 2 0 0 1-1.752 1.418l-.164.007H4a2 2 0 0 1-1.995-1.85L2 19V5a2 2 0 0 1 1.85-1.995L4 3zm11.136 8H6.744l-2.4 8h13.912zM9.519 5H4v8.187l.828-2.762A2 2 0 0 1 6.744 9H19V7.5h-6.52a2 2 0 0 1-1.561-.75z'/%3E%3C/svg%3E");
+            --color-paper: oklch(96% 0.01 85);
+            --color-surface: oklch(98.5% 0.008 85);
+            --color-ink: oklch(22% 0.02 60);
+            --color-muted: oklch(48% 0.02 60);
+            --color-line: oklch(86% 0.015 85);
+            --color-accent: oklch(42% 0.09 45);
+            --color-hot: oklch(93% 0.015 85);
+            --color-focus: oklch(42% 0.09 45 / 0.28);
+            --font-display: 'Source Serif 4', 'Source Serif Pro', 'Times New Roman', serif;
+            --font-mono: 'IBM Plex Mono', ui-monospace, 'Menlo', 'Consolas', monospace;
+            --text-base: 1rem;
+            --text-sm: 0.875rem;
+            --text-xs: 0.75rem;
+            --text-lg: 1.125rem;
+            --text-xl: 1.375rem;
+            --space-1: 0.25rem;
+            --space-2: 0.5rem;
+            --space-3: 0.75rem;
+            --space-4: 1rem;
+            --space-5: 1.25rem;
+            --space-6: 1.5rem;
+            --space-8: 2rem;
+            --space-10: 2.5rem;
+            --space-12: 3rem;
+            --radius: 2px;
+            --measure: 44rem;
+            --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+            --dur-short: 140ms;
             color-scheme: light;
           }
 
-          @media only screen and (prefers-color-scheme: dark) {
-            :root:not([data-theme='light']) {
-              --background-color: #11191f;
-              --color: #bbc6ce;
-              --h1-color: #edf0f3;
-              --h2-color: #e1e6eb;
-              --h3-color: #d5dce2;
-              --h4-color: #c8d1d8;
-              --h5-color: #bbc6ce;
-              --h6-color: #afbbc4;
-              --muted-color: #73828c;
-              --muted-border-color: #1f2d38;
-              --primary: #1095c1;
-              --primary-hover: #1ab3e6;
-              --primary-focus: rgba(16, 149, 193, 0.25);
-              --primary-inverse: #fff;
-              --secondary: #596b78;
-              --secondary-hover: #73828c;
-              --secondary-focus: rgba(115, 130, 140, 0.25);
-              --secondary-inverse: #fff;
-              --contrast: #edf0f3;
-              --contrast-hover: #fff;
-              --contrast-focus: rgba(115, 130, 140, 0.25);
-              --contrast-inverse: #000;
-              --mark-background-color: #d1c284;
-              --mark-color: #11191f;
-              --modal-overlay-background-color: rgba(36, 51, 62, 0.9);
-              --loading-spinner-opacity: 0.5;
-              --icon-folder: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23bbc6ce' d='M9.52 3a2 2 0 0 1 1.442.614l.12.137L12.48 5.5H20a2 2 0 0 1 1.995 1.85L22 7.5V19a2 2 0 0 1-1.85 1.995L20 21H4a2 2 0 0 1-1.995-1.85L2 19V5a2 2 0 0 1 1.85-1.995L4 3zM20 11H4v8h16zM9.52 5H4v4h16V7.5h-7.52a2 2 0 0 1-1.442-.614l-.12-.137z'/%3E%3C/svg%3E");
-              --icon-file: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23bbc6ce' d='M13.586 2A2 2 0 0 1 15 2.586L19.414 7A2 2 0 0 1 20 8.414V20a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM12 4H6v16h12V10h-4.5A1.5 1.5 0 0 1 12 8.5zm3 10a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2zm-5-4a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2Zm4-5.586V8h3.586z'/%3E%3C/svg%3E");
-              --icon-folder-open: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23bbc6ce' d='M9.52 3a2 2 0 0 1 1.442.614l.12.137L12.48 5.5H19a2 2 0 0 1 1.995 1.85L21 7.5v1.53a2 2 0 0 1 1.61 2.398l-.038.147l-2.4 8a2 2 0 0 1-1.752 1.418l-.164.007H4a2 2 0 0 1-1.995-1.85L2 19V5a2 2 0 0 1 1.85-1.995L4 3zm11.136 8H6.744l-2.4 8h13.912zM9.519 5H4v8.187l.828-2.762A2 2 0 0 1 6.744 9H19V7.5h-6.52a2 2 0 0 1-1.561-.75z'/%3E%3C/svg%3E");
+          @media (prefers-color-scheme: dark) {
+            :root {
+              --color-paper: oklch(18% 0.015 60);
+              --color-surface: oklch(21% 0.015 60);
+              --color-ink: oklch(92% 0.015 85);
+              --color-muted: oklch(68% 0.02 70);
+              --color-line: oklch(32% 0.015 60);
+              --color-accent: oklch(72% 0.08 55);
+              --color-hot: oklch(26% 0.02 60);
+              --color-focus: oklch(72% 0.08 55 / 0.28);
               color-scheme: dark;
             }
           }
 
           *,
-          :after,
-          :before {
-            background-repeat: no-repeat;
+          *::before,
+          *::after {
             box-sizing: border-box;
           }
 
-          :after,
-          :before {
-            text-decoration: inherit;
-            vertical-align: inherit;
-          }
-
-          :where(:root) {
-            -webkit-tap-highlight-color: transparent;
-            -webkit-text-size-adjust: 100%;
-            -moz-text-size-adjust: 100%;
-            text-size-adjust: 100%;
-            background-color: var(--background-color);
-            color: var(--color);
-            cursor: default;
-            font-family: var(--font-family);
-            font-size: var(--font-size);
-            font-weight: var(--font-weight);
-            line-height: var(--line-height);
-            overflow-wrap: break-word;
-            -moz-tab-size: 4;
-            -o-tab-size: 4;
-            tab-size: 4;
-            text-rendering: optimizeLegibility;
-          }
-
-          main {
-            display: block;
-          }
-
+          html,
           body {
             margin: 0;
-            width: 100%;
+            padding: 0;
+            background: var(--color-paper);
+            color: var(--color-ink);
+            font-family: var(--font-display);
+            font-size: var(--text-base);
+            line-height: 1.5;
+            overflow-x: clip;
           }
 
-          body > footer,
-          body > header,
-          body > main {
-            margin-left: auto;
-            margin-right: auto;
-            padding: var(--block-spacing-vertical) 0;
-            width: 100%;
+          a {
+            color: var(--color-accent);
+            text-decoration: none;
           }
 
-          .container,
-          .container-fluid {
-            margin-left: auto;
-            margin-right: auto;
-            padding-left: var(--spacing);
-            padding-right: var(--spacing);
-            width: 100%;
+          a:hover {
+            text-decoration: underline;
+            text-underline-offset: 0.12em;
           }
 
-          @media (min-width: 576px) {
-            .container {
-              max-width: 510px;
-              padding-left: 0;
-              padding-right: 0;
-            }
+          a:focus-visible,
+          button:focus-visible,
+          input:focus-visible,
+          summary:focus-visible {
+            outline: 2px solid var(--color-accent);
+            outline-offset: 2px;
+          }
+
+          button {
+            font: inherit;
+            color: inherit;
+            background: transparent;
+            cursor: pointer;
+          }
+
+          kbd {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            padding: 0.1rem 0.35rem;
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius);
+            color: var(--color-muted);
+          }
+
+          .shell {
+            width: min(100% - 2 * var(--space-4), 52rem);
+            margin: 0 auto;
+            padding: var(--space-8) 0 var(--space-12);
+            display: grid;
+            gap: var(--space-5);
           }
 
           @media (min-width: 768px) {
-            .container {
-              max-width: 700px;
+            .shell {
+              width: min(100% - 2 * var(--space-8), 52rem);
+              padding-top: var(--space-10);
             }
           }
 
-          @media (min-width: 992px) {
-            .container {
-              max-width: 920px;
-            }
+          .top {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: var(--space-3) var(--space-4);
+            padding-bottom: var(--space-4);
+            border-bottom: 1px solid var(--color-line);
           }
 
-          @media (min-width: 1200px) {
-            .container {
-              max-width: 1130px;
-            }
+          .brand {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: var(--space-2) var(--space-3);
+            min-width: 0;
           }
 
-          section {
-            margin-bottom: var(--block-spacing-vertical);
-          }
-
-          b,
-          strong {
-            font-weight: bolder;
-          }
-
-          address,
-          blockquote,
-          dl,
-          figure,
-          form,
-          ol,
-          p,
-          pre,
-          table,
-          ul {
-            color: var(--color);
-            font-size: var(--font-size);
-            font-style: normal;
-            font-weight: var(--font-weight);
-            margin-bottom: var(--typography-spacing-vertical);
-            margin-top: 0;
-          }
-
-          [role='link'],
-          a:not(.file-link) {
-            --color: var(--primary);
-            --background-color: transparent;
-            background-color: var(--background-color);
-            color: var(--color);
-            outline: none;
-            -webkit-text-decoration: var(--text-decoration);
-            text-decoration: var(--text-decoration);
-          }
-
-          [role='link']:is([aria-current], :hover, :active, :focus):not(.file-link),
-          a:is([aria-current], :hover, :active, :focus):not(.file-link) {
-            color: var(--primary-hover);
-            text-decoration: underline;
-          }
-
-          [role='link']:focus:not(.file-link),
-          a:focus:not(.file-link) {
-            --background-color: var(--primary-focus);
-          }
-
-          h1,
-          h2,
-          h3,
-          h4,
-          h5,
-          h6 {
-            color: var(--color);
-            font-family: var(--font-family);
-            font-size: var(--font-size);
-            font-weight: var(--font-weight);
-            margin-bottom: var(--typography-spacing-vertical);
-            margin-top: 0;
-          }
-
-          h1 {
-            --color: var(--h1-color);
-          }
-
-          h2 {
-            --color: var(--h2-color);
-          }
-
-          h3 {
-            --color: var(--h3-color);
-          }
-
-          h4 {
-            --color: var(--h4-color);
-          }
-
-          h5 {
-            --color: var(--h5-color);
-          }
-
-          h6 {
-            --color: var(--h6-color);
-          }
-
-          :where(address, blockquote, dl, figure, form, ol, p, pre, table, ul)
-            ~ :is(h1, h2, h3, h4, h5, h6) {
-            margin-top: var(--typography-spacing-vertical);
-          }
-
-          p {
-            margin-bottom: var(--typography-spacing-vertical);
-          }
-
-          small {
-            font-size: var(--font-size);
-          }
-
-          :where(dl, ol, ul) {
-            -webkit-padding-start: var(--spacing);
-            -webkit-padding-end: 0;
-            padding-left: var(--spacing);
-            padding-right: 0;
-            padding-inline-end: 0;
-            padding-inline-start: var(--spacing);
-          }
-
-          :where(dl, ol, ul) li {
-            margin-bottom: calc(var(--typography-spacing-vertical) * 0.25);
-          }
-
-          :where(dl, ol, ul) :is(dl, ol, ul) {
+          .brand h1 {
             margin: 0;
-            margin-top: calc(var(--typography-spacing-vertical) * 0.25);
+            font-family: var(--font-display);
+            font-size: var(--text-xl);
+            font-weight: 600;
+            font-style: normal;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+            color: var(--color-ink);
           }
 
-          mark {
-            background-color: var(--mark-background-color);
-            color: var(--mark-color);
-            padding: 0.125rem 0.25rem;
-            vertical-align: baseline;
+          .brand .tag {
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            color: var(--color-muted);
+            white-space: nowrap;
           }
 
-          ::-moz-selection {
-            background-color: var(--primary-focus);
+          .meta-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-2) var(--space-3);
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            color: var(--color-muted);
           }
 
-          ::selection {
-            background-color: var(--primary-focus);
+          .meta-links a {
+            color: var(--color-muted);
           }
 
-          :where(audio, canvas, iframe, img, svg, video) {
-            vertical-align: middle;
+          .meta-links a:hover {
+            color: var(--color-ink);
           }
 
-          img {
-            border-style: none;
-            height: auto;
-            max-width: 100%;
+          .lede {
+            margin: 0;
+            max-width: var(--measure);
+            font-size: var(--text-sm);
+            color: var(--color-muted);
           }
 
-          :where(svg:not([fill])) {
-            fill: currentColor;
+          .build-line {
+            margin: 0;
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            color: var(--color-muted);
           }
 
-          svg:not(:root) {
+          .platforms {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-2);
+          }
+
+          .chip {
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            padding: 0.3rem 0.55rem;
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius);
+            color: var(--color-muted);
+            transition:
+              background-color var(--dur-short) var(--ease-out),
+              color var(--dur-short) var(--ease-out),
+              border-color var(--dur-short) var(--ease-out);
+          }
+
+          .chip:hover {
+            border-color: var(--color-muted);
+            color: var(--color-ink);
+          }
+
+          .chip.is-on {
+            background: var(--color-ink);
+            border-color: var(--color-ink);
+            color: var(--color-paper);
+          }
+
+          .cmd-wrap {
+            display: grid;
+            gap: var(--space-2);
+          }
+
+          .cmd {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            padding: 0.65rem 0.75rem;
+            background: var(--color-surface);
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius);
+          }
+
+          .cmd:focus-within {
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 3px var(--color-focus);
+          }
+
+          .cmd .prompt {
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            color: var(--color-muted);
+            user-select: none;
+          }
+
+          .cmd input {
+            flex: 1;
+            min-width: 0;
+            border: 0;
+            background: transparent;
+            color: var(--color-ink);
+            font-family: var(--font-mono);
+            font-size: var(--text-sm);
+            outline: none;
+            padding: 0;
+          }
+
+          .cmd input::placeholder {
+            color: var(--color-muted);
+            opacity: 0.8;
+          }
+
+          .cmd .cmd-actions {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+          }
+
+          .cmd .clear-btn {
+            display: none;
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            color: var(--color-muted);
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius);
+            padding: 0.15rem 0.4rem;
+          }
+
+          .cmd .clear-btn.is-visible {
+            display: inline-flex;
+          }
+
+          .cmd .clear-btn:hover {
+            color: var(--color-ink);
+            border-color: var(--color-muted);
+          }
+
+          .quick {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-2);
+          }
+
+          .quick-chip {
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            padding: 0.28rem 0.5rem;
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius);
+            color: var(--color-muted);
+            transition:
+              color var(--dur-short) var(--ease-out),
+              border-color var(--dur-short) var(--ease-out);
+          }
+
+          .quick-chip:hover,
+          .quick-chip.is-hot {
+            color: var(--color-accent);
+            border-color: var(--color-accent);
+          }
+
+          .result-count {
+            min-height: 1.2em;
+            margin: 0;
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            color: var(--color-muted);
+          }
+
+          .tree-panel {
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius);
+            background: var(--color-surface);
             overflow: hidden;
           }
 
-          legend {
-            color: inherit;
-            max-width: 100%;
-            padding: 0;
-            white-space: normal;
-          }
-
-          ::-webkit-inner-spin-button,
-          ::-webkit-outer-spin-button {
-            height: auto;
-          }
-
-          ::-moz-focus-inner {
-            border-style: none;
-            padding: 0;
-          }
-
-          :-moz-focusring {
-            outline: none;
-          }
-
-          :-moz-ui-invalid {
-            box-shadow: none;
-          }
-
-          ::-ms-expand {
-            display: none;
-          }
-
-          fieldset {
-            border: 0;
-            margin: 0;
-            margin-bottom: var(--spacing);
-            padding: 0;
-          }
-
-          fieldset legend,
-          label {
-            display: block;
-            font-weight: var(--form-label-font-weight, var(--font-weight));
-            margin-bottom: calc(var(--spacing) * 0.25);
-          }
-
-          [aria-controls] {
-            cursor: pointer;
-          }
-
-          [aria-disabled='true'],
-          [disabled] {
-            cursor: not-allowed;
-          }
-
-          [aria-hidden='false'][hidden] {
-            display: initial;
-          }
-
-          [aria-hidden='false'][hidden]:not(:focus) {
-            clip: rect(0, 0, 0, 0);
-            position: absolute;
-          }
-
-          [tabindex],
-          a,
-          area,
-          button,
-          input,
-          label,
-          select,
-          summary,
-          textarea {
-            -ms-touch-action: manipulation;
-          }
-
-          .tree {
-            --tree-spacing: 1.5rem;
-            --radius: 10px;
-          }
-
-          .tree a {
-            border-bottom: 1px solid transparent;
-            border-color: var(--secondary);
-            color: var(--color);
-            text-decoration: none;
-            transition: all 0.2s ease;
-          }
-
-          .tree a:hover {
-            border-color: var(--secondary-hover);
-            color: var(--h3-color);
-          }
-
           .tree,
-          .tree ul,
-          .tree li {
-            list-style: none;
-            list-style-type: none;
-          }
-
-          .tree .folder li {
-            display: block;
-            position: relative;
-            padding-left: calc(2 * var(--tree-spacing) - var(--radius) - 2px);
-          }
-
           .tree ul {
-            margin-left: calc(var(--radius) - var(--tree-spacing));
-            padding-left: 0;
+            list-style: none;
+            margin: 0;
+            padding: 0;
           }
 
-          .tree summary {
-            display: block;
+          .tree > .folder > details > summary {
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--color-muted);
+            padding: 0.65rem 0.85rem;
+            border-bottom: 1px solid var(--color-line);
             cursor: pointer;
+            list-style: none;
           }
 
-          .tree summary::marker,
           .tree summary::-webkit-details-marker {
             display: none;
           }
 
-          .tree summary:focus {
-            outline: none;
-          }
-
-          .tree summary:focus-visible {
-            outline: 1px dotted #000;
-          }
-
-          .tree li.file::before {
-            margin-right: 10px;
-            vertical-align: middle;
-            height: 20px;
-            width: 20px;
-            content: '';
+          .tree summary::before {
+            content: '▸';
             display: inline-block;
-            background-image: var(--icon-file);
-            background-position: top;
-            background-size: 75% auto;
+            width: 1em;
+            margin-right: 0.35rem;
+            color: var(--color-muted);
+            transition: transform var(--dur-short) var(--ease-out);
           }
 
-          .tree li.folder > details > summary {
-            letter-spacing: -0.02em;
-            font-size: 1em;
+          .tree details[open] > summary::before {
+            transform: rotate(90deg);
           }
 
-          .tree li.file a {
-            font-size: 0.95em;
-            color: var(--muted-color);
-            letter-spacing: 0;
+          .tree .folder .folder > details > summary {
+            padding-left: 1.5rem;
+            border-bottom: 1px solid var(--color-line);
+            background: transparent;
           }
 
-          .tree li.folder > details > summary::before {
-            z-index: 1;
-
-            margin-right: 10px;
-            vertical-align: middle;
-            height: 20px;
-            width: 20px;
-            content: '';
-            display: inline-block;
-            background-image: var(--icon-folder);
-            background-position: top;
-            background-size: 75% auto;
+          .tree .folder ul {
+            padding: 0;
           }
 
-          .tree li.folder > details[open] > summary::before {
-            background-image: var(--icon-folder-open);
+          .tree .folder .folder ul {
+            border-left: 1px solid var(--color-line);
+            margin-left: 0.85rem;
+          }
+
+          .file-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: var(--space-3);
+            align-items: center;
+            padding: 0.45rem 0.85rem;
+            border-top: 1px solid var(--color-line);
+          }
+
+          .tree > .folder > details > ul > .file:first-child .file-row,
+          .tree .folder .folder > details > ul > .file:first-child .file-row {
+            border-top: 0;
+          }
+
+          .file-row:hover {
+            background: var(--color-hot);
+          }
+
+          .file-link {
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: var(--color-ink);
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .file-link:hover {
+            color: var(--color-accent);
+            text-decoration: none;
+          }
+
+          .copy-btn {
+            font-family: var(--font-mono);
+            font-size: 0.6875rem;
+            padding: 0.18rem 0.45rem;
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius);
+            color: var(--color-ink);
+            white-space: nowrap;
+            transition:
+              background-color var(--dur-short) var(--ease-out),
+              color var(--dur-short) var(--ease-out),
+              border-color var(--dur-short) var(--ease-out);
+          }
+
+          .copy-btn:hover {
+            border-color: var(--color-muted);
+          }
+
+          .copy-btn.is-done {
+            background: var(--color-ink);
+            border-color: var(--color-ink);
+            color: var(--color-paper);
+          }
+
+          .file.is-hidden,
+          .folder.is-hidden {
+            display: none;
+          }
+
+          .empty-state {
+            display: none;
+            padding: var(--space-10) var(--space-4);
+            text-align: left;
+            font-family: var(--font-mono);
+            color: var(--color-muted);
+          }
+
+          .empty-state.is-visible {
+            display: block;
+          }
+
+          .empty-state p {
+            margin: 0 0 var(--space-2);
+            font-size: var(--text-sm);
+          }
+
+          .empty-state .hint {
+            font-size: var(--text-xs);
+          }
+
+          .colophon {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: var(--space-2) var(--space-4);
+            padding-top: var(--space-4);
+            border-top: 1px solid var(--color-line);
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            color: var(--color-muted);
+          }
+
+          .colophon a {
+            color: var(--color-muted);
+          }
+
+          .colophon a:hover {
+            color: var(--color-ink);
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+              transition: none !important;
+            }
           }
         </style>
       </head>
       <body>
-        <main class="container">
-          <h1>Luck Ruleset Server</h1>
-          <div
-            style="display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:0.25rem 0.5rem;margin:1rem 0;font-size:0.9rem;color:var(--muted-color)"
-          >
-            <span style="display:inline-flex;align-items:center;gap:0.25rem;white-space:nowrap"
-              >Made by
-              <a
-                href="https://github.com/lucking7"
-                style="display:inline-flex;align-items:center;gap:0.25rem"
-                ><svg
-                  style="display:inline-block;width:1em;height:1em;vertical-align:-0.125em;fill:#F77E2D"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <path
-                    d="M12 2a1 1 0 0 1 1 1v1.522a2.501 2.501 0 0 1 2.89 4.003l-.355.354l.707.707l.354-.354a2.5 2.5 0 1 1 0 3.536l-.354-.354l-.707.707l.354.354a2.5 2.5 0 0 1-1.14 4.188a1 1 0 0 1-.25.203V21a1 1 0 1 1-2 0v-3h-1v3a1 1 0 1 1-2 0v-3.134a1 1 0 0 1-.248-.203a2.5 2.5 0 0 1-1.14-4.188l.353-.354l-.707-.707l-.353.354a2.5 2.5 0 1 1 0-3.536l.353.354l.707-.707l-.353-.354A2.5 2.5 0 0 1 11 4.522V3a1 1 0 0 1 1-1m2.121 12.536l-.707.707l.354.353a.5.5 0 1 0 .707-.707zm-4.242 0l-.354.353a.5.5 0 1 0 .707.707l.354-.353zm-4.597-3.89a.5.5 0 0 0 .708.708L6.343 11l-.353-.354a.5.5 0 0 0-.708 0m12.728 0l-.353.354l.353.354a.5.5 0 1 0 0-.707M9.525 6.405a.5.5 0 0 0 0 .707l.354.354l.707-.708l-.354-.353a.5.5 0 0 0-.707 0m4.95 0a.5.5 0 0 0-.638-.058l-.07.058l-.353.353l.707.708l.354-.354a.5.5 0 0 0 0-.707"
-                  /></svg
-                >Luck</a
-              ></span
-            >
-            <span style="color:var(--muted-color);user-select:none" aria-hidden="true">•</span>
-            <span style="display:inline-flex;align-items:center;gap:0.25rem;white-space:nowrap"
-              ><a
-                href="https://github.com/lucking7/MirrRule"
-                style="display:inline-flex;align-items:center;gap:0.25rem"
-                >Source @ GitHub</a
-              ></span
-            >
-            <span style="color:var(--muted-color);user-select:none" aria-hidden="true">•</span>
-            <span style="display:inline-flex;align-items:center;gap:0.25rem;white-space:nowrap"
-              >Licensed under
-              <a href="/LICENSE" target="_blank" rel="noopener noreferrer">AGPL-3.0</a></span
-            >
-          </div>
-          <p>
-            Last Build:
-            ${(() => {
-              const now = new Date();
-              const offset = 8 * 60; // GMT+8 in minutes
-              const gmtPlus8 = new Date(now.getTime() + (offset - now.getTimezoneOffset()) * 60000);
-              return gmtPlus8.toISOString().replace('Z', '+08:00');
-            })()}
+        <div class="shell">
+          <header class="top">
+            <div class="brand">
+              <h1>NRRule</h1>
+              <span class="tag">personal rules index</span>
+            </div>
+            <div class="meta-links">
+              <a href="https://github.com/lucking7/MirrRule">Source</a>
+              <a href="/LICENSE">AGPL-3.0</a>
+              <a href="https://github.com/lucking7">@lucking7</a>
+            </div>
+          </header>
+
+          <p class="lede">自用镜像。选平台 → 搜文件 → Copy URL 进客户端。</p>
+          <p class="build-line">
+            Last build <time datetime="${builtAt}">${builtAt}</time>
           </p>
-          <div style="position:relative;margin:var(--spacing-6) 0;max-width:720px;width:100%">
-            <svg
-              id="search-icon"
-              style="position:absolute;left:var(--spacing-4);top:50%;transform:translateY(-50%);width:18px;height:18px;fill:var(--muted-color);pointer-events:none;transition:fill 0.2s"
-              viewBox="0 0 24 24"
-            >
-              <path
-                d="M10.5 2a8.5 8.5 0 1 0 5.262 15.176l3.652 3.652a1 1 0 0 0 1.414-1.414l-3.652-3.652A8.5 8.5 0 0 0 10.5 2M4 10.5a6.5 6.5 0 1 1 13 0a6.5 6.5 0 0 1-13 0"
+
+          <div class="platforms" id="platform-chips" role="toolbar" aria-label="Platform filter">
+            ${platformChipsHtml(roots)}
+          </div>
+
+          <div class="cmd-wrap">
+            <div class="cmd">
+              <span class="prompt" aria-hidden="true">find</span>
+              <input
+                id="search-input"
+                type="search"
+                placeholder="Search files and folders…"
+                autocomplete="off"
+                spellcheck="false"
+                enterkeyhint="search"
               />
-            </svg>
-            <input
-              type="text"
-              id="search-input"
-              placeholder="Search files and folders..."
-              style="width:100%;padding:var(--spacing-3) var(--spacing-4);padding-left:3rem;padding-right:3rem;border:2px solid var(--muted-border-color);border-radius:18px;font-family:var(--font-family);font-size:var(--font-size);background-color:var(--background-color);color:var(--color);transition:all 0.2s;outline:none;box-shadow:0 1px 3px rgba(0,0,0,0.05)"
-            />
-            <button
-              id="clear-btn"
-              style="display:none;position:absolute;right:var(--spacing-4);top:50%;transform:translateY(-50%);background:transparent;border:1px solid rgba(0,0,0,0.06);padding:0;cursor:pointer;width:32px;height:32px;border-radius:9999px;transition:all 0.2s"
-              aria-label="清除搜索"
-            >
-              <svg
-                style="width:16px;height:16px;fill:var(--muted-color);transition:fill 0.2s"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2m0 2a8 8 0 1 0 0 16a8 8 0 0 0 0-16M9.879 8.464L12 10.586l2.121-2.122a1 1 0 1 1 1.415 1.415l-2.122 2.12l2.122 2.122a1 1 0 0 1-1.415 1.415L12 13.414l-2.121 2.122a1 1 0 0 1-1.415-1.415L10.586 12L8.465 9.879a1 1 0 0 1 1.414-1.415"
-                />
-              </svg>
-            </button>
+              <div class="cmd-actions">
+                <button type="button" class="clear-btn" id="clear-btn" aria-label="Clear search">
+                  clear
+                </button>
+                <kbd>/</kbd>
+              </div>
+            </div>
+            <div class="quick" id="quick-chips" aria-label="Frequent rulesets">
+              ${quickChipsHtml()}
+            </div>
+            <p class="result-count" id="search-result-count" aria-live="polite"></p>
           </div>
-          <div
-            id="search-result-count"
-            style="margin:calc(var(--spacing-2) * -1) 0 var(--spacing-4) 0;font-size:var(--text-sm);color:var(--muted-color);min-height:1.3125rem"
-          ></div>
-          <ul class="tree">
-            ${treeHtml(tree, 0, closedRootFolders)}
-          </ul>
-          <div
-            id="empty-state"
-            style="display:none;text-align:center;padding:var(--spacing-12) var(--spacing-4);color:var(--muted-color)"
-          >
-            <p style="font-size:var(--text-7xl);margin:0 0 var(--spacing-2) 0">🔍</p>
-            <p style="margin:0;font-size:var(--text-lg)">未找到匹配的文件或文件夹</p>
-            <p style="margin:var(--spacing-2) 0 0 0;font-size:var(--text-sm)">试试其他关键词</p>
+
+          <div class="tree-panel">
+            <ul class="tree" id="file-tree">
+              ${treeHtml(tree, 0)}
+            </ul>
+            <div class="empty-state" id="empty-state">
+              <p>No match.</p>
+              <p class="hint">Try another keyword, or press Esc to clear.</p>
+            </div>
           </div>
-        </main>
+
+          <footer class="colophon">
+            <span>MirrRule → NRRule</span>
+            <span>
+              <a href="https://github.com/lucking7/MirrRule">source</a>
+              ·
+              <a href="/LICENSE">AGPL-3.0</a>
+            </span>
+          </footer>
+        </div>
+
         <script>
           (function () {
             const searchInput = document.getElementById('search-input');
-            const searchIcon = document.getElementById('search-icon');
             const clearBtn = document.getElementById('clear-btn');
             const resultCount = document.getElementById('search-result-count');
-            const treeContainer = document.querySelector('.tree');
+            const tree = document.getElementById('file-tree');
             const emptyState = document.getElementById('empty-state');
-            const treeItems = document.querySelectorAll('.tree li');
+            const platformBar = document.getElementById('platform-chips');
+            const quickBar = document.getElementById('quick-chips');
 
-            // 焦点状态样式
-            searchInput.addEventListener('focus', function () {
-              this.style.borderColor = 'var(--primary)';
-              this.style.boxShadow = '0 0 0 4px var(--primary-focus)';
-              searchIcon.style.fill = 'var(--primary)';
-            });
+            let activePlatform = 'all';
+            let activeQuery = '';
 
-            searchInput.addEventListener('blur', function () {
-              this.style.borderColor = 'var(--muted-border-color)';
-              this.style.boxShadow = 'none';
-              searchIcon.style.fill = 'var(--muted-color)';
-            });
-
-            // Hover 状态
-            searchInput.addEventListener('mouseenter', function () {
-              if (document.activeElement !== this) {
-                this.style.borderColor = 'var(--primary-hover)';
+            function absoluteUrl(filePath) {
+              try {
+                return new URL(filePath, window.location.origin).href;
+              } catch {
+                return filePath;
               }
-            });
+            }
 
-            searchInput.addEventListener('mouseleave', function () {
-              if (document.activeElement !== this) {
-                this.style.borderColor = 'var(--muted-border-color)';
+            async function copyPath(btn) {
+              const filePath = btn.getAttribute('data-path');
+              if (!filePath) return;
+              const url = absoluteUrl(filePath);
+              try {
+                await navigator.clipboard.writeText(url);
+              } catch {
+                const ta = document.createElement('textarea');
+                ta.value = url;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
               }
+              const prev = btn.textContent;
+              btn.textContent = 'copied';
+              btn.classList.add('is-done');
+              window.setTimeout(function () {
+                btn.textContent = prev || 'copy';
+                btn.classList.remove('is-done');
+              }, 1200);
+            }
+
+            tree.addEventListener('click', function (event) {
+              const btn = event.target.closest('.copy-btn');
+              if (!btn || !tree.contains(btn)) return;
+              event.preventDefault();
+              copyPath(btn);
             });
 
-            // Clear button hover effects
-            clearBtn.addEventListener('mouseenter', function () {
-              this.style.backgroundColor = 'rgba(0,0,0,0.04)';
-              this.querySelector('svg').style.fill = 'var(--primary)';
-            });
+            function setPlatform(name) {
+              activePlatform = name || 'all';
+              platformBar.querySelectorAll('.chip').forEach(function (chip) {
+                const on = chip.getAttribute('data-platform') === activePlatform;
+                chip.classList.toggle('is-on', on);
+                chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+              });
+              applyFilters();
+            }
 
-            clearBtn.addEventListener('mouseleave', function () {
-              this.style.backgroundColor = 'transparent';
-              this.querySelector('svg').style.fill = 'var(--muted-color)';
-            });
+            function setQuickHot(query) {
+              quickBar.querySelectorAll('.quick-chip').forEach(function (chip) {
+                chip.classList.toggle('is-hot', chip.getAttribute('data-query') === query);
+              });
+            }
 
-            // 清除按钮点击事件
-            clearBtn.addEventListener('click', function () {
-              searchInput.value = '';
-              searchInput.focus();
-              performSearch('');
-            });
+            function platformAllows(li) {
+              if (activePlatform === 'all') return true;
+              const root = li.closest('.folder[data-root]');
+              return Boolean(root && root.getAttribute('data-root') === activePlatform);
+            }
 
-            // 搜索功能
-            function performSearch(query) {
-              const lowerQuery = query.toLowerCase().trim();
+            function applyFilters() {
+              const q = activeQuery.trim().toLowerCase();
+              clearBtn.classList.toggle('is-visible', Boolean(q));
+              setQuickHot(q);
 
-              // 控制清除按钮显示
-              clearBtn.style.display = query ? 'block' : 'none';
-
-              if (!lowerQuery) {
-                treeItems.forEach(li => (li.style.display = ''));
-                resultCount.textContent = '';
-                treeContainer.style.display = '';
-                emptyState.style.display = 'none';
-                return;
-              }
-
+              const files = tree.querySelectorAll('.file');
+              const folders = tree.querySelectorAll('.folder');
               let matchCount = 0;
 
-              treeItems.forEach(li => {
-                const text = li.textContent.toLowerCase();
-                const shouldShow = text.includes(lowerQuery);
-                li.style.display = shouldShow ? '' : 'none';
+              // reset visibility
+              files.forEach(function (li) {
+                li.classList.remove('is-hidden');
+              });
+              folders.forEach(function (li) {
+                li.classList.remove('is-hidden');
+              });
 
-                if (shouldShow) {
-                  matchCount++;
-                  // 展开父文件夹
-                  if (li.classList.contains('file')) {
+              files.forEach(function (li) {
+                const name = li.getAttribute('data-name') || '';
+                const path = (li.getAttribute('data-path') || '').toLowerCase();
+                const textOk = !q || name.includes(q) || path.includes(q);
+                const show = platformAllows(li) && textOk;
+                li.classList.toggle('is-hidden', !show);
+                if (show) {
+                  matchCount += 1;
+                  if (q) {
                     let parent = li.parentElement;
-                    while (parent && parent.tagName === 'UL') {
-                      const parentLi = parent.closest('li.folder');
-                      if (parentLi) {
-                        parentLi.style.display = '';
-                        const details = parentLi.querySelector('details');
+                    while (parent && parent !== tree) {
+                      if (parent.classList && parent.classList.contains('folder')) {
+                        parent.classList.remove('is-hidden');
+                        const details = parent.querySelector(':scope > details');
                         if (details) details.open = true;
                       }
                       parent = parent.parentElement;
@@ -909,21 +855,81 @@ function generateHtml(tree: TreeTypeArray) {
                 }
               });
 
-              // 更新结果计数
+              // platform filter on roots
+              tree.querySelectorAll(':scope > .folder').forEach(function (folder) {
+                const root = folder.getAttribute('data-root') || '';
+                const platformOk = activePlatform === 'all' || root === activePlatform;
+                if (!platformOk) folder.classList.add('is-hidden');
+              });
+
+              // hide folders with no visible files under search/platform
+              folders.forEach(function (folder) {
+                if (folder.classList.contains('is-hidden')) return;
+                if (!folder.querySelector('.file:not(.is-hidden)')) {
+                  folder.classList.add('is-hidden');
+                }
+              });
+
               if (matchCount > 0) {
-                resultCount.textContent = \`找到 \${matchCount} 个结果\`;
-                treeContainer.style.display = '';
-                emptyState.style.display = 'none';
+                resultCount.textContent = q
+                  ? matchCount + ' match' + (matchCount === 1 ? '' : 'es')
+                  : '';
+                emptyState.classList.remove('is-visible');
+                tree.style.display = '';
               } else {
                 resultCount.textContent = '';
-                treeContainer.style.display = 'none';
-                emptyState.style.display = 'block';
+                emptyState.classList.add('is-visible');
+                tree.style.display = 'none';
               }
             }
 
-            // 输入事件
+            function performSearch(query) {
+              activeQuery = query || '';
+              applyFilters();
+            }
+
+            platformBar.addEventListener('click', function (event) {
+              const chip = event.target.closest('.chip');
+              if (!chip) return;
+              setPlatform(chip.getAttribute('data-platform') || 'all');
+            });
+
+            quickBar.addEventListener('click', function (event) {
+              const chip = event.target.closest('.quick-chip');
+              if (!chip) return;
+              const query = chip.getAttribute('data-query') || '';
+              searchInput.value = query;
+              performSearch(query);
+              searchInput.focus();
+            });
+
+            clearBtn.addEventListener('click', function () {
+              searchInput.value = '';
+              performSearch('');
+              searchInput.focus();
+            });
+
             searchInput.addEventListener('input', function (e) {
               performSearch(e.target.value);
+            });
+
+            document.addEventListener('keydown', function (e) {
+              if (e.key === '/' && document.activeElement !== searchInput) {
+                const tag = (document.activeElement && document.activeElement.tagName) || '';
+                if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
+                  e.preventDefault();
+                  searchInput.focus();
+                  searchInput.select();
+                }
+              }
+              if (e.key === 'Escape' && document.activeElement === searchInput) {
+                if (searchInput.value) {
+                  searchInput.value = '';
+                  performSearch('');
+                } else {
+                  searchInput.blur();
+                }
+              }
             });
           })();
         </script>
