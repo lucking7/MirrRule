@@ -39,7 +39,8 @@ describe('public index HTML escaping', () => {
 
     assert.ok(rendered.includes('<span class="folder-name">目录 &quot;&amp;&#39;</span>'));
     assert.ok(rendered.includes('data-path="目录 &quot;&amp;&#39;"'));
-    assert.ok(rendered.includes('class="folder-trail"'));
+    // depth-1 section has no trail; depth-2 branch would, but fixture is root → section → file
+    assert.ok(rendered.includes('folder-summary is-section'));
     assert.ok(rendered.includes('<span class="folder-name">sgmodule</span>'));
     assert.ok(rendered.includes(
       '&lt;script&gt;&quot;规则 &amp; Jerry&#39;s 文件.list'

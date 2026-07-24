@@ -154,13 +154,18 @@ export function treeHtml(
       const escapedName = escapeHtml(entry.name);
       const nameAttr = escapeHtml(entry.name.toLowerCase());
       const pathAttr = escapeHtml(folderPath);
+      // depth 1 sits under a visible root (Modules → Converted): no trail.
+      // depth ≥ 2 needs path context (Mirror / DualSubs / sgmodule).
       const trailHtml =
-        level > 0 && parentPath
+        level >= 2 && parentPath
           ? html`<span class="folder-trail">${escapeHtml(parentPath.split('/').join(' / '))}</span>`
           : '';
       const countLabel = fileCount === 1 ? '1 file' : `${fileCount} files`;
+      let depthClass = 'is-branch';
+      if (level === 0) depthClass = 'is-root';
+      else if (level === 1) depthClass = 'is-section';
       const summaryInner = html`
-        <summary class="folder-summary" style="--depth: ${String(level)}">
+        <summary class="folder-summary ${depthClass}" style="--depth: ${String(level)}">
           <span class="folder-summary-main">
             ${trailHtml}
             <span class="folder-name">${escapedName}</span>
@@ -682,23 +687,64 @@ function generateHtml(tree: TreeTypeArray) {
             transform: rotate(90deg);
           }
 
-          /* Root section header */
-          .folder[data-depth='0'] > details > .folder-summary {
+          /* Root section header (List, Modules, Mirror…) */
+          .folder-summary.is-root {
             font-size: var(--text-xs);
             font-weight: 600;
             letter-spacing: 0.08em;
             text-transform: uppercase;
             color: var(--color-muted);
             background: var(--color-surface);
+            min-height: 2.5rem;
           }
 
-          /* Nested branch / leaf folders — same mono system, not inverted hierarchy */
-          .folder[data-depth]:not([data-depth='0']) > details > .folder-summary {
+          .folder-summary.is-root .folder-name {
+            color: var(--color-muted);
+          }
+
+          /*
+           * Level-1 sections under a root (Modules → Converted / Merged / Rules).
+           * These are the weird "bare name" rows — treat as clear subsections,
+           * not as anonymous file-like summaries.
+           */
+          .folder-summary.is-section {
+            font-size: 0.875rem;
+            font-weight: 600;
+            letter-spacing: 0;
+            text-transform: none;
+            color: var(--color-ink);
+            min-height: 2.4rem;
+            background: color-mix(in oklch, var(--color-paper) 55%, var(--color-surface));
+            border-bottom: 1px solid var(--color-line);
+          }
+
+          .folder-summary.is-section:hover {
+            background: var(--color-hot);
+          }
+
+          .folder-summary.is-section .folder-name {
+            color: var(--color-ink);
+          }
+
+          .folder-summary.is-section .folder-count {
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius);
+            padding: 0.12rem 0.4rem;
+            background: var(--color-surface);
+          }
+
+          /* Deeper branches (Mirror / DualSubs / sgmodule) */
+          .folder-summary.is-branch {
             font-size: 0.8125rem;
             font-weight: 500;
             letter-spacing: 0;
             text-transform: none;
             color: var(--color-ink);
+            min-height: 2.25rem;
+          }
+
+          .folder-summary.is-branch:hover {
+            background: var(--color-hot);
           }
 
           .folder-summary-main {
@@ -726,10 +772,6 @@ function generateHtml(tree: TreeTypeArray) {
             color: var(--color-ink);
           }
 
-          .folder[data-depth='0'] > details > .folder-summary .folder-name {
-            color: var(--color-muted);
-          }
-
           .folder-count {
             flex: 0 0 auto;
             font-size: 0.6875rem;
@@ -745,6 +787,23 @@ function generateHtml(tree: TreeTypeArray) {
           .tree .folder .folder > details > ul {
             border-left: 1px solid var(--color-line);
             margin-left: calc(0.85rem + (var(--depth, 1) * 0.45rem));
+          }
+
+          /* When a platform chip isolates one root, open it as the workspace */
+          body[data-platform]:not([data-platform='all'])
+            .folder[data-root]:not(.is-hidden)
+            > details
+            > .folder-summary.is-root {
+            background: var(--color-hot);
+            color: var(--color-ink);
+          }
+
+          body[data-platform]:not([data-platform='all'])
+            .folder[data-root]:not(.is-hidden)
+            > details
+            > .folder-summary.is-root
+            .folder-name {
+            color: var(--color-ink);
           }
 
           .file-row {
@@ -959,7 +1018,7 @@ function generateHtml(tree: TreeTypeArray) {
               <div class="tree-toolbar">
                 <p class="result-count" id="search-result-count" aria-live="polite"></p>
                 <button type="button" class="collapse-btn" id="collapse-btn">
-                  Collapse folders
+                  折叠目录
                 </button>
               </div>
             </div>
@@ -1085,6 +1144,17 @@ function generateHtml(tree: TreeTypeArray) {
               copyPath(btn);
             });
 
+            function openPlatformRoot(name) {
+              if (!name || name === 'all') return;
+              tree.querySelectorAll(':scope > .folder').forEach(function (folder) {
+                const root = folder.getAttribute('data-root') || '';
+                const details = folder.querySelector(':scope > details');
+                if (!details) return;
+                // Open the selected root; close other roots for a clean workbench.
+                details.open = root === name;
+              });
+            }
+
             function setPlatform(name, persist) {
               activePlatform = name || 'all';
               document.body.setAttribute('data-platform', activePlatform);
@@ -1101,6 +1171,9 @@ function generateHtml(tree: TreeTypeArray) {
                 }
               }
               applyFilters();
+              if (activePlatform !== 'all') {
+                openPlatformRoot(activePlatform);
+              }
             }
 
             function setQuickHot(query) {
