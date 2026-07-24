@@ -93,7 +93,19 @@ export async function downloadGEOIPFiles(
         console.log(picocolors.green(`  [OK] ${file.path} (${fileSizeMB} MB)\n`));
         stats.success++;
       } catch (error) {
-        writeStream?.destroy();
+        if (writeStream) {
+          // createWriteStream opens the file asynchronously; pipeline can reject
+          // before the open completes. Wait for the stream to fully close so the
+          // temp file cannot be (re)created after cleanup below runs.
+          const pendingStream = writeStream;
+          pendingStream.destroy();
+          if (!pendingStream.closed) {
+            await new Promise<void>(resolve => {
+              pendingStream.once('close', () => resolve());
+            });
+          }
+          writeStream = undefined;
+        }
         console.error(picocolors.red(`  [FAIL] ${file.path}: ${getErrorMessage(error)}\n`));
         stats.failed++;
       } finally {
