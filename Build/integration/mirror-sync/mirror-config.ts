@@ -148,6 +148,27 @@ export const MIRROR_GROUPS: MirrorGroup[] = [
 ];
 
 /**
+ * Empty registry entries whose synchronization is owned by a dedicated pipeline.
+ */
+export const EXTERNAL_MIRROR_FAMILIES = {
+  fmz200: 'Handled by Build/download-fmz200-split.ts because split modules require dedicated traversal and renaming.'
+} as const;
+
+/**
+ * Whether a registry entry is handled by the generic mirror synchronization pipeline.
+ */
+function isGenericMirrorFamily(group: MirrorGroup): boolean {
+  return group.repositories.length > 0 || (group.extraDownloads?.length ?? 0) > 0;
+}
+
+/**
+ * Registry entries that require convenience scripts and generic workflow coverage.
+ */
+export function getGenericMirrorFamilies(): MirrorGroup[] {
+  return MIRROR_GROUPS.filter(isGenericMirrorFamily);
+}
+
+/**
  * 获取所有仓库列表
  */
 function _getAllRepositories() {
