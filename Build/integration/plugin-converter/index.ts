@@ -25,7 +25,7 @@ import {
 import { mirrorScripts, printMirrorSummary } from './script-mirror';
 import { convertPluginsLocallyBatch } from './local-converter';
 import { mirrorPluginsBatch } from './plugin-mirror';
-import type { ConversionResult } from './types';
+import type { ConversionResult, ScriptInfo } from './types';
 
 // CommonJS 中的 __dirname 直接可用
 
@@ -33,6 +33,18 @@ import type { ConversionResult } from './types';
  * 输出目录
  */
 const OUTPUT_DIR = path.join(__dirname, '../../../public/Modules/Converted');
+
+export function applyScriptMirrorMap(
+  content: string,
+  scripts: ScriptInfo[],
+  urlMap: Record<string, string>
+): string {
+  const mappedScripts = scripts.map(script => ({
+    ...script,
+    mirrorUrl: urlMap[script.originalUrl],
+  }));
+  return replaceScriptUrls(content, mappedScripts);
+}
 
 /**
  * 确保输出目录存在
@@ -267,15 +279,15 @@ export async function convertAndMirrorPlugins(
 
     printMirrorSummary(mirrorResult);
 
-    // 更新 sgmodule 文件中的 URL
-    if (mirrorResult.mirrored > 0) {
+    // 更新 sgmodule 文件中的 URL；warm cache 也必须参与替换
+    if (Object.keys(mirrorResult.urlMap).length > 0) {
       console.log(picocolors.cyan('\n[Update] Updating sgmodule files with mirror URLs...\n'));
 
       for (const result of results) {
         if (!result.success || !result.outputPath) continue;
 
         const content = await fs.readFile(result.outputPath, 'utf-8');
-        const updated = replaceScriptUrls(content, result.scripts);
+        const updated = applyScriptMirrorMap(content, result.scripts, mirrorResult.urlMap);
 
         if (updated !== content) {
           await fs.writeFile(result.outputPath, updated, 'utf-8');
