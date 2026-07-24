@@ -13,6 +13,9 @@ import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import { UA_SURGE_MAC } from '../../constants/user-agents';
 import type { ScriptInfo, MirrorResult } from './types';
 import { getErrorMessage } from '../../lib/misc';
+import { buildClassifiedProxyUrlCandidates } from '../../utils/network/proxy';
+import type { DownloadSource } from '../../utils/network/proxy';
+import { updatePluginMetadata } from './provenance';
 
 // CommonJS 中的 __dirname 直接可用
 
@@ -41,11 +44,18 @@ type FetchFunction = (
 
 export interface MirrorOptions {
   outputDirectory?: string,
-  fetchFn?: FetchFunction
+  fetchFn?: FetchFunction;
+  metadataPath?: string
 }
 
 export interface ScriptMirrorResult extends MirrorResult {
-  urlMap: Record<string, string>
+  urlMap: Record<string, string>;
+  provenance: Record<string, { source: DownloadSource; bytes: number; sha256: string }>
+}
+
+interface ScriptDownloadResult {
+  status: 'mirrored' | 'unchanged' | 'failed-cached' | 'failed';
+  provenance?: { source: DownloadSource; bytes: number; sha256: string }
 }
 
 /**
@@ -107,7 +117,7 @@ async function downloadScript(
   script: ScriptInfo,
   outputDirectory: string,
   fetchFn: FetchFunction
-): Promise<'mirrored' | 'unchanged' | 'failed-cached' | 'failed'> {
+): Promise<ScriptDownloadResult> {
   const filename = getMirrorFilename(script);
   const filePath = path.join(outputDirectory, filename);
   const existing = await readExisting(filePath);
@@ -115,48 +125,53 @@ async function downloadScript(
   console.log(picocolors.gray(`[Mirror] ${filename}`));
   console.log(picocolors.gray(`  From: ${script.originalUrl}`));
 
-  try {
-    const response = await fetchFn(script.originalUrl, {
-      ...defaultRequestInit,
-      headers: {
-        'User-Agent': UA_SURGE_MAC,
-        Accept: '*/*'
-      }
-    });
-
-    if (!response.ok) {
-      console.log(picocolors.red(`[Mirror] ✗ HTTP ${response.status}: ${response.statusText}`));
-      return existing ? 'failed-cached' : 'failed';
-    }
-
-    const content = Buffer.from(await response.arrayBuffer());
-
-    // 验证文件大小
-    if (content.byteLength < MIN_FILE_SIZE) {
-      console.log(picocolors.yellow(`[Mirror] File too small: ${content.length} bytes`));
-      return existing ? 'failed-cached' : 'failed';
-    }
-
-    if (existing?.equals(content)) {
-      console.log(picocolors.gray(`[Mirror] ○ Unchanged: ${filename}`));
-      return 'unchanged';
-    }
-
-    const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  for (const candidate of buildClassifiedProxyUrlCandidates(script.originalUrl, { preferDirect: true })) {
     try {
-      await fs.writeFile(temporaryPath, content);
-      await fs.rename(temporaryPath, filePath);
-    } finally {
-      await fs.rm(temporaryPath, { force: true });
-    }
+      const response = await fetchFn(candidate.url, {
+        ...defaultRequestInit,
+        headers: {
+          'User-Agent': UA_SURGE_MAC,
+          Accept: '*/*'
+        }
+      });
 
-    console.log(picocolors.green(`[Mirror] ✓ ${filename} (${content.length} bytes)`));
-    return 'mirrored';
-  } catch (error) {
-    const errorMsg = getErrorMessage(error);
-    console.log(picocolors.red(`[Mirror] ✗ ${filename}: ${errorMsg}`));
-    return existing ? 'failed-cached' : 'failed';
+      if (!response.ok) {
+        console.log(picocolors.red(`[Mirror] ✗ ${candidate.source} HTTP ${response.status}: ${response.statusText}`));
+        continue;
+      }
+
+      const content = Buffer.from(await response.arrayBuffer());
+
+      // 验证文件大小
+      if (content.byteLength < MIN_FILE_SIZE) {
+        console.log(picocolors.yellow(`[Mirror] File too small: ${content.length} bytes`));
+        continue;
+      }
+
+      const digest = createHash('sha256').update(content).digest('hex');
+      const provenance = { source: candidate.source, bytes: content.length, sha256: digest };
+      console.log(picocolors.green(`[Mirror] ✓ asset=${filename} source=${candidate.source} bytes=${content.length} sha256=${digest}`));
+
+      if (existing?.equals(content)) {
+        console.log(picocolors.gray(`[Mirror] ○ Unchanged: ${filename}`));
+        return { status: 'unchanged', provenance };
+      }
+
+      const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+      try {
+        await fs.writeFile(temporaryPath, content);
+        await fs.rename(temporaryPath, filePath);
+      } finally {
+        await fs.rm(temporaryPath, { force: true });
+      }
+
+      return { status: 'mirrored', provenance };
+    } catch (error) {
+      const errorMsg = candidate.source === 'proxy' ? 'Proxy request failed' : getErrorMessage(error);
+      console.log(picocolors.red(`[Mirror] ✗ ${candidate.source}: ${errorMsg}`));
+    }
   }
+  return { status: existing ? 'failed-cached' : 'failed' };
 }
 
 /**
@@ -181,7 +196,8 @@ export async function mirrorScripts(
     skipped: 0,
     failed: 0,
     failedScripts: [],
-    urlMap: {}
+    urlMap: {},
+    provenance: {}
   };
 
   console.log(picocolors.cyan(`\n[Mirror] Processing ${scripts.length} scripts...\n`));
@@ -213,7 +229,9 @@ export async function mirrorScripts(
 
     for (let j = 0; j < batch.length; j++) {
       const script = batch[j];
-      const status = batchResults[j];
+      const download = batchResults[j];
+      const status = download.status;
+      if (download.provenance) result.provenance[script.originalUrl] = download.provenance;
       if (status === 'mirrored') {
         result.mirrored++;
         result.urlMap[script.originalUrl] = `${MIRROR_BASE_URL}/${getMirrorFilename(script)}`;
@@ -233,6 +251,13 @@ export async function mirrorScripts(
         }
       }
     }
+  }
+
+  const scriptDigests = Object.fromEntries(
+    Object.entries(result.provenance).map(([url, provenance]) => [url, provenance.sha256])
+  );
+  if (Object.keys(scriptDigests).length > 0) {
+    await updatePluginMetadata({ scripts: scriptDigests }, options.metadataPath);
   }
 
   return result;

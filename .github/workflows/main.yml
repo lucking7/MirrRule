@@ -232,6 +232,7 @@ jobs:
           }
         env:
           CI: true
+          # Maintainer-controlled Worker fallback; provenance and SHA-256 warnings flag content changes.
           PROXY_BASE: https://cloudflare-proxy.lucking.workers.dev
 
       - name: Prepare plugin artifact marker

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 import { describe, it } from 'node:test';
 
 import { applyScriptMirrorMap } from '../integration/plugin-converter';
@@ -28,10 +29,12 @@ describe('plugin script mirroring', () => {
       const first = await mirrorScripts([script(firstUrl), script(secondUrl)], 2, {
         outputDirectory,
         fetchFn,
+        metadataPath: path.join(outputDirectory, 'metadata.json'),
       });
       const second = await mirrorScripts([script(firstUrl), script(secondUrl)], 2, {
         outputDirectory,
         fetchFn,
+        metadataPath: path.join(outputDirectory, 'metadata.json'),
       });
 
       assert.notEqual(first.urlMap[firstUrl], first.urlMap[secondUrl]);
@@ -51,6 +54,7 @@ describe('plugin script mirroring', () => {
       const initial = await mirrorScripts([script(firstUrl)], 1, {
         outputDirectory,
         fetchFn: () => response('console.log("version one");'),
+        metadataPath: path.join(outputDirectory, 'metadata.json'),
       });
       const filename = path.basename(new URL(initial.urlMap[firstUrl]).pathname);
       const outputPath = path.join(outputDirectory, filename);
@@ -58,6 +62,7 @@ describe('plugin script mirroring', () => {
       const refreshed = await mirrorScripts([script(firstUrl)], 1, {
         outputDirectory,
         fetchFn: () => response('console.log("version two");'),
+        metadataPath: path.join(outputDirectory, 'metadata.json'),
       });
       assert.equal(refreshed.mirrored, 1);
       assert.equal(fs.readFileSync(outputPath, 'utf8'), 'console.log("version two");');
@@ -65,11 +70,42 @@ describe('plugin script mirroring', () => {
       const failed = await mirrorScripts([script(firstUrl)], 1, {
         outputDirectory,
         fetchFn: () => response('bad', 500),
+        metadataPath: path.join(outputDirectory, 'metadata.json'),
       });
       assert.equal(failed.failed, 1);
       assert.equal(failed.urlMap[firstUrl], initial.urlMap[firstUrl]);
       assert.equal(fs.readFileSync(outputPath, 'utf8'), 'console.log("version two");');
     } finally {
+      fs.rmSync(outputDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('uses direct first, then records a structurally classified proxy fallback', async () => {
+    const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-scripts-'));
+    const proxyEligibleUrl = 'https://kelee.one/assets/main.js';
+    const previousProxy = process.env.PROXY_BASE;
+    process.env.PROXY_BASE = 'https://secret-proxy.example/?url=';
+    const calls: string[] = [];
+
+    try {
+      const result = await mirrorScripts([script(proxyEligibleUrl)], 1, {
+        outputDirectory,
+        metadataPath: path.join(outputDirectory, 'metadata.json'),
+        fetchFn(url) {
+          calls.push(url);
+          return calls.length === 1
+            ? response('unavailable', 503)
+            : response('console.log("proxy fallback");');
+        },
+      });
+
+      assert.deepEqual(calls, [proxyEligibleUrl, `${process.env.PROXY_BASE}${proxyEligibleUrl}`]);
+      assert.equal(result.provenance[proxyEligibleUrl].source, 'proxy');
+      assert.equal(result.provenance[proxyEligibleUrl].bytes, 30);
+      assert.match(result.provenance[proxyEligibleUrl].sha256, /^[\da-f]{64}$/);
+    } finally {
+      if (previousProxy === undefined) delete process.env.PROXY_BASE;
+      else process.env.PROXY_BASE = previousProxy;
       fs.rmSync(outputDirectory, { recursive: true, force: true });
     }
   });

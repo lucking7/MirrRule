@@ -2,8 +2,8 @@
  * 代理工具模块
  * 为需要代理访问的 URL 提供统一的代理支持
  *
- * 代理配置通过环境变量 PROXY_BASE 提供，保护代理服务不被滥用
- * 在 GitHub Actions 中通过 secrets.PROXY_BASE 传入
+ * 代理配置通过环境变量 PROXY_BASE 提供。CI 当前使用维护者控制的公开 Worker，
+ * 它是直连失败时的 fallback，并非需要隐藏的 secret。
  */
 
 import process from 'node:process';
@@ -111,4 +111,22 @@ export function buildProxyUrlCandidates(
     return [url, proxied];
   }
   return [proxied, url];
+}
+
+export type DownloadSource = 'direct' | 'proxy';
+
+export interface ProxyUrlCandidate {
+  url: string;
+  source: DownloadSource
+}
+
+/** 返回携带结构化来源分类的下载候选，避免调用方从 URL 文本反推来源。 */
+export function buildClassifiedProxyUrlCandidates(
+  url: string,
+  options?: { forceProxy?: boolean; preferDirect?: boolean }
+): ProxyUrlCandidate[] {
+  return buildProxyUrlCandidates(url, options).map(candidate => ({
+    url: candidate,
+    source: candidate === url ? 'direct' : 'proxy',
+  }));
 }

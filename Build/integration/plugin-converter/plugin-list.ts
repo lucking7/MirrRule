@@ -4,11 +4,15 @@
  */
 
 import process from 'node:process';
+import { Buffer } from 'node:buffer';
+import { createHash } from 'node:crypto';
 import picocolors from 'picocolors';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import type { PluginInfo } from './types';
-import { buildProxyUrlCandidates } from '../../utils/network/proxy';
+import { buildClassifiedProxyUrlCandidates } from '../../utils/network/proxy';
+import type { ProxyUrlCandidate } from '../../utils/network/proxy';
 import { getErrorMessage } from '../../lib/misc';
+import { updatePluginMetadata } from './provenance';
 
 /**
  * 插件列表 URL（可通过环境变量覆盖）
@@ -16,7 +20,7 @@ import { getErrorMessage } from '../../lib/misc';
 const DEFAULT_PLUGIN_LIST_URL = 'https://hub.kelee.one/list.json';
 const FORCE_PROXY_FOR_LIST = (process.env.PLUGIN_LIST_FORCE_PROXY ?? 'true') !== 'false';
 
-function resolvePluginListSources(): string[] {
+function resolvePluginListSources(): ProxyUrlCandidate[] {
   const overrides: string[] = [];
   const rawOverrides = (process.env.PLUGIN_LIST_URL ?? '').split(',');
   for (const item of rawOverrides) {
@@ -27,29 +31,23 @@ function resolvePluginListSources(): string[] {
   }
 
   const bases = overrides.length > 0 ? overrides : [DEFAULT_PLUGIN_LIST_URL];
-  const deduped: string[] = [];
+  const deduped: ProxyUrlCandidate[] = [];
   const seen = new Set<string>();
 
   for (const base of bases) {
-    const candidates = buildProxyUrlCandidates(base, {
+    const candidates = buildClassifiedProxyUrlCandidates(base, {
       forceProxy: FORCE_PROXY_FOR_LIST,
+      preferDirect: true,
     });
 
     for (const candidate of candidates) {
-      if (seen.has(candidate)) continue;
-      seen.add(candidate);
+      if (seen.has(candidate.url)) continue;
+      seen.add(candidate.url);
       deduped.push(candidate);
     }
   }
 
   return deduped;
-}
-
-function formatSourceLabel(url: string): string {
-  if (url.includes('proxy-one') || url.includes('proxy')) {
-    return `${url} (proxy)`;
-  }
-  return url;
 }
 
 /**
@@ -74,15 +72,22 @@ const PLUGIN_URL_REGEX = /https?:\/\/[^"]+\.(?:plugin|lpx)/g;
  *
  * @returns 插件列表 JSON 字符串
  */
-async function downloadPluginList(): Promise<string | { error: string }> {
+interface PluginListDownload {
+  text: string;
+  source: 'direct' | 'proxy';
+  bytes: number;
+  sha256: string
+}
+
+async function downloadPluginList(): Promise<PluginListDownload | { error: string }> {
   const sources = resolvePluginListSources();
   const errors: string[] = [];
 
   for (const source of sources) {
-    console.log(picocolors.cyan(`[Plugin List] Downloading from ${formatSourceLabel(source)}...`));
+    console.log(picocolors.cyan(`[Plugin List] Downloading via ${source.source}...`));
 
     try {
-      const response = await $$fetch(source, {
+      const response = await $$fetch(source.url, {
         ...defaultRequestInit,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -93,7 +98,7 @@ async function downloadPluginList(): Promise<string | { error: string }> {
       if (!response.ok) {
         const errorMsg = `HTTP ${response.status}: ${response.statusText}`;
         console.log(picocolors.red(`[Plugin List] ✗ ${errorMsg}`));
-        errors.push(`${formatSourceLabel(source)} -> ${errorMsg}`);
+        errors.push(`${source.source} -> ${errorMsg}`);
         continue;
       }
 
@@ -101,7 +106,7 @@ async function downloadPluginList(): Promise<string | { error: string }> {
 
       if (!text || text.trim().length === 0) {
         console.log(picocolors.red('[Plugin List] ✗ Empty response'));
-        errors.push(`${formatSourceLabel(source)} -> Empty response`);
+        errors.push(`${source.source} -> Empty response`);
         continue;
       }
 
@@ -109,20 +114,22 @@ async function downloadPluginList(): Promise<string | { error: string }> {
         JSON.parse(text);
       } catch {
         console.log(picocolors.red('[Plugin List] ✗ Invalid JSON format'));
-        errors.push(`${formatSourceLabel(source)} -> Invalid JSON`);
+        errors.push(`${source.source} -> Invalid JSON`);
         continue;
       }
 
+      const sha256 = createHash('sha256').update(text).digest('hex');
+      const bytes = Buffer.byteLength(text);
       console.log(
         picocolors.green(
-          `[Plugin List] ✓ Downloaded successfully from ${formatSourceLabel(source)}`
+          `[Plugin List] ✓ asset=plugin-list source=${source.source} bytes=${bytes} sha256=${sha256}`
         )
       );
-      return text;
+      return { text, source: source.source, bytes, sha256 };
     } catch (error) {
-      const errorMsg = getErrorMessage(error);
+      const errorMsg = source.source === 'proxy' ? 'Proxy request failed' : getErrorMessage(error);
       console.log(picocolors.red(`[Plugin List] ✗ ${errorMsg}`));
-      errors.push(`${formatSourceLabel(source)} -> ${errorMsg}`);
+      errors.push(`${source.source} -> ${errorMsg}`);
     }
   }
 
@@ -193,12 +200,12 @@ export async function getPluginList(): Promise<PluginInfo[] | { error: string }>
   // 下载列表
   const listResult = await downloadPluginList();
 
-  if (typeof listResult !== 'string') {
+  if ('error' in listResult) {
     return listResult;
   }
 
   // 提取 URL
-  const urls = extractPluginUrls(listResult);
+  const urls = extractPluginUrls(listResult.text);
 
   if (urls.length === 0) {
     return {
@@ -207,6 +214,7 @@ export async function getPluginList(): Promise<PluginInfo[] | { error: string }>
   }
 
   console.log(picocolors.green(`[Plugin List] Found ${urls.length} plugins from Script-Hub`));
+  await updatePluginMetadata({ listCount: urls.length });
 
   // 转换为插件信息
   const plugins = urls.map(url => urlToPluginInfo(url));
