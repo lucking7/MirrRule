@@ -56,6 +56,8 @@ export async function downloadGEOIPFiles(
     span.traceChildAsync(`download: ${file.path}`, async () => {
       const outputPath = path.join(outputRoot, file.path);
       const temporaryPath = `${outputPath}.${randomUUID()}.tmp`;
+      let committed = false;
+      let writeStream: fs.WriteStream | undefined;
 
       try {
         const outputDir = path.dirname(outputPath);
@@ -71,7 +73,9 @@ export async function downloadGEOIPFiles(
           throw new Error('Empty response body');
         }
 
-        await pipeline(res.body, fs.createWriteStream(temporaryPath));
+        writeStream = fs.createWriteStream(temporaryPath);
+        await pipeline(res.body, writeStream);
+        writeStream = undefined;
 
         const temporarySize = fs.statSync(temporaryPath).size;
         if (temporarySize < MIN_MMDB_SIZE) {
@@ -81,6 +85,7 @@ export async function downloadGEOIPFiles(
         }
 
         fs.renameSync(temporaryPath, outputPath);
+        committed = true;
 
         const fileSize = fs.statSync(outputPath).size;
         const fileSizeMB = (fileSize / 1024 / 1024).toFixed(2);
@@ -88,9 +93,17 @@ export async function downloadGEOIPFiles(
         console.log(picocolors.green(`  [OK] ${file.path} (${fileSizeMB} MB)\n`));
         stats.success++;
       } catch (error) {
-        fs.rmSync(temporaryPath, { force: true });
+        writeStream?.destroy();
         console.error(picocolors.red(`  [FAIL] ${file.path}: ${getErrorMessage(error)}\n`));
         stats.failed++;
+      } finally {
+        if (!committed) {
+          try {
+            fs.rmSync(temporaryPath, { force: true });
+          } catch {
+            // Best-effort cleanup of partial downloads.
+          }
+        }
       }
     })
   ));
