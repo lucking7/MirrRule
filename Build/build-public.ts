@@ -9,6 +9,7 @@ import { writeFile } from './lib/misc';
 import { tagged as html } from 'foxts/tagged';
 import { compareAndWriteFile } from './lib/create-file';
 import { priorityOrder, prioritySorter } from './lib/public-index-sort.ts';
+import { escapeHtml } from './utils/escape-html';
 
 /** Root folders open by default on first paint (Austere workbench keeps noise low). */
 const openRootFolders = new Set(['List']);
@@ -115,7 +116,7 @@ function quickChipsHtml(): string {
   ).join('\n');
 }
 
-function treeHtml(tree: TreeTypeArray, level = 0): string {
+export function treeHtml(tree: TreeTypeArray, level = 0): string {
   let result = '';
   tree.sort(prioritySorter);
 
@@ -126,11 +127,13 @@ function treeHtml(tree: TreeTypeArray, level = 0): string {
       const isOpenRoot = level === 0 && openRootFolders.has(entry.name);
       const openAttr = isOpenRoot ? 'open' : '';
       const children = treeHtml(entry.children, level + 1);
+      const escapedName = escapeHtml(entry.name);
+      const nameAttr = escapeHtml(entry.name.toLowerCase());
       if (level === 0) {
         result += html`
-          <li class="folder" data-name="${entry.name.toLowerCase()}" data-root="${entry.name}">
+          <li class="folder" data-name="${nameAttr}" data-root="${escapeHtml(entry.name)}">
             <details ${openAttr}>
-              <summary>${entry.name}</summary>
+              <summary>${escapedName}</summary>
               <ul>
                 ${children}
               </ul>
@@ -139,9 +142,9 @@ function treeHtml(tree: TreeTypeArray, level = 0): string {
         `;
       } else {
         result += html`
-          <li class="folder" data-name="${entry.name.toLowerCase()}">
+          <li class="folder" data-name="${nameAttr}">
             <details>
-              <summary>${entry.name}</summary>
+              <summary>${escapedName}</summary>
               <ul>
                 ${children}
               </ul>
@@ -150,15 +153,18 @@ function treeHtml(tree: TreeTypeArray, level = 0): string {
         `;
       }
     } else if (shouldListFile(entry.name)) {
+      const encodedPath = encodeURI(entry.path);
+      const pathAttr = escapeHtml(encodedPath);
+      const escapedName = escapeHtml(entry.name);
       result += html`
-        <li class="file" data-name="${entry.name.toLowerCase()}" data-path="${entry.path}">
+        <li class="file" data-name="${escapeHtml(entry.name.toLowerCase())}" data-path="${pathAttr}">
           <div class="file-row">
-            <a class="file-link" href="${entry.path}">${entry.name}</a>
+            <a class="file-link" href="${pathAttr}">${escapedName}</a>
             <button
               type="button"
               class="copy-btn"
-              data-path="${entry.path}"
-              aria-label="Copy URL for ${entry.name}"
+              data-path="${pathAttr}"
+              aria-label="Copy URL for ${escapeHtml(entry.name)}"
             >
               copy
             </button>
