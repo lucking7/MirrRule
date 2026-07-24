@@ -71,6 +71,18 @@ export const RuleLineUtils = {
     );
   },
 
+  /**
+   * Strip Clash/YAML list markers from rule lines.
+   * Upstream lists sometimes paste payload items as `- DOMAIN-SUFFIX,example.com`.
+   * That leading dash must not become part of the rule type.
+   */
+  stripYamlListPrefix(line: string): string {
+    if (line.length >= 2 && line[0] === '-' && (line[1] === ' ' || line[1] === '\t')) {
+      return line.slice(2).trimStart();
+    }
+    return line;
+  },
+
   removeInlineComment(line: string): string {
     let commentIndex = -1;
     let searchIndex = 0;

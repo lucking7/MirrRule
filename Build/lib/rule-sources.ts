@@ -429,6 +429,8 @@ export const specialRules: SpecialRuleConfig[] = [
     keepComments: true,
     formatConversion: true, // 启用格式转换,确保跨平台规则兼容性
     applyNoResolve: true,
+    // Drop unrecoverable garbage; YAML list markers are stripped earlier.
+    validate: true,
     deleteSourceFiles: false,
     header: {
       enable: true,

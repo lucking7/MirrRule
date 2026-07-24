@@ -33,6 +33,8 @@ export interface FileConfig {
   applyNoResolve?: boolean,
   /** 是否启用格式转换 (.domain.com → DOMAIN-SUFFIX,domain.com) */
   formatConversion?: boolean,
+  /** 是否校验规则格式，丢弃无法识别的行 */
+  validate?: boolean,
   /** 头部信息配置 */
   header?: HeaderConfig,
   /** 默认策略组（null时会移除规则中的策略,生成纯规则格式） */
@@ -101,6 +103,8 @@ export interface SpecialRuleConfig {
   applyNoResolve?: boolean,
   /** 是否启用格式转换 (.domain.com → DOMAIN-SUFFIX,domain.com) */
   formatConversion?: boolean,
+  /** 是否校验规则格式，丢弃无法识别的行 */
+  validate?: boolean,
   /** 合并后是否删除源文件 */
   deleteSourceFiles?: boolean,
   /** 头部信息配置 */

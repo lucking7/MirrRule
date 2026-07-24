@@ -201,7 +201,7 @@ export class FileOutput {
     source: MaybePromise<AsyncIterable<string> | Iterable<string> | string[]>
   ) {
     for await (let line of await source) {
-      line = stripTrailingHashComment(line);
+      line = RuleLineUtils.stripYamlListPrefix(stripTrailingHashComment(line).trim());
 
       // .example.com → DOMAIN-SUFFIX,example.com
       // example.com (纯域名) → DOMAIN,example.com

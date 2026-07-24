@@ -92,6 +92,26 @@ describe('RuleLineUtils validates compound rules', () => {
     assert.equal(RuleLineUtils.isValidRule('// comment'), false);
     assert.equal(RuleLineUtils.isValidRule(''), false);
   });
+
+  it('strips YAML/Clash list markers from rule lines', () => {
+    const { RuleLineUtils } = require('../utils/validation/validators');
+
+    assert.equal(
+      RuleLineUtils.stripYamlListPrefix('- DOMAIN-SUFFIX,cc.cd'),
+      'DOMAIN-SUFFIX,cc.cd'
+    );
+    assert.equal(
+      RuleLineUtils.stripYamlListPrefix('-\tDOMAIN,example.com'),
+      'DOMAIN,example.com'
+    );
+    assert.equal(
+      RuleLineUtils.stripYamlListPrefix('DOMAIN-SUFFIX,example.com'),
+      'DOMAIN-SUFFIX,example.com'
+    );
+    // Bare dash / negative values are left alone
+    assert.equal(RuleLineUtils.stripYamlListPrefix('-'), '-');
+    assert.equal(RuleLineUtils.stripYamlListPrefix('-1'), '-1');
+  });
 });
 
 describe('smartConvertRule handles MetaCubeX geosite syntax', () => {
@@ -116,5 +136,15 @@ describe('smartConvertRule handles MetaCubeX geosite syntax', () => {
     assert.equal(smartConvertRule('full:example.com'), 'DOMAIN,example.com');
     assert.equal(smartConvertRule('domain:example.com'), 'DOMAIN-SUFFIX,example.com');
     assert.equal(smartConvertRule('keyword:amazon'), 'DOMAIN-KEYWORD,amazon');
+  });
+});
+
+describe('processLine strips YAML list markers', () => {
+  it('recovers domain rules pasted as Clash payload list items', () => {
+    const { processLine } = require('../lib/process-line');
+
+    assert.equal(processLine('- DOMAIN-SUFFIX,cc.cd'), 'DOMAIN-SUFFIX,cc.cd');
+    assert.equal(processLine('  - DOMAIN,example.com  '), 'DOMAIN,example.com');
+    assert.equal(processLine('# comment'), null);
   });
 });

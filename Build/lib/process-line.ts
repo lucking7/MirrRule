@@ -14,7 +14,7 @@ import { RuleLineUtils } from '../utils/validation/validators';
  * @returns 处理后的行,如果是注释或空行则返回 null
  */
 export function processLine(line: string): string | null {
-  const trimmed: string = line.trim();
+  let trimmed: string = line.trim();
 
   if (RuleLineUtils.shouldSkipLine(trimmed)) {
     return null;
@@ -27,6 +27,12 @@ export function processLine(line: string): string | null {
     // ##tag.class
     // ###id
     return trimmed;
+  }
+
+  // Clash/YAML payload list items: "- DOMAIN-SUFFIX,example.com"
+  trimmed = RuleLineUtils.stripYamlListPrefix(trimmed);
+  if (RuleLineUtils.shouldSkipLine(trimmed)) {
+    return null;
   }
 
   return trimmed;

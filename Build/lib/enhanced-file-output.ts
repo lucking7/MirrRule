@@ -72,7 +72,7 @@ export class EnhancedFileOutput extends FileOutput {
    * 智能添加规则 - 自动分发到 Trie/Set（自动去重+懒惰合并）
    */
   public addRawRule(rule: string): this {
-    let trimmed = rule.trim();
+    let trimmed = RuleLineUtils.stripYamlListPrefix(rule.trim());
 
     if (!trimmed) {
       if (this.config.keepEmptyLines) {

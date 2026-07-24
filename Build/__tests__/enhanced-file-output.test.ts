@@ -83,4 +83,37 @@ describe('EnhancedFileOutput', () => {
       'AND,((DOMAIN,foo.com),(DOMAIN-SUFFIX,bar.com)),Proxy,no-resolve',
     ]);
   });
+
+  it('strips YAML/Clash list markers and keeps the recovered domain rule', async () => {
+    const output = new EnhancedFileOutput(
+      createSpan('test'),
+      'yaml-bullet',
+      'mixed',
+      ['surge', 'clash'],
+      null,
+      { validate: true, applyNoResolve: true },
+      'out'
+    );
+
+    // Real-world upstream glitch seen in kefengyoyo/own Emby-P.list
+    output.addRules([
+      '- DOMAIN-SUFFIX,cc.cd',
+      '-\tDOMAIN,example.com',
+      'DOMAIN-SUFFIX,valid.example',
+      // Unknown type remains invalid after the YAML bullet is stripped
+      '- NOT-A-RULE-TYPE,garbage.example',
+    ]);
+
+    const [surge, clash] = await output.compile();
+
+    assert.ok(surge?.includes('DOMAIN-SUFFIX,cc.cd'));
+    assert.ok(surge?.includes('DOMAIN,example.com'));
+    assert.ok(surge?.includes('DOMAIN-SUFFIX,valid.example'));
+    assert.equal(surge?.some(line => line.startsWith('-')), false);
+    assert.equal(surge?.some(line => line.includes('NOT-A-RULE-TYPE')), false);
+    assert.equal(surge?.some(line => line.includes('garbage.example')), false);
+
+    assert.ok(clash?.includes('DOMAIN-SUFFIX,cc.cd'));
+    assert.equal(clash?.some(line => line.startsWith('-')), false);
+  });
 });
