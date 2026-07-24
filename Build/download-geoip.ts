@@ -1,11 +1,16 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import picocolors from 'picocolors';
 import type { Span } from './trace';
 import { task } from './trace';
 import { $$fetch } from './utils/network/fetch-retry';
 import { getErrorMessage, mkdirp } from './lib/misc';
+
+// Checked 2026-07-24: upstream files ranged from 84,062 to 13,167,087 bytes.
+// Keep enough headroom below the smallest source while rejecting truncated responses.
+const MIN_MMDB_SIZE = 64 * 1024;
 
 export interface GEOIPFile {
   path: string;
@@ -49,8 +54,10 @@ export async function downloadGEOIPFiles(
 
   await Promise.all(files.map(file =>
     span.traceChildAsync(`download: ${file.path}`, async () => {
+      const outputPath = path.join(outputRoot, file.path);
+      const temporaryPath = `${outputPath}.${randomUUID()}.tmp`;
+
       try {
-        const outputPath = path.join(outputRoot, file.path);
         const outputDir = path.dirname(outputPath);
 
         const p = mkdirp(outputDir);
@@ -64,7 +71,16 @@ export async function downloadGEOIPFiles(
           throw new Error('Empty response body');
         }
 
-        await pipeline(res.body, fs.createWriteStream(outputPath));
+        await pipeline(res.body, fs.createWriteStream(temporaryPath));
+
+        const temporarySize = fs.statSync(temporaryPath).size;
+        if (temporarySize < MIN_MMDB_SIZE) {
+          throw new Error(
+            `Downloaded MMDB is undersized: ${temporarySize} bytes (minimum ${MIN_MMDB_SIZE})`
+          );
+        }
+
+        fs.renameSync(temporaryPath, outputPath);
 
         const fileSize = fs.statSync(outputPath).size;
         const fileSizeMB = (fileSize / 1024 / 1024).toFixed(2);
@@ -72,6 +88,7 @@ export async function downloadGEOIPFiles(
         console.log(picocolors.green(`  [OK] ${file.path} (${fileSizeMB} MB)\n`));
         stats.success++;
       } catch (error) {
+        fs.rmSync(temporaryPath, { force: true });
         console.error(picocolors.red(`  [FAIL] ${file.path}: ${getErrorMessage(error)}\n`));
         stats.failed++;
       }

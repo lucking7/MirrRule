@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -14,6 +15,24 @@ const fakeSpan = {
     return fn();
   }
 };
+
+const validMmdbBytes = Buffer.alloc(64 * 1024, 0x5A);
+
+function assertNoTemporarySiblings(outputPath: string) {
+  const prefix = `${path.basename(outputPath)}.`;
+  const siblings = fs.readdirSync(path.dirname(outputPath));
+  assert.deepEqual(siblings.filter(name => name.startsWith(prefix) && name.endsWith('.tmp')), []);
+}
+
+function partialErrorResponse(): Response {
+  const body = new Readable({
+    read() {
+      this.push('partial-mmdb-data');
+      this.destroy(new Error('stream failed'));
+    }
+  });
+  return new Response(Readable.toWeb(body) as ReadableStream<Uint8Array>);
+}
 
 describe('downloadGEOIPFiles', () => {
   it('downloads GEOIP files concurrently', async () => {
@@ -39,7 +58,7 @@ describe('downloadGEOIPFiles', () => {
         clearTimeout(timer);
       }
       active--;
-      const body = Readable.toWeb(Readable.from(['mmdb-data'])) as ReadableStream<Uint8Array>;
+      const body = Readable.toWeb(Readable.from([validMmdbBytes])) as ReadableStream<Uint8Array>;
       return new Response(body);
     };
 
@@ -55,5 +74,73 @@ describe('downloadGEOIPFiles', () => {
       assert.ok(fs.existsSync(expectedPath), `expected ${expectedPath} to exist`);
       assert.ok(fs.statSync(expectedPath).size > 0);
     }
+  });
+
+  it('does not create a final file when a stream fails after emitting bytes', async () => {
+    const outputRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-geoip-'));
+    const file = { path: 'GeoIP/failing.mmdb', url: 'https://example.com/failing.mmdb' };
+    const outputPath = path.join(outputRoot, file.path);
+
+    const stats = await downloadGEOIPFiles(fakeSpan as Span, [file], {
+      outputRoot,
+      fetchFn: () => Promise.resolve(partialErrorResponse())
+    });
+
+    assert.deepEqual(stats, { success: 0, failed: 1, total: 1 });
+    assert.equal(fs.existsSync(outputPath), false);
+    assertNoTemporarySiblings(outputPath);
+  });
+
+  it('preserves an existing final file when a stream fails after emitting bytes', async () => {
+    const outputRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-geoip-'));
+    const file = { path: 'GeoIP/failing.mmdb', url: 'https://example.com/failing.mmdb' };
+    const outputPath = path.join(outputRoot, file.path);
+    const sentinel = Buffer.from('existing-good-mmdb');
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    fs.writeFileSync(outputPath, sentinel);
+
+    const stats = await downloadGEOIPFiles(fakeSpan as Span, [file], {
+      outputRoot,
+      fetchFn: () => Promise.resolve(partialErrorResponse())
+    });
+
+    assert.deepEqual(stats, { success: 0, failed: 1, total: 1 });
+    assert.deepEqual(fs.readFileSync(outputPath), sentinel);
+    assertNoTemporarySiblings(outputPath);
+  });
+
+  it('replaces an existing final file with a valid-size download', async () => {
+    const outputRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-geoip-'));
+    const file = { path: 'GeoIP/valid.mmdb', url: 'https://example.com/valid.mmdb' };
+    const outputPath = path.join(outputRoot, file.path);
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    fs.writeFileSync(outputPath, 'old-mmdb');
+
+    const stats = await downloadGEOIPFiles(fakeSpan as Span, [file], {
+      outputRoot,
+      fetchFn: () => Promise.resolve(new Response(validMmdbBytes))
+    });
+
+    assert.deepEqual(stats, { success: 1, failed: 0, total: 1 });
+    assert.deepEqual(fs.readFileSync(outputPath), validMmdbBytes);
+    assertNoTemporarySiblings(outputPath);
+  });
+
+  it('rejects an undersized download and preserves an existing final file', async () => {
+    const outputRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-geoip-'));
+    const file = { path: 'GeoIP/small.mmdb', url: 'https://example.com/small.mmdb' };
+    const outputPath = path.join(outputRoot, file.path);
+    const sentinel = Buffer.from('existing-good-mmdb');
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    fs.writeFileSync(outputPath, sentinel);
+
+    const stats = await downloadGEOIPFiles(fakeSpan as Span, [file], {
+      outputRoot,
+      fetchFn: () => Promise.resolve(new Response(Buffer.alloc(1024)))
+    });
+
+    assert.deepEqual(stats, { success: 0, failed: 1, total: 1 });
+    assert.deepEqual(fs.readFileSync(outputPath), sentinel);
+    assertNoTemporarySiblings(outputPath);
   });
 });
