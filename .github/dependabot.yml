@@ -39,18 +39,21 @@ updates:
 
       # ESLint 相关
       eslint:
+        dependency-type: "development"
         patterns:
           - "eslint*"
           - "@eslint*"
 
       # TypeScript 相关
       typescript:
+        dependency-type: "development"
         patterns:
           - "typescript"
           - "@types/*"
 
       # 构建工具
       build-tools:
+        dependency-type: "development"
         patterns:
           - "@swc/*"
           - "vite"

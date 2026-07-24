@@ -76,7 +76,12 @@ describe('GitHub Actions workflow contract', () => {
   it('runs Script-Hub only in the plugin conversion job', () => {
     const convertJob = getJob('convert-plugins');
 
-    assert.equal(convertJob.services?.['script-hub']?.image, 'xream/script-hub:latest');
+    // Supply-chain contract: the Script-Hub image must be pinned by digest,
+    // not a mutable tag (see plans/009-pin-ci-publishing-supply-chain.md).
+    assert.match(
+      convertJob.services?.['script-hub']?.image ?? '',
+      /^xream\/script-hub@sha256:[0-9a-f]{64}$/
+    );
     assert.match(convertJob.if ?? '', /should_convert_plugins == 'true'/);
     assert.equal(hasStep(convertJob, 'Configure Script-Hub'), true);
     assert.equal(hasStep(convertJob, 'Convert plugins'), true);
