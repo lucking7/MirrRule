@@ -75,7 +75,7 @@ Mirrored Surge modules from [iRingo](https://github.com/NSRingo), [DualSubs](htt
 
 Rules are automatically rebuilt and deployed on a schedule:
 
-- **Full build** (mirror sync + plugins + rules): twice daily
+- **Full workflow run** (mirror sync + plugin conversion/module merge + rule build + deployment): twice daily
 - **Quick update** (rules only): every 4 hours
 - **Mirror sync**: three times daily
 - **Plugin conversion**: twice daily
@@ -95,7 +95,7 @@ pnpm run build
 - `pnpm run validate` runs lint and typecheck.
 - `pnpm test` runs Node's test runner for `Build/__tests__/*.test.ts`.
 - `pnpm run knip` checks for unused code and dependencies.
-- `pnpm run build` performs the full artifact build; it downloads upstream assets and writes generated files under `public/**`, so only run it when you intend to produce a full artifact build.
+- `pnpm run build` builds the rule artifacts only (GEOIP download + rule processing + web index generation); mirror sync, plugin conversion and module merging are separate scripts (`sync-mirrors`, `convert-plugins`, `merge-modules`) orchestrated by CI. It downloads upstream assets and writes generated files under `public/**`, so only run it when you intend to produce those artifacts.
 
 ## License
 

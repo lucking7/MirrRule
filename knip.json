@@ -16,8 +16,7 @@
     ".github/workflows/*.yml"
   ],
   "project": [
-    "Build/**/*.ts",
-    "Source/**/*.ts"
+    "Build/**/*.ts"
   ],
   "ignoreDependencies": [
     "@eslint-sukka/node",
