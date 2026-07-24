@@ -24,15 +24,16 @@ describe('shared secondary pipeline failure contract', () => {
     ] }), true);
   });
 
-  it('reports a failed required extra download', async () => {
-    const { downloadExtraFile } = require('../integration/mirror-sync/sync-engine');
+  it('reports a failed optional extra download without required failures', async () => {
+    const { downloadExtraFile, hasRequiredFailures } = require('../integration/mirror-sync/sync-engine');
     globalThis.fetch = () => Promise.resolve(new Response('', { status: 503, statusText: 'Unavailable' }));
     const result = await downloadExtraFile('https://example.test/extra', '/unused/extra');
     assert.deepEqual(
       { total: result.total, succeeded: result.succeeded, skipped: result.skipped },
       { total: 1, succeeded: 0, skipped: 0 }
     );
-    assert.equal(result.failed[0].required, true);
+    assert.equal(result.failed[0].required, false);
+    assert.equal(hasRequiredFailures(result), false);
   });
 
   it('does not overwrite a valid destination when post-processing fails', async () => {

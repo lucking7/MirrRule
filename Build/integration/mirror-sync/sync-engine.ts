@@ -379,7 +379,8 @@ export async function downloadExtraFile(
     if (!response.ok) {
       console.log(picocolors.red(`[Extra] ✗ HTTP ${response.status}: ${response.statusText}`));
       const error = `HTTP ${response.status}: ${response.statusText}`;
-      result.failed.push({ asset: outputPath, error, required: true });
+      // Extra downloads are best-effort beta/debug assets; never fail the whole pipeline.
+      result.failed.push({ asset: outputPath, error, required: false });
       return result;
     }
 
@@ -395,7 +396,7 @@ export async function downloadExtraFile(
     console.log(picocolors.red(
       `[Extra] ✗ Error: ${getErrorMessage(error)}`
     ));
-    result.failed.push({ asset: outputPath, error: getErrorMessage(error), required: true });
+    result.failed.push({ asset: outputPath, error: getErrorMessage(error), required: false });
     return result;
   }
 }
