@@ -1,0 +1,24 @@
+#!name = Characterization Metadata
+#!desc = Hand-authored fixture for this repository
+#!icon = https://example.invalid/icon.png
+#!author = MirrRule Test
+#!homepage = https://example.invalid
+#!openUrl = https://example.invalid/open
+#!tag = Testing
+#!system = iOS
+#!system_version = 17
+#!date = 2026-07-24
+#!version = 1.0.0
+
+[Argument]
+feature_enable = switch, false, tag = feature-脚本开关, desc = Enable the feature
+region = select, "us", "eu", tag = Region, desc = Select a region
+token = input, "fixture-token", tag = Token, desc = Enter a token
+
+[Rule]
+DOMAIN,fixture.example,DIRECT
+DOMAIN-SUFFIX,example.invalid,REJECT
+
+[MITM]
+hostname = api.fixture.example, *.fixture.example
+h2 = true

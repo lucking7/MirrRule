@@ -11,6 +11,13 @@ import { getPluginContent } from './plugin-mirror';
 import type { PluginInfo } from './types';
 import { getErrorMessage } from '../../lib/misc';
 
+let loadPluginContent: typeof getPluginContent = getPluginContent;
+
+/** Override plugin content acquisition for deterministic local conversion. */
+export function setLocalConverterContentLoader(loader: typeof getPluginContent | null): void {
+  loadPluginContent = loader ?? getPluginContent;
+}
+
 /**
  * 参数类型
  */
@@ -1167,7 +1174,7 @@ async function convertPluginLocally(
 
   try {
     // 获取插件内容（优先使用镜像）
-    const contentResult = await getPluginContent(plugin, forceUpdate);
+    const contentResult = await loadPluginContent(plugin, forceUpdate);
 
     if (!contentResult.success || !contentResult.content) {
       return {

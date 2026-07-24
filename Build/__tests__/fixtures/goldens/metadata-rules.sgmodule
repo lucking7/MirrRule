@@ -1,0 +1,19 @@
+#!name = Characterization Metadata
+#!desc = Hand-authored fixture for this repository
+#!openUrl = https://example.invalid/open
+#!author = MirrRule Test
+#!homepage = https://example.invalid
+#!icon = https://example.invalid/icon.png
+#!category = Testing
+#!date = 2026-07-24
+#!version = 1.0.0
+#!arguments = Feature:#,region:"us",token:"fixture-token"
+#!arguments-desc = Feature: feature-脚本开关\nEnable the feature\n\nregion: Region\nSelect a region\n    ├ us\n    └ eu\n\n\ntoken: Token\nEnter a token\n
+
+[Rule]
+DOMAIN,fixture.example,DIRECT
+DOMAIN-SUFFIX,example.invalid,REJECT
+
+[MITM]
+hostname = %APPEND% api.fixture.example, *.fixture.example
+h2 = true

@@ -1,0 +1,6 @@
+#!name = Characterization Minimal
+#!desc = Hand-authored fixture for this repository
+
+[Rewrite]
+# Tiny image mock
+^https://pixel\.example/ reject-tinygif

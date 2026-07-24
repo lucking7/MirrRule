@@ -1,0 +1,25 @@
+#!name = Characterization Rewrites
+#!desc = Hand-authored fixture for this repository
+
+[URL Rewrite]
+^https://old\.example/(.*) https://new.example/$1 302
+# Reject comment
+^https://ads\.example/ - reject
+
+[Header Rewrite]
+# Header comment
+http-response ^https://api\.example/ header-replace 'X-Old' 'X-New'
+http-request ^https://request\.example/ header-add 'X-Fixture' 'yes'
+
+[Map Local]
+^https://dict\.example/ data-type=text data="{}" status-code=200 header="Content-Type:application/json"
+^https://array\.example/ data-type=text data="[]" status-code=200
+^https://empty\.example/ data-type=text data=" " status-code=200
+# Mock comment
+^https://mock\.example/ data-type=json data="{\"ok\":true}" status-code=201 header="Content-Type:application/json"
+
+[Body Rewrite]
+# Body regex comment
+http-response ^https://body\.example/ old new
+http-response-jq ^https://json\.example/ 'delpaths([["data","secret"], ["other"]])'
+http-response-jq ^https://relative\.example/ jq-path="fixtures/filter.jq"

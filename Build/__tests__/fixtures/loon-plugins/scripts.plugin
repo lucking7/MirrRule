@@ -1,0 +1,12 @@
+#!name = Characterization Scripts
+#!desc = Hand-authored fixture for this repository
+
+[Script]
+http-request ^https://request\.example/, script-path=https://scripts.example/request.js, tag=Request Fixture, argument=[region, token], requires-body=1, binary-body-mode=1, timeout=8, max-size=2048, enable={feature_enable}
+http-response ^https://response\.example/, script-path=https://scripts.example/response.js, tag=Response Fixture, requires-body=1, timeout=9
+cron -, script-path=https://scripts.example/cron.js, tag=Cron Fixture, cron=0 6 * * *, timeout=10
+event network-changed, script-path=https://scripts.example/event.js, tag=Event Fixture, argument=plain
+generic -, script-path=https://scripts.example/generic.js, tag=Generic Fixture, engine=jsc
+
+[MITM]
+hostname = request.example, response.example

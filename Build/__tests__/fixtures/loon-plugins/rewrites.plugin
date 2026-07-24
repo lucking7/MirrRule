@@ -1,0 +1,20 @@
+#!name = Characterization Rewrites
+#!desc = Hand-authored fixture for this repository
+
+[Rewrite]
+# Redirect comment
+^https://old\.example/(.*) https://new.example/$1 302
+# Reject comment
+^https://ads\.example/ reject
+^https://dict\.example/ reject-dict
+^https://array\.example/ reject-array
+^https://empty\.example/ reject-200
+# Header comment
+^https://api\.example/ response-header-replace "X-Old" "X-New"
+^https://request\.example/ header-add "X-Fixture" "yes"
+# Body regex comment
+^https://body\.example/ response-body-replace-regex old new
+^https://json\.example/ response-body-json-del data.secret other
+^https://relative\.example/ response-body-json-jq jq-path="fixtures/filter.jq"
+# Mock comment
+^https://mock\.example/ mock-response-body data="{\"ok\":true}" data-type=json status-code=201 header="Content-Type:application/json"
