@@ -5,16 +5,24 @@ import { loadRules } from '../utils/rule-loader';
 import { EnhancedFileOutput } from './enhanced-file-output';
 import type { RuleGroup, SpecialRuleConfig } from './rule-source-types';
 import { normalizeTargets } from './platform-config';
+import type { SupportedPlatform } from './platform-config';
 import { applyDefaultConfig } from './rule-sources';
 import { getErrorMessage } from './misc';
 import path from 'node:path';
 import fs from 'node:fs';
+
+export interface RulesetSummary {
+  id: string;
+  platforms: SupportedPlatform[];
+  ruleCount: number;
+}
 
 interface ProcessorStats {
   filesProcessed: number;
   rulesMerged: number;
   processingTime: number;
   errors: Array<{ file: string; error: string }>;
+  rulesets: RulesetSummary[];
 }
 
 type DownloadResult =
@@ -31,6 +39,7 @@ function createProcessorStats(): ProcessorStats {
     rulesMerged: 0,
     processingTime: 0,
     errors: [],
+    rulesets: [],
   };
 }
 
@@ -106,6 +115,7 @@ export class RuleSourceProcessor {
 
       stats.filesProcessed++;
       stats.rulesMerged += rules.length;
+      stats.rulesets.push(output.getOutputSummary());
     } catch (error) {
       RuleSourceProcessor.recordError(stats, fileConfig.path, error);
     }
@@ -239,6 +249,7 @@ export class RuleSourceProcessor {
 
           stats.filesProcessed++;
           stats.rulesMerged += allRules.length;
+          stats.rulesets.push(output.getOutputSummary());
 
           if (ruleConfig.deleteSourceFiles) {
             for (const sourceUrl of ruleConfig.sourceFiles) {

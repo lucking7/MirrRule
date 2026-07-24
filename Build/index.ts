@@ -10,12 +10,19 @@ import { downloadGEOIP } from './download-geoip';
 import { buildPublic } from './build-public';
 import { RuleSourceProcessor } from './lib/rule-source-processor';
 import { ruleGroups, specialRules } from './lib/rule-sources';
+import {
+  buildStatusManifest,
+  normalizeCommit,
+  writeStatusManifestAtomic,
+} from './lib/status-manifest';
+import type { RulesetSummary } from './lib/rule-source-processor';
 import type { Span } from './trace';
 
 interface BuildStepResult {
   name: string;
   success: boolean;
   errors: string[];
+  rulesets?: RulesetSummary[];
 }
 
 async function executeGeoIpBuildStep(span: Span): Promise<BuildStepResult> {
@@ -46,7 +53,12 @@ async function executeRuleProcessingBuildStep(span: Span, outputDir = 'public'):
       ({ file, error }: { file: string; error: string }) => `[rule-processing] ${file}: ${error}`
     );
 
-    return { name: 'rules', success: errors.length === 0, errors };
+    return {
+      name: 'rules',
+      success: errors.length === 0,
+      errors,
+      rulesets: [...groupStats.rulesets, ...ruleStats.rulesets],
+    };
   } catch (error) {
     return { name: 'rules', success: false, errors: [getErrorMessage(error)] };
   }
@@ -85,7 +97,23 @@ export const buildRuleset = task(
   const allSuccess = steps.every(step => step.success);
 
   if (allSuccess) {
-    fs.writeFileSync(buildFinishedLock, 'BUILD_FINISHED\n');
+    try {
+      const buildTime = new Date().toISOString();
+      const rulesets = steps.flatMap(step => step.rulesets ?? []);
+      const manifest = buildStatusManifest({
+        buildTime,
+        commit: normalizeCommit(process.env.GITHUB_SHA),
+        rulesets,
+        // Mirror synchronization is a separate workflow and is not run by this build.
+        mirrors: [],
+      });
+      await writeStatusManifestAtomic(path.join(ROOT_DIR, 'public', 'status.json'), manifest);
+      fs.writeFileSync(buildFinishedLock, 'BUILD_FINISHED\n');
+    } catch (error) {
+      console.error(`[status-manifest] ${getErrorMessage(error)}`);
+      console.error('Build completed with errors — .BUILD_FINISHED not written');
+      process.exitCode = 1;
+    }
   } else {
     for (const error of allErrors) {
       console.error(error);

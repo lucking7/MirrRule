@@ -7,6 +7,7 @@ import type { FileConfig, RuleGroup, SpecialRuleConfig } from './rule-source-typ
 import { cleanPolicy } from './policy-cleaner';
 import { smartConvertRule } from './misc';
 import { RuleLineUtils } from '../utils/validation/validators';
+import { merge as mergeCidr } from 'fast-cidr-tools';
 
 const RULE_TYPE_MAP: Record<string, string> = {
   DOMAIN: 'domain',
@@ -35,6 +36,8 @@ type EnhancedFileConfig = FileConfig & {
 };
 
 export class EnhancedFileOutput extends FileOutput {
+  private readonly targets: SupportedPlatform[];
+
   private readonly stats = {
     inputDomains: 0,
     inputCIDRs: 0,
@@ -74,7 +77,8 @@ export class EnhancedFileOutput extends FileOutput {
       sort: config?.sort ?? true,
     };
 
-    this.strategies = createStrategiesForTargets(targets, outputBaseDir);
+    this.targets = normalizeTargets(targets);
+    this.strategies = createStrategiesForTargets(this.targets, outputBaseDir);
   }
 
   /**
@@ -348,6 +352,52 @@ export class EnhancedFileOutput extends FileOutput {
       // Trie 可能为空
     }
     return count;
+  }
+
+  /**
+   * Return the canonical, platform-independent ruleset size after normalization,
+   * trie/set deduplication, and IPv4 CIDR merging. Platform support filtering is
+   * intentionally not reflected in this logical count.
+   */
+  public getOutputSummary(): { id: string; platforms: SupportedPlatform[]; ruleCount: number } {
+    let wildcardCount = 0;
+    this.wildcardTrie.dump(() => wildcardCount++);
+
+    const mergeCount = (values: Set<string>) => (
+      values.size ? mergeCidr(Array.from(values), true).length : 0
+    );
+    const otherRuleCount = new Set(
+      this.otherRules.filter(rule => {
+        const trimmed = rule.trim();
+        return trimmed.length > 0 && !RuleLineUtils.isComment(trimmed);
+      })
+    ).size;
+
+    return {
+      id: this.id,
+      platforms: [...this.targets],
+      ruleCount:
+        this.countTrieNodes() +
+        wildcardCount +
+        this.domainKeywords.size +
+        this.userAgent.size +
+        this.processName.size +
+        this.processPath.size +
+        this.urlRegex.size +
+        mergeCount(this.ipcidr) +
+        mergeCount(this.ipcidrNoResolve) +
+        this.ipcidr6.size +
+        this.ipcidr6NoResolve.size +
+        this.ipasn.size +
+        this.ipasnNoResolve.size +
+        this.geoip.size +
+        this.groipNoResolve.size +
+        this.sourceIpOrCidr.size +
+        this.sourcePort.size +
+        this.destPort.size +
+        this.protocol.size +
+        otherRuleCount,
+    };
   }
 
   /**
