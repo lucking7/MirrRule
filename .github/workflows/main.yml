@@ -776,7 +776,6 @@ jobs:
           echo "  GeoIP: $(find public/GeoIP -type f 2>/dev/null | wc -l) 个文件"
 
       - name: Deploy to NRRule Repository
-        continue-on-error: true
         run: |
           # 🔧 根据执行的任务决定要更新的目录（智能增量部署）
           SYNC_PATHS=""
