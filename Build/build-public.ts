@@ -116,7 +116,28 @@ function quickChipsHtml(): string {
   ).join('\n');
 }
 
-export function treeHtml(tree: TreeTypeArray, level = 0): string {
+/** Count files that will appear in the index under a tree node. */
+function countListedFiles(entry: TreeType): number {
+  if (entry.type === TreeFileType.FILE) {
+    return shouldListFile(entry.name) ? 1 : 0;
+  }
+  let total = 0;
+  for (const child of entry.children) {
+    total += countListedFiles(child);
+  }
+  return total;
+}
+
+/**
+ * Render directory tree with depth / path context so nested folders
+ * (e.g. Mirror/…/sgmodule) stay readable instead of bare leaf names.
+ */
+export function treeHtml(
+  tree: TreeTypeArray,
+  level = 0,
+  parentPath = '',
+  rootName = ''
+): string {
   let result = '';
   tree.sort(prioritySorter);
 
@@ -126,14 +147,41 @@ export function treeHtml(tree: TreeTypeArray, level = 0): string {
     if (entry.type === TreeFileType.DIRECTORY) {
       const isOpenRoot = level === 0 && openRootFolders.has(entry.name);
       const openAttr = isOpenRoot ? 'open' : '';
-      const children = treeHtml(entry.children, level + 1);
+      const folderPath = parentPath ? `${parentPath}/${entry.name}` : entry.name;
+      const currentRoot = level === 0 ? entry.name : rootName;
+      const fileCount = countListedFiles(entry);
+      const children = treeHtml(entry.children, level + 1, folderPath, currentRoot);
       const escapedName = escapeHtml(entry.name);
       const nameAttr = escapeHtml(entry.name.toLowerCase());
+      const pathAttr = escapeHtml(folderPath);
+      const trailHtml =
+        level > 0 && parentPath
+          ? html`<span class="folder-trail">${escapeHtml(parentPath.split('/').join(' / '))}</span>`
+          : '';
+      const countLabel = fileCount === 1 ? '1 file' : `${fileCount} files`;
+      const summaryInner = html`
+        <summary class="folder-summary" style="--depth: ${String(level)}">
+          <span class="folder-summary-main">
+            ${trailHtml}
+            <span class="folder-name">${escapedName}</span>
+          </span>
+          <span class="folder-count" title="${countLabel}">${String(fileCount)}</span>
+        </summary>
+      `;
+
       if (level === 0) {
         result += html`
-          <li class="folder" data-name="${nameAttr}" data-root="${escapeHtml(entry.name)}">
+          <li
+            class="folder"
+            data-name="${nameAttr}"
+            data-path="${pathAttr}"
+            data-depth="${String(level)}"
+            data-count="${String(fileCount)}"
+            data-root="${escapeHtml(entry.name)}"
+            style="--depth: ${String(level)}"
+          >
             <details ${openAttr}>
-              <summary>${escapedName}</summary>
+              ${summaryInner}
               <ul>
                 ${children}
               </ul>
@@ -142,9 +190,16 @@ export function treeHtml(tree: TreeTypeArray, level = 0): string {
         `;
       } else {
         result += html`
-          <li class="folder" data-name="${nameAttr}">
+          <li
+            class="folder"
+            data-name="${nameAttr}"
+            data-path="${pathAttr}"
+            data-depth="${String(level)}"
+            data-count="${String(fileCount)}"
+            style="--depth: ${String(level)}"
+          >
             <details>
-              <summary>${escapedName}</summary>
+              ${summaryInner}
               <ul>
                 ${children}
               </ul>
@@ -156,17 +211,30 @@ export function treeHtml(tree: TreeTypeArray, level = 0): string {
       const encodedPath = encodeURI(entry.path);
       const pathAttr = escapeHtml(encodedPath);
       const escapedName = escapeHtml(entry.name);
+      const platformRoot = rootName || '';
       result += html`
-        <li class="file" data-name="${escapeHtml(entry.name.toLowerCase())}" data-path="${pathAttr}">
+        <li
+          class="file"
+          data-name="${escapeHtml(entry.name.toLowerCase())}"
+          data-path="${pathAttr}"
+          data-platform-root="${escapeHtml(platformRoot)}"
+        >
           <div class="file-row">
-            <a class="file-link" href="${pathAttr}">${escapedName}</a>
+            <span class="file-main">
+              ${platformRoot
+                ? html`<span class="root-badge" data-root-badge>${escapeHtml(platformRoot)}</span>`
+                : ''}
+              <a class="file-link" href="${pathAttr}" target="_blank" rel="noopener noreferrer"
+                >${escapedName}</a
+              >
+            </span>
             <button
               type="button"
               class="copy-btn"
               data-path="${pathAttr}"
               aria-label="Copy URL for ${escapeHtml(entry.name)}"
             >
-              copy
+              Copy URL
             </button>
           </div>
         </li>
@@ -403,7 +471,8 @@ function generateHtml(tree: TreeTypeArray) {
           .chip {
             font-family: var(--font-mono);
             font-size: var(--text-xs);
-            padding: 0.3rem 0.55rem;
+            min-height: 2rem;
+            padding: 0.4rem 0.7rem;
             border: 1px solid var(--color-line);
             border-radius: var(--radius);
             color: var(--color-muted);
@@ -502,13 +571,15 @@ function generateHtml(tree: TreeTypeArray) {
           .quick-chip {
             font-family: var(--font-mono);
             font-size: var(--text-xs);
-            padding: 0.28rem 0.5rem;
+            min-height: 2rem;
+            padding: 0.35rem 0.65rem;
             border: 1px solid var(--color-line);
             border-radius: var(--radius);
             color: var(--color-muted);
             transition:
               color var(--dur-short) var(--ease-out),
-              border-color var(--dur-short) var(--ease-out);
+              border-color var(--dur-short) var(--ease-out),
+              background-color var(--dur-short) var(--ease-out);
           }
 
           .quick-chip:hover,
@@ -525,6 +596,44 @@ function generateHtml(tree: TreeTypeArray) {
             color: var(--color-muted);
           }
 
+          .controls {
+            position: sticky;
+            top: 0;
+            z-index: 4;
+            display: grid;
+            gap: var(--space-3);
+            padding: var(--space-2) 0 var(--space-3);
+            background: var(--color-paper);
+            border-bottom: 1px solid transparent;
+          }
+
+          .controls.is-stuck {
+            border-bottom-color: var(--color-line);
+          }
+
+          .tree-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-2);
+          }
+
+          .tree-toolbar .collapse-btn {
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            min-height: 2rem;
+            padding: 0.35rem 0.65rem;
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius);
+            color: var(--color-muted);
+          }
+
+          .tree-toolbar .collapse-btn:hover {
+            color: var(--color-ink);
+            border-color: var(--color-muted);
+          }
+
           .tree-panel {
             border: 1px solid var(--color-line);
             border-radius: var(--radius);
@@ -539,25 +648,29 @@ function generateHtml(tree: TreeTypeArray) {
             padding: 0;
           }
 
-          .tree > .folder > details > summary {
-            font-family: var(--font-mono);
-            font-size: var(--text-xs);
-            font-weight: 600;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--color-muted);
-            padding: 0.65rem 0.85rem;
+          .folder-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-3);
+            /* Depth-aware inset: root 0.85rem, then +0.9rem per level */
+            padding: 0.55rem 0.85rem;
+            padding-left: calc(0.85rem + (var(--depth, 0) * 0.9rem));
             border-bottom: 1px solid var(--color-line);
             cursor: pointer;
             list-style: none;
+            font-family: var(--font-mono);
+            color: var(--color-ink);
+            background: transparent;
           }
 
           .tree summary::-webkit-details-marker {
             display: none;
           }
 
-          .tree summary::before {
+          .folder-summary::before {
             content: '▸';
+            flex: 0 0 auto;
             display: inline-block;
             width: 1em;
             margin-right: 0.35rem;
@@ -565,23 +678,73 @@ function generateHtml(tree: TreeTypeArray) {
             transition: transform var(--dur-short) var(--ease-out);
           }
 
-          .tree details[open] > summary::before {
+          .tree details[open] > .folder-summary::before {
             transform: rotate(90deg);
           }
 
-          .tree .folder .folder > details > summary {
-            padding-left: 1.5rem;
-            border-bottom: 1px solid var(--color-line);
-            background: transparent;
+          /* Root section header */
+          .folder[data-depth='0'] > details > .folder-summary {
+            font-size: var(--text-xs);
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--color-muted);
+            background: var(--color-surface);
+          }
+
+          /* Nested branch / leaf folders — same mono system, not inverted hierarchy */
+          .folder[data-depth]:not([data-depth='0']) > details > .folder-summary {
+            font-size: 0.8125rem;
+            font-weight: 500;
+            letter-spacing: 0;
+            text-transform: none;
+            color: var(--color-ink);
+          }
+
+          .folder-summary-main {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 0.35rem 0.5rem;
+            min-width: 0;
+          }
+
+          .folder-trail {
+            color: var(--color-muted);
+            font-weight: 400;
+            font-size: 0.75rem;
+          }
+
+          .folder-trail::after {
+            content: '/';
+            margin-left: 0.35rem;
+            opacity: 0.7;
+          }
+
+          .folder-name {
+            font-weight: 600;
+            color: var(--color-ink);
+          }
+
+          .folder[data-depth='0'] > details > .folder-summary .folder-name {
+            color: var(--color-muted);
+          }
+
+          .folder-count {
+            flex: 0 0 auto;
+            font-size: 0.6875rem;
+            font-weight: 500;
+            color: var(--color-muted);
+            font-variant-numeric: tabular-nums;
           }
 
           .tree .folder ul {
             padding: 0;
           }
 
-          .tree .folder .folder ul {
+          .tree .folder .folder > details > ul {
             border-left: 1px solid var(--color-line);
-            margin-left: 0.85rem;
+            margin-left: calc(0.85rem + (var(--depth, 1) * 0.45rem));
           }
 
           .file-row {
@@ -589,8 +752,13 @@ function generateHtml(tree: TreeTypeArray) {
             grid-template-columns: minmax(0, 1fr) auto;
             gap: var(--space-3);
             align-items: center;
-            padding: 0.45rem 0.85rem;
+            min-height: 2.5rem;
+            padding: 0.35rem 0.85rem;
             border-top: 1px solid var(--color-line);
+          }
+
+          .folder[data-depth] .file .file-row {
+            padding-left: calc(0.85rem + ((var(--depth, 0) + 1) * 0.9rem));
           }
 
           .tree > .folder > details > ul > .file:first-child .file-row,
@@ -602,28 +770,59 @@ function generateHtml(tree: TreeTypeArray) {
             background: var(--color-hot);
           }
 
+          .file-main {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            min-width: 0;
+          }
+
+          .root-badge {
+            flex: 0 0 auto;
+            font-family: var(--font-mono);
+            font-size: 0.625rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--color-muted);
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius);
+            padding: 0.1rem 0.35rem;
+          }
+
+          body[data-platform]:not([data-platform='all']) .root-badge {
+            display: none;
+          }
+
           .file-link {
             font-family: var(--font-mono);
             font-size: 0.8125rem;
-            color: var(--color-ink);
+            color: var(--color-muted);
             min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            text-decoration: underline;
+            text-decoration-color: transparent;
+            text-underline-offset: 0.12em;
           }
 
           .file-link:hover {
             color: var(--color-accent);
-            text-decoration: none;
+            text-decoration-color: var(--color-accent);
           }
 
           .copy-btn {
             font-family: var(--font-mono);
-            font-size: 0.6875rem;
-            padding: 0.18rem 0.45rem;
-            border: 1px solid var(--color-line);
+            font-size: var(--text-xs);
+            font-weight: 600;
+            min-height: 2rem;
+            min-width: 5.5rem;
+            padding: 0.4rem 0.7rem;
+            border: 1px solid var(--color-ink);
             border-radius: var(--radius);
-            color: var(--color-ink);
+            background: var(--color-ink);
+            color: var(--color-paper);
             white-space: nowrap;
             transition:
               background-color var(--dur-short) var(--ease-out),
@@ -632,13 +831,26 @@ function generateHtml(tree: TreeTypeArray) {
           }
 
           .copy-btn:hover {
-            border-color: var(--color-muted);
+            background: var(--color-accent);
+            border-color: var(--color-accent);
           }
 
           .copy-btn.is-done {
-            background: var(--color-ink);
-            border-color: var(--color-ink);
-            color: var(--color-paper);
+            background: var(--color-surface);
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+          }
+
+          .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
           }
 
           .file.is-hidden,
@@ -711,37 +923,46 @@ function generateHtml(tree: TreeTypeArray) {
             </div>
           </header>
 
-          <p class="lede">自用镜像。选平台 → 搜文件 → Copy URL 进客户端。</p>
+          <p class="lede">自用镜像。选平台 → 搜文件 → 复制 URL 进客户端。</p>
           <p class="build-line">
             Last build <time datetime="${builtAt}">${builtAt}</time>
           </p>
 
-          <div class="platforms" id="platform-chips" role="toolbar" aria-label="Platform filter">
-            ${platformChipsHtml(roots)}
-          </div>
+          <div class="controls" id="controls">
+            <div class="platforms" id="platform-chips" role="toolbar" aria-label="目录过滤">
+              ${platformChipsHtml(roots)}
+            </div>
 
-          <div class="cmd-wrap">
-            <div class="cmd">
-              <span class="prompt" aria-hidden="true">find</span>
-              <input
-                id="search-input"
-                type="search"
-                placeholder="Search files and folders…"
-                autocomplete="off"
-                spellcheck="false"
-                enterkeyhint="search"
-              />
-              <div class="cmd-actions">
-                <button type="button" class="clear-btn" id="clear-btn" aria-label="Clear search">
-                  clear
+            <div class="cmd-wrap">
+              <div class="cmd">
+                <span class="prompt" aria-hidden="true">find</span>
+                <label class="sr-only" for="search-input">搜索文件与文件夹</label>
+                <input
+                  id="search-input"
+                  type="search"
+                  placeholder="Search files and folders…"
+                  autocomplete="off"
+                  spellcheck="false"
+                  enterkeyhint="search"
+                  aria-label="搜索文件与文件夹"
+                />
+                <div class="cmd-actions">
+                  <button type="button" class="clear-btn" id="clear-btn" aria-label="清除搜索">
+                    clear
+                  </button>
+                  <kbd>/</kbd>
+                </div>
+              </div>
+              <div class="quick" id="quick-chips" aria-label="常用规则">
+                ${quickChipsHtml()}
+              </div>
+              <div class="tree-toolbar">
+                <p class="result-count" id="search-result-count" aria-live="polite"></p>
+                <button type="button" class="collapse-btn" id="collapse-btn">
+                  Collapse folders
                 </button>
-                <kbd>/</kbd>
               </div>
             </div>
-            <div class="quick" id="quick-chips" aria-label="Frequent rulesets">
-              ${quickChipsHtml()}
-            </div>
-            <p class="result-count" id="search-result-count" aria-live="polite"></p>
           </div>
 
           <div class="tree-panel">
@@ -749,18 +970,16 @@ function generateHtml(tree: TreeTypeArray) {
               ${treeHtml(tree, 0)}
             </ul>
             <div class="empty-state" id="empty-state">
-              <p>No match.</p>
-              <p class="hint">Try another keyword, or press Esc to clear.</p>
+              <p>无匹配结果。</p>
+              <p class="hint">换个关键词，或按 Esc 清空。</p>
             </div>
           </div>
 
+          <p class="sr-only" id="status-live" aria-live="polite" aria-atomic="true"></p>
+
           <footer class="colophon">
             <span>MirrRule → NRRule</span>
-            <span>
-              <a href="https://github.com/lucking7/MirrRule">source</a>
-              ·
-              <a href="/LICENSE">AGPL-3.0</a>
-            </span>
+            <span>规则索引 · 复制绝对 URL</span>
           </footer>
         </div>
 
@@ -773,9 +992,16 @@ function generateHtml(tree: TreeTypeArray) {
             const emptyState = document.getElementById('empty-state');
             const platformBar = document.getElementById('platform-chips');
             const quickBar = document.getElementById('quick-chips');
+            const collapseBtn = document.getElementById('collapse-btn');
+            const statusLive = document.getElementById('status-live');
+            const PLATFORM_KEY = 'nrrule-platform';
+            const openRoots = new Set(['List']);
 
             let activePlatform = 'all';
             let activeQuery = '';
+            /** @type {Map<string, boolean> | null} */
+            let openSnapshot = null;
+            let wasSearching = false;
 
             function absoluteUrl(filePath) {
               try {
@@ -783,6 +1009,44 @@ function generateHtml(tree: TreeTypeArray) {
               } catch {
                 return filePath;
               }
+            }
+
+            function detailsKey(details) {
+              const folder = details.closest('.folder');
+              return (folder && folder.getAttribute('data-path')) || '';
+            }
+
+            function snapshotOpenState() {
+              const map = new Map();
+              tree.querySelectorAll('details').forEach(function (details) {
+                const key = detailsKey(details);
+                if (key) map.set(key, details.open);
+              });
+              return map;
+            }
+
+            function restoreOpenState(map) {
+              tree.querySelectorAll('details').forEach(function (details) {
+                const key = detailsKey(details);
+                if (map && map.has(key)) {
+                  details.open = Boolean(map.get(key));
+                  return;
+                }
+                const folder = details.closest('.folder');
+                const root = folder && folder.getAttribute('data-root');
+                details.open = Boolean(root && openRoots.has(root));
+              });
+            }
+
+            function collapseFolders() {
+              tree.querySelectorAll('details').forEach(function (details) {
+                const folder = details.closest('.folder');
+                const root = folder && folder.getAttribute('data-root');
+                details.open = Boolean(root && openRoots.has(root));
+              });
+              openSnapshot = null;
+              wasSearching = false;
+              if (statusLive) statusLive.textContent = '已折叠目录';
             }
 
             async function copyPath(btn) {
@@ -803,12 +1067,15 @@ function generateHtml(tree: TreeTypeArray) {
                 document.body.removeChild(ta);
               }
               const prev = btn.textContent;
-              btn.textContent = 'copied';
+              btn.textContent = 'Copied';
               btn.classList.add('is-done');
+              if (statusLive) {
+                statusLive.textContent = '已复制 ' + url;
+              }
               window.setTimeout(function () {
-                btn.textContent = prev || 'copy';
+                btn.textContent = prev || 'Copy URL';
                 btn.classList.remove('is-done');
-              }, 1200);
+              }, 1400);
             }
 
             tree.addEventListener('click', function (event) {
@@ -818,13 +1085,21 @@ function generateHtml(tree: TreeTypeArray) {
               copyPath(btn);
             });
 
-            function setPlatform(name) {
+            function setPlatform(name, persist) {
               activePlatform = name || 'all';
+              document.body.setAttribute('data-platform', activePlatform);
               platformBar.querySelectorAll('.chip').forEach(function (chip) {
                 const on = chip.getAttribute('data-platform') === activePlatform;
                 chip.classList.toggle('is-on', on);
                 chip.setAttribute('aria-pressed', on ? 'true' : 'false');
               });
+              if (persist !== false) {
+                try {
+                  localStorage.setItem(PLATFORM_KEY, activePlatform);
+                } catch {
+                  /* ignore */
+                }
+              }
               applyFilters();
             }
 
@@ -842,14 +1117,24 @@ function generateHtml(tree: TreeTypeArray) {
 
             function applyFilters() {
               const q = activeQuery.trim().toLowerCase();
-              clearBtn.classList.toggle('is-visible', Boolean(q));
+              const searching = Boolean(q);
+
+              if (searching && !wasSearching) {
+                openSnapshot = snapshotOpenState();
+              }
+              if (!searching && wasSearching) {
+                restoreOpenState(openSnapshot);
+                openSnapshot = null;
+              }
+              wasSearching = searching;
+
+              clearBtn.classList.toggle('is-visible', searching);
               setQuickHot(q);
 
               const files = tree.querySelectorAll('.file');
               const folders = tree.querySelectorAll('.folder');
               let matchCount = 0;
 
-              // reset visibility
               files.forEach(function (li) {
                 li.classList.remove('is-hidden');
               });
@@ -860,12 +1145,18 @@ function generateHtml(tree: TreeTypeArray) {
               files.forEach(function (li) {
                 const name = li.getAttribute('data-name') || '';
                 const path = (li.getAttribute('data-path') || '').toLowerCase();
-                const textOk = !q || name.includes(q) || path.includes(q);
+                const folderPath = (li.closest('.folder') &&
+                  li.closest('.folder').getAttribute('data-path')) || '';
+                const textOk =
+                  !q ||
+                  name.includes(q) ||
+                  path.includes(q) ||
+                  folderPath.toLowerCase().includes(q);
                 const show = platformAllows(li) && textOk;
                 li.classList.toggle('is-hidden', !show);
                 if (show) {
                   matchCount += 1;
-                  if (q) {
+                  if (searching) {
                     let parent = li.parentElement;
                     while (parent && parent !== tree) {
                       if (parent.classList && parent.classList.contains('folder')) {
@@ -879,14 +1170,12 @@ function generateHtml(tree: TreeTypeArray) {
                 }
               });
 
-              // platform filter on roots
               tree.querySelectorAll(':scope > .folder').forEach(function (folder) {
                 const root = folder.getAttribute('data-root') || '';
                 const platformOk = activePlatform === 'all' || root === activePlatform;
                 if (!platformOk) folder.classList.add('is-hidden');
               });
 
-              // hide folders with no visible files under search/platform
               folders.forEach(function (folder) {
                 if (folder.classList.contains('is-hidden')) return;
                 if (!folder.querySelector('.file:not(.is-hidden)')) {
@@ -933,6 +1222,10 @@ function generateHtml(tree: TreeTypeArray) {
               searchInput.focus();
             });
 
+            collapseBtn.addEventListener('click', function () {
+              collapseFolders();
+            });
+
             searchInput.addEventListener('input', function (e) {
               performSearch(e.target.value);
             });
@@ -955,6 +1248,17 @@ function generateHtml(tree: TreeTypeArray) {
                 }
               }
             });
+
+            try {
+              const saved = localStorage.getItem(PLATFORM_KEY);
+              if (saved && platformBar.querySelector('[data-platform="' + saved + '"]')) {
+                setPlatform(saved, false);
+              } else {
+                setPlatform('all', false);
+              }
+            } catch {
+              setPlatform('all', false);
+            }
           })();
         </script>
       </body>
