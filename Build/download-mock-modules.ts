@@ -11,8 +11,14 @@ import undici from 'undici';
 import picocolors from 'picocolors';
 import { OUTPUT_MOCK_DIR, OUTPUT_MODULES_DIR, OUTPUT_SUKKA_MIRROR_DIR } from './constants/dir';
 import { UA_MIRROR } from './constants/user-agents';
-import { shouldUpdateFile } from './integration/mirror-sync/sync-engine';
+import {
+  createPipelineResult,
+  hasRequiredFailures,
+  shouldUpdateFile
+} from './integration/mirror-sync/sync-engine';
+import type { PipelineResult } from './integration/mirror-sync/sync-engine';
 import { headStatus } from './lib/tarball-utils.ts';
+import { getErrorMessage } from './lib/misc';
 
 const GITHUB_CODELOAD_URL = 'https://codeload.github.com/SukkaLab/ruleset.skk.moe/tar.gz/master';
 const GITLAB_CODELOAD_URL =
@@ -67,9 +73,10 @@ export const downloadMockAndModules = task(
   });
 
   await span.traceChildAsync('下载并解压 mock 和 sgmodule', async () => {
+    const result = createPipelineResult();
+    const tempDir = path.join(OUTPUT_SUKKA_MIRROR_DIR, '.temp');
     try {
       // 1) 创建临时目录
-      const tempDir = path.join(OUTPUT_SUKKA_MIRROR_DIR, '.temp');
       await fsp.mkdir(tempDir, { recursive: true });
 
       console.log(picocolors.cyan('Downloading tar.gz...'));
@@ -138,6 +145,7 @@ export const downloadMockAndModules = task(
 
       // 4) 逐个文件 checksum 比较并复制
       for (const filePath of extractedFiles) {
+        result.total++;
         const tempFilePath = path.join(tempDir, filePath);
 
         // 将上游路径（Mock/, Modules/）映射为输出目录的小写规范（mock/, sgmodule/）
@@ -174,17 +182,17 @@ export const downloadMockAndModules = task(
               updatedCount++;
               if (updatedCount <= 5) console.log(picocolors.blue(`  ↻ 更新: ${relPath}`));
             }
+            result.succeeded++;
           } else {
             skippedCount++;
+            result.skipped++;
             if (skippedCount <= 3) console.log(picocolors.gray(`  ○ 跳过: ${relPath}`));
           }
         } catch (error) {
           console.error(picocolors.red(`  ✗ 处理失败: ${filePath}`), error);
+          result.failed.push({ asset: filePath, error: getErrorMessage(error), required: true });
         }
       }
-
-      // 5) 清理临时目录
-      await fsp.rm(tempDir, { recursive: true, force: true });
 
       // 6) 打印摘要
       console.log(picocolors.cyan('\nSync complete:'));
@@ -193,6 +201,10 @@ export const downloadMockAndModules = task(
       console.log(picocolors.gray(`  Skipped: ${skippedCount}`));
       console.log(picocolors.cyan(`  Total: ${extractedFiles.length}`));
 
+      if (result.failed.length > 0) {
+        console.log(picocolors.red(`  Failed: ${result.failed.length}`));
+      }
+
       if (newCount + updatedCount === 0) {
         console.log(picocolors.blue('\nAll files up to date'));
       } else {
@@ -200,7 +212,23 @@ export const downloadMockAndModules = task(
       }
     } catch (error) {
       console.error(picocolors.red('[ERROR] Download failed:'), error);
-      throw error;
+      result.total++;
+      result.failed.push({ asset: 'tarball/download-or-extraction', error: getErrorMessage(error), required: true });
+    } finally {
+      await fsp.rm(tempDir, { recursive: true, force: true });
     }
+    console.log(picocolors.cyan('\nAggregate result:'));
+    console.log(picocolors.cyan(`  Total: ${result.total}`));
+    console.log(picocolors.green(`  Succeeded: ${result.succeeded}`));
+    console.log(picocolors.red(`  Failed: ${result.failed.length}`));
+    console.log(picocolors.gray(`  Skipped: ${result.skipped}`));
+    assertMockModulesSuccess(result);
+    return result;
   });
 });
+
+export function assertMockModulesSuccess(result: PipelineResult): void {
+  if (hasRequiredFailures(result)) {
+    throw new Error(`Mock/module sync failed for ${result.failed.length} required assets`);
+  }
+}

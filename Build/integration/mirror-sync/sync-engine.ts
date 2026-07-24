@@ -38,6 +38,10 @@ interface FileChecksum {
 }
 
 export interface SyncResult {
+  total: number,
+  succeeded: number,
+  failed: PipelineFailure[],
+  skipped: number,
   hasChanges: boolean,
   updatedFiles: string[],
   newFiles: string[],
@@ -45,6 +49,27 @@ export interface SyncResult {
     file: string,
     error: string
   }>
+}
+
+interface PipelineFailure {
+  asset: string,
+  error: string,
+  required: boolean
+}
+
+export interface PipelineResult {
+  total: number,
+  succeeded: number,
+  failed: PipelineFailure[],
+  skipped: number
+}
+
+export function createPipelineResult(): PipelineResult {
+  return { total: 0, succeeded: 0, failed: [], skipped: 0 };
+}
+
+export function hasRequiredFailures(result: PipelineResult): boolean {
+  return result.failed.some(failure => failure.required);
 }
 
 function calculateBufferChecksum(buffer: Buffer): string {
@@ -204,9 +229,14 @@ async function ensureDirectory(dirPath: string): Promise<void> {
 }
 
 export async function syncRepository(
-  repository: MirrorRepository
+  repository: MirrorRepository,
+  dependencies: {
+    fetchRelease?: typeof fetchLatestRelease,
+    download?: typeof downloadAsset
+  } = {}
 ): Promise<SyncResult> {
   const result: SyncResult = {
+    ...createPipelineResult(),
     hasChanges: false,
     updatedFiles: [],
     newFiles: [],
@@ -215,7 +245,7 @@ export async function syncRepository(
 
   console.log(picocolors.cyan(`\n[Sync] Processing repository: ${repository.repo}`));
 
-  const releaseResult = await fetchLatestRelease(repository.repo);
+  const releaseResult = await (dependencies.fetchRelease ?? fetchLatestRelease)(repository.repo);
 
   if ('error' in releaseResult) {
     const error = releaseResult.error;
@@ -225,6 +255,8 @@ export async function syncRepository(
       file: repository.repo,
       error: error.message
     });
+    result.total = 1;
+    result.failed.push({ asset: repository.repo, error: error.message, required: true });
 
     return result;
   }
@@ -244,6 +276,8 @@ export async function syncRepository(
   ));
 
   const processable = filterProcessableAssets(classified);
+  result.total = classified.length;
+  result.skipped = stats.skipped;
 
   for (const item of processable) {
     const { asset, outputPath } = item;
@@ -253,7 +287,7 @@ export async function syncRepository(
     console.log(picocolors.gray(`[Sync] Processing: ${asset.name} (${asset.size} bytes)`));
 
     try {
-      const downloadResult = await downloadAsset(asset.url);
+      const downloadResult = await (dependencies.download ?? downloadAsset)(asset.url);
 
       if ('error' in downloadResult) {
         console.log(picocolors.red(`[Sync] ✗ Download failed: ${downloadResult.error.message}`));
@@ -261,6 +295,7 @@ export async function syncRepository(
           file: asset.name,
           error: downloadResult.error.message
         });
+        result.failed.push({ asset: asset.name, error: downloadResult.error.message, required: true });
         continue;
       }
 
@@ -272,6 +307,7 @@ export async function syncRepository(
           file: asset.name,
           error: `Invalid file size: ${buffer.length} bytes`
         });
+        result.failed.push({ asset: asset.name, error: `Invalid file size: ${buffer.length} bytes`, required: true });
         continue;
       }
 
@@ -280,6 +316,7 @@ export async function syncRepository(
 
       if (!needsUpdate) {
         console.log(picocolors.gray(`[Sync] ○ No changes: ${asset.name}`));
+        result.succeeded++;
         continue;
       }
 
@@ -290,9 +327,13 @@ export async function syncRepository(
         try {
           content = await repository.postProcess(outputPath, content);
         } catch (error) {
-          console.log(picocolors.yellow(
+          const message = getErrorMessage(error);
+          console.log(picocolors.red(
             `[Sync] Post-process failed: ${getErrorMessage(error)}`
           ));
+          result.failedFiles.push({ file: asset.name, error: message });
+          result.failed.push({ asset: asset.name, error: message, required: true });
+          continue;
         }
       }
 
@@ -308,6 +349,7 @@ export async function syncRepository(
       }
 
       result.hasChanges = true;
+      result.succeeded++;
     } catch (error) {
       console.log(picocolors.red(
         `[Sync] ✗ Error processing ${asset.name}: ${getErrorMessage(error)}`
@@ -316,6 +358,7 @@ export async function syncRepository(
         file: asset.name,
         error: getErrorMessage(error)
       });
+      result.failed.push({ asset: asset.name, error: getErrorMessage(error), required: true });
     }
   }
 
@@ -325,7 +368,9 @@ export async function syncRepository(
 export async function downloadExtraFile(
   url: string,
   outputPath: string
-): Promise<boolean> {
+): Promise<PipelineResult> {
+  const result = createPipelineResult();
+  result.total = 1;
   console.log(picocolors.cyan(`[Extra] Downloading: ${url}`));
 
   try {
@@ -333,7 +378,9 @@ export async function downloadExtraFile(
 
     if (!response.ok) {
       console.log(picocolors.red(`[Extra] ✗ HTTP ${response.status}: ${response.statusText}`));
-      return false;
+      const error = `HTTP ${response.status}: ${response.statusText}`;
+      result.failed.push({ asset: outputPath, error, required: true });
+      return result;
     }
 
     const content = await response.text();
@@ -342,17 +389,20 @@ export async function downloadExtraFile(
     await fs.writeFile(outputPath, content, 'utf-8');
 
     console.log(picocolors.green(`[Extra] ✓ Downloaded: ${path.basename(outputPath)}`));
-    return true;
+    result.succeeded = 1;
+    return result;
   } catch (error) {
     console.log(picocolors.red(
       `[Extra] ✗ Error: ${getErrorMessage(error)}`
     ));
-    return false;
+    result.failed.push({ asset: outputPath, error: getErrorMessage(error), required: true });
+    return result;
   }
 }
 
 export function mergeSyncResults(results: SyncResult[]): SyncResult {
   const merged: SyncResult = {
+    ...createPipelineResult(),
     hasChanges: false,
     updatedFiles: [],
     newFiles: [],
@@ -366,6 +416,10 @@ export function mergeSyncResults(results: SyncResult[]): SyncResult {
     merged.updatedFiles.push(...result.updatedFiles);
     merged.newFiles.push(...result.newFiles);
     merged.failedFiles.push(...result.failedFiles);
+    merged.total += result.total;
+    merged.succeeded += result.succeeded;
+    merged.failed.push(...result.failed);
+    merged.skipped += result.skipped;
   }
 
   return merged;
@@ -373,6 +427,9 @@ export function mergeSyncResults(results: SyncResult[]): SyncResult {
 
 export function printSyncSummary(result: SyncResult): void {
   console.log(picocolors.cyan('\n[Sync] Summary:'));
+  console.log(picocolors.cyan(`  Total: ${result.total}`));
+  console.log(picocolors.green(`  ✓ Succeeded: ${result.succeeded}`));
+  console.log(picocolors.gray(`  ○ Skipped: ${result.skipped}`));
   console.log(picocolors.green(`  ✓ New files: ${result.newFiles.length}`));
   console.log(picocolors.blue(`  ↻ Updated files: ${result.updatedFiles.length}`));
   console.log(picocolors.red(`  ✗ Failed files: ${result.failedFiles.length}`));

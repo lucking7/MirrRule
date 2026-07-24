@@ -46,7 +46,17 @@ export async function syncAllMirrors(): Promise<SyncResult> {
       );
 
       for (const extra of group.extraDownloads) {
-        await downloadExtraFile(extra.url, extra.outputPath);
+        const extraResult = await downloadExtraFile(extra.url, extra.outputPath);
+        groupResults.push({
+          ...extraResult,
+          hasChanges: extraResult.succeeded > 0,
+          newFiles: extraResult.succeeded > 0 ? [extra.outputPath] : [],
+          updatedFiles: [],
+          failedFiles: extraResult.failed.map(failure => ({
+            file: failure.asset,
+            error: failure.error
+          }))
+        });
       }
     }
 
@@ -102,7 +112,17 @@ export async function syncMirrorGroup(groupName: string): Promise<SyncResult | n
     );
 
     for (const extra of group.extraDownloads) {
-      await downloadExtraFile(extra.url, extra.outputPath);
+      const extraResult = await downloadExtraFile(extra.url, extra.outputPath);
+      results.push({
+        ...extraResult,
+        hasChanges: extraResult.succeeded > 0,
+        newFiles: extraResult.succeeded > 0 ? [extra.outputPath] : [],
+        updatedFiles: [],
+        failedFiles: extraResult.failed.map(failure => ({
+          file: failure.asset,
+          error: failure.error
+        }))
+      });
     }
   }
 

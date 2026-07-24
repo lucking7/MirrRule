@@ -5,6 +5,12 @@ import { task } from './trace';
 import picocolors from 'picocolors';
 import { OUTPUT_SUKKA_MIRROR_DIR } from './constants/dir';
 import { UA_MIRROR } from './constants/user-agents';
+import {
+  createPipelineResult,
+  hasRequiredFailures
+} from './integration/mirror-sync/sync-engine';
+import type { PipelineResult } from './integration/mirror-sync/sync-engine';
+import { getErrorMessage } from './lib/misc';
 
 const GITHUB_API_BASE = 'https://api.github.com/repos/fmz200/wool_scripts/contents';
 const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/fmz200/wool_scripts/main';
@@ -68,24 +74,18 @@ function sanitizeFileName(name: string): string {
 async function fetchDirectoryContents(dirPath: string): Promise<any[]> {
   const url = `${GITHUB_API_BASE}/${dirPath}`;
 
-  try {
-    const response = await fetch(url, {
+  const response = await fetch(url, {
       headers: {
         'User-Agent': UA_MIRROR,
         Accept: 'application/vnd.github.v3+json',
       },
     });
 
-    if (!response.ok) {
-      console.warn(picocolors.yellow(`[WARN] Failed to fetch ${dirPath}: ${response.status}`));
-      return [];
-    }
-
-    return (await response.json()) as any[];
-  } catch (error) {
-    console.error(picocolors.red(`[ERROR] Error fetching ${dirPath}:`), error);
-    return [];
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${dirPath}: HTTP ${response.status}`);
   }
+
+  return (await response.json()) as any[];
 }
 
 /**
@@ -204,12 +204,12 @@ async function downloadAndProcessFile(
  */
 async function processSubDirectory(dirName: string): Promise<{
   processed: number;
-  failed: number;
+  failed: string[];
   files: string[];
 }> {
   const result = {
     processed: 0,
-    failed: 0,
+    failed: [] as string[],
     files: [] as string[],
   };
 
@@ -241,7 +241,7 @@ async function processSubDirectory(dirName: string): Promise<{
       result.files.push(`${mappedDir}/${displayName}`);
       console.log(picocolors.green(`  ✓ ${file.name} → ${mappedDir}/${displayName}`));
     } else {
-      result.failed++;
+      result.failed.push(file.name);
       console.log(picocolors.red(`  ✗ ${file.name}`));
     }
   }
@@ -261,69 +261,71 @@ export const downloadFmz200Split = task(
   console.log(picocolors.gray(`Output Categories: ${OUTPUT_CATEGORIES_DIR}\n`));
 
   await span.traceChildAsync('Download and process all modules', async () => {
-    try {
-      let totalRootProcessed = 0;
-      let totalRootFailed = 0;
-      let totalCategoriesProcessed = 0;
-      let totalCategoriesFailed = 0;
+    const result = await runFmz200Split();
+    printFmz200Summary(result);
+    assertFmz200Success(result);
+  });
+});
+
+export async function runFmz200Split(): Promise<PipelineResult> {
+      const result = createPipelineResult();
 
       console.log(picocolors.cyan('Step 1: Downloading root modules\n'));
 
       for (const moduleUrl of ROOT_MODULES) {
-        const result = await downloadRootModule(moduleUrl);
-        if (result.success) {
-          totalRootProcessed++;
+        const downloadResult = await downloadRootModule(moduleUrl);
+        result.total++;
+        if (downloadResult.success) {
+          result.succeeded++;
         } else {
-          totalRootFailed++;
+          result.failed.push({ asset: moduleUrl, error: 'Download failed', required: true });
         }
       }
 
-      console.log(
-        picocolors.cyan(
-          `\n✓ Root modules: ${totalRootProcessed} processed, ${totalRootFailed} failed\n`
-        )
-      );
-
       console.log(picocolors.cyan('Step 2: Downloading split modules (categories)\n'));
 
-      const splitContents = await fetchDirectoryContents(SPLIT_DIR_PATH);
+      let splitContents: any[];
+      result.total++;
+      try {
+        splitContents = await fetchDirectoryContents(SPLIT_DIR_PATH);
+        result.succeeded++;
+      } catch (error) {
+        result.failed.push({ asset: SPLIT_DIR_PATH, error: getErrorMessage(error), required: true });
+        return result;
+      }
       const subDirs = splitContents.filter((item: any) => item.type === 'dir');
       console.log(picocolors.cyan(`Found ${subDirs.length} subdirectories\n`));
 
       for (const dir of subDirs) {
-        const result = await processSubDirectory(dir.name);
-        totalCategoriesProcessed += result.processed;
-        totalCategoriesFailed += result.failed;
+        result.total++;
+        try {
+          const directoryResult = await processSubDirectory(dir.name);
+          result.succeeded++;
+          result.total += directoryResult.processed + directoryResult.failed.length;
+          result.succeeded += directoryResult.processed;
+          for (const fileName of directoryResult.failed) {
+            result.failed.push({ asset: `${dir.name}/${fileName}`, error: 'Download failed', required: true });
+          }
+        } catch (error) {
+          result.failed.push({ asset: dir.name, error: getErrorMessage(error), required: true });
+        }
       }
+      return result;
+}
 
-      console.log(picocolors.cyan('\nOverall Sync Summary:'));
-      console.log(picocolors.cyan('\n  Root Modules:'));
-      console.log(picocolors.green(`    ✓ Processed: ${totalRootProcessed} files`));
-      console.log(picocolors.red(`    ✗ Failed: ${totalRootFailed} files`));
+export function printFmz200Summary(result: PipelineResult): void {
+  console.log(picocolors.cyan('\nOverall Sync Summary:'));
+  console.log(picocolors.cyan(`  Total: ${result.total}`));
+  console.log(picocolors.green(`  ✓ Succeeded: ${result.succeeded}`));
+  console.log(picocolors.red(`  ✗ Failed: ${result.failed.length}`));
+  console.log(picocolors.gray(`  ○ Skipped: ${result.skipped}`));
+}
 
-      console.log(picocolors.cyan('\n  Categories Modules:'));
-      console.log(picocolors.green(`    ✓ Processed: ${totalCategoriesProcessed} files`));
-      console.log(picocolors.red(`    ✗ Failed: ${totalCategoriesFailed} files`));
-      console.log(picocolors.cyan(`    Total directories: ${subDirs.length}`));
-
-      const totalProcessed = totalRootProcessed + totalCategoriesProcessed;
-      const totalFailed = totalRootFailed + totalCategoriesFailed;
-
-      console.log(picocolors.cyan('\n  Total:'));
-      console.log(picocolors.green(`    ✓ Processed: ${totalProcessed} files`));
-      console.log(picocolors.red(`    ✗ Failed: ${totalFailed} files`));
-
-      if (totalProcessed > 0) {
-        console.log(picocolors.green(`\nSuccessfully synced ${totalProcessed} modules`));
-      } else {
-        console.log(picocolors.yellow('\n[WARN] No files were processed'));
-      }
-    } catch (error) {
-      console.error(picocolors.red('[ERROR] Sync failed:'), error);
-      throw error;
-    }
-  });
-});
+export function assertFmz200Success(result: PipelineResult): void {
+  if (hasRequiredFailures(result)) {
+    throw new Error(`fmz200 sync failed for ${result.failed.length} required assets`);
+  }
+}
 
 if (require.main === module) {
   downloadFmz200Split().catch(error => {

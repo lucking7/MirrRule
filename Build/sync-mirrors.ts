@@ -6,6 +6,7 @@
 import process from 'node:process';
 import { task } from './trace';
 import { syncAllMirrors, syncMirrorGroup } from './integration/mirror-sync';
+import { hasRequiredFailures } from './integration/mirror-sync/sync-engine';
 import picocolors from 'picocolors';
 
 export const runMirrorSync = task(
@@ -33,7 +34,7 @@ export const runMirrorSync = task(
       result = await syncAllMirrors();
     }
 
-    if (result.failedFiles.length > 0) {
+    if (hasRequiredFailures(result)) {
       console.log(picocolors.yellow('\n[WARN] Sync completed with errors'));
       throw new Error(`Sync completed with ${result.failedFiles.length} errors`);
     }
