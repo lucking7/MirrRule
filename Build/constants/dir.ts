@@ -20,4 +20,3 @@ const _OUTPUT_INTERNAL_DIR = path.resolve(PUBLIC_DIR, 'Internal');
 export const OUTPUT_SUKKA_MIRROR_DIR = path.resolve(PUBLIC_DIR, 'Mirror', 'Sukka');
 export const OUTPUT_MOCK_DIR = path.resolve(OUTPUT_SUKKA_MIRROR_DIR, 'mock');
 export const OUTPUT_MODULES_DIR = path.resolve(OUTPUT_SUKKA_MIRROR_DIR, 'sgmodule');
-export const OUTPUT_MODULES_RULES_DIR = path.resolve(OUTPUT_MODULES_DIR, 'Rules');
