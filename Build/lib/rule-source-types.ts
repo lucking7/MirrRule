@@ -89,6 +89,8 @@ export interface SpecialRuleConfig {
   targetFile: string,
   /** 源文件URL列表 */
   sourceFiles: string[],
+  /** 是否允许单个远程源返回空规则；合并结果仍不可为空 */
+  allowEmpty?: boolean,
   /** 是否启用去重 */
   dedup?: boolean,
   /** 是否启用排序 */

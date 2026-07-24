@@ -8,6 +8,7 @@ import { $$fetch, defaultRequestInit } from './network/fetch-retry';
 
 interface LoadRulesOptions {
   throwOnError?: boolean;
+  allowEmpty?: boolean;
 }
 
 /**
@@ -164,7 +165,7 @@ export async function loadRules(
     if (isSingboxJsonUrl(source)) {
       return loadFromSingboxJson(source, options);
     }
-    return fetchAssets(source, null, true);
+    return fetchAssets(source, null, true, options.allowEmpty ?? false);
   }
 
   if (source.endsWith('.ts')) {
@@ -174,5 +175,5 @@ export async function loadRules(
   console.warn(
     picocolors.yellow(`[rule-loader] Unknown source type, treating as URL: ${source}`)
   );
-  return fetchAssets(source, null, true);
+  return fetchAssets(source, null, true, options.allowEmpty ?? false);
 }

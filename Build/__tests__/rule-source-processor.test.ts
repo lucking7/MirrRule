@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
 import { RuleSourceProcessor } from '../lib/rule-source-processor';
-import type { SpecialRuleConfig } from '../lib/rule-source-types';
+import type { RuleGroup, SpecialRuleConfig } from '../lib/rule-source-types';
+import { fetchAssets } from '../utils/network/fetch-assets';
 
 interface FakeSpan {
   traceChild: () => FakeSpan;
@@ -56,7 +59,171 @@ function createTempSourceModule(tempDir: string, name: string, rules: string[]) 
   return filePath;
 }
 
+async function withRuleServer<T>(fn: (baseUrl: string) => Promise<T>): Promise<T> {
+  const server = http.createServer((request, response) => {
+    response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
+    response.end(request.url === '/rules' ? 'DOMAIN,example.com\n' : '');
+  });
+
+  await new Promise<void>(resolve => {
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    return await fn(`http://127.0.0.1:${port}`);
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close(error => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
+  }
+}
+
+describe('fetchAssets empty responses', () => {
+  it('rejects an empty 200 by default and accepts a non-empty 200', async () => {
+    await withRuleServer(async baseUrl => {
+      await assert.rejects(fetchAssets(`${baseUrl}/empty`, null, true), /empty response w\/o 304/);
+      assert.deepEqual(await fetchAssets(`${baseUrl}/rules`, null, true), [
+        'DOMAIN,example.com',
+      ]);
+    });
+  });
+});
+
+describe('RuleSourceProcessor ordinary rules', () => {
+  it('records an empty 200 as an error and writes no output by default', async () => {
+    await withRuleServer(async baseUrl => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-ordinary-rule-'));
+
+      try {
+        const processor = new RuleSourceProcessor(fakeSpan as any, tempDir);
+        const groups: RuleGroup[] = [{
+          name: 'Empty Test',
+          files: [{ path: 'List/empty.list', url: `${baseUrl}/empty` }],
+          targets: ['surge'],
+          defaultPolicy: null,
+        }];
+
+        const stats = await processor.processRuleGroups(groups);
+
+        assert.equal(stats.errors.length, 1);
+        assert.equal(stats.filesProcessed, 0);
+        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'empty.list')), false);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  it('honors explicit false and passes explicit true as the empty-response policy', async () => {
+    await withRuleServer(async baseUrl => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-ordinary-rule-'));
+
+      try {
+        const processor = new RuleSourceProcessor(fakeSpan as any, tempDir);
+        const groups: RuleGroup[] = [{
+          name: 'Empty Policy Test',
+          files: [
+            { path: 'List/empty-false.list', url: `${baseUrl}/empty`, allowEmpty: false },
+            { path: 'List/empty-true.list', url: `${baseUrl}/empty`, allowEmpty: true },
+          ],
+          targets: ['surge'],
+          defaultPolicy: null,
+        }];
+
+        const stats = await processor.processRuleGroups(groups);
+
+        assert.equal(stats.errors.length, 1);
+        assert.equal(stats.filesProcessed, 1);
+        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'empty-false.list')), false);
+        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'empty-true.list')), true);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  it('writes output for a non-empty 200', async () => {
+    await withRuleServer(async baseUrl => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-ordinary-rule-'));
+
+      try {
+        const processor = new RuleSourceProcessor(fakeSpan as any, tempDir);
+        const groups: RuleGroup[] = [{
+          name: 'Non-empty Test',
+          files: [{ path: 'List/non-empty.list', url: `${baseUrl}/rules` }],
+          targets: ['surge'],
+          defaultPolicy: null,
+        }];
+
+        const stats = await processor.processRuleGroups(groups);
+
+        assert.equal(stats.errors.length, 0);
+        assert.equal(stats.filesProcessed, 1);
+        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'non-empty.list')), true);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+  });
+});
+
 describe('RuleSourceProcessor special rules', () => {
+  it('records an empty URL response as an error and writes no output by default', async () => {
+    await withRuleServer(async baseUrl => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-special-rule-'));
+
+      try {
+        const processor = new RuleSourceProcessor(fakeSpan as any, tempDir);
+        const config: SpecialRuleConfig = {
+          name: 'Empty URL Test',
+          targetFile: 'List/empty-url.list',
+          sourceFiles: [`${baseUrl}/empty`],
+          targets: ['surge'],
+          defaultPolicy: null,
+        };
+
+        const stats = await processor.processSpecialRules([config]);
+
+        assert.equal(stats.errors.length, 1);
+        assert.equal(stats.filesProcessed, 0);
+        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'empty-url.list')), false);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  it('allows an opted-in empty URL source but rejects an all-empty special rule', async () => {
+    await withRuleServer(async baseUrl => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-special-rule-'));
+
+      try {
+        const processor = new RuleSourceProcessor(fakeSpan as any, tempDir);
+        const config: SpecialRuleConfig = {
+          name: 'Allowed Empty URL Test',
+          targetFile: 'List/allowed-empty-url.list',
+          sourceFiles: [`${baseUrl}/empty`],
+          allowEmpty: true,
+          targets: ['surge'],
+          defaultPolicy: null,
+        };
+
+        const stats = await processor.processSpecialRules([config]);
+
+        assert.equal(stats.errors.length, 1);
+        assert.match(stats.errors[0]?.error ?? '', /No rules loaded/);
+        assert.equal(stats.filesProcessed, 0);
+        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'allowed-empty-url.list')), false);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+  });
+
   it('does not write output when one source fails to load', async () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-special-rule-'));
     const outputDir = path.join(tempDir, 'output');

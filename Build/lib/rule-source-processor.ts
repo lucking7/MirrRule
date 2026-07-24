@@ -68,7 +68,12 @@ export class RuleSourceProcessor {
       const rules = await groupSpan
         .traceChild('download')
         .traceAsyncFn(() =>
-          fetchAssets(fileConfig.url, fileConfig.fallbackUrls || null, true)
+          fetchAssets(
+            fileConfig.url,
+            fileConfig.fallbackUrls || null,
+            true,
+            fileConfig.allowEmpty ?? false
+          )
         );
 
       const mergedConfig = applyDefaultConfig(fileConfig);
@@ -104,12 +109,13 @@ export class RuleSourceProcessor {
     this: void,
     ruleSpan: Span,
     source: string,
+    allowEmpty: boolean,
     stats: ProcessorStats
   ): Promise<string[]> {
     try {
       return await ruleSpan
         .traceChild('load')
-        .traceAsyncFn(() => loadRules(source, { throwOnError: true }));
+        .traceAsyncFn(() => loadRules(source, { throwOnError: true, allowEmpty }));
     } catch (error) {
       RuleSourceProcessor.recordError(stats, source, error);
       return [];
@@ -161,6 +167,7 @@ export class RuleSourceProcessor {
             const loadedRules = await RuleSourceProcessor.loadSpecialRuleSource(
               ruleSpan,
               source,
+              ruleConfig.allowEmpty ?? false,
               stats
             );
             allRules.push(...loadedRules);
