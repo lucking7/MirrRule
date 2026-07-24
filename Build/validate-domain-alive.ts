@@ -1,12 +1,105 @@
+import fs from 'node:fs/promises';
 import path from 'node:path';
-import fs from 'node:fs';
 import process from 'node:process';
 import picocolors from 'picocolors';
 import { task } from './trace';
-import { getMethods } from './utils/domain/is-domain-alive';
-import { SOURCE_DIR } from './constants/dir';
 import { getErrorMessage } from './lib/misc';
+import { getMethods } from './utils/domain/is-domain-alive';
+import { createSourceInventory } from './lib/source-inventory';
+import type { SourceInventoryEntry, SourceRole } from './lib/source-inventory';
+import { ruleGroups, specialRules } from './lib/rule-sources';
+import { MIRROR_GROUPS } from './integration/mirror-sync/mirror-config';
 
+export type HealthStatus = 'ok' | 'dead' | 'unknown';
+
+export interface ProbeResult {
+  status: HealthStatus,
+  httpStatus?: number
+}
+
+export interface SourceHealthRecord extends ProbeResult {
+  id: string,
+  url: string,
+  role: SourceRole,
+  elapsedMs: number
+}
+
+export interface SourceHealthReport {
+  generatedAt: string,
+  summary: Record<HealthStatus, number>,
+  sources: SourceHealthRecord[]
+}
+
+export type SourceProbe = (url: string) => Promise<ProbeResult>;
+
+export function redactUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    for (const key of url.searchParams.keys()) {
+      if (/token|key|secret|signature|credential|password|auth/i.test(key)) url.searchParams.set(key, '[REDACTED]');
+    }
+    if (url.username || url.password) {
+      url.username = '';
+      url.password = '';
+    }
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
+export async function probeSource(url: string): Promise<ProbeResult> {
+  try {
+    const response = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      signal: AbortSignal.timeout(15_000), // eslint-disable-line sukka/unicorn/numeric-separators-style -- 15 seconds
+      headers: { 'user-agent': 'MirrRule-source-health/1.0' },
+    });
+    return { status: response.ok ? 'ok' : 'dead', httpStatus: response.status };
+  } catch (fetchError) {
+    // HTTP unreachable. Use the DNS-level checker to decide between a dead
+    // domain and a transient/unknown network failure.
+    try {
+      const { isDomainAlive } = await getMethods();
+      const hostname = new URL(url).hostname;
+      const alive = await isDomainAlive(hostname);
+      return alive ? { status: 'unknown' } : { status: 'dead' };
+    } catch {
+      throw fetchError;
+    }
+  }
+}
+
+export async function checkSources(
+  inventory: readonly SourceInventoryEntry[],
+  probe: SourceProbe = probeSource,
+  now: () => number = Date.now
+): Promise<SourceHealthReport> {
+  const sources: SourceHealthRecord[] = [];
+  for (const source of inventory) {
+    const started = now();
+    try {
+      // eslint-disable-next-line no-await-in-loop -- keep upstream load bounded and timings isolated
+      const checked = await probe(source.url);
+      sources.push({ ...source, url: redactUrl(source.url), ...checked, elapsedMs: Math.max(0, now() - started) });
+    } catch {
+      sources.push({ ...source, url: redactUrl(source.url), status: 'unknown', elapsedMs: Math.max(0, now() - started) });
+    }
+  }
+  const summary = { ok: 0, dead: 0, unknown: 0 };
+  for (const source of sources) summary[source.status]++;
+  return { generatedAt: new Date().toISOString(), summary, sources };
+}
+
+export async function writeHealthReport(outputPath: string, report: SourceHealthReport): Promise<void> {
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  const temporaryPath = `${outputPath}.${process.pid}.tmp`;
+  await fs.writeFile(temporaryPath, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
+  await fs.rename(temporaryPath, outputPath);
+}
+
+// Compatibility with Plan 011's public contract.
 export interface DomainCheckResult {
   total: number,
   alive: string[],
@@ -18,11 +111,11 @@ export async function checkDomains(
   domains: Iterable<string>,
   checker: (domain: string) => Promise<boolean | { alive: boolean }>
 ): Promise<DomainCheckResult> {
-  const domainList = [...domains];
-  const result: DomainCheckResult = { total: domainList.length, alive: [], dead: [], unknown: [] };
-  for (const domain of domainList) {
+  const result: DomainCheckResult = { total: 0, alive: [], dead: [], unknown: [] };
+  for (const domain of domains) {
+    result.total++;
     try {
-      // eslint-disable-next-line no-await-in-loop -- intentionally sequential
+      // eslint-disable-next-line no-await-in-loop -- compatibility checker is intentionally sequential
       const checked = await checker(domain);
       if (typeof checked === 'boolean' ? checked : checked.alive) result.alive.push(domain);
       else result.dead.push(domain);
@@ -33,72 +126,20 @@ export async function checkDomains(
   return result;
 }
 
-export function domainCheckExitCode(result: DomainCheckResult): number {
+export function domainCheckExitCode(result: DomainCheckResult | SourceHealthReport): number {
+  if ('sources' in result) return result.summary.dead > 0 || result.summary.unknown > 0 ? 1 : 0;
   return result.dead.length > 0 || result.unknown.length > 0 ? 1 : 0;
 }
 
-export const validateDomainAlive = task(
-  require.main === module,
-  __filename
-)(async () => {
-  console.log(picocolors.cyan('[Domain Check] Starting domain availability validation...'));
-
-  const { isDomainAlive } = await getMethods();
-
-  const domains = new Set<string>();
-
-  if (!fs.existsSync(SOURCE_DIR)) {
-    console.error(picocolors.red(`[Domain Check] Source directory not found: ${SOURCE_DIR}`));
-    process.exitCode = 1;
-    return;
-  }
-
-  const files = fs.readdirSync(SOURCE_DIR, { recursive: true });
-  const domainRegex = /['"]((?:[\da-z](?:[\da-z-]*[\da-z])?\.)+[a-z]{2,})['"]/gi;
-
-  for (const file of files) {
-    if (typeof file !== 'string') continue;
-    const filePath = path.join(SOURCE_DIR, file);
-    try {
-      if (!fs.statSync(filePath).isFile()) continue;
-    } catch {
-      continue;
-    }
-    if (!filePath.endsWith('.ts') && !filePath.endsWith('.txt')) continue;
-
-    const content = fs.readFileSync(filePath, 'utf-8');
-    for (const match of content.matchAll(domainRegex)) {
-      const domain = match[1];
-      if (!domain || !domain.includes('.') || domain.startsWith('.')) continue;
-      domains.add(domain);
-    }
-  }
-
-  console.log(picocolors.gray(`[Domain Check] Found ${domains.size} unique domains to check`));
-
-  if (domains.size === 0) {
-    console.log(picocolors.yellow('[Domain Check] No domains found to validate'));
-    return;
-  }
-
-  const result = await checkDomains(domains, isDomainAlive);
-
-  console.log(picocolors.cyan('\n[Domain Check] Summary:'));
-  console.log(picocolors.green(`  \u2713 Alive: ${result.alive.length}`));
-  console.log(picocolors.red(`  \u2717 Dead: ${result.dead.length}`));
-  console.log(picocolors.yellow(`  ? Unknown: ${result.unknown.length}`));
-
-  if (result.dead.length > 0) {
-    console.log(picocolors.red('\n[Domain Check] Dead domains:'));
-    for (const domain of result.dead.sort()) {
-      console.log(picocolors.red(`  - ${domain}`));
-    }
-  }
-  if (result.unknown.length > 0) {
-    console.log(picocolors.yellow('\n[Domain Check] Unknown domains:'));
-    for (const { domain, error } of result.unknown.sort((a, b) => a.domain.localeCompare(b.domain))) {
-      console.log(picocolors.yellow(`  - ${domain}: ${error}`));
-    }
-  }
-  process.exitCode = domainCheckExitCode(result);
+export const validateDomainAlive = task(require.main === module, __filename)(async () => {
+  const outputPath = path.resolve(process.argv[2] ?? 'source-health-report.json');
+  const inventory = createSourceInventory(ruleGroups, specialRules, MIRROR_GROUPS);
+  console.log(picocolors.cyan(`[Source Health] Checking ${inventory.length} configured network sources...`));
+  const report = await checkSources(inventory);
+  await writeHealthReport(outputPath, report);
+  console.log(picocolors.green(`  ✓ OK: ${report.summary.ok}`));
+  console.log(picocolors.red(`  ✗ Dead: ${report.summary.dead}`));
+  console.log(picocolors.yellow(`  ? Unknown: ${report.summary.unknown}`));
+  console.log(picocolors.gray(`[Source Health] Report: ${outputPath}`));
+  process.exitCode = domainCheckExitCode(report);
 });

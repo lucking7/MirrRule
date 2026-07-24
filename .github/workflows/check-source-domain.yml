@@ -1,17 +1,23 @@
-name: Check Domain Availability
+name: Check Source Health
+
 on:
-  # manual trigger only
+  schedule:
+    - cron: '17 3 * * *'
   workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: source-health-state
+  cancel-in-progress: false
 
 jobs:
   check:
-    name: Check
+    name: Check configured upstreams
     runs-on: ubuntu-24.04-arm
-
     steps:
-      # - name: Tune GitHub-hosted runner network
-      #   # https://github.com/actions/runner-images/issues/1187
-      #   uses: smorimoto/tune-github-hosted-runner-network@bb252dcb5c8609a31087e7993daa086f5a1c0069 # v1.0.0
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -21,41 +27,69 @@ jobs:
           run_install: false
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
-          node-version-file: ".node-version"
-          cache: "pnpm"
-      - name: Get current date
-        id: date
-        run: |
-          echo "date=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
-          echo "year=$(date +'%Y')" >> $GITHUB_OUTPUT
-          echo "month=$(date +'%m')" >> $GITHUB_OUTPUT
-          echo "day=$(date +'%d')" >> $GITHUB_OUTPUT
-          echo "hour=$(date +'%H')" >> $GITHUB_OUTPUT
-          echo "minute=$(date +'%M')" >> $GITHUB_OUTPUT
-          echo "second=$(date +'%S')" >> $GITHUB_OUTPUT
-      - name: Restore cache.db
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
-        id: cache-db-restore
-        with:
-          path: |
-            .cache
-          key: ${{ runner.os }}-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }} ${{ steps.date.outputs.hour }}:${{ steps.date.outputs.minute }}:${{ steps.date.outputs.second }}
-          # If source files changed but packages didn't, rebuild from a prior cache.
-          restore-keys: |
-            ${{ runner.os }}-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }} ${{ steps.date.outputs.hour }}:${{ steps.date.outputs.minute }}:
-            ${{ runner.os }}-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }} ${{ steps.date.outputs.hour }}:
-            ${{ runner.os }}-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}
-            ${{ runner.os }}-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-
-            ${{ runner.os }}-v3-${{ steps.date.outputs.year }}-
-            ${{ runner.os }}-v3-
-      - run: pnpm install
-      - run: pnpm run node Build/validate-domain-alive.ts
-        env:
-          DEBUG: domain-alive:dead-domain
-      - name: Cache cache.db
+          node-version-file: '.node-version'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check sources
+        id: health
+        continue-on-error: true
+        run: pnpm run node Build/validate-domain-alive.ts source-health-report.json
+      - name: Upload health report
         if: always()
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          path: |
-            .cache
-          key: ${{ runner.os }}-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }} ${{ steps.date.outputs.hour }}:${{ steps.date.outputs.minute }}:${{ steps.date.outputs.second }}
+          name: source-health-report
+          path: source-health-report.json
+          retention-days: 14
+      - name: Load durable state
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p source-health-state-data
+          git fetch --no-tags origin source-health-state || true
+          git show origin/source-health-state:state.json > source-health-state-data/state.json 2>/dev/null || echo '{"sources":{}}' > source-health-state-data/state.json
+      - name: Apply three-strike state machine
+        if: github.event_name == 'schedule'
+        run: pnpm run node Build/update-source-health-state.ts source-health-report.json source-health-state-data/state.json source-health-state-data/actions.json
+      - name: Manage health issue
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          label='source-health'
+          title='Automated upstream source health'
+          gh label create "$label" --color D93F0B --description 'Automated structured source health alert' --force
+          issue=$(gh issue list --label "$label" --state open --json number --jq '.[0].number // empty')
+          unhealthy=$(jq -r '[.sources[] | select(.deadStreak >= 3) | .id] | sort | .[]' source-health-state-data/state.json)
+          if [ -n "$unhealthy" ]; then
+            body=$(printf 'The following configured sources have failed at least three consecutive scheduled checks:\n\n%s\n\nLatest report is attached to this workflow run.' "$(printf '%s\n' "$unhealthy" | sed 's/^/- `/;s/$/`/')")
+            if [ -n "$issue" ]; then
+              gh issue edit "$issue" --title "$title" --body "$body"
+              gh issue comment "$issue" --body "Updated after scheduled check at $(date -u +'%Y-%m-%dT%H:%M:%SZ')."
+            else
+              gh issue create --label "$label" --title "$title" --body "$body"
+            fi
+          elif [ -n "$issue" ] && jq -e 'any(.[]; .action == "close")' source-health-state-data/actions.json >/dev/null; then
+            gh issue comment "$issue" --body "All alerted sources recovered at $(date -u +'%Y-%m-%dT%H:%M:%SZ')."
+            gh issue close "$issue"
+          fi
+      - name: Persist durable state branch
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tmp=$(mktemp -d)
+          cp source-health-state-data/state.json "$tmp/state.json"
+          cd "$tmp"
+          git init
+          git checkout --orphan source-health-state
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add state.json
+          git commit -m 'chore: update source health state'
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin source-health-state
+      - name: Propagate health result
+        if: steps.health.outcome == 'failure'
+        run: exit 1

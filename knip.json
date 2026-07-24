@@ -11,6 +11,7 @@
     "Build/download-mock-modules.ts",
     "Build/download-previous-build.ts",
     "Build/validate-domain-alive.ts",
+    "Build/update-source-health-state.ts",
     "Build/__tests__/*.test.ts",
     ".github/workflows/*.yml"
   ],
