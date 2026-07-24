@@ -35,8 +35,6 @@ export interface FileConfig {
   formatConversion?: boolean,
   /** 是否校验规则格式，丢弃无法识别的行 */
   validate?: boolean,
-  /** 头部信息配置 */
-  header?: HeaderConfig,
   /** 默认策略组（null时会移除规则中的策略,生成纯规则格式） */
   defaultPolicy?: 'DIRECT' | 'REJECT' | 'PROXY' | string | null
 }
@@ -57,25 +55,7 @@ export interface RuleGroup {
   /** 组级默认策略（覆盖全局默认，null表示无策略） */
   defaultPolicy?: 'DIRECT' | 'REJECT' | 'PROXY' | string | null,
   /** 目标平台列表（默认仅Surge） */
-  targets?: Array<'surge' | 'clash' | 'singbox' | 'surfboard' | 'loon'>
-}
-
-/**
- * 头部信息配置
- */
-interface HeaderConfig {
-  /** 是否启用头部信息 */
-  enable: boolean,
-  /** 自定义标题 */
-  title?: string,
-  /** 自定义描述信息 */
-  description?: string,
-  /** 自定义许可证信息 */
-  license?: string,
-  /** 自定义主页URL */
-  homepage?: string,
-  /** 过期时间（小时） */
-  expires?: number
+  targets?: Array<'surge' | 'clash' | 'singbox' | 'loon'>
 }
 
 /**
@@ -109,8 +89,6 @@ export interface SpecialRuleConfig {
   validate?: boolean,
   /** 合并后是否删除源文件 */
   deleteSourceFiles?: boolean,
-  /** 头部信息配置 */
-  header?: HeaderConfig,
   /** 是否启用此规则 */
   enabled?: boolean,
   /** 规则描述 */
@@ -118,7 +96,7 @@ export interface SpecialRuleConfig {
   /** 默认策略组（可设为null表示无策略，null时会移除规则中的策略） */
   defaultPolicy?: 'DIRECT' | 'REJECT' | 'PROXY' | string | null,
   /** 目标平台列表（默认仅Surge） */
-  targets?: Array<'surge' | 'clash' | 'singbox' | 'surfboard' | 'loon'>
+  targets?: Array<'surge' | 'clash' | 'singbox' | 'loon'>
 }
 
 /**

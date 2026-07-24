@@ -8,7 +8,6 @@ import { ClashClassicRuleSet } from '../core/output/writing-strategy/clash';
 import { SingboxSource } from '../core/output/writing-strategy/singbox';
 import { LoonRuleSet } from '../core/output/writing-strategy/loon';
 import type { BaseWriteStrategy } from '../core/output/writing-strategy/base';
-import { getErrorMessage } from './misc';
 
 export type SupportedPlatform = 'surge' | 'clash' | 'singbox' | 'loon';
 
@@ -32,8 +31,14 @@ export function normalizeTargets(
   rawTargets: string[] | undefined,
   fallback: SupportedPlatform[] = ['surge']
 ): SupportedPlatform[] {
-  const targets = (rawTargets ?? []).filter(isSupportedPlatform);
-  return targets.length > 0 ? targets : fallback;
+  if (!rawTargets || rawTargets.length === 0) return fallback;
+
+  const unknownTargets = rawTargets.filter(target => !isSupportedPlatform(target));
+  if (unknownTargets.length > 0) {
+    throw new Error(`Unknown platform target(s): ${unknownTargets.join(', ')}`);
+  }
+
+  return rawTargets as SupportedPlatform[];
 }
 
 const DEFAULT_PLATFORM_CONFIG: PlatformConfig = {
@@ -54,40 +59,30 @@ export function createStrategiesForTargets(
   const strategies: BaseWriteStrategy[] = [];
 
   // 使用静态导入避免动态加载问题
-  try {
-    for (const target of targets) {
-      const platformDir = DEFAULT_PLATFORM_CONFIG.outputDirs[target];
-      const fullOutputDir = path.join(outputBaseDir, platformDir);
+  for (const target of targets) {
+    const platformDir = DEFAULT_PLATFORM_CONFIG.outputDirs[target];
+    const fullOutputDir = path.join(outputBaseDir, platformDir);
 
-      switch (target) {
-        case 'surge':
+    switch (target) {
+      case 'surge':
 
-          strategies.push(new SurgeRuleSet('', fullOutputDir));
-          break;
-        case 'clash':
+        strategies.push(new SurgeRuleSet('', fullOutputDir));
+        break;
+      case 'clash':
 
-          strategies.push(new ClashClassicRuleSet('', fullOutputDir));
-          break;
-        case 'singbox':
+        strategies.push(new ClashClassicRuleSet('', fullOutputDir));
+        break;
+      case 'singbox':
 
-          strategies.push(new SingboxSource('', fullOutputDir));
-          break;
-        case 'loon':
+        strategies.push(new SingboxSource('', fullOutputDir));
+        break;
+      case 'loon':
 
-          strategies.push(new LoonRuleSet('', fullOutputDir));
-          break;
-        default:
-          console.log(`Unknown platform ${target}, skipping`);
-      }
+        strategies.push(new LoonRuleSet('', fullOutputDir));
+        break;
+      default:
+        throw new Error(`Unknown platform target: ${String(target)}`);
     }
-  } catch (error) {
-    console.warn(
-      'Error creating strategies, falling back to Surge only:',
-      getErrorMessage(error)
-    );
-    // 回退到安全的Surge策略
-    const fullOutputDir = path.join(outputBaseDir, DEFAULT_PLATFORM_CONFIG.outputDirs.surge);
-    strategies.push(new SurgeRuleSet('', fullOutputDir));
   }
 
   return strategies;

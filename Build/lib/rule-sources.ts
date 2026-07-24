@@ -235,11 +235,6 @@ export const specialRules: SpecialRuleConfig[] = [
     keepEmptyLines: false,
     formatConversion: true,
     deleteSourceFiles: true,
-    header: {
-      enable: true,
-      title: 'Ruleset - Large Files Hosting',
-      description: 'This file contains ruleset for software updating & large file hosting.',
-    },
   },
   {
     name: 'CDN',
@@ -256,11 +251,6 @@ export const specialRules: SpecialRuleConfig[] = [
     formatConversion: true,
     applyNoResolve: true,
     deleteSourceFiles: true,
-    header: {
-      enable: true,
-      title: 'Ruleset - CDN',
-      description: 'This file contains object storage and static assets CDN ruleset.',
-    },
   },
   {
     name: 'AI',
@@ -279,12 +269,6 @@ export const specialRules: SpecialRuleConfig[] = [
     sort: true,
     keepComments: false,
     deleteSourceFiles: true,
-    header: {
-      enable: true,
-      title: 'Ruleset - AIGC',
-      description:
-        'This file contains rules for generative AI platforms including OpenAI, Google Gemini, Claude, Grok and etc.',
-    },
   },
   {
     name: 'Apple',
@@ -302,12 +286,6 @@ export const specialRules: SpecialRuleConfig[] = [
     keepEmptyLines: false,
     applyNoResolve: true,
     formatConversion: true,
-    header: {
-      enable: true,
-      title: 'Ruleset - Apple',
-      description:
-        'This file contains rules for Apple services worldwide, including mainland China deployments such as iCloud.com.cn and Apple Maps CN',
-    },
   },
   {
     name: 'Microsoft',
@@ -322,12 +300,6 @@ export const specialRules: SpecialRuleConfig[] = [
     keepEmptyLines: false,
     applyNoResolve: true,
     formatConversion: true,
-    header: {
-      enable: true,
-      title: 'Ruleset - Microsoft',
-      description:
-        'This file contains ruleset for Microsoft 365, Teams, Azure, and other Microsoft services, including mainland China tenants',
-    },
   },
   {
     name: 'Amazon',
@@ -341,12 +313,6 @@ export const specialRules: SpecialRuleConfig[] = [
     keepComments: false,
     keepEmptyLines: false,
     formatConversion: true,
-    header: {
-      enable: true,
-      title: 'Ruleset - Amazon',
-      description:
-        'This file contains rules for Amazon retail, AWS, Prime Video, Kindle, IMDb, and related services',
-    },
   },
   {
     name: 'Reject',
@@ -363,11 +329,6 @@ export const specialRules: SpecialRuleConfig[] = [
     dedup: true,
     sort: true,
     formatConversion: true, // 启用格式转换,将 domain-set 格式(.example.com)转换为 rule-set 格式(DOMAIN-SUFFIX,example.com)
-    header: {
-      enable: true,
-      title: 'Ruleset - Advertising, Malware & Tracking Protection',
-      description: 'This file contains combined rulesets for advertising, malicious and tracking.',
-    },
   },
   {
     name: 'lucking - Reject',
@@ -387,12 +348,6 @@ export const specialRules: SpecialRuleConfig[] = [
     applyNoResolve: true,
     formatConversion: true,
     deleteSourceFiles: true,
-    header: {
-      enable: true,
-      title: 'Ruleset - Privacy & Security Protection',
-      description:
-        'This file contains rulesets covering advertising, telemetry, malware, and phishing infrastructure',
-    },
   },
   {
     name: 'lucking - Reject Extra',
@@ -409,12 +364,6 @@ export const specialRules: SpecialRuleConfig[] = [
     applyNoResolve: true,
     formatConversion: true,
     deleteSourceFiles: true,
-    header: {
-      enable: true,
-      title: 'Ruleset - Privacy & Security Protection Extra',
-      description:
-        'This file contains extra privacy and security reject rules separated from the main reject list',
-    },
   },
 
   {
@@ -432,12 +381,6 @@ export const specialRules: SpecialRuleConfig[] = [
     // Drop unrecoverable garbage; YAML list markers are stripped earlier.
     validate: true,
     deleteSourceFiles: false,
-    header: {
-      enable: true,
-      title: 'Ruleset - Emby Media Servers',
-      description:
-        'This file contains rules for third-party Emby media servers that require proxy access',
-    },
   },
   {
     name: 'NeteaseMusic',
@@ -449,11 +392,6 @@ export const specialRules: SpecialRuleConfig[] = [
     targets: ['surge', 'clash', 'singbox', 'loon'], dedup: true,
     sort: true,
     deleteSourceFiles: true,
-    header: {
-      enable: true,
-      title: 'Ruleset - NetEase Cloud Music',
-      description: 'This file contains ruleset for Netease Music.',
-    },
   },
   {
     name: 'Streaming',
@@ -462,12 +400,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/stream.conf',
       'https://ruleset.skk.moe/List/ip/stream.conf',
     ],
-    targets: ['surge', 'clash', 'singbox', 'loon'], header: {
-      enable: true,
-      title: 'Ruleset - Global Streaming Services',
-      description:
-        'This file contains ruleset for streaming platforms such as Netflix, Disney+, HBO, Amazon Prime, Spotify, YouTube, Twitch, BBC, and Hulu',
-    },
+    targets: ['surge', 'clash', 'singbox', 'loon'],
   },
   {
     name: 'lucking - Domestic',
@@ -480,11 +413,6 @@ export const specialRules: SpecialRuleConfig[] = [
     sort: true,
     keepComments: false,
     keepEmptyLines: false,
-    header: {
-      enable: true,
-      title: 'Ruleset - Domestic',
-      description: 'This file contains known addresses that are avaliable in the Mainland China.',
-    },
   },
   {
     name: 'Telegram',
@@ -496,11 +424,6 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'], dedup: true,
     sort: true,
-    header: {
-      enable: true,
-      title: 'Ruleset - Telegram',
-      description: 'This file contains domains, IP ranges, and ASN resources used by Telegram',
-    },
   },
   {
     name: 'lucking - Direct',
@@ -511,12 +434,6 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'], dedup: true,
     sort: true,
-    header: {
-      enable: true,
-      title: 'Ruleset - Direct Connection',
-      description:
-        'This file contains domains, processes, and apps that should always connect directly without a proxy',
-    },
   },
   {
     name: 'Lan',
@@ -527,12 +444,6 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'], dedup: true,
     sort: false,
-    header: {
-      enable: true,
-      title: 'Ruleset - Local Area Network',
-      description:
-        'This file contains LAN address ranges, private IP blocks, and reserved TLDs kept on intranet paths',
-    },
   },
 ];
 
