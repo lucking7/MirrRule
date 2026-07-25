@@ -5,14 +5,22 @@ import { treeDir, TreeFileType } from './lib/tree-dir';
 import type { TreeType, TreeTypeArray } from './lib/tree-dir';
 
 import { PUBLIC_DIR } from './constants/dir';
-import { writeFile } from './lib/misc';
+import { fastStringCompare, writeFile } from './lib/misc';
 import { tagged as html } from 'foxts/tagged';
 import { compareAndWriteFile } from './lib/create-file';
 import { priorityOrder, prioritySorter } from './lib/public-index-sort.ts';
 import { escapeHtml } from './utils/escape-html';
 
-/** Root folders open by default on first paint (Austere workbench keeps noise low). */
-const openRootFolders = new Set(['List']);
+/**
+ * 规则平台目录 → 客户端映射。规则卡片模型:同一 basename 跨这些目录聚合为一条规则,
+ * 客户端格式是规则的输出,而不是四棵独立的树。
+ */
+const CLIENT_DIRS = [
+  { dir: 'List', client: 'Surge', short: 'S' },
+  { dir: 'Clash', client: 'Clash', short: 'C' },
+  { dir: 'Loon', client: 'Loon', short: 'L' },
+  { dir: 'sing-box', client: 'sing-box', short: 'X' },
+] as const;
 
 /** Shortcut chips → search queries (personal high-frequency rulesets). */
 const QUICK_SEARCHES = ['emby', 'reject', 'stream', 'github', 'geoip'] as const;
@@ -82,38 +90,89 @@ export const buildPublic = task(
   return writeFile(path.join(PUBLIC_DIR, 'index.html'), pageHtml);
 });
 
-function buildTimestampGmt8(): string {
+function buildTimestampGmt8(): { iso: string, display: string } {
   const now = new Date();
   const offsetMinutes = 8 * 60;
   const msPerMinute = 60 * 1000;
   const gmtPlus8 = new Date(
     now.getTime() + (offsetMinutes - now.getTimezoneOffset()) * msPerMinute
   );
-  return gmtPlus8.toISOString().replace('Z', '+08:00');
+  const iso = gmtPlus8.toISOString().replace('Z', '+08:00');
+  // Display: minute precision is enough for a build signal (distill: drop ms noise)
+  const display = `${iso.slice(0, 16).replace('T', ' ')} +08:00`;
+  return { iso, display };
 }
 
-function rootFolderNames(tree: TreeTypeArray): string[] {
-  return tree
-    .filter(entry => entry.type === TreeFileType.DIRECTORY)
-    .sort(prioritySorter)
-    .map(entry => entry.name);
+export interface RuleFormat {
+  client: string,
+  short: string,
+  dir: string,
+  filename: string,
+  /** encodeURI'd relative href */
+  href: string,
 }
 
-function platformChipsHtml(roots: string[]): string {
-  const chips = [
-    html`<button type="button" class="chip is-on" data-platform="all" aria-pressed="true">All</button>`,
-    ...roots.map(
-      name =>
-        html`<button type="button" class="chip" data-platform="${name}" aria-pressed="false">${name}</button>`
-    ),
-  ];
-  return chips.join('\n');
+export interface RuleEntry {
+  name: string,
+  formats: RuleFormat[],
 }
 
-function quickChipsHtml(): string {
-  return QUICK_SEARCHES.map(
-    q => html`<button type="button" class="quick-chip" data-query="${q}">${q}</button>`
-  ).join('\n');
+function stripExtension(filename: string): string {
+  const dot = filename.lastIndexOf('.');
+  return dot > 0 ? filename.slice(0, dot) : filename;
+}
+
+/**
+ * Aggregate client dirs into rule cards: one rule per basename, each holding
+ * its per-client format outputs. Non-client roots (GeoIP, Mirror, Modules…)
+ * pass through for the generic tree rendering.
+ */
+export function collectRules(tree: TreeTypeArray): {
+  rules: RuleEntry[],
+  restRoots: TreeTypeArray,
+} {
+  const clientDirNames = new Set<string>(CLIENT_DIRS.map(c => c.dir));
+  const byName = new Map<string, Map<string, RuleFormat>>();
+  const restRoots: TreeTypeArray = [];
+
+  for (const entry of tree) {
+    if (entry.type !== TreeFileType.DIRECTORY || !clientDirNames.has(entry.name)) {
+      restRoots.push(entry);
+      continue;
+    }
+    const meta = CLIENT_DIRS.find(c => c.dir === entry.name)!;
+    for (const child of entry.children) {
+      if (child.type !== TreeFileType.FILE || !shouldListFile(child.name)) {
+        continue;
+      }
+      const ruleName = stripExtension(child.name);
+      let bucket = byName.get(ruleName);
+      if (!bucket) {
+        bucket = new Map();
+        byName.set(ruleName, bucket);
+      }
+      bucket.set(meta.dir, {
+        client: meta.client,
+        short: meta.short,
+        dir: meta.dir,
+        filename: child.name,
+        href: encodeURI(child.path),
+      });
+    }
+  }
+
+  const rules = [...byName.entries()]
+    .map(([name, formatMap]) => {
+      const formats: RuleFormat[] = [];
+      for (const c of CLIENT_DIRS) {
+        const hit = formatMap.get(c.dir);
+        if (hit) formats.push(hit);
+      }
+      return { name, formats };
+    })
+    .sort((a, b) => fastStringCompare(a.name, b.name));
+
+  return { rules, restRoots };
 }
 
 /** Count files that will appear in the index under a tree node. */
@@ -128,9 +187,100 @@ function countListedFiles(entry: TreeType): number {
   return total;
 }
 
+function clientChipsHtml(tree: TreeTypeArray): string {
+  const present = CLIENT_DIRS.filter(c =>
+    tree.some(e => e.type === TreeFileType.DIRECTORY && e.name === c.dir)
+  );
+  const chips = [
+    html`<button type="button" class="chip is-on" data-platform="all" aria-pressed="true">All</button>`,
+    ...present.map(
+      c =>
+        html`<button type="button" class="chip" data-platform="${c.dir}" aria-pressed="false">${c.client}</button>`
+    ),
+  ];
+  return chips.join('\n');
+}
+
+function quickChipsHtml(): string {
+  return QUICK_SEARCHES.map(
+    q => html`<button type="button" class="quick-chip" data-query="${q}">${q}</button>`
+  ).join('\n');
+}
+
+function availHtml(rule: RuleEntry): string {
+  const present = new Set(rule.formats.map(f => f.dir));
+  return CLIENT_DIRS.map(c => {
+    const on = present.has(c.dir);
+    const title = on ? `${c.client} 可用` : `无 ${c.client} 格式`;
+    return html`<span class="av ${on ? 'is-on' : 'is-off'}" title="${title}">${c.short}</span>`;
+  }).join('\n');
+}
+
+/** Rule card: collapsed row = rule name + client availability; body = one row per client format. */
+export function ruleCardsHtml(rules: RuleEntry[]): string {
+  let result = '';
+  for (const rule of rules) {
+    const nameAttr = escapeHtml(rule.name.toLowerCase());
+    const escapedName = escapeHtml(rule.name);
+    const clientDirs = rule.formats.map(f => f.dir).join(' ');
+    const clientNames = rule.formats.map(f => f.client).join('、');
+    const rows = rule.formats
+      .map(
+        f => html`
+          <li class="fmt" data-client-dir="${f.dir}">
+            <span class="fmt-client">${f.client}</span>
+            <a
+              class="fmt-file"
+              href="${escapeHtml(f.href)}"
+              target="_blank"
+              rel="noopener noreferrer"
+              >${escapeHtml(f.filename)}</a
+            >
+            <button
+              type="button"
+              class="copy-btn"
+              data-path="${escapeHtml(f.href)}"
+              data-client="${f.client}"
+              aria-label="Copy ${f.client} URL for ${escapedName}"
+            >
+              Copy URL
+            </button>
+          </li>
+        `
+      )
+      .join('\n');
+    result += html`
+      <details
+        class="rule"
+        data-rule="${nameAttr}"
+        data-name="${nameAttr}"
+        data-clients="${clientDirs}"
+        data-copy-scope
+      >
+        <summary class="rule-summary">
+          <span class="rule-name">${escapedName}</span>
+          <span class="avail" aria-hidden="true">${availHtml(rule)}</span>
+          <span class="sr-only">可用格式:${clientNames}</span>
+        </summary>
+        <div class="rule-body">
+          <div class="copied-strip" hidden>
+            <span class="copied-status"></span>
+            <input class="copied-url" type="text" readonly aria-label="已复制的 URL" />
+            <button type="button" class="strip-close" aria-label="关闭">✕</button>
+          </div>
+          <ul class="fmt-list">
+            ${rows}
+          </ul>
+        </div>
+      </details>
+    `;
+  }
+  return result;
+}
+
 /**
- * Render directory tree with depth / path context so nested folders
- * (e.g. Mirror/…/sgmodule) stay readable instead of bare leaf names.
+ * Render non-client roots (GeoIP / Mirror / Modules …) as a generic tree.
+ * Flat roots open by default; deep roots stay collapsed.
  */
 export function treeHtml(
   tree: TreeTypeArray,
@@ -145,8 +295,11 @@ export function treeHtml(
     const entry = tree[i];
 
     if (entry.type === TreeFileType.DIRECTORY) {
-      const isOpenRoot = level === 0 && openRootFolders.has(entry.name);
-      const openAttr = isOpenRoot ? 'open' : '';
+      const isFlatRoot =
+        level === 0 &&
+        !entry.children.some(child => child.type === TreeFileType.DIRECTORY);
+      const openAttr = isFlatRoot ? 'open' : '';
+      const defaultOpenAttr = isFlatRoot ? ' data-default-open' : '';
       const folderPath = parentPath ? `${parentPath}/${entry.name}` : entry.name;
       const currentRoot = level === 0 ? entry.name : rootName;
       const fileCount = countListedFiles(entry);
@@ -164,6 +317,17 @@ export function treeHtml(
       let depthClass = 'is-branch';
       if (level === 0) depthClass = 'is-root';
       else if (level === 1) depthClass = 'is-section';
+      const copyScopeAttr = level === 0 ? ' data-copy-scope' : '';
+      const stripHtml =
+        level === 0
+          ? html`
+              <div class="copied-strip" hidden>
+                <span class="copied-status"></span>
+                <input class="copied-url" type="text" readonly aria-label="已复制的 URL" />
+                <button type="button" class="strip-close" aria-label="关闭">✕</button>
+              </div>
+            `
+          : '';
       const summaryInner = html`
         <summary class="folder-summary ${depthClass}" style="--depth: ${String(level)}">
           <span class="folder-summary-main">
@@ -185,8 +349,9 @@ export function treeHtml(
             data-root="${escapeHtml(entry.name)}"
             style="--depth: ${String(level)}"
           >
-            <details ${openAttr}>
+            <details ${openAttr}${defaultOpenAttr}${copyScopeAttr}>
               ${summaryInner}
+              ${stripHtml}
               <ul>
                 ${children}
               </ul>
@@ -237,7 +402,7 @@ export function treeHtml(
               type="button"
               class="copy-btn"
               data-path="${pathAttr}"
-              aria-label="Copy URL for ${escapeHtml(entry.name)}"
+              aria-label="Copy URL for ${escapedName}"
             >
               Copy URL
             </button>
@@ -250,13 +415,21 @@ export function treeHtml(
 }
 
 /**
- * Hallmark · macrostructure: Workbench · tone: austere · genre: editorial
- * audience: self · use: copy ruleset URL · theme: custom austere (warm paper)
- * nav: N1a minimal · footer: Ft4 dense colophon · enrichment: none
+ * Direction contract (2026-07, user-pinned):
+ * THESIS: 规则是主实体,客户端格式是规则的输出;拒绝"四平台树 + 扩展名猜格式"的类目默认。
+ * OWN-WORLD: warm paper austere workbench;Plex Sans/Mono;发丝线;ghost buttons;单 accent。
+ * STORY: 访客搜规则名 → 展开卡片 → 按客户端名复制 URL → 驻留确认条核验。
+ * FIRST VIEWPORT: 窄列;header → lede → sticky 搜索/chips → Rules 卡片索引(默认折叠)。
+ * FORM: accordion rule cards(候选序第 1,优于 table / master-detail / chip-matrix /
+ *       client-tabs);用户三选一钉定;无 seed(user-pinned direction)。
  */
 function generateHtml(tree: TreeTypeArray) {
-  const roots = rootFolderNames(tree);
   const builtAt = buildTimestampGmt8();
+  const { rules, restRoots } = collectRules(tree);
+  const clientCount = CLIENT_DIRS.filter(c =>
+    tree.some(e => e.type === TreeFileType.DIRECTORY && e.name === c.dir)
+  ).length;
+  const otherFileCount = restRoots.reduce((total, entry) => total + countListedFiles(entry), 0);
 
   return html`
     <!DOCTYPE html>
@@ -280,25 +453,25 @@ function generateHtml(tree: TreeTypeArray) {
           rel="stylesheet"
         />
         <style>
-          /* Impeccable · typeset · Workbench / Austere
+          /* Impeccable · Austere Workbench (evolved 2026-07)
            * font system: IBM Plex only — Sans (UI) + Mono (paths / data)
-           * paper: oklch(96% 0.01 85) · accent: oklch(42% 0.09 45)
+           * light & dark tokens both verified ≥ WCAG AA 4.5:1 for text roles
            */
           :root {
             --color-paper: oklch(96% 0.01 85);
             --color-surface: oklch(98.5% 0.008 85);
             --color-ink: oklch(22% 0.02 60);
-            --color-muted: oklch(48% 0.02 60);
+            --color-muted: oklch(28% 0.02 60);
             --color-line: oklch(86% 0.015 85);
-            --color-accent: oklch(42% 0.09 45);
+            --color-accent: oklch(32% 0.09 45);
             --color-hot: oklch(93% 0.015 85);
-            --color-focus: oklch(42% 0.09 45 / 0.28);
+            --color-focus: oklch(32% 0.09 45 / 0.28);
             /* Single family: Plex Sans for UI, Plex Mono for paths / data only */
             --font-ui: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
             --font-mono: 'IBM Plex Mono', ui-monospace, 'Menlo', 'Consolas', monospace;
             --text-base: 1rem;
             --text-sm: 0.875rem;
-            --text-xs: 0.75rem;
+            --text-xs: 0.8125rem;
             --text-lg: 1.125rem;
             --text-xl: 1.375rem;
             --space-1: 0.25rem;
@@ -378,7 +551,7 @@ function generateHtml(tree: TreeTypeArray) {
 
           kbd {
             font-family: var(--font-mono);
-            font-size: 10px;
+            font-size: var(--text-xs);
             padding: 0.1rem 0.35rem;
             border: 1px solid var(--color-line);
             border-radius: var(--radius);
@@ -476,11 +649,12 @@ function generateHtml(tree: TreeTypeArray) {
           .chip {
             font-family: var(--font-mono);
             font-size: var(--text-xs);
-            min-height: 2rem;
-            padding: 0.4rem 0.7rem;
+            min-height: 2.75rem;
+            padding: 0.4rem 0.8rem;
             border: 1px solid var(--color-line);
             border-radius: var(--radius);
             color: var(--color-muted);
+            white-space: nowrap;
             transition:
               background-color var(--dur-short) var(--ease-out),
               color var(--dur-short) var(--ease-out),
@@ -507,6 +681,7 @@ function generateHtml(tree: TreeTypeArray) {
             display: flex;
             align-items: center;
             gap: var(--space-3);
+            min-height: 2.75rem;
             padding: 0.65rem 0.75rem;
             background: var(--color-surface);
             border: 1px solid var(--color-line);
@@ -549,17 +724,32 @@ function generateHtml(tree: TreeTypeArray) {
           }
 
           .cmd .clear-btn {
+            position: relative;
             display: none;
-            font-family: var(--font-mono);
+            /* Action verb → Sans (data/identifiers stay Mono) */
+            font-family: var(--font-ui);
             font-size: var(--text-xs);
             color: var(--color-muted);
             border: 1px solid var(--color-line);
             border-radius: var(--radius);
-            padding: 0.15rem 0.4rem;
+            padding: 0.35rem 0.5rem;
+          }
+
+          /* 44px touch floor without growing the search row: the visual chip stays
+           * compact, the hit area extends past it. */
+          .cmd .clear-btn::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            height: 2.75rem;
+            translate: 0 -50%;
           }
 
           .cmd .clear-btn.is-visible {
             display: inline-flex;
+            align-items: center;
           }
 
           .cmd .clear-btn:hover {
@@ -576,8 +766,8 @@ function generateHtml(tree: TreeTypeArray) {
           .quick-chip {
             font-family: var(--font-mono);
             font-size: var(--text-xs);
-            min-height: 2rem;
-            padding: 0.35rem 0.65rem;
+            min-height: 2.75rem;
+            padding: 0.35rem 0.7rem;
             border: 1px solid var(--color-line);
             border-radius: var(--radius);
             color: var(--color-muted);
@@ -591,14 +781,6 @@ function generateHtml(tree: TreeTypeArray) {
           .quick-chip.is-hot {
             color: var(--color-accent);
             border-color: var(--color-accent);
-          }
-
-          .result-count {
-            min-height: 1.2em;
-            margin: 0;
-            font-family: var(--font-mono);
-            font-size: var(--text-xs);
-            color: var(--color-muted);
           }
 
           .controls {
@@ -616,7 +798,7 @@ function generateHtml(tree: TreeTypeArray) {
             border-bottom-color: var(--color-line);
           }
 
-          .tree-toolbar {
+          .list-toolbar {
             display: flex;
             flex-wrap: wrap;
             align-items: center;
@@ -624,19 +806,261 @@ function generateHtml(tree: TreeTypeArray) {
             gap: var(--space-2);
           }
 
-          .tree-toolbar .collapse-btn {
+          .result-count {
+            min-height: 1.2em;
+            margin: 0;
             font-family: var(--font-mono);
             font-size: var(--text-xs);
-            min-height: 2rem;
-            padding: 0.35rem 0.65rem;
+            color: var(--color-muted);
+          }
+
+          .list-toolbar .toggle-btn {
+            /* Action verb → Sans (data/identifiers stay Mono) */
+            font-family: var(--font-ui);
+            font-size: var(--text-xs);
+            min-height: 2.75rem;
+            padding: 0.35rem 0.7rem;
             border: 1px solid var(--color-line);
             border-radius: var(--radius);
             color: var(--color-muted);
           }
 
-          .tree-toolbar .collapse-btn:hover {
+          .list-toolbar .toggle-btn:hover {
             color: var(--color-ink);
             border-color: var(--color-muted);
+          }
+
+          .rules-section,
+          .other-sections {
+            display: grid;
+            gap: var(--space-3);
+          }
+
+          .section-h {
+            display: flex;
+            align-items: baseline;
+            gap: var(--space-2);
+            margin: 0;
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--color-muted);
+          }
+
+          .section-h .section-count {
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius);
+            padding: 0.08rem 0.4rem;
+            font-variant-numeric: tabular-nums;
+          }
+
+          /* ---- Rule cards (the core entity) ---- */
+
+          .rule,
+          .folder,
+          .file {
+            /* Clear the sticky controls when scrolled into view programmatically */
+            scroll-margin-top: 16rem;
+          }
+
+          .rule-list {
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius);
+            background: var(--color-surface);
+            overflow: hidden;
+          }
+
+          .rule {
+            border-bottom: 1px solid var(--color-line);
+          }
+
+          .rule:last-child {
+            border-bottom: 0;
+          }
+
+          .rule-summary {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            min-height: 3rem;
+            padding: 0.3rem 0.85rem;
+            cursor: pointer;
+            list-style: none;
+            font-family: var(--font-mono);
+          }
+
+          .rule-summary::-webkit-details-marker {
+            display: none;
+          }
+
+          .rule-summary::before {
+            content: '▸';
+            flex: 0 0 auto;
+            width: 1em;
+            color: var(--color-muted);
+            transition: transform var(--dur-short) var(--ease-out);
+          }
+
+          .rule[open] > .rule-summary::before {
+            transform: rotate(90deg);
+          }
+
+          .rule-summary:hover {
+            background: var(--color-hot);
+          }
+
+          .rule-name {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: var(--text-sm);
+            font-weight: 600;
+            color: var(--color-ink);
+          }
+
+          .avail {
+            flex: 0 0 auto;
+            display: flex;
+            gap: 1px;
+            font-size: var(--text-xs);
+          }
+
+          .av {
+            width: 1.5em;
+            text-align: center;
+            font-weight: 600;
+          }
+
+          .av.is-on {
+            color: var(--color-muted);
+          }
+
+          .av.is-off {
+            color: var(--color-line);
+          }
+
+          .rule-body {
+            border-top: 1px solid var(--color-line);
+            background: color-mix(in oklch, var(--color-paper) 45%, var(--color-surface));
+          }
+
+          .fmt-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+          }
+
+          .fmt {
+            display: grid;
+            grid-template-columns: 5.5rem minmax(0, 1fr) auto;
+            align-items: center;
+            gap: var(--space-3);
+            min-height: 3rem;
+            padding: 0.2rem 0.85rem 0.2rem 2.1rem;
+          }
+
+          .fmt + .fmt {
+            border-top: 1px solid var(--color-line);
+          }
+
+          .fmt-client {
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            font-weight: 600;
+            color: var(--color-ink);
+          }
+
+          .fmt-file {
+            font-family: var(--font-mono);
+            font-size: var(--text-sm);
+            color: var(--color-muted);
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-decoration: underline;
+            text-decoration-color: transparent;
+            text-underline-offset: 0.12em;
+          }
+
+          .fmt-file:hover {
+            color: var(--color-accent);
+            text-decoration-color: var(--color-accent);
+          }
+
+          .fmt.is-hidden {
+            display: none;
+          }
+
+          /* ---- Copy feedback strip (persistent, verifiable) ---- */
+
+          .copied-strip {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            margin: var(--space-3) 0.85rem 0;
+            padding: 0.4rem 0.6rem;
+            border: 1px solid var(--color-accent);
+            border-radius: var(--radius);
+            background: color-mix(in oklch, var(--color-accent) 7%, var(--color-surface));
+          }
+
+          .copied-strip[hidden] {
+            display: none;
+          }
+
+          .copied-status {
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            font-weight: 600;
+            color: var(--color-accent);
+            white-space: nowrap;
+          }
+
+          .copied-strip.is-error {
+            border-color: var(--color-ink);
+            border-style: dashed;
+          }
+
+          .copied-strip.is-error .copied-status {
+            color: var(--color-ink);
+          }
+
+          .copied-url {
+            flex: 1;
+            min-width: 0;
+            border: 0;
+            background: transparent;
+            color: var(--color-ink);
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            outline: none;
+            padding: 0.2rem 0;
+          }
+
+          .strip-close {
+            font-family: var(--font-mono);
+            font-size: var(--text-xs);
+            min-height: 2.75rem;
+            padding: 0.2rem 0.5rem;
+            color: var(--color-muted);
+          }
+
+          .strip-close:hover {
+            color: var(--color-ink);
+          }
+
+          /* ---- Generic tree for non-client roots (GeoIP / Mirror / …) ---- */
+
+          .tree,
+          .tree ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
           }
 
           .tree-panel {
@@ -644,13 +1068,6 @@ function generateHtml(tree: TreeTypeArray) {
             border-radius: var(--radius);
             background: var(--color-surface);
             overflow: hidden;
-          }
-
-          .tree,
-          .tree ul {
-            list-style: none;
-            margin: 0;
-            padding: 0;
           }
 
           .folder-summary {
@@ -687,7 +1104,7 @@ function generateHtml(tree: TreeTypeArray) {
             transform: rotate(90deg);
           }
 
-          /* Root section header (List, Modules, Mirror…) */
+          /* Root section header (GeoIP, Mirror, Modules…) */
           .folder-summary.is-root {
             font-size: var(--text-xs);
             font-weight: 600;
@@ -695,25 +1112,21 @@ function generateHtml(tree: TreeTypeArray) {
             text-transform: uppercase;
             color: var(--color-muted);
             background: var(--color-surface);
-            min-height: 2.5rem;
+            min-height: 3rem;
           }
 
           .folder-summary.is-root .folder-name {
             color: var(--color-muted);
           }
 
-          /*
-           * Level-1 sections under a root (Modules → Converted / Merged / Rules).
-           * These are the weird "bare name" rows — treat as clear subsections,
-           * not as anonymous file-like summaries.
-           */
+          /* Level-1 sections under a root (Modules → Converted / Merged / Rules) */
           .folder-summary.is-section {
-            font-size: 0.875rem;
+            font-size: var(--text-sm);
             font-weight: 600;
             letter-spacing: 0;
             text-transform: none;
             color: var(--color-ink);
-            min-height: 2.4rem;
+            min-height: 2.75rem;
             background: color-mix(in oklch, var(--color-paper) 55%, var(--color-surface));
             border-bottom: 1px solid var(--color-line);
           }
@@ -735,12 +1148,12 @@ function generateHtml(tree: TreeTypeArray) {
 
           /* Deeper branches (Mirror / DualSubs / sgmodule) */
           .folder-summary.is-branch {
-            font-size: 0.8125rem;
+            font-size: var(--text-xs);
             font-weight: 500;
             letter-spacing: 0;
             text-transform: none;
             color: var(--color-ink);
-            min-height: 2.25rem;
+            min-height: 2.75rem;
           }
 
           .folder-summary.is-branch:hover {
@@ -758,7 +1171,7 @@ function generateHtml(tree: TreeTypeArray) {
           .folder-trail {
             color: var(--color-muted);
             font-weight: 400;
-            font-size: 0.75rem;
+            font-size: var(--text-xs);
           }
 
           .folder-trail::after {
@@ -774,7 +1187,7 @@ function generateHtml(tree: TreeTypeArray) {
 
           .folder-count {
             flex: 0 0 auto;
-            font-size: 0.6875rem;
+            font-size: var(--text-xs);
             font-weight: 500;
             color: var(--color-muted);
             font-variant-numeric: tabular-nums;
@@ -789,29 +1202,12 @@ function generateHtml(tree: TreeTypeArray) {
             margin-left: calc(0.85rem + (var(--depth, 1) * 0.45rem));
           }
 
-          /* When a platform chip isolates one root, open it as the workspace */
-          body[data-platform]:not([data-platform='all'])
-            .folder[data-root]:not(.is-hidden)
-            > details
-            > .folder-summary.is-root {
-            background: var(--color-hot);
-            color: var(--color-ink);
-          }
-
-          body[data-platform]:not([data-platform='all'])
-            .folder[data-root]:not(.is-hidden)
-            > details
-            > .folder-summary.is-root
-            .folder-name {
-            color: var(--color-ink);
-          }
-
           .file-row {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
             gap: var(--space-3);
             align-items: center;
-            min-height: 2.5rem;
+            min-height: 3rem;
             padding: 0.35rem 0.85rem;
             border-top: 1px solid var(--color-line);
           }
@@ -839,23 +1235,19 @@ function generateHtml(tree: TreeTypeArray) {
           .root-badge {
             flex: 0 0 auto;
             font-family: var(--font-mono);
-            font-size: 0.625rem;
+            font-size: var(--text-xs);
             font-weight: 600;
             letter-spacing: 0.04em;
             text-transform: uppercase;
             color: var(--color-muted);
             border: 1px solid var(--color-line);
             border-radius: var(--radius);
-            padding: 0.1rem 0.35rem;
-          }
-
-          body[data-platform]:not([data-platform='all']) .root-badge {
-            display: none;
+            padding: 0.15rem 0.4rem;
           }
 
           .file-link {
             font-family: var(--font-mono);
-            font-size: 0.8125rem;
+            font-size: var(--text-sm);
             color: var(--color-muted);
             min-width: 0;
             overflow: hidden;
@@ -871,17 +1263,19 @@ function generateHtml(tree: TreeTypeArray) {
             text-decoration-color: var(--color-accent);
           }
 
+          /* Ghost button: list rows stay quiet, state fills only on confirm.
+           * Copy URL is an action verb → Sans; identifiers stay Mono. */
           .copy-btn {
-            font-family: var(--font-mono);
+            font-family: var(--font-ui);
             font-size: var(--text-xs);
             font-weight: 600;
-            min-height: 2rem;
-            min-width: 5.5rem;
-            padding: 0.4rem 0.7rem;
+            min-height: 2.75rem;
+            min-width: 6.5rem;
+            padding: 0.35rem 0.8rem;
             border: 1px solid var(--color-ink);
             border-radius: var(--radius);
-            background: var(--color-ink);
-            color: var(--color-paper);
+            background: transparent;
+            color: var(--color-ink);
             white-space: nowrap;
             transition:
               background-color var(--dur-short) var(--ease-out),
@@ -890,12 +1284,11 @@ function generateHtml(tree: TreeTypeArray) {
           }
 
           .copy-btn:hover {
-            background: var(--color-accent);
-            border-color: var(--color-accent);
+            /* Ghost until confirm: hover stays quiet, no solid ink fill */
+            background: var(--color-hot);
           }
 
           .copy-btn.is-done {
-            background: var(--color-surface);
             border-color: var(--color-accent);
             color: var(--color-accent);
           }
@@ -913,7 +1306,9 @@ function generateHtml(tree: TreeTypeArray) {
           }
 
           .file.is-hidden,
-          .folder.is-hidden {
+          .folder.is-hidden,
+          .rule.is-hidden,
+          .other-sections.is-hidden {
             display: none;
           }
 
@@ -959,6 +1354,41 @@ function generateHtml(tree: TreeTypeArray) {
             color: var(--color-ink);
           }
 
+          @media (max-width: 767px) {
+            /* Mobile: sticky controls would eat half the viewport; keep them static */
+            .controls {
+              position: static;
+            }
+
+            .platforms {
+              flex-wrap: nowrap;
+              overflow-x: auto;
+              scrollbar-width: none;
+              margin: 0 calc(-1 * var(--space-4));
+              padding: 0 var(--space-4);
+            }
+
+            .platforms::-webkit-scrollbar {
+              display: none;
+            }
+
+            .fmt {
+              grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+              padding-left: var(--space-4);
+            }
+
+            .copy-btn {
+              min-width: 0;
+              padding: 0.35rem 0.6rem;
+            }
+
+            .rule,
+            .folder,
+            .file {
+              scroll-margin-top: 1rem;
+            }
+          }
+
           @media (prefers-reduced-motion: reduce) {
             *,
             *::before,
@@ -982,28 +1412,31 @@ function generateHtml(tree: TreeTypeArray) {
             </div>
           </header>
 
-          <p class="lede">自用镜像。选平台 → 搜文件 → 复制 URL 进客户端。</p>
+          <p class="lede">
+            ${String(rules.length)} 条规则 × ${String(clientCount)} 客户端格式。搜规则名 → 展开卡片 →
+            复制你客户端的 URL。
+          </p>
           <p class="build-line">
-            Last build <time datetime="${builtAt}">${builtAt}</time>
+            Last build <time datetime="${builtAt.iso}">${builtAt.display}</time>
           </p>
 
           <div class="controls" id="controls">
-            <div class="platforms" id="platform-chips" role="toolbar" aria-label="目录过滤">
-              ${platformChipsHtml(roots)}
+            <div class="platforms" id="platform-chips" role="toolbar" aria-label="客户端过滤">
+              ${clientChipsHtml(tree)}
             </div>
 
             <div class="cmd-wrap">
               <div class="cmd">
                 <span class="prompt" aria-hidden="true">find</span>
-                <label class="sr-only" for="search-input">搜索文件与文件夹</label>
+                <label class="sr-only" for="search-input">搜索规则与文件</label>
                 <input
                   id="search-input"
                   type="search"
-                  placeholder="Search files and folders…"
+                  placeholder="Search rules…"
                   autocomplete="off"
                   spellcheck="false"
                   enterkeyhint="search"
-                  aria-label="搜索文件与文件夹"
+                  aria-label="搜索规则与文件"
                 />
                 <div class="cmd-actions">
                   <button type="button" class="clear-btn" id="clear-btn" aria-label="清除搜索">
@@ -1015,23 +1448,42 @@ function generateHtml(tree: TreeTypeArray) {
               <div class="quick" id="quick-chips" aria-label="常用规则">
                 ${quickChipsHtml()}
               </div>
-              <div class="tree-toolbar">
+              <div class="list-toolbar">
                 <p class="result-count" id="search-result-count" aria-live="polite"></p>
-                <button type="button" class="collapse-btn" id="collapse-btn">
-                  折叠目录
-                </button>
+                <button type="button" class="toggle-btn" id="toggle-btn">Expand all</button>
               </div>
             </div>
           </div>
 
-          <div class="tree-panel">
-            <ul class="tree" id="file-tree">
-              ${treeHtml(tree, 0)}
-            </ul>
-            <div class="empty-state" id="empty-state">
-              <p>无匹配结果。</p>
-              <p class="hint">换个关键词，或按 Esc 清空。</p>
+          <section class="rules-section" aria-labelledby="rules-heading">
+            <h2 class="section-h" id="rules-heading">
+              Rules
+              <span class="section-count">${String(rules.length)}</span>
+            </h2>
+            <div class="rule-list" id="rule-list">
+              ${ruleCardsHtml(rules)}
             </div>
+          </section>
+
+          ${restRoots.length > 0
+            ? html`
+                <section class="other-sections" aria-labelledby="other-heading">
+                  <h2 class="section-h" id="other-heading">
+                    Other
+                    <span class="section-count">${String(otherFileCount)}</span>
+                  </h2>
+                  <div class="tree-panel">
+                    <ul class="tree" id="file-tree">
+                      ${treeHtml(restRoots, 0)}
+                    </ul>
+                  </div>
+                </section>
+              `
+            : ''}
+
+          <div class="empty-state" id="empty-state">
+            <p>无匹配结果。</p>
+            <p class="hint">换个关键词,或按 Esc 清空。</p>
           </div>
 
           <p class="sr-only" id="status-live" aria-live="polite" aria-atomic="true"></p>
@@ -1047,20 +1499,24 @@ function generateHtml(tree: TreeTypeArray) {
             const searchInput = document.getElementById('search-input');
             const clearBtn = document.getElementById('clear-btn');
             const resultCount = document.getElementById('search-result-count');
+            const ruleList = document.getElementById('rule-list');
             const tree = document.getElementById('file-tree');
             const emptyState = document.getElementById('empty-state');
             const platformBar = document.getElementById('platform-chips');
             const quickBar = document.getElementById('quick-chips');
-            const collapseBtn = document.getElementById('collapse-btn');
+            const toggleBtn = document.getElementById('toggle-btn');
             const statusLive = document.getElementById('status-live');
             const PLATFORM_KEY = 'nrrule-platform';
-            const openRoots = new Set(['List']);
 
             let activePlatform = 'all';
             let activeQuery = '';
             /** @type {Map<string, boolean> | null} */
             let openSnapshot = null;
             let wasSearching = false;
+            let allExpanded = false;
+
+            const ruleCards = ruleList ? [...ruleList.querySelectorAll('.rule')] : [];
+            const clientNames = { List: 'Surge', Clash: 'Clash', Loon: 'Loon', 'sing-box': 'sing-box' };
 
             function absoluteUrl(filePath) {
               try {
@@ -1071,121 +1527,138 @@ function generateHtml(tree: TreeTypeArray) {
             }
 
             function detailsKey(details) {
+              if (details.classList.contains('rule')) {
+                return 'r:' + (details.getAttribute('data-rule') || '');
+              }
               const folder = details.closest('.folder');
-              return (folder && folder.getAttribute('data-path')) || '';
+              return folder ? 'f:' + (folder.getAttribute('data-path') || '') : '';
+            }
+
+            function allDetails() {
+              const list = [...ruleCards];
+              if (tree) list.push(...tree.querySelectorAll('details'));
+              return list;
             }
 
             function snapshotOpenState() {
               const map = new Map();
-              tree.querySelectorAll('details').forEach(function (details) {
+              allDetails().forEach(function (details) {
                 const key = detailsKey(details);
                 if (key) map.set(key, details.open);
               });
               return map;
             }
 
+            function defaultOpen(details) {
+              if (details.classList.contains('rule')) return false;
+              return details.hasAttribute('data-default-open');
+            }
+
             function restoreOpenState(map) {
-              tree.querySelectorAll('details').forEach(function (details) {
+              allDetails().forEach(function (details) {
                 const key = detailsKey(details);
                 if (map && map.has(key)) {
                   details.open = Boolean(map.get(key));
                   return;
                 }
-                const folder = details.closest('.folder');
-                const root = folder && folder.getAttribute('data-root');
-                details.open = Boolean(root && openRoots.has(root));
+                details.open = defaultOpen(details);
               });
             }
 
-            function collapseFolders() {
-              tree.querySelectorAll('details').forEach(function (details) {
-                const folder = details.closest('.folder');
-                const root = folder && folder.getAttribute('data-root');
-                details.open = Boolean(root && openRoots.has(root));
+            function setAllOpen(open) {
+              allExpanded = open;
+              allDetails().forEach(function (details) {
+                details.open = open;
               });
+              toggleBtn.textContent = open ? 'Collapse' : 'Expand all';
               openSnapshot = null;
               wasSearching = false;
-              if (statusLive) statusLive.textContent = '已折叠目录';
+              if (statusLive) statusLive.textContent = open ? '已展开全部' : '已折叠全部';
             }
 
             async function copyPath(btn) {
               const filePath = btn.getAttribute('data-path');
               if (!filePath) return;
               const url = absoluteUrl(filePath);
+              let ok = false;
               try {
                 await navigator.clipboard.writeText(url);
+                ok = true;
               } catch {
-                const ta = document.createElement('textarea');
-                ta.value = url;
-                ta.setAttribute('readonly', '');
-                ta.style.position = 'fixed';
-                ta.style.left = '-9999px';
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                document.body.removeChild(ta);
+                try {
+                  const ta = document.createElement('textarea');
+                  ta.value = url;
+                  ta.setAttribute('readonly', '');
+                  ta.style.position = 'fixed';
+                  ta.style.left = '-9999px';
+                  document.body.appendChild(ta);
+                  ta.select();
+                  ok = document.execCommand('copy');
+                  document.body.removeChild(ta);
+                } catch {
+                  ok = false;
+                }
+              }
+              const client = btn.getAttribute('data-client');
+              const scope = btn.closest('[data-copy-scope]');
+              const strip = scope ? scope.querySelector('.copied-strip') : null;
+              if (strip) {
+                const status = strip.querySelector('.copied-status');
+                const input = strip.querySelector('.copied-url');
+                input.value = url;
+                strip.classList.toggle('is-error', !ok);
+                status.textContent = ok
+                  ? client
+                    ? 'Copied · ' + client
+                    : 'Copied URL'
+                  : '复制失败,请手动复制';
+                strip.hidden = false;
+                if (!ok) {
+                  input.focus();
+                  input.select();
+                }
               }
               const prev = btn.textContent;
-              btn.textContent = 'Copied';
+              btn.textContent = ok ? 'Copied' : 'Failed';
               btn.classList.add('is-done');
-              if (statusLive) {
-                statusLive.textContent = '已复制 ' + url;
-              }
               window.setTimeout(function () {
                 btn.textContent = prev || 'Copy URL';
                 btn.classList.remove('is-done');
               }, 1400);
+              if (statusLive) {
+                statusLive.textContent = (ok ? '已复制 ' : '复制失败 ') + url;
+              }
             }
 
-            tree.addEventListener('click', function (event) {
-              const btn = event.target.closest('.copy-btn');
-              if (!btn || !tree.contains(btn)) return;
-              event.preventDefault();
-              copyPath(btn);
+            document.addEventListener('click', function (event) {
+              const copyBtn = event.target.closest('.copy-btn');
+              if (copyBtn) {
+                event.preventDefault();
+                copyPath(copyBtn);
+                return;
+              }
+              const closeBtn = event.target.closest('.strip-close');
+              if (closeBtn) {
+                const strip = closeBtn.closest('.copied-strip');
+                if (strip) strip.hidden = true;
+              }
             });
 
-            function openPlatformRoot(name) {
-              if (!name || name === 'all') return;
-              tree.querySelectorAll(':scope > .folder').forEach(function (folder) {
-                const root = folder.getAttribute('data-root') || '';
-                const details = folder.querySelector(':scope > details');
-                if (!details) return;
-                // Open the selected root; close other roots for a clean workbench.
-                details.open = root === name;
-              });
-            }
-
-            function setPlatform(name, persist) {
-              activePlatform = name || 'all';
-              document.body.setAttribute('data-platform', activePlatform);
-              platformBar.querySelectorAll('.chip').forEach(function (chip) {
-                const on = chip.getAttribute('data-platform') === activePlatform;
-                chip.classList.toggle('is-on', on);
-                chip.setAttribute('aria-pressed', on ? 'true' : 'false');
-              });
-              if (persist !== false) {
-                try {
-                  localStorage.setItem(PLATFORM_KEY, activePlatform);
-                } catch {
-                  /* ignore */
-                }
+            document.addEventListener('focusin', function (event) {
+              if (event.target.classList && event.target.classList.contains('copied-url')) {
+                event.target.select();
               }
-              applyFilters();
-              if (activePlatform !== 'all') {
-                openPlatformRoot(activePlatform);
-              }
+            });
+
+            function clientLabel(dir) {
+              return clientNames[dir] || dir;
             }
 
-            function setQuickHot(query) {
-              quickBar.querySelectorAll('.quick-chip').forEach(function (chip) {
-                chip.classList.toggle('is-hot', chip.getAttribute('data-query') === query);
-              });
-            }
-
-            function platformAllows(li) {
+            function cardHasClient(card) {
               if (activePlatform === 'all') return true;
-              const root = li.closest('.folder[data-root]');
-              return Boolean(root && root.getAttribute('data-root') === activePlatform);
+              return (card.getAttribute('data-clients') || '')
+                .split(' ')
+                .includes(activePlatform);
             }
 
             function applyFilters() {
@@ -1204,74 +1677,124 @@ function generateHtml(tree: TreeTypeArray) {
               clearBtn.classList.toggle('is-visible', searching);
               setQuickHot(q);
 
-              const files = tree.querySelectorAll('.file');
-              const folders = tree.querySelectorAll('.folder');
               let matchCount = 0;
 
-              files.forEach(function (li) {
-                li.classList.remove('is-hidden');
-              });
-              folders.forEach(function (li) {
-                li.classList.remove('is-hidden');
-              });
-
-              files.forEach(function (li) {
-                const name = li.getAttribute('data-name') || '';
-                const path = (li.getAttribute('data-path') || '').toLowerCase();
-                const folderPath = (li.closest('.folder') &&
-                  li.closest('.folder').getAttribute('data-path')) || '';
-                const textOk =
-                  !q ||
-                  name.includes(q) ||
-                  path.includes(q) ||
-                  folderPath.toLowerCase().includes(q);
-                const show = platformAllows(li) && textOk;
-                li.classList.toggle('is-hidden', !show);
+              // Rule cards: name match + client filter; format rows follow client filter.
+              ruleCards.forEach(function (card) {
+                const name = card.getAttribute('data-name') || '';
+                const textOk = !q || name.includes(q);
+                const show = textOk && cardHasClient(card);
+                card.classList.toggle('is-hidden', !show);
+                card.querySelectorAll('.fmt').forEach(function (row) {
+                  row.classList.toggle(
+                    'is-hidden',
+                    activePlatform !== 'all' &&
+                      row.getAttribute('data-client-dir') !== activePlatform
+                  );
+                });
                 if (show) {
                   matchCount += 1;
-                  if (searching) {
-                    let parent = li.parentElement;
-                    while (parent && parent !== tree) {
-                      if (parent.classList && parent.classList.contains('folder')) {
-                        parent.classList.remove('is-hidden');
-                        const details = parent.querySelector(':scope > details');
-                        if (details) details.open = true;
+                  if (searching) card.open = true;
+                }
+              });
+
+              // Generic tree (GeoIP / Mirror / …): file-name/path match.
+              if (tree) {
+                const files = tree.querySelectorAll('.file');
+                const folders = tree.querySelectorAll('.folder');
+
+                files.forEach(function (li) {
+                  li.classList.remove('is-hidden');
+                });
+                folders.forEach(function (li) {
+                  li.classList.remove('is-hidden');
+                });
+
+                files.forEach(function (li) {
+                  const name = li.getAttribute('data-name') || '';
+                  const path = (li.getAttribute('data-path') || '').toLowerCase();
+                  const folderPath =
+                    (li.closest('.folder') && li.closest('.folder').getAttribute('data-path')) ||
+                    '';
+                  const textOk =
+                    !q ||
+                    name.includes(q) ||
+                    path.includes(q) ||
+                    folderPath.toLowerCase().includes(q);
+                  li.classList.toggle('is-hidden', !textOk);
+                  if (textOk) {
+                    matchCount += 1;
+                    if (searching) {
+                      let parent = li.parentElement;
+                      while (parent && parent !== tree) {
+                        if (parent.classList && parent.classList.contains('folder')) {
+                          parent.classList.remove('is-hidden');
+                          const details = parent.querySelector(':scope > details');
+                          if (details) details.open = true;
+                        }
+                        parent = parent.parentElement;
                       }
-                      parent = parent.parentElement;
                     }
                   }
+                });
+
+                folders.forEach(function (folder) {
+                  if (folder.classList.contains('is-hidden')) return;
+                  if (!folder.querySelector('.file:not(.is-hidden)')) {
+                    folder.classList.add('is-hidden');
+                  }
+                });
+
+                // Hide the whole "other files" section when nothing inside is visible.
+                const otherSection = tree.closest('.other-sections');
+                if (otherSection) {
+                  otherSection.classList.toggle(
+                    'is-hidden',
+                    !tree.querySelector('.file:not(.is-hidden)')
+                  );
                 }
-              });
+              }
 
-              tree.querySelectorAll(':scope > .folder').forEach(function (folder) {
-                const root = folder.getAttribute('data-root') || '';
-                const platformOk = activePlatform === 'all' || root === activePlatform;
-                if (!platformOk) folder.classList.add('is-hidden');
-              });
-
-              folders.forEach(function (folder) {
-                if (folder.classList.contains('is-hidden')) return;
-                if (!folder.querySelector('.file:not(.is-hidden)')) {
-                  folder.classList.add('is-hidden');
-                }
-              });
-
+              const clientNote =
+                activePlatform !== 'all' ? clientLabel(activePlatform) + ' formats' : '';
               if (matchCount > 0) {
                 resultCount.textContent = q
                   ? matchCount + ' match' + (matchCount === 1 ? '' : 'es')
-                  : '';
+                  : clientNote;
                 emptyState.classList.remove('is-visible');
-                tree.style.display = '';
               } else {
-                resultCount.textContent = '';
+                resultCount.textContent = clientNote;
                 emptyState.classList.add('is-visible');
-                tree.style.display = 'none';
               }
             }
 
             function performSearch(query) {
               activeQuery = query || '';
               applyFilters();
+            }
+
+            function setPlatform(name, persist) {
+              activePlatform = name || 'all';
+              document.body.setAttribute('data-platform', activePlatform);
+              platformBar.querySelectorAll('.chip').forEach(function (chip) {
+                const on = chip.getAttribute('data-platform') === activePlatform;
+                chip.classList.toggle('is-on', on);
+                chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+              });
+              if (persist !== false) {
+                try {
+                  localStorage.setItem(PLATFORM_KEY, activePlatform);
+                } catch {
+                  /* ignore */
+                }
+              }
+              applyFilters();
+            }
+
+            function setQuickHot(query) {
+              quickBar.querySelectorAll('.quick-chip').forEach(function (chip) {
+                chip.classList.toggle('is-hot', chip.getAttribute('data-query') === query);
+              });
             }
 
             platformBar.addEventListener('click', function (event) {
@@ -1295,8 +1818,8 @@ function generateHtml(tree: TreeTypeArray) {
               searchInput.focus();
             });
 
-            collapseBtn.addEventListener('click', function () {
-              collapseFolders();
+            toggleBtn.addEventListener('click', function () {
+              setAllOpen(!allExpanded);
             });
 
             searchInput.addEventListener('input', function (e) {

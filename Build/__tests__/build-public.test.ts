@@ -1,10 +1,23 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { treeHtml } from '../build-public';
+import { collectRules, ruleCardsHtml, treeHtml } from '../build-public';
 import { TreeFileType } from '../lib/tree-dir';
 import type { TreeTypeArray } from '../lib/tree-dir';
 import { escapeHtml } from '../utils/escape-html';
+
+function file(name: string, path: string) {
+  return { type: TreeFileType.FILE, name, path } as const;
+}
+
+function dir(name: string, children: TreeTypeArray) {
+  return {
+    type: TreeFileType.DIRECTORY,
+    name,
+    path: `/${name}`,
+    children,
+  } as const;
+}
 
 describe('public index HTML escaping', () => {
   it('escapes all HTML metacharacters without double-escaping generated entities', () => {
@@ -52,5 +65,75 @@ describe('public index HTML escaping', () => {
     assert.equal(rendered.includes('<script>'), false);
     assert.equal(rendered.includes('%2520'), false);
     assert.equal(rendered.includes('%2F'), false);
+  });
+});
+
+describe('collectRules (rule-card aggregation)', () => {
+  it('aggregates the same basename across client dirs into one rule, ordered and sorted', () => {
+    const tree: TreeTypeArray = [
+      dir('Clash', [file('beta.txt', '/Clash/beta.txt'), file('alpha.txt', '/Clash/alpha.txt')]),
+      dir('List', [file('alpha.list', '/List/alpha.list'), file('beta.list', '/List/beta.list')]),
+      dir('Loon', [file('alpha.list', '/Loon/alpha.list')]),
+      dir('sing-box', [file('alpha.json', '/sing-box/alpha.json')]),
+      dir('GeoIP', [file('ip2.mmdb', '/GeoIP/ip2.mmdb')]),
+    ];
+
+    const { rules, restRoots } = collectRules(tree);
+
+    // GeoIP is not a client dir: passes through untouched
+    assert.deepEqual(restRoots.map(r => r.name), ['GeoIP']);
+
+    // rules sorted by name; beta only has List+Clash, alpha has 4 formats in CLIENT_DIRS order (S·C·L·X)
+    assert.deepEqual(rules.map(r => r.name), ['alpha', 'beta']);
+    assert.deepEqual(
+      rules[0].formats.map(f => [f.dir, f.client, f.filename, f.href]),
+      [
+        ['List', 'Surge', 'alpha.list', '/List/alpha.list'],
+        ['Clash', 'Clash', 'alpha.txt', '/Clash/alpha.txt'],
+        ['Loon', 'Loon', 'alpha.list', '/Loon/alpha.list'],
+        ['sing-box', 'sing-box', 'alpha.json', '/sing-box/alpha.json'],
+      ]
+    );
+    assert.deepEqual(rules[1].formats.map(f => f.dir), ['List', 'Clash']);
+
+    // full coverage: availability letters render in S·C·L·X order, all on
+    const fullLetters = [
+      ...ruleCardsHtml([rules[0]]).matchAll(/class="av (is-on|is-off)"[^>]*>([A-Z])</g),
+    ].map(m => `${m[2]}:${m[1]}`);
+    assert.deepEqual(fullLetters, ['S:is-on', 'C:is-on', 'L:is-on', 'X:is-on']);
+  });
+
+  it('skips meta files and marks missing clients in availability', () => {
+    const tree: TreeTypeArray = [
+      dir('List', [file('alpha.list', '/List/alpha.list'), file('README.md', '/List/README.md')]),
+    ];
+
+    const { rules } = collectRules(tree);
+    assert.equal(rules.length, 1);
+
+    const htmlOut = ruleCardsHtml(rules);
+    assert.ok(htmlOut.includes('data-clients="List"'));
+    assert.equal((htmlOut.match(/class="fmt"/g) || []).length, 1);
+    // partial client (Surge only): exact on/off state per S·C·L·X position
+    const letters = [...htmlOut.matchAll(/class="av (is-on|is-off)"[^>]*>([A-Z])</g)].map(
+      m => `${m[2]}:${m[1]}`
+    );
+    assert.deepEqual(letters, ['S:is-on', 'C:is-off', 'L:is-off', 'X:is-off']);
+  });
+});
+
+describe('ruleCardsHtml escaping', () => {
+  it('escapes rule names and encodes hrefs without double-escaping', () => {
+    const tree: TreeTypeArray = [
+      dir('List', [file('<b>"x&\'.list', '/List/<b>"x&\'.list')]),
+    ];
+
+    const { rules } = collectRules(tree);
+    const rendered = ruleCardsHtml(rules);
+
+    assert.ok(rendered.includes('data-rule="&lt;b&gt;&quot;x&amp;&#39;"'));
+    assert.ok(rendered.includes('href="/List/%3Cb%3E%22x&amp;&#39;.list"'));
+    assert.equal(rendered.includes('<b>"x'), false);
+    assert.equal(rendered.includes('%2522'), false);
   });
 });

@@ -115,6 +115,8 @@ Build/
   dependabot-auto-merge.yml        Dependabot 自动合并相关 workflow
 
 README.md                          用户向说明与订阅示例
+PRODUCT.md                         NRRule 索引页产品事实（Impeccable，2026-07 起）
+DESIGN.md                          索引页设计系统规则（Impeccable，2026-07 起）
 package.json                       脚本、依赖、运行时约束
 pnpm-lock.yaml                     pnpm 锁文件
 tsconfig.json                      TypeScript 配置
