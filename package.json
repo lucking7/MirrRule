@@ -52,7 +52,7 @@
   "devDependencies": {
     "@eslint-sukka/node": "^8.9.3",
     "@swc-node/register": "^1.12.1",
-    "@swc/core": "^1.15.47",
+    "@swc/core": "^1.16.1",
     "@types/node": "^26.2.0",
     "@types/punycode": "^2.1.4",
     "eslint": "^9.39.1",
