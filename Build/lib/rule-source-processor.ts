@@ -207,7 +207,9 @@ export class RuleSourceProcessor {
             if (!result.ok) {
               RuleSourceProcessor.recordError(stats, source, result.error);
             } else {
-              allRules.push(...result.rules);
+              for (const rule of result.rules) {
+                allRules.push(rule);
+              }
             }
           }
 

@@ -355,4 +355,41 @@ describe('RuleSourceProcessor special rules', () => {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
+
+  it('processes a large special source successfully', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-large-special-rule-'));
+    const outputDir = path.join(tempDir, 'output');
+
+    try {
+      fs.mkdirSync(outputDir, { recursive: true });
+
+      const largeRules = Array.from(
+        { length: 120000 },
+        (_, index) => `DOMAIN,large-${index}.example`
+      );
+      const sourcePath = createTempSourceModule(tempDir, 'large-source', largeRules);
+      const processor = new RuleSourceProcessor(fakeSpan as any, outputDir);
+      const config: SpecialRuleConfig = {
+        name: 'Large Source Test',
+        targetFile: 'List/large-source.list',
+        sourceFiles: [sourcePath],
+        targets: ['surge'],
+        defaultPolicy: 'REJECT',
+        dedup: true,
+        sort: true,
+        formatConversion: true,
+      };
+
+      const stats = await processor.processSpecialRules([config]);
+      const outputPath = path.join(outputDir, 'List', 'large-source.list');
+
+      assert.equal(stats.errors.length, 0);
+      assert.equal(stats.filesProcessed, 1);
+      assert.equal(stats.rulesMerged, largeRules.length);
+      assert.equal(fs.existsSync(outputPath), true);
+      assert.match(fs.readFileSync(outputPath, 'utf8'), /large-119999\.example/);
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
 });
