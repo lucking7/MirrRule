@@ -108,7 +108,7 @@ export function filterUnmirroredScripts(scripts: ScriptInfo[]): ScriptInfo[] {
  * @param scripts - 脚本信息数组
  * @returns 替换后的内容
  */
-export function replaceScriptUrls(content: string, scripts: ScriptInfo[]): string {
+function replaceScriptUrls(content: string, scripts: ScriptInfo[]): string {
   let result = content;
 
   for (const script of scripts) {
@@ -125,6 +125,18 @@ export function replaceScriptUrls(content: string, scripts: ScriptInfo[]): strin
   }
 
   return result;
+}
+
+/** Apply resolved mirror URLs without mutating script metadata. */
+export function applyScriptMirrorMap(
+  content: string,
+  scripts: ScriptInfo[],
+  urlMap: Readonly<Record<string, string>>
+): string {
+  return replaceScriptUrls(content, scripts.map(script => ({
+    ...script,
+    mirrorUrl: urlMap[script.originalUrl],
+  })));
 }
 
 /**

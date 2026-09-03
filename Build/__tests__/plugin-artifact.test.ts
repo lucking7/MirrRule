@@ -6,7 +6,10 @@ import { describe, it } from 'node:test';
 
 import { publishPluginArtifacts } from '../integration/plugin-converter/plugin-artifact';
 import { identifyPluginSource } from '../integration/plugin-converter/plugin-identity';
-import { getPluginMirrorFilename } from '../integration/plugin-converter/plugin-mirror';
+import {
+  getPluginContent,
+  getPluginMirrorFilename,
+} from '../integration/plugin-converter/plugin-mirror';
 
 function pluginIdentity(name: string) {
   return identifyPluginSource({
@@ -151,8 +154,14 @@ describe('plugin artifact lifecycle', () => {
       url: 'https://two.test/plugin.lpx',
       extension: 'lpx',
     });
+    const renamed = getPluginMirrorFilename({
+      name: 'renamed-display-name',
+      url: 'https://one.test/plugin.lpx',
+      extension: 'plugin',
+    });
 
     assert.equal(first, equivalent);
+    assert.equal(first, renamed);
     assert.notEqual(first, second);
     assert.equal(
       identifyPluginSource({
@@ -166,5 +175,38 @@ describe('plugin artifact lifecycle', () => {
         extension: 'lpx',
       }).sourceId
     );
+  });
+
+  it('falls back to last-known-good content after a forced refresh fails', async () => {
+    const directory = await fsp.mkdtemp(path.join(os.tmpdir(), 'mirrrule-plugin-cache-'));
+    const plugin = {
+      name: 'refresh-test',
+      url: 'https://plugins.test/refresh-test.plugin',
+      extension: 'plugin' as const,
+    };
+    let available = true;
+    const options = {
+      mirrorDirectory: directory,
+      fetchFn: () => Promise.resolve(available
+        ? new Response('last-known-good plugin')
+        : new Response('unavailable', { status: 503 })),
+    };
+
+    try {
+      const initial = await getPluginContent(plugin, true, options);
+      assert.equal(initial.success, true);
+      assert.equal(initial.fromCache, undefined);
+
+      available = false;
+      const fallback = await getPluginContent(plugin, true, options);
+      assert.equal(fallback.success, true);
+      assert.equal(fallback.content, 'last-known-good plugin');
+      assert.equal(fallback.fromCache, true);
+      assert.equal(fallback.degraded, true);
+      assert.match(fallback.error ?? '', /HTTP 503/);
+      assert.deepEqual(await fsp.readdir(directory), [getPluginMirrorFilename(plugin)]);
+    } finally {
+      await fsp.rm(directory, { recursive: true, force: true });
+    }
   });
 });

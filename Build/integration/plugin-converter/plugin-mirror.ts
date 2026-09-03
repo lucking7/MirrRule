@@ -39,43 +39,50 @@ async function ensureMirrorDirectory(): Promise<void> {
  * 获取插件镜像路径
  */
 export function getPluginMirrorFilename(plugin: PluginInfo): string {
-  const sourceHash = identifyPluginSource(plugin).sourceId.slice(0, 12);
-  const safeName = plugin.name
-    .replaceAll(/["*/:<>?\\|]/g, '-')
-    .replaceAll(/\s+/g, '-') || 'plugin';
-  return `${sourceHash}-${safeName}.${plugin.extension}`;
+  const identity = identifyPluginSource(plugin);
+  const sourceExtension = path.extname(new URL(identity.sourceUrl).pathname).toLowerCase();
+  return `${identity.sourceId}${sourceExtension === '.lpx' ? '.lpx' : '.plugin'}`;
 }
 
-function getPluginMirrorPath(plugin: PluginInfo): string {
-  return path.join(MIRROR_DIR, getPluginMirrorFilename(plugin));
+function getPluginMirrorPath(plugin: PluginInfo, mirrorDirectory = MIRROR_DIR): string {
+  return path.join(mirrorDirectory, getPluginMirrorFilename(plugin));
 }
 
-/**
- * 检查插件是否已镜像
- */
-async function isPluginMirrored(plugin: PluginInfo): Promise<boolean> {
-  try {
-    const mirrorPath = getPluginMirrorPath(plugin);
-    await fs.access(mirrorPath);
-    return true;
-  } catch {
-    return false;
-  }
+interface PluginMirrorOptions {
+  mirrorDirectory?: string,
+  fetchFn?: (
+    url: string,
+    init?: Parameters<typeof $$fetch>[1]
+  ) => Promise<{
+    ok: boolean,
+    status: number,
+    statusText: string,
+    text: () => Promise<string>
+  }>
+}
+
+interface PluginContentResult {
+  success: boolean,
+  content?: string,
+  error?: string,
+  fromCache?: boolean,
+  degraded?: boolean
 }
 
 /**
  * 下载并镜像 Loon 插件
  */
 async function mirrorPlugin(
-  plugin: PluginInfo
-): Promise<{ success: boolean; content?: string; error?: string }> {
+  plugin: PluginInfo,
+  options: PluginMirrorOptions = {}
+): Promise<PluginContentResult> {
   console.log(picocolors.gray(`  [Mirror] Downloading ${plugin.name}...`));
 
   try {
     // 下载插件内容（必要时通过代理）
     const url = applyProxyIfNeeded(plugin.url);
 
-    const response = await $$fetch(url, {
+    const response = await (options.fetchFn ?? $$fetch)(url, {
       ...defaultRequestInit,
       headers: {
         'User-Agent': USER_AGENT,
@@ -91,7 +98,7 @@ async function mirrorPlugin(
 
     const content = await response.text();
 
-    const mirrorPath = getPluginMirrorPath(plugin);
+    const mirrorPath = getPluginMirrorPath(plugin, options.mirrorDirectory);
     await writeFileAtomic(mirrorPath, content);
 
     console.log(picocolors.green(`  [Mirror] ✓ ${plugin.name} mirrored successfully`));
@@ -106,9 +113,12 @@ async function mirrorPlugin(
 /**
  * 从镜像读取插件内容
  */
-async function readMirroredPlugin(plugin: PluginInfo): Promise<string | null> {
+async function readMirroredPlugin(
+  plugin: PluginInfo,
+  mirrorDirectory = MIRROR_DIR
+): Promise<string | null> {
   try {
-    const mirrorPath = getPluginMirrorPath(plugin);
+    const mirrorPath = getPluginMirrorPath(plugin, mirrorDirectory);
     return await fs.readFile(mirrorPath, 'utf-8');
   } catch {
     return null;
@@ -121,19 +131,26 @@ async function readMirroredPlugin(plugin: PluginInfo): Promise<string | null> {
  */
 export async function getPluginContent(
   plugin: PluginInfo,
-  forceUpdate = false
-): Promise<{ success: boolean; content?: string; error?: string }> {
-  // 检查是否已镜像（且不强制更新）
-  if (!forceUpdate && (await isPluginMirrored(plugin))) {
+  forceUpdate = false,
+  options: PluginMirrorOptions = {}
+): Promise<PluginContentResult> {
+  const cachedContent = await readMirroredPlugin(plugin, options.mirrorDirectory);
+  if (!forceUpdate && cachedContent !== null) {
     console.log(picocolors.gray(`  [Mirror] Using cached ${plugin.name}...`));
-    const content = await readMirroredPlugin(plugin);
-    if (content) {
-      return { success: true, content };
-    }
+    return { success: true, content: cachedContent, fromCache: true };
   }
 
-  // 下载并镜像
-  return mirrorPlugin(plugin);
+  const refreshed = await mirrorPlugin(plugin, options);
+  if (refreshed.success || cachedContent === null) return refreshed;
+
+  console.log(picocolors.yellow(`  [Mirror] Using last-known-good ${plugin.name} after refresh failure`));
+  return {
+    success: true,
+    content: cachedContent,
+    error: refreshed.error,
+    fromCache: true,
+    degraded: true,
+  };
 }
 
 /**
@@ -141,7 +158,8 @@ export async function getPluginContent(
  */
 export async function mirrorPluginsBatch(
   plugins: PluginInfo[],
-  forceUpdate = false
+  forceUpdate = false,
+  options: PluginMirrorOptions = {}
 ): Promise<{
   total: number;
   mirrored: number;
@@ -160,15 +178,11 @@ export async function mirrorPluginsBatch(
   };
 
   for (const plugin of plugins) {
-    const result = await getPluginContent(plugin, forceUpdate);
+    const result = await getPluginContent(plugin, forceUpdate, options);
 
     if (result.success) {
-      // 检查是新镜像还是使用缓存
-      if (result.content && !forceUpdate && (await isPluginMirrored(plugin))) {
-        stats.cached++;
-      } else {
-        stats.mirrored++;
-      }
+      if (result.fromCache) stats.cached++;
+      else stats.mirrored++;
     } else {
       stats.failed++;
       stats.failedPlugins.push({

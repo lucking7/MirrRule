@@ -2,8 +2,8 @@ import fs from 'node:fs/promises';
 
 import { writeFileAtomic } from '../../lib/atomic-file';
 import { getErrorMessage } from '../../lib/misc';
-import { replaceScriptUrls } from './script-extractor';
-import type { ConversionResult, ScriptInfo } from './types';
+import { applyScriptMirrorMap } from './script-extractor';
+import type { ConversionResult } from './types';
 
 export interface PendingPluginArtifact {
   result: Omit<ConversionResult, 'status'>,
@@ -18,17 +18,6 @@ async function fileExists(filePath: string | undefined): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-function applyMirrorUrls(
-  content: string,
-  scripts: ScriptInfo[],
-  urlMap: Readonly<Record<string, string>>
-): string {
-  return replaceScriptUrls(content, scripts.map(script => ({
-    ...script,
-    mirrorUrl: urlMap[script.originalUrl],
-  })));
 }
 
 export async function publishPluginArtifacts(
@@ -66,7 +55,7 @@ export async function publishPluginArtifacts(
     try {
       await writeFileAtomic(
         artifact.result.outputPath,
-        applyMirrorUrls(artifact.content, artifact.result.scripts, urlMap)
+        applyScriptMirrorMap(artifact.content, artifact.result.scripts, urlMap)
       );
       const degradedDependencies = artifact.result.scripts.filter(
         script => degradedUrls.has(script.originalUrl)

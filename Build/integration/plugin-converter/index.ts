@@ -21,7 +21,6 @@ import { convertPluginsBatchFromRemote, waitForScriptHub } from './script-hub-cl
 import {
   extractScriptUrls,
   filterUnmirroredScripts,
-  replaceScriptUrls,
   getScriptStats,
 } from './script-extractor';
 import { mirrorScripts, printMirrorSummary } from './script-mirror';
@@ -30,7 +29,7 @@ import { mirrorPluginsBatch } from './plugin-mirror';
 import { publishPluginArtifacts } from './plugin-artifact';
 import { identifyPluginSource } from './plugin-identity';
 import type { PendingPluginArtifact } from './plugin-artifact';
-import type { ConversionResult, PluginConversionResult, ScriptInfo } from './types';
+import type { ConversionResult, PluginConversionResult } from './types';
 
 // CommonJS 中的 __dirname 直接可用
 
@@ -38,18 +37,6 @@ import type { ConversionResult, PluginConversionResult, ScriptInfo } from './typ
  * 输出目录
  */
 const OUTPUT_DIR = path.join(__dirname, '../../../public/Modules/Converted');
-
-export function applyScriptMirrorMap(
-  content: string,
-  scripts: ScriptInfo[],
-  urlMap: Record<string, string>
-): string {
-  const mappedScripts = scripts.map(script => ({
-    ...script,
-    mirrorUrl: urlMap[script.originalUrl],
-  }));
-  return replaceScriptUrls(content, mappedScripts);
-}
 
 /**
  * 确保输出目录存在
