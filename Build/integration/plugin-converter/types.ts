@@ -17,6 +17,18 @@ export interface PluginInfo {
   useLocalOnly?: boolean
 }
 
+export interface PluginSourceIdentity {
+  /** Canonical plugin URL without a fragment. */
+  sourceUrl: string,
+  /** SHA-256 identity derived from sourceUrl. */
+  sourceId: string
+}
+
+export interface PluginConversionResult extends PluginSourceIdentity {
+  pluginName: string,
+  content: string | { error: string }
+}
+
 /**
  * Script-Hub 转换配置
  */
@@ -46,11 +58,15 @@ export interface ScriptInfo {
 /**
  * 转换结果
  */
-export interface ConversionResult {
+type PluginArtifactStatus = 'ready' | 'degraded' | 'failed';
+
+export interface ConversionResult extends PluginSourceIdentity {
   /** 插件名称 */
   pluginName: string,
   /** 是否成功 */
   success: boolean,
+  /** 当前产物状态 */
+  status: PluginArtifactStatus,
   /** sgmodule 文件路径 */
   outputPath?: string,
   /** 提取的脚本列表 */

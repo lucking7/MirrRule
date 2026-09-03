@@ -6,6 +6,7 @@ import picocolors from 'picocolors';
 import { fetchLatestRelease, downloadAsset } from './github-api';
 import type { GitHubAsset } from './github-api';
 import { getErrorMessage } from '../../lib/misc';
+import { writeFileAtomic } from '../../lib/atomic-file';
 
 export enum FileType {
   PLUGIN = 'plugin',
@@ -19,22 +20,29 @@ export interface MirrorRepository {
   repo: string,
   outputDir: string,
   allowedTypes: FileType[],
+  assetNamePattern?: RegExp,
   postProcess?: (filePath: string, content: string) => string | Promise<string>
 }
 
 export interface MirrorGroup {
   name: string,
-  repositories: MirrorRepository[],
-  extraDownloads?: Array<{
-    url: string,
-    outputPath: string
-  }>
+  repositories: MirrorRepository[]
 }
 
 interface FileChecksum {
   filePath: string,
   checksum: string,
   size: number
+}
+
+type ArtifactPublicationStatus = 'new' | 'updated' | 'unchanged';
+
+interface ArtifactPublication {
+  outputPath: string,
+  buffer: Buffer,
+  minSize?: number,
+  maxSize?: number,
+  postProcess?: MirrorRepository['postProcess']
 }
 
 export interface SyncResult {
@@ -66,6 +74,16 @@ export interface PipelineResult {
 
 export function createPipelineResult(): PipelineResult {
   return { total: 0, succeeded: 0, failed: [], skipped: 0 };
+}
+
+function createSyncResult(): SyncResult {
+  return {
+    ...createPipelineResult(),
+    hasChanges: false,
+    updatedFiles: [],
+    newFiles: [],
+    failedFiles: []
+  };
 }
 
 export function hasRequiredFailures(result: PipelineResult): boolean {
@@ -154,12 +172,16 @@ interface ClassifiedAsset {
 function classifyAsset(
   asset: GitHubAsset,
   baseDir: string,
-  allowedTypes: FileType[] = [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE]
+  allowedTypes: FileType[] = [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE],
+  assetNamePattern?: RegExp
 ): ClassifiedAsset {
   const extension = getFileExtension(asset.name);
   const fileType = extensionToFileType(extension);
 
-  const shouldProcess = allowedTypes.includes(fileType);
+  if (assetNamePattern) assetNamePattern.lastIndex = 0;
+  const shouldProcess =
+    allowedTypes.includes(fileType) &&
+    (assetNamePattern ? assetNamePattern.test(asset.name) : true);
 
   let outputPath: string | null = null;
   if (shouldProcess) {
@@ -180,9 +202,10 @@ function classifyAsset(
 function classifyAssets(
   assets: GitHubAsset[],
   baseDir: string,
-  allowedTypes?: FileType[]
+  allowedTypes?: FileType[],
+  assetNamePattern?: RegExp
 ): ClassifiedAsset[] {
-  return assets.map(asset => classifyAsset(asset, baseDir, allowedTypes));
+  return assets.map(asset => classifyAsset(asset, baseDir, allowedTypes, assetNamePattern));
 }
 
 function filterProcessableAssets(
@@ -220,12 +243,41 @@ function getFileTypeStats(classifiedAssets: ClassifiedAsset[]): FileTypeStats {
   return stats;
 }
 
-async function ensureDirectory(dirPath: string): Promise<void> {
-  try {
-    await fs.mkdir(dirPath, { recursive: true });
-  } catch {
-    // ignore
+async function publishArtifactAtomic(
+  publication: ArtifactPublication
+): Promise<ArtifactPublicationStatus> {
+  let content = publication.buffer;
+  if (!isValidFileSize(
+    content.length,
+    publication.minSize,
+    publication.maxSize
+  )) {
+    throw new Error(`Invalid file size: ${content.length} bytes`);
   }
+
+  if (publication.postProcess) {
+    content = Buffer.from(await publication.postProcess(
+      publication.outputPath,
+      content.toString('utf8')
+    ));
+  }
+
+  if (!isValidFileSize(
+    content.length,
+    publication.minSize,
+    publication.maxSize
+  )) {
+    throw new Error(`Invalid processed file size: ${content.length} bytes`);
+  }
+
+  const existed = await fs.access(publication.outputPath).then(() => true).catch(() => false);
+  if (!(await shouldUpdateFile(publication.outputPath, content))) {
+    return 'unchanged';
+  }
+
+  await writeFileAtomic(publication.outputPath, content);
+
+  return existed ? 'updated' : 'new';
 }
 
 export async function syncRepository(
@@ -235,13 +287,7 @@ export async function syncRepository(
     download?: typeof downloadAsset
   } = {}
 ): Promise<SyncResult> {
-  const result: SyncResult = {
-    ...createPipelineResult(),
-    hasChanges: false,
-    updatedFiles: [],
-    newFiles: [],
-    failedFiles: []
-  };
+  const result = createSyncResult();
 
   console.log(picocolors.cyan(`\n[Sync] Processing repository: ${repository.repo}`));
 
@@ -267,7 +313,8 @@ export async function syncRepository(
   const classified = classifyAssets(
     release.assets,
     repository.outputDir,
-    repository.allowedTypes
+    repository.allowedTypes,
+    repository.assetNamePattern
   );
 
   const stats = getFileTypeStats(classified);
@@ -276,6 +323,14 @@ export async function syncRepository(
   ));
 
   const processable = filterProcessableAssets(classified);
+  if (repository.assetNamePattern && processable.length === 0) {
+    const error = `No release assets matched ${repository.assetNamePattern}`;
+    console.log(picocolors.red(`[Sync] ✗ ${error}`));
+    result.total = 1;
+    result.failedFiles.push({ file: repository.repo, error });
+    result.failed.push({ asset: repository.repo, error, required: true });
+    return result;
+  }
   result.total = classified.length;
   result.skipped = stats.skipped;
 
@@ -299,48 +354,19 @@ export async function syncRepository(
         continue;
       }
 
-      const buffer = downloadResult;
+      const status = await publishArtifactAtomic({
+        outputPath,
+        buffer: downloadResult,
+        postProcess: repository.postProcess,
+      });
 
-      if (!isValidFileSize(buffer.length)) {
-        console.log(picocolors.yellow(`[Sync] Invalid file size: ${buffer.length} bytes`));
-        result.failedFiles.push({
-          file: asset.name,
-          error: `Invalid file size: ${buffer.length} bytes`
-        });
-        result.failed.push({ asset: asset.name, error: `Invalid file size: ${buffer.length} bytes`, required: true });
-        continue;
-      }
-
-      const fileExisted = await fs.access(outputPath).then(() => true).catch(() => false);
-      const needsUpdate = await shouldUpdateFile(outputPath, buffer);
-
-      if (!needsUpdate) {
+      if (status === 'unchanged') {
         console.log(picocolors.gray(`[Sync] ○ No changes: ${asset.name}`));
         result.succeeded++;
         continue;
       }
 
-      await ensureDirectory(path.dirname(outputPath));
-
-      let content = buffer.toString('utf-8');
-      if (repository.postProcess) {
-        try {
-          content = await repository.postProcess(outputPath, content);
-        } catch (error) {
-          const message = getErrorMessage(error);
-          console.log(picocolors.red(
-            `[Sync] Post-process failed: ${getErrorMessage(error)}`
-          ));
-          result.failedFiles.push({ file: asset.name, error: message });
-          result.failed.push({ asset: asset.name, error: message, required: true });
-          continue;
-        }
-      }
-
-      await fs.writeFile(outputPath, content, 'utf-8');
-
-      const isNew = !fileExisted;
-      if (isNew) {
+      if (status === 'new') {
         result.newFiles.push(asset.name);
         console.log(picocolors.green(`[Sync] ✓ Added: ${asset.name}`));
       } else {
@@ -365,50 +391,8 @@ export async function syncRepository(
   return result;
 }
 
-export async function downloadExtraFile(
-  url: string,
-  outputPath: string
-): Promise<PipelineResult> {
-  const result = createPipelineResult();
-  result.total = 1;
-  console.log(picocolors.cyan(`[Extra] Downloading: ${url}`));
-
-  try {
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      console.log(picocolors.red(`[Extra] ✗ HTTP ${response.status}: ${response.statusText}`));
-      const error = `HTTP ${response.status}: ${response.statusText}`;
-      // Extra downloads are best-effort beta/debug assets; never fail the whole pipeline.
-      result.failed.push({ asset: outputPath, error, required: false });
-      return result;
-    }
-
-    const content = await response.text();
-
-    await ensureDirectory(path.dirname(outputPath));
-    await fs.writeFile(outputPath, content, 'utf-8');
-
-    console.log(picocolors.green(`[Extra] ✓ Downloaded: ${path.basename(outputPath)}`));
-    result.succeeded = 1;
-    return result;
-  } catch (error) {
-    console.log(picocolors.red(
-      `[Extra] ✗ Error: ${getErrorMessage(error)}`
-    ));
-    result.failed.push({ asset: outputPath, error: getErrorMessage(error), required: false });
-    return result;
-  }
-}
-
 export function mergeSyncResults(results: SyncResult[]): SyncResult {
-  const merged: SyncResult = {
-    ...createPipelineResult(),
-    hasChanges: false,
-    updatedFiles: [],
-    newFiles: [],
-    failedFiles: []
-  };
+  const merged = createSyncResult();
 
   for (const result of results) {
     if (result.hasChanges) {

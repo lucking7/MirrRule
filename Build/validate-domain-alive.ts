@@ -1,4 +1,3 @@
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import picocolors from 'picocolors';
@@ -9,6 +8,8 @@ import { createSourceInventory } from './lib/source-inventory';
 import type { SourceInventoryEntry, SourceRole } from './lib/source-inventory';
 import { ruleGroups, specialRules } from './lib/rule-sources';
 import { MIRROR_GROUPS } from './integration/mirror-sync/mirror-config';
+import { UA_MIRROR, UA_SURGE_MAC } from './constants/user-agents';
+import { writeFileAtomic } from './lib/atomic-file';
 
 export type HealthStatus = 'ok' | 'dead' | 'unknown';
 
@@ -30,7 +31,7 @@ export interface SourceHealthReport {
   sources: SourceHealthRecord[]
 }
 
-export type SourceProbe = (url: string) => Promise<ProbeResult>;
+export type SourceProbe = (source: SourceInventoryEntry) => Promise<ProbeResult>;
 
 export function redactUrl(value: string): string {
   try {
@@ -48,13 +49,18 @@ export function redactUrl(value: string): string {
   }
 }
 
-export async function probeSource(url: string): Promise<ProbeResult> {
+export async function probeSource(
+  source: SourceInventoryEntry,
+  fetchFn: typeof fetch = fetch
+): Promise<ProbeResult> {
   try {
-    const response = await fetch(url, {
+    const response = await fetchFn(source.url, {
       method: 'HEAD',
       redirect: 'follow',
       signal: AbortSignal.timeout(15_000), // eslint-disable-line sukka/unicorn/numeric-separators-style -- 15 seconds
-      headers: { 'user-agent': 'MirrRule-source-health/1.0' },
+      headers: {
+        'user-agent': source.requestProfile === 'github-release' ? UA_MIRROR : UA_SURGE_MAC,
+      },
     });
     return { status: response.ok ? 'ok' : 'dead', httpStatus: response.status };
   } catch (fetchError) {
@@ -62,7 +68,7 @@ export async function probeSource(url: string): Promise<ProbeResult> {
     // domain and a transient/unknown network failure.
     try {
       const { isDomainAlive } = await getMethods();
-      const hostname = new URL(url).hostname;
+      const hostname = new URL(source.url).hostname;
       const alive = await isDomainAlive(hostname);
       return alive ? { status: 'unknown' } : { status: 'dead' };
     } catch {
@@ -81,7 +87,7 @@ export async function checkSources(
     const started = now();
     try {
       // eslint-disable-next-line no-await-in-loop -- keep upstream load bounded and timings isolated
-      const checked = await probe(source.url);
+      const checked = await probe(source);
       sources.push({ ...source, url: redactUrl(source.url), ...checked, elapsedMs: Math.max(0, now() - started) });
     } catch {
       sources.push({ ...source, url: redactUrl(source.url), status: 'unknown', elapsedMs: Math.max(0, now() - started) });
@@ -93,10 +99,7 @@ export async function checkSources(
 }
 
 export async function writeHealthReport(outputPath: string, report: SourceHealthReport): Promise<void> {
-  await fs.mkdir(path.dirname(outputPath), { recursive: true });
-  const temporaryPath = `${outputPath}.${process.pid}.tmp`;
-  await fs.writeFile(temporaryPath, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
-  await fs.rename(temporaryPath, outputPath);
+  await writeFileAtomic(outputPath, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
 }
 
 // Compatibility with Plan 011's public contract.

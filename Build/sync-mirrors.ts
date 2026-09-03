@@ -50,10 +50,3 @@ export const runMirrorSync = task(
     process.exit(1);
   }
 });
-
-if (require.main === module) {
-  runMirrorSync().catch(error => {
-    console.error(picocolors.red('Fatal error:'), error);
-    process.exit(1);
-  });
-}

@@ -2,42 +2,31 @@ import path from 'node:path';
 
 import { task } from './trace';
 import { treeDir, TreeFileType } from './lib/tree-dir';
-import type { TreeType, TreeTypeArray } from './lib/tree-dir';
+import type { TreeTypeArray } from './lib/tree-dir';
 
 import { PUBLIC_DIR } from './constants/dir';
-import { fastStringCompare, writeFile } from './lib/misc';
+import { writeFile } from './lib/misc';
 import { tagged as html } from 'foxts/tagged';
 import { compareAndWriteFile } from './lib/create-file';
 import { priorityOrder, prioritySorter } from './lib/public-index-sort.ts';
 import { escapeHtml } from './utils/escape-html';
+import {
+  CLIENT_DIRS,
+  collectRules,
+  countListedFiles,
+  shouldListFile,
+} from './lib/public-index-model';
+import type { RuleEntry } from './lib/public-index-model';
+
+export { collectRules } from './lib/public-index-model';
+export type { ClientDirectory, RuleEntry, RuleFormat } from './lib/public-index-model';
 
 /**
  * 规则平台目录 → 客户端映射。规则卡片模型:同一 basename 跨这些目录聚合为一条规则,
  * 客户端格式是规则的输出,而不是四棵独立的树。
  */
-const CLIENT_DIRS = [
-  { dir: 'List', client: 'Surge', short: 'S' },
-  { dir: 'Clash', client: 'Clash', short: 'C' },
-  { dir: 'Loon', client: 'Loon', short: 'L' },
-  { dir: 'sing-box', client: 'sing-box', short: 'X' },
-] as const;
-
 /** Shortcut chips → search queries (personal high-frequency rulesets). */
 const QUICK_SEARCHES = ['emby', 'reject', 'stream', 'github', 'geoip'] as const;
-
-/** Site meta files — not ruleset payloads. */
-const SKIP_INDEX_FILES = new Set([
-  'README.md',
-  'LICENSE',
-  'CNAME',
-  'favicon.ico',
-  'favicon.svg',
-  'robots.txt',
-]);
-
-function shouldListFile(name: string): boolean {
-  return !name.startsWith('_') && !name.endsWith('.html') && !SKIP_INDEX_FILES.has(name);
-}
 
 export const buildPublic = task(
   require.main === module,
@@ -102,91 +91,6 @@ function buildTimestampGmt8(): { iso: string, display: string } {
   const display = `${iso.slice(0, 16).replace('T', ' ')} +08:00`;
   return { iso, display };
 }
-
-export interface RuleFormat {
-  client: string,
-  short: string,
-  dir: string,
-  filename: string,
-  /** encodeURI'd relative href */
-  href: string,
-}
-
-export interface RuleEntry {
-  name: string,
-  formats: RuleFormat[],
-}
-
-function stripExtension(filename: string): string {
-  const dot = filename.lastIndexOf('.');
-  return dot > 0 ? filename.slice(0, dot) : filename;
-}
-
-/**
- * Aggregate client dirs into rule cards: one rule per basename, each holding
- * its per-client format outputs. Non-client roots (GeoIP, Mirror, Modules…)
- * pass through for the generic tree rendering.
- */
-export function collectRules(tree: TreeTypeArray): {
-  rules: RuleEntry[],
-  restRoots: TreeTypeArray,
-} {
-  const clientDirNames = new Set<string>(CLIENT_DIRS.map(c => c.dir));
-  const byName = new Map<string, Map<string, RuleFormat>>();
-  const restRoots: TreeTypeArray = [];
-
-  for (const entry of tree) {
-    if (entry.type !== TreeFileType.DIRECTORY || !clientDirNames.has(entry.name)) {
-      restRoots.push(entry);
-      continue;
-    }
-    const meta = CLIENT_DIRS.find(c => c.dir === entry.name)!;
-    for (const child of entry.children) {
-      if (child.type !== TreeFileType.FILE || !shouldListFile(child.name)) {
-        continue;
-      }
-      const ruleName = stripExtension(child.name);
-      let bucket = byName.get(ruleName);
-      if (!bucket) {
-        bucket = new Map();
-        byName.set(ruleName, bucket);
-      }
-      bucket.set(meta.dir, {
-        client: meta.client,
-        short: meta.short,
-        dir: meta.dir,
-        filename: child.name,
-        href: encodeURI(child.path),
-      });
-    }
-  }
-
-  const rules = [...byName.entries()]
-    .map(([name, formatMap]) => {
-      const formats: RuleFormat[] = [];
-      for (const c of CLIENT_DIRS) {
-        const hit = formatMap.get(c.dir);
-        if (hit) formats.push(hit);
-      }
-      return { name, formats };
-    })
-    .sort((a, b) => fastStringCompare(a.name, b.name));
-
-  return { rules, restRoots };
-}
-
-/** Count files that will appear in the index under a tree node. */
-function countListedFiles(entry: TreeType): number {
-  if (entry.type === TreeFileType.FILE) {
-    return shouldListFile(entry.name) ? 1 : 0;
-  }
-  let total = 0;
-  for (const child of entry.children) {
-    total += countListedFiles(child);
-  }
-  return total;
-}
-
 function clientChipsHtml(tree: TreeTypeArray): string {
   const present = CLIENT_DIRS.filter(c =>
     tree.some(e => e.type === TreeFileType.DIRECTORY && e.name === c.dir)
@@ -289,10 +193,10 @@ export function treeHtml(
   rootName = ''
 ): string {
   let result = '';
-  tree.sort(prioritySorter);
+  const sortedTree = [...tree].sort(prioritySorter);
 
-  for (let i = 0, len = tree.length; i < len; i++) {
-    const entry = tree[i];
+  for (let i = 0, len = sortedTree.length; i < len; i++) {
+    const entry = sortedTree[i];
 
     if (entry.type === TreeFileType.DIRECTORY) {
       const isFlatRoot =

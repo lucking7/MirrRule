@@ -1,17 +1,11 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- CJS project, node:test requires require() for SWC compat */
 
-import { afterEach, describe, it } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Buffer } from 'node:buffer';
-
-const originalFetch = globalThis.fetch;
-
-afterEach(() => {
-  globalThis.fetch = originalFetch;
-});
 
 describe('shared secondary pipeline failure contract', () => {
   it('fails only when a required asset fails', () => {
@@ -22,18 +16,6 @@ describe('shared secondary pipeline failure contract', () => {
     assert.equal(hasRequiredFailures({ total: 1, succeeded: 0, skipped: 0, failed: [
       { asset: 'required', error: 'offline', required: true },
     ] }), true);
-  });
-
-  it('reports a failed optional extra download without required failures', async () => {
-    const { downloadExtraFile, hasRequiredFailures } = require('../integration/mirror-sync/sync-engine');
-    globalThis.fetch = () => Promise.resolve(new Response('', { status: 503, statusText: 'Unavailable' }));
-    const result = await downloadExtraFile('https://example.test/extra', '/unused/extra');
-    assert.deepEqual(
-      { total: result.total, succeeded: result.succeeded, skipped: result.skipped },
-      { total: 1, succeeded: 0, skipped: 0 }
-    );
-    assert.equal(result.failed[0].required, false);
-    assert.equal(hasRequiredFailures(result), false);
   });
 
   it('does not overwrite a valid destination when post-processing fails', async () => {

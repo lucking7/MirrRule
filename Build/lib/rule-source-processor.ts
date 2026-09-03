@@ -3,7 +3,13 @@ import { boundedMap } from '../utils/concurrency';
 import { fetchAssets } from '../utils/network/fetch-assets';
 import { loadRules } from '../utils/rule-loader';
 import { EnhancedFileOutput } from './enhanced-file-output';
-import type { RuleGroup, SpecialRuleConfig } from './rule-source-types';
+import type {
+  FileConfig,
+  RuleGroup,
+  RulePolicy,
+  RuleTarget,
+  SpecialRuleConfig,
+} from './rule-source-types';
 import { normalizeTargets } from './platform-config';
 import type { SupportedPlatform } from './platform-config';
 import { applyDefaultConfig } from './rule-sources';
@@ -29,6 +35,15 @@ type DownloadResult =
   | { ok: true; rules: string[] }
   | { ok: false; error: Error };
 
+interface RulesetPublication {
+  path: string;
+  title: string;
+  description: string[];
+  targets?: RuleTarget[];
+  defaultPolicy: RulePolicy;
+  options: FileConfig | SpecialRuleConfig;
+}
+
 function toError(error: unknown): Error {
   return error instanceof Error ? error : new Error(getErrorMessage(error));
 }
@@ -41,6 +56,12 @@ function createProcessorStats(): ProcessorStats {
     errors: [],
     rulesets: [],
   };
+}
+
+function appendRuleBatch(target: string[], source: readonly string[]): void {
+  for (const rule of source) {
+    target.push(rule);
+  }
 }
 
 export class RuleSourceProcessor {
@@ -76,6 +97,32 @@ export class RuleSourceProcessor {
     );
   }
 
+  private async publishRuleset(
+    span: Span,
+    rules: string[],
+    publication: RulesetPublication
+  ): Promise<RulesetSummary> {
+    const mergedConfig = applyDefaultConfig(publication.options);
+    const fileName = path.basename(
+      publication.path,
+      path.extname(publication.path)
+    ).toLowerCase();
+    const output = this.createOutput(
+      span,
+      fileName,
+      publication.targets,
+      publication.defaultPolicy,
+      mergedConfig
+    );
+
+    output
+      .withTitle(publication.title)
+      .withDescription(publication.description);
+    output.addRules(rules);
+    await output.write();
+    return output.getOutputSummary();
+  }
+
   private async processFileConfig(
     groupSpan: Span,
     group: RuleGroup,
@@ -91,31 +138,25 @@ export class RuleSourceProcessor {
     try {
       const rules = downloadResult.rules;
 
-      const mergedConfig = applyDefaultConfig(fileConfig);
-      const fileExt = path.extname(fileConfig.path);
-      const fileName = path.basename(fileConfig.path, fileExt).toLowerCase();
-
-      const output = this.createOutput(
+      const summary = await this.publishRuleset(
         groupSpan,
-        fileName,
-        group.targets,
-        group.defaultPolicy === undefined ? null : group.defaultPolicy,
-        mergedConfig
+        rules,
+        {
+          path: fileConfig.path,
+          title: fileConfig.title || group.name,
+          description: [
+            fileConfig.description || group.description || `Rules for ${group.name}`,
+            `Source: ${fileConfig.url}`,
+          ],
+          targets: group.targets,
+          defaultPolicy: group.defaultPolicy === undefined ? null : group.defaultPolicy,
+          options: fileConfig,
+        }
       );
-
-      output
-        .withTitle(fileConfig.title || group.name)
-        .withDescription([
-          fileConfig.description || group.description || `Rules for ${group.name}`,
-          `Source: ${fileConfig.url}`,
-        ]);
-
-      output.addRules(rules);
-      await output.write();
 
       stats.filesProcessed++;
       stats.rulesMerged += rules.length;
-      stats.rulesets.push(output.getOutputSummary());
+      stats.rulesets.push(summary);
     } catch (error) {
       RuleSourceProcessor.recordError(stats, fileConfig.path, error);
     }
@@ -207,7 +248,7 @@ export class RuleSourceProcessor {
             if (!result.ok) {
               RuleSourceProcessor.recordError(stats, source, result.error);
             } else {
-              allRules.push(...result.rules);
+              appendRuleBatch(allRules, result.rules);
             }
           }
 
@@ -224,32 +265,25 @@ export class RuleSourceProcessor {
             return;
           }
 
-          const mergedConfig = applyDefaultConfig(ruleConfig);
-          const fileName = ruleConfig.targetFile
-            ? path.basename(ruleConfig.targetFile, path.extname(ruleConfig.targetFile))
-            : ruleConfig.name.toLowerCase();
-
-          const output = this.createOutput(
+          const summary = await this.publishRuleset(
             ruleSpan,
-            fileName,
-            ruleConfig.targets,
-            ruleConfig.defaultPolicy === undefined ? null : ruleConfig.defaultPolicy,
-            mergedConfig
+            allRules,
+            {
+              path: ruleConfig.targetFile,
+              title: ruleConfig.name,
+              description: [
+                ruleConfig.description || `Rules for ${ruleConfig.name}`,
+                `Merged from ${ruleConfig.sourceFiles.length} sources`,
+              ],
+              targets: ruleConfig.targets,
+              defaultPolicy: ruleConfig.defaultPolicy === undefined ? null : ruleConfig.defaultPolicy,
+              options: ruleConfig,
+            }
           );
-
-          output
-            .withTitle(ruleConfig.name)
-            .withDescription([
-              ruleConfig.description || `Rules for ${ruleConfig.name}`,
-              `Merged from ${ruleConfig.sourceFiles.length} sources`,
-            ]);
-
-          output.addRules(allRules);
-          await output.write();
 
           stats.filesProcessed++;
           stats.rulesMerged += allRules.length;
-          stats.rulesets.push(output.getOutputSummary());
+          stats.rulesets.push(summary);
 
           if (ruleConfig.deleteSourceFiles) {
             for (const sourceUrl of ruleConfig.sourceFiles) {

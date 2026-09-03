@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import picocolors from 'picocolors';
+import { writeFileAtomic } from '../../lib/atomic-file';
 
 interface PluginMetadata {
   version: 1;
@@ -78,14 +79,7 @@ export async function updatePluginMetadata(
     listCount: observation.listCount ?? previous.listCount,
     scripts: { ...previous.scripts, ...observation.scripts },
   };
-  await fs.mkdir(path.dirname(metadataPath), { recursive: true });
-  const temporaryPath = `${metadataPath}.${process.pid}.${Date.now()}.tmp`;
-  try {
-    await fs.writeFile(temporaryPath, `${JSON.stringify(next, null, 2)}\n`);
-    await fs.rename(temporaryPath, metadataPath);
-  } finally {
-    await fs.rm(temporaryPath, { force: true });
-  }
+  await writeFileAtomic(metadataPath, `${JSON.stringify(next, null, 2)}\n`);
   await emitWarnings(warnings, summaryPath);
   return warnings;
 }

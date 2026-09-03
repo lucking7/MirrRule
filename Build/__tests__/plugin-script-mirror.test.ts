@@ -74,6 +74,7 @@ describe('plugin script mirroring', () => {
       });
       assert.equal(failed.failed, 1);
       assert.equal(failed.urlMap[firstUrl], initial.urlMap[firstUrl]);
+      assert.deepEqual(failed.degradedUrls, [firstUrl]);
       assert.equal(fs.readFileSync(outputPath, 'utf8'), 'console.log("version two");');
     } finally {
       fs.rmSync(outputDirectory, { recursive: true, force: true });

@@ -226,6 +226,42 @@ describe('RuleSourceProcessor ordinary rules', () => {
 });
 
 describe('RuleSourceProcessor special rules', () => {
+  it('publishes equivalent normalized rules for ordinary and special inputs', async () => {
+    await withRuleServer(async baseUrl => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-rule-parity-'));
+      const sourcePath = createTempSourceModule(tempDir, 'parity-source', [
+        'DOMAIN,example.com',
+      ]);
+
+      try {
+        const processor = new RuleSourceProcessor(fakeSpan as any, tempDir);
+        await processor.processRuleGroups([{
+          name: 'Ordinary Parity',
+          files: [{ path: 'List/ordinary.list', url: `${baseUrl}/rules` }],
+          targets: ['surge'],
+          defaultPolicy: null,
+        }]);
+        await processor.processSpecialRules([{
+          name: 'Special Parity',
+          targetFile: 'List/special.list',
+          sourceFiles: [sourcePath],
+          targets: ['surge'],
+          defaultPolicy: null,
+        }]);
+
+        const ruleLines = (filePath: string) => fs.readFileSync(filePath, 'utf8')
+          .split(/\r?\n/)
+          .filter(line => line && !line.startsWith('#'));
+        assert.deepEqual(
+          ruleLines(path.join(tempDir, 'List', 'ordinary.list')),
+          ruleLines(path.join(tempDir, 'List', 'special.list'))
+        );
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+  });
+
   it('records an empty URL response as an error and writes no output by default', async () => {
     await withRuleServer(async baseUrl => {
       const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-special-rule-'));
@@ -351,6 +387,43 @@ describe('RuleSourceProcessor special rules', () => {
         true,
         'expected output file to be written'
       );
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('processes a large special source successfully', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-large-special-rule-'));
+    const outputDir = path.join(tempDir, 'output');
+
+    try {
+      fs.mkdirSync(outputDir, { recursive: true });
+
+      const largeRules = Array.from(
+        { length: 120000 },
+        (_, index) => `DOMAIN,large-${index}.example`
+      );
+      const sourcePath = createTempSourceModule(tempDir, 'large-source', largeRules);
+      const processor = new RuleSourceProcessor(fakeSpan as any, outputDir);
+      const config: SpecialRuleConfig = {
+        name: 'Large Source Test',
+        targetFile: 'List/large-source.list',
+        sourceFiles: [sourcePath],
+        targets: ['surge'],
+        defaultPolicy: 'REJECT',
+        dedup: true,
+        sort: true,
+        formatConversion: true,
+      };
+
+      const stats = await processor.processSpecialRules([config]);
+      const outputPath = path.join(outputDir, 'List', 'large-source.list');
+
+      assert.equal(stats.errors.length, 0);
+      assert.equal(stats.filesProcessed, 1);
+      assert.equal(stats.rulesMerged, largeRules.length);
+      assert.equal(fs.existsSync(outputPath), true);
+      assert.match(fs.readFileSync(outputPath, 'utf8'), /large-119999\.example/);
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
