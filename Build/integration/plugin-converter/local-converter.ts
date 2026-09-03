@@ -7,7 +7,8 @@ import picocolors from 'picocolors';
 import { getErrorMessage } from '../../lib/misc';
 import { LocalPluginConverter } from './loon-to-surge-converter';
 import { getPluginContent } from './plugin-mirror';
-import type { PluginInfo } from './types';
+import { identifyPluginSource } from './plugin-identity';
+import type { PluginConversionResult, PluginInfo } from './types';
 
 let loadPluginContent: typeof getPluginContent = getPluginContent;
 
@@ -19,10 +20,7 @@ export function setLocalConverterContentLoader(loader: typeof getPluginContent |
 /**
  * 本地转换结果
  */
-export interface LocalConversionResult {
-  pluginName: string;
-  content: string | { error: string };
-}
+export type LocalConversionResult = PluginConversionResult;
 
 /**
  * 下载并本地转换插件
@@ -33,6 +31,7 @@ async function convertPluginLocally(
   forceUpdate = false
 ): Promise<LocalConversionResult> {
   console.log(picocolors.gray(`  [Local] Converting ${plugin.name}...`));
+  const identity = identifyPluginSource(plugin);
 
   try {
     // 获取插件内容（优先使用镜像）
@@ -41,6 +40,7 @@ async function convertPluginLocally(
     if (!contentResult.success || !contentResult.content) {
       return {
         pluginName: plugin.name,
+        ...identity,
         content: { error: contentResult.error || 'Failed to get plugin content' },
       };
     }
@@ -55,6 +55,7 @@ async function convertPluginLocally(
 
     return {
       pluginName: plugin.name,
+      ...identity,
       content: surgeContent,
     };
   } catch (error) {
@@ -62,6 +63,7 @@ async function convertPluginLocally(
     console.log(picocolors.red(`  [Local] ✗ ${plugin.name}: ${errorMsg}`));
     return {
       pluginName: plugin.name,
+      ...identity,
       content: { error: errorMsg },
     };
   }

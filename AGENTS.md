@@ -106,6 +106,7 @@ Build/
   integration/mirror-sync/         GitHub Release/镜像同步实现
   integration/plugin-converter/    插件下载、转换、镜像实现
   lib/                             规则处理、输出、解析、模块合并等核心逻辑
+  lib/public-index-model.ts        public 索引的规则实体、客户端元数据与可见文件语义
   trace/                           构建追踪与耗时输出
   utils/                           网络、域名、数据结构、校验工具
 
@@ -154,6 +155,7 @@ eslint.config.js                   ESLint 配置
 
 - `ruleGroups`：普通规则组，每组包含多个文件源。
 - `specialRules`：把多个源合并为一个目标规则文件。
+- 两类配置共享 `RuleProcessingOptions`，并通过同一 ruleset publication 路径输出。
 - `DEFAULT_FILE_CONFIG`：默认处理选项。
 - `applyDefaultConfig`：合并默认配置与单个源配置。
 
@@ -249,6 +251,8 @@ pnpm run typecheck
 - BiliUniverse
 - fmz200（split 目录由专用脚本处理）
 
+Mirror sync 只处理有生产配置的 release adapter，使用 `Build/lib/atomic-file.ts` 完成原子替换并保留 last-known-good。`NSRingo/Siri` 仅同步当前 release 中的 `iRingo.Siri`、`iRingo.Search` 与 `iRingo.Spotlight` 资产，不读取 `dev/debug` 文件。新增 adapter 前必须先有真实生产 source。
+
 iRingo `.sgmodule` 有后处理逻辑，会替换 `#!arguments=` 中的 `Proxy` 参数为 `🇺🇸`。
 
 ### 插件转换
@@ -264,7 +268,9 @@ iRingo `.sgmodule` 有后处理逻辑，会替换 `#!arguments=` 中的 `Proxy` 
 - `PLUGIN_LIST_URL`：逗号分隔的插件列表 URL。
 - `PLUGIN_LIST_FORCE_PROXY`：默认视为启用代理候选；设为 `false` 可关闭强制代理候选。
 
-CI 中会启动 `xream/script-hub:latest` 服务用于插件转换。
+CI 中会启动固定 digest 的 `xream/script-hub` image 用于插件转换。
+
+转换结果在依赖脚本具有镜像或缓存 URL 后才原子发布；插件缓存文件名包含 canonical source URL 的摘要，不能改回仅按插件名称缓存。
 
 ### 模块合并
 

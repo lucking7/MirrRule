@@ -8,8 +8,9 @@ import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import picocolors from 'picocolors';
 import { UA_SURGE_MAC } from '../../constants/user-agents';
 import { applyProxyIfNeeded, shouldUseProxy } from '../../utils/network/proxy';
-import type { PluginInfo, ConversionConfig } from './types.ts';
+import type { PluginConversionResult, PluginInfo, ConversionConfig } from './types.ts';
 import { getErrorMessage } from '../../lib/misc';
+import { identifyPluginSource } from './plugin-identity';
 
 /**
  * Script-Hub API 配置
@@ -72,8 +73,8 @@ export async function convertPluginsBatchFromRemote(
   plugins: PluginInfo[],
   config?: ConversionConfig,
   concurrency = 5
-): Promise<Array<{ pluginName: string; content: string | { error: string } }>> {
-  const results: Array<{ pluginName: string; content: string | { error: string } }> = [];
+): Promise<PluginConversionResult[]> {
+  const results: PluginConversionResult[] = [];
 
   if (plugins.length === 0) {
     console.log(picocolors.yellow('\n[Convert] No plugins to convert'));
@@ -95,6 +96,7 @@ export async function convertPluginsBatchFromRemote(
 
     const batchResults = await Promise.all(
       batch.map(async plugin => {
+        const identity = identifyPluginSource(plugin);
         const url = buildConversionUrlFromRemote(
           plugin.url,
           plugin.name,
@@ -159,7 +161,7 @@ export async function convertPluginsBatchFromRemote(
               }
 
               if (response.status >= 400 && response.status < 500) {
-                return { pluginName: plugin.name, content: { error: lastError } };
+                return { pluginName: plugin.name, ...identity, content: { error: lastError } };
               }
 
               continue;
@@ -182,7 +184,7 @@ export async function convertPluginsBatchFromRemote(
             if (!content.includes('#!name=') && !content.includes('[Script]')) {
               lastError = 'Invalid sgmodule format';
               console.log(picocolors.red(`[Convert] Invalid format for ${plugin.name}`));
-              return { pluginName: plugin.name, content: { error: lastError } };
+              return { pluginName: plugin.name, ...identity, content: { error: lastError } };
             }
 
             console.log(
@@ -190,7 +192,7 @@ export async function convertPluginsBatchFromRemote(
                 `[Convert] ✓ ${plugin.name}${attempt > 1 ? ` (attempt ${attempt})` : ''}`
               )
             );
-            return { pluginName: plugin.name, content };
+            return { pluginName: plugin.name, ...identity, content };
           } catch (error) {
             const errorMsg = getErrorMessage(error);
             lastError = errorMsg;
@@ -201,12 +203,16 @@ export async function convertPluginsBatchFromRemote(
             );
 
             if (attempt === maxRetries) {
-              return { pluginName: plugin.name, content: { error: lastError } };
+              return { pluginName: plugin.name, ...identity, content: { error: lastError } };
             }
           }
         }
 
-        return { pluginName: plugin.name, content: { error: lastError || 'Unknown error' } };
+        return {
+          pluginName: plugin.name,
+          ...identity,
+          content: { error: lastError || 'Unknown error' },
+        };
       })
     );
 

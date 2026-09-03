@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { collectRules, ruleCardsHtml, treeHtml } from '../build-public';
+import { ruleCardsHtml, treeHtml } from '../build-public';
+import { collectRules } from '../lib/public-index-model';
 import { TreeFileType } from '../lib/tree-dir';
 import type { TreeTypeArray } from '../lib/tree-dir';
 import { escapeHtml } from '../utils/escape-html';
@@ -65,6 +66,17 @@ describe('public index HTML escaping', () => {
     assert.equal(rendered.includes('<script>'), false);
     assert.equal(rendered.includes('%2520'), false);
     assert.equal(rendered.includes('%2F'), false);
+  });
+
+  it('renders generic trees without mutating caller-owned ordering', () => {
+    const tree: TreeTypeArray = [
+      file('zeta.list', '/zeta.list'),
+      file('alpha.list', '/alpha.list'),
+    ];
+
+    treeHtml(tree);
+
+    assert.deepEqual(tree.map(entry => entry.name), ['zeta.list', 'alpha.list']);
   });
 });
 

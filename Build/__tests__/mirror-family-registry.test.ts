@@ -86,6 +86,21 @@ describe('mirror family registry contract', () => {
     assert.match(EXTERNAL_MIRROR_FAMILIES.fmz200, /download-fmz200-split\.ts/);
   });
 
+  it('discovers current Siri release assets without stale debug downloads', () => {
+    const iRingo = MIRROR_GROUPS.find(group => group.name === 'iRingo');
+    const siri = iRingo?.repositories.find(repository => repository.repo === 'NSRingo/Siri');
+
+    assert.ok(siri?.assetNamePattern);
+    for (const name of [
+      'iRingo.Siri.sgmodule',
+      'iRingo.Search.plugin',
+      'iRingo.Spotlight.stoverride',
+    ]) {
+      assert.match(name, siri.assetNamePattern);
+    }
+    assert.doesNotMatch('Siri.V2.beta.sgmodule', siri.assetNamePattern);
+  });
+
   it('keeps package convenience scripts aligned with eligible registry families', () => {
     assertPackageScriptContract(packageJson.scripts ?? {});
 

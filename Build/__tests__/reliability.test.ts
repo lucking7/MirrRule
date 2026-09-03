@@ -73,6 +73,25 @@ describe('task runner exit handling', () => {
 
     assert.equal(result.status, 7, result.stderr || result.stdout);
   });
+
+  it('runs the mirror-sync CLI exactly once', () => {
+    const result = spawnSync(
+      process.execPath,
+      ['-r', '@swc-node/register', 'Build/sync-mirrors.ts', 'missing-group'],
+      {
+        cwd: process.cwd(),
+        env: { ...process.env, SWC_NODE_IGNORE_DYNAMIC: 'true' },
+        encoding: 'utf8',
+      }
+    );
+
+    assert.notEqual(result.status, 0);
+    assert.equal(
+      (result.stdout.match(/Mirror Sync Tool/g) ?? []).length,
+      1,
+      result.stderr || result.stdout
+    );
+  });
 });
 
 describe('RuleLineUtils validates compound rules', () => {

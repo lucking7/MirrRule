@@ -226,6 +226,42 @@ describe('RuleSourceProcessor ordinary rules', () => {
 });
 
 describe('RuleSourceProcessor special rules', () => {
+  it('publishes equivalent normalized rules for ordinary and special inputs', async () => {
+    await withRuleServer(async baseUrl => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-rule-parity-'));
+      const sourcePath = createTempSourceModule(tempDir, 'parity-source', [
+        'DOMAIN,example.com',
+      ]);
+
+      try {
+        const processor = new RuleSourceProcessor(fakeSpan as any, tempDir);
+        await processor.processRuleGroups([{
+          name: 'Ordinary Parity',
+          files: [{ path: 'List/ordinary.list', url: `${baseUrl}/rules` }],
+          targets: ['surge'],
+          defaultPolicy: null,
+        }]);
+        await processor.processSpecialRules([{
+          name: 'Special Parity',
+          targetFile: 'List/special.list',
+          sourceFiles: [sourcePath],
+          targets: ['surge'],
+          defaultPolicy: null,
+        }]);
+
+        const ruleLines = (filePath: string) => fs.readFileSync(filePath, 'utf8')
+          .split(/\r?\n/)
+          .filter(line => line && !line.startsWith('#'));
+        assert.deepEqual(
+          ruleLines(path.join(tempDir, 'List', 'ordinary.list')),
+          ruleLines(path.join(tempDir, 'List', 'special.list'))
+        );
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+  });
+
   it('records an empty URL response as an error and writes no output by default', async () => {
     await withRuleServer(async baseUrl => {
       const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-special-rule-'));

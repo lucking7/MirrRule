@@ -7,6 +7,7 @@ import {
   convertPluginsLocallyBatch,
   setLocalConverterContentLoader,
 } from '../integration/plugin-converter/local-converter';
+import { identifyPluginSource } from '../integration/plugin-converter/plugin-identity';
 import type { PluginInfo } from '../integration/plugin-converter/types';
 
 const fixtureRoot = path.join(process.cwd(), 'Build', '__tests__', 'fixtures');
@@ -63,10 +64,12 @@ test('loader failure preserves the error shape and does not affect later plugins
 
   assert.deepEqual(results[0], {
     pluginName: 'failure',
+    ...identifyPluginSource({ name: 'failure', url: 'fixture://failure', extension: 'plugin' }),
     content: { error: 'simulated failure' },
   });
   assert.deepEqual(results[1], {
     pluginName: 'metadata-rules',
+    ...identifyPluginSource(plugins[0]),
     content: readGolden('metadata-rules'),
   });
 });

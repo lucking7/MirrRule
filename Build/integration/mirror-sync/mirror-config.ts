@@ -62,6 +62,7 @@ export const MIRROR_GROUPS: MirrorGroup[] = [
         repo: 'NSRingo/Siri',
         outputDir: path.join(OUTPUT_ROOT, 'iRingo'),
         allowedTypes: [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE],
+        assetNamePattern: /^iRingo\.(?:Siri|Search|Spotlight)\.(?:plugin|sgmodule|snippet|stoverride)$/,
         postProcess: postProcessIRingo
       },
       {
@@ -69,16 +70,6 @@ export const MIRROR_GROUPS: MirrorGroup[] = [
         outputDir: path.join(OUTPUT_ROOT, 'iRingo'),
         allowedTypes: [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE],
         postProcess: postProcessIRingo
-      }
-    ],
-    extraDownloads: [
-      {
-        url: 'https://raw.githubusercontent.com/NSRingo/Siri/dev/debug/Siri.V2.beta.sgmodule',
-        outputPath: path.join(OUTPUT_ROOT, 'iRingo/sgmodule/Siri.V2.beta.sgmodule')
-      },
-      {
-        url: 'https://raw.githubusercontent.com/NSRingo/Siri/dev/debug/Siri.V2.macOS.beta.sgmodule',
-        outputPath: path.join(OUTPUT_ROOT, 'iRingo/sgmodule/Siri.V2.macOS.beta.sgmodule')
       }
     ]
   },
@@ -142,8 +133,7 @@ export const MIRROR_GROUPS: MirrorGroup[] = [
   // 该脚本会下载所有子目录中的 .sgmodule 文件，并根据 #!name= 重命名
   {
     name: 'fmz200',
-    repositories: [],
-    extraDownloads: []
+    repositories: []
   }
 ];
 
@@ -158,7 +148,7 @@ export const EXTERNAL_MIRROR_FAMILIES = {
  * Whether a registry entry is handled by the generic mirror synchronization pipeline.
  */
 function isGenericMirrorFamily(group: MirrorGroup): boolean {
-  return group.repositories.length > 0 || (group.extraDownloads?.length ?? 0) > 0;
+  return group.repositories.length > 0;
 }
 
 /**
@@ -173,13 +163,6 @@ export function getGenericMirrorFamilies(): MirrorGroup[] {
  */
 function _getAllRepositories() {
   return MIRROR_GROUPS.flatMap(group => group.repositories);
-}
-
-/**
- * 获取所有额外下载项
- */
-function _getAllExtraDownloads() {
-  return MIRROR_GROUPS.flatMap(group => group.extraDownloads || []);
 }
 
 /**

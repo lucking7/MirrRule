@@ -1,4 +1,9 @@
-import type { FileConfig, RuleGroup, SpecialRuleConfig } from './rule-source-types';
+import type {
+  FileConfig,
+  RuleGroup,
+  RuleProcessingOptions,
+  SpecialRuleConfig,
+} from './rule-source-types';
 import path from 'node:path';
 
 const currentDir = path.dirname(__filename);
@@ -13,9 +18,9 @@ export const DEFAULT_FILE_CONFIG = {
   keepInlineComments: false,
   formatConversion: true,
   applyNoResolve: false,
-} as const;
+} as const satisfies RuleProcessingOptions;
 
-export function applyDefaultConfig<T extends Partial<FileConfig>>(
+export function applyDefaultConfig<T extends FileConfig | SpecialRuleConfig>(
   fileConfig: T
 ): T & typeof DEFAULT_FILE_CONFIG {
   return { ...DEFAULT_FILE_CONFIG, ...fileConfig };

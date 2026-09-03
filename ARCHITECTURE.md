@@ -9,7 +9,8 @@ Build/index.ts
   ├─ downloadGEOIP()
   ├─ RuleSourceProcessor
   │   ├─ fetchAssets() / loadRules()
-  │   └─ EnhancedFileOutput
+  │   └─ shared ruleset publication
+  │       └─ EnhancedFileOutput
   │       ├─ FileOutput
   │       └─ createStrategiesForTargets()
   │           ├─ SurgeRuleSet
@@ -17,7 +18,25 @@ Build/index.ts
   │           ├─ LoonRuleSet
   │           └─ SingboxSource
   └─ buildPublic()
+      ├─ public-index-model
+      └─ static HTML renderer
 ```
+
+## Upstream artifacts
+
+Mirror sources use release adapters behind one artifact synchronization module. Release assets are filtered before download, validated before publication, and replaced through the shared atomic-file primitive, so a failed download or post-process keeps the last-known-good file. Add another adapter only when a production source requires one.
+
+`NSRingo/Siri` is release-driven. The mirror accepts the `iRingo.Siri`, `iRingo.Search`, and `iRingo.Spotlight` asset families and does not build the upstream `dev` branch.
+
+Source health probes carry the same request profile as their build source. Rule inputs use the Surge User-Agent, while GitHub release metadata uses the mirror User-Agent.
+
+## Plugin artifacts
+
+Plugin conversions remain pending until every required script has a mirrored or cached URL. Canonical source identity follows each plugin through remote conversion, local fallback, cache, and publication. Publication reports `ready`, `degraded`, or `failed`, uses the shared atomic-file primitive, and prevents same-name plugins from sharing cached bytes.
+
+## Public index
+
+`Build/lib/public-index-model.ts` owns rule aggregation, client metadata, visible-file semantics, and deterministic ordering. `Build/build-public.ts` owns HTML and browser behavior and does not mutate the model input.
 
 ## Current scope
 

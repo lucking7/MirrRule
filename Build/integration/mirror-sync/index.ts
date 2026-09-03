@@ -10,12 +10,21 @@ export * from './mirror-config';
 import picocolors from 'picocolors';
 import {
   syncRepository,
-  downloadExtraFile,
   mergeSyncResults,
   printSyncSummary
 } from './sync-engine';
 import { MIRROR_GROUPS } from './mirror-config';
-import type { SyncResult } from './sync-engine';
+import type { MirrorGroup, SyncResult } from './sync-engine';
+
+async function syncConfiguredGroup(group: MirrorGroup): Promise<SyncResult> {
+  const results: SyncResult[] = [];
+
+  for (const repository of group.repositories) {
+    results.push(await syncRepository(repository));
+  }
+
+  return mergeSyncResults(results);
+}
 
 /**
  * 同步所有镜像组
@@ -31,37 +40,7 @@ export async function syncAllMirrors(): Promise<SyncResult> {
   for (const group of MIRROR_GROUPS) {
     console.log(picocolors.yellow(`\nSyncing group: ${group.name}`));
 
-    const groupResults: SyncResult[] = [];
-
-    // 同步组内的所有仓库
-    for (const repo of group.repositories) {
-      const result = await syncRepository(repo);
-      groupResults.push(result);
-    }
-
-    // 下载额外文件
-    if (group.extraDownloads && group.extraDownloads.length > 0) {
-      console.log(
-        picocolors.cyan(`\n[Extra] Downloading ${group.extraDownloads.length} extra files...`)
-      );
-
-      for (const extra of group.extraDownloads) {
-        const extraResult = await downloadExtraFile(extra.url, extra.outputPath);
-        groupResults.push({
-          ...extraResult,
-          hasChanges: extraResult.succeeded > 0,
-          newFiles: extraResult.succeeded > 0 ? [extra.outputPath] : [],
-          updatedFiles: [],
-          failedFiles: extraResult.failed.map(failure => ({
-            file: failure.asset,
-            error: failure.error
-          }))
-        });
-      }
-    }
-
-    // 合并组内结果
-    const groupResult = mergeSyncResults(groupResults);
+    const groupResult = await syncConfiguredGroup(group);
     allResults.push(groupResult);
 
     // 打印组摘要
@@ -97,36 +76,7 @@ export async function syncMirrorGroup(groupName: string): Promise<SyncResult | n
 
   console.log(picocolors.cyan(`\nSyncing Mirror Group: ${groupName}\n`));
 
-  const results: SyncResult[] = [];
-
-  // 同步所有仓库
-  for (const repo of group.repositories) {
-    const result = await syncRepository(repo);
-    results.push(result);
-  }
-
-  // 下载额外文件
-  if (group.extraDownloads && group.extraDownloads.length > 0) {
-    console.log(
-      picocolors.cyan(`\n[Extra] Downloading ${group.extraDownloads.length} extra files...`)
-    );
-
-    for (const extra of group.extraDownloads) {
-      const extraResult = await downloadExtraFile(extra.url, extra.outputPath);
-      results.push({
-        ...extraResult,
-        hasChanges: extraResult.succeeded > 0,
-        newFiles: extraResult.succeeded > 0 ? [extra.outputPath] : [],
-        updatedFiles: [],
-        failedFiles: extraResult.failed.map(failure => ({
-          file: failure.asset,
-          error: failure.error
-        }))
-      });
-    }
-  }
-
-  const result = mergeSyncResults(results);
+  const result = await syncConfiguredGroup(group);
 
   console.log(picocolors.cyan('\nSync Complete!\n'));
   printSyncSummary(result);

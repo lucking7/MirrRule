@@ -10,6 +10,8 @@ export * from './script-mirror';
 export * from './plugin-list';
 export * from './local-converter';
 export * from './plugin-mirror';
+export * from './plugin-artifact';
+export * from './plugin-identity';
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -25,7 +27,10 @@ import {
 import { mirrorScripts, printMirrorSummary } from './script-mirror';
 import { convertPluginsLocallyBatch } from './local-converter';
 import { mirrorPluginsBatch } from './plugin-mirror';
-import type { ConversionResult, ScriptInfo } from './types';
+import { publishPluginArtifacts } from './plugin-artifact';
+import { identifyPluginSource } from './plugin-identity';
+import type { PendingPluginArtifact } from './plugin-artifact';
+import type { ConversionResult, PluginConversionResult, ScriptInfo } from './types';
 
 // CommonJS 中的 __dirname 直接可用
 
@@ -149,7 +154,7 @@ export async function convertAndMirrorPlugins(
   console.log(picocolors.cyan('\n[Step 2/4] Converting plugins to sgmodule...\n'));
   await ensureOutputDirectory();
 
-  const conversionResults: Array<{ pluginName: string; content: string | { error: string } }> = [];
+  const conversionResults: PluginConversionResult[] = [];
 
   // 2a. 本地转换 (useLocalOnly 插件)
   if (localOnlyPlugins.length > 0) {
@@ -181,13 +186,19 @@ export async function convertAndMirrorPlugins(
   // 2c. 检查失败的插件，使用本地转换器重试
   if (useLocalFallback && remotePlugins.length > 0) {
     const failedPlugins: typeof remotePlugins = [];
+    const remotePluginsBySourceKey = new Map(
+      remotePlugins.map(plugin => {
+        const sourceId = identifyPluginSource(plugin).sourceId;
+        return [`${sourceId}\0${plugin.name}`, plugin] as const;
+      })
+    );
 
     for (const result of conversionResults) {
       if (typeof result.content === 'string') {
         continue;
       }
 
-      const matched = remotePlugins.find(p => p.name === result.pluginName);
+      const matched = remotePluginsBySourceKey.get(`${result.sourceId}\0${result.pluginName}`);
       if (matched) {
         failedPlugins.push(matched);
       }
@@ -208,7 +219,10 @@ export async function convertAndMirrorPlugins(
 
       // 替换失败的结果
       for (const localResult of localResults) {
-        const index = conversionResults.findIndex(r => r.pluginName === localResult.pluginName);
+        const index = conversionResults.findIndex(
+          result => result.sourceId === localResult.sourceId
+            && result.pluginName === localResult.pluginName
+        );
         if (index !== -1) {
           conversionResults[index] = localResult;
         }
@@ -219,10 +233,11 @@ export async function convertAndMirrorPlugins(
   // 3. 处理转换结果
   console.log(picocolors.cyan('\n[Step 3/4] Processing conversion results...\n'));
 
-  const results: ConversionResult[] = [];
-  const allScripts: string[] = [];
+  const results: Array<ConversionResult | undefined> = [];
+  const pendingArtifacts: PendingPluginArtifact[] = [];
+  const pendingResultIndexes: number[] = [];
 
-  for (const { pluginName, content } of conversionResults) {
+  for (const { pluginName, sourceId, sourceUrl, content } of conversionResults) {
     if (typeof content === 'string') {
       // 提取脚本
       const scripts = extractScriptUrls(content);
@@ -231,38 +246,35 @@ export async function convertAndMirrorPlugins(
       const moduleName = extractModuleName(content, pluginName);
       const fileName = `${moduleName}.sgmodule`;
 
-      // 保存 sgmodule 文件（主输出目录）
       const outputPath = path.join(OUTPUT_DIR, fileName);
-      await fs.writeFile(outputPath, content, 'utf-8');
-
-      // 统一日志输出
-      console.log(picocolors.gray(`  ✓ ${pluginName} → ${fileName}`));
-
-      results.push({
+      const result: PendingPluginArtifact['result'] = {
         pluginName,
+        sourceId,
+        sourceUrl,
         success: true,
         outputPath,
         scripts,
-      });
-
-      allScripts.push(content);
+      };
+      pendingResultIndexes.push(results.length);
+      pendingArtifacts.push({ result, content });
+      results.push(undefined);
     } else {
       results.push({
         pluginName,
+        sourceId,
+        sourceUrl,
         success: false,
+        status: 'failed',
         scripts: [],
         error: content.error,
       });
     }
   }
 
-  const successCount = results.filter(r => r.success).length;
-  console.log(picocolors.green(`\n✓ Converted ${successCount}/${plugins.length} plugins`));
-
   // 4. 提取所有脚本
   console.log(picocolors.cyan('\n[Step 4/4] Extracting JavaScript URLs...\n'));
 
-  const allScriptInfos = allScripts.flatMap(content => extractScriptUrls(content));
+  const allScriptInfos = pendingArtifacts.flatMap(artifact => artifact.result.scripts);
   const uniqueScripts = Array.from(new Map(allScriptInfos.map(s => [s.originalUrl, s])).values());
 
   const scriptStats = getScriptStats(uniqueScripts);
@@ -270,7 +282,10 @@ export async function convertAndMirrorPlugins(
   console.log(picocolors.gray(`  - Already mirrored: ${scriptStats.mirrored}`));
   console.log(picocolors.gray(`  - Need to mirror: ${scriptStats.needMirror}`));
 
-  // 镜像脚本
+  let scriptUrlMap: Record<string, string> = {};
+  let degradedScriptUrls = new Set<string>();
+  let mirroredScriptCount = 0;
+
   if (scriptStats.needMirror > 0) {
     console.log(picocolors.cyan('\n[Mirror] Mirroring JavaScript files...\n'));
 
@@ -278,50 +293,66 @@ export async function convertAndMirrorPlugins(
     const mirrorResult = await mirrorScripts(toMirror);
 
     printMirrorSummary(mirrorResult);
-
-    // 更新 sgmodule 文件中的 URL；warm cache 也必须参与替换
-    if (Object.keys(mirrorResult.urlMap).length > 0) {
-      console.log(picocolors.cyan('\n[Update] Updating sgmodule files with mirror URLs...\n'));
-
-      for (const result of results) {
-        if (!result.success || !result.outputPath) continue;
-
-        const content = await fs.readFile(result.outputPath, 'utf-8');
-        const updated = applyScriptMirrorMap(content, result.scripts, mirrorResult.urlMap);
-
-        if (updated !== content) {
-          await fs.writeFile(result.outputPath, updated, 'utf-8');
-          console.log(picocolors.green(`✓ Updated: ${result.pluginName}.sgmodule`));
-        }
-      }
-    }
+    scriptUrlMap = mirrorResult.urlMap;
+    degradedScriptUrls = new Set(mirrorResult.degradedUrls);
+    mirroredScriptCount = mirrorResult.mirrored + mirrorResult.skipped
+      + mirrorResult.degradedUrls.length;
   } else {
     console.log(picocolors.gray('\n[Mirror] No scripts to mirror - skipping\n'));
   }
+
+  const publishedResults = await publishPluginArtifacts(
+    pendingArtifacts,
+    scriptUrlMap,
+    degradedScriptUrls
+  );
+  for (const [index, published] of publishedResults.entries()) {
+    results[pendingResultIndexes[index]] = published;
+    if (published.success && published.outputPath) {
+      console.log(picocolors.gray(
+        `  ✓ ${published.pluginName} → ${path.basename(published.outputPath)}`
+      ));
+    }
+  }
+
+  const finalizedResults = results.filter(
+    (result): result is ConversionResult => result !== undefined
+  );
+  if (finalizedResults.length !== results.length) {
+    throw new Error('Plugin artifact publication did not finalize every conversion result');
+  }
+
+  const successCount = finalizedResults.filter(result => result.status === 'ready').length;
+  const degradedCount = finalizedResults.filter(result => result.status === 'degraded').length;
+  console.log(picocolors.green(`\n✓ Converted ${successCount}/${plugins.length} plugins`));
 
   console.log(picocolors.green('\nPlugin conversion complete!\n'));
   console.log(picocolors.cyan('Summary:'));
   console.log(picocolors.gray(`  - Total plugins: ${plugins.length}`));
   console.log(picocolors.gray(`  - Converted: ${successCount}/${plugins.length} plugins`));
-  console.log(picocolors.gray(`  - Scripts mirrored: ${scriptStats.needMirror} files`));
+  console.log(picocolors.gray(`  - Degraded: ${degradedCount} plugins`));
+  console.log(picocolors.gray(`  - Scripts available: ${mirroredScriptCount} files`));
 
-  return results;
+  return finalizedResults;
 }
 
 /**
  * 打印转换结果摘要
  */
 export function printConversionSummary(results: ConversionResult[]): void {
-  const successful = results.filter(r => r.success);
-  const failed = results.filter(r => !r.success);
+  const successful = results.filter(result => result.status === 'ready');
+  const degraded = results.filter(result => result.status === 'degraded');
+  const failed = results.filter(result => result.status === 'failed');
 
   console.log(picocolors.cyan('\n[Conversion] Summary:'));
   console.log(picocolors.green(`  ✓ Successful: ${successful.length}`));
+  console.log(picocolors.yellow(`  ! Degraded: ${degraded.length}`));
   console.log(picocolors.red(`  ✗ Failed: ${failed.length}`));
 
-  if (failed.length > 0) {
-    console.log(picocolors.red('\n[Conversion] Failed plugins:'));
-    for (const result of failed) {
+  const unavailable = [...degraded, ...failed];
+  if (unavailable.length > 0) {
+    console.log(picocolors.red('\n[Conversion] Unavailable current artifacts:'));
+    for (const result of unavailable) {
       console.log(picocolors.red(`  - ${result.pluginName}: ${result.error}`));
     }
   }

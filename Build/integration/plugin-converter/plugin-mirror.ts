@@ -10,6 +10,8 @@ import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry.ts'
 import type { PluginInfo } from './types.ts';
 import { applyProxyIfNeeded } from '../../utils/network/proxy';
 import { getErrorMessage } from '../../lib/misc';
+import { writeFileAtomic } from '../../lib/atomic-file';
+import { identifyPluginSource } from './plugin-identity';
 
 /**
  * 镜像目录（放在 .cache 目录下，不部署到生产环境）
@@ -36,9 +38,16 @@ async function ensureMirrorDirectory(): Promise<void> {
 /**
  * 获取插件镜像路径
  */
+export function getPluginMirrorFilename(plugin: PluginInfo): string {
+  const sourceHash = identifyPluginSource(plugin).sourceId.slice(0, 12);
+  const safeName = plugin.name
+    .replaceAll(/["*/:<>?\\|]/g, '-')
+    .replaceAll(/\s+/g, '-') || 'plugin';
+  return `${sourceHash}-${safeName}.${plugin.extension}`;
+}
+
 function getPluginMirrorPath(plugin: PluginInfo): string {
-  const filename = `${plugin.name}.${plugin.extension}`;
-  return path.join(MIRROR_DIR, filename);
+  return path.join(MIRROR_DIR, getPluginMirrorFilename(plugin));
 }
 
 /**
@@ -82,9 +91,8 @@ async function mirrorPlugin(
 
     const content = await response.text();
 
-    await ensureMirrorDirectory();
     const mirrorPath = getPluginMirrorPath(plugin);
-    await fs.writeFile(mirrorPath, content, 'utf-8');
+    await writeFileAtomic(mirrorPath, content);
 
     console.log(picocolors.green(`  [Mirror] ✓ ${plugin.name} mirrored successfully`));
     return { success: true, content };

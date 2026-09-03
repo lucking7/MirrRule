@@ -7,7 +7,6 @@ import fs from 'node:fs/promises';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import process from 'node:process';
 import picocolors from 'picocolors';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import { UA_SURGE_MAC } from '../../constants/user-agents';
@@ -16,6 +15,7 @@ import { getErrorMessage } from '../../lib/misc';
 import { buildClassifiedProxyUrlCandidates } from '../../utils/network/proxy';
 import type { DownloadSource } from '../../utils/network/proxy';
 import { updatePluginMetadata } from './provenance';
+import { writeFileAtomic } from '../../lib/atomic-file';
 
 // CommonJS 中的 __dirname 直接可用
 
@@ -50,6 +50,7 @@ export interface MirrorOptions {
 
 export interface ScriptMirrorResult extends MirrorResult {
   urlMap: Record<string, string>;
+  degradedUrls: string[];
   provenance: Record<string, { source: DownloadSource; bytes: number; sha256: string }>
 }
 
@@ -157,13 +158,7 @@ async function downloadScript(
         return { status: 'unchanged', provenance };
       }
 
-      const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-      try {
-        await fs.writeFile(temporaryPath, content);
-        await fs.rename(temporaryPath, filePath);
-      } finally {
-        await fs.rm(temporaryPath, { force: true });
-      }
+      await writeFileAtomic(filePath, content);
 
       return { status: 'mirrored', provenance };
     } catch (error) {
@@ -197,6 +192,7 @@ export async function mirrorScripts(
     failed: 0,
     failedScripts: [],
     urlMap: {},
+    degradedUrls: [],
     provenance: {}
   };
 
@@ -248,6 +244,7 @@ export async function mirrorScripts(
           path.join(outputDirectory, getMirrorFilename(script))
         )) {
           result.urlMap[script.originalUrl] = `${MIRROR_BASE_URL}/${getMirrorFilename(script)}`;
+          result.degradedUrls.push(script.originalUrl);
         }
       }
     }
