@@ -40,7 +40,7 @@ MirrRule 是构建型规则聚合项目：下载上游成品规则，清洗、�
 | 发布工具     | workflow 固定 Wrangler `4.114.0`；无需为本地规则构建安装 Wrangler                                      |
 | 插件转换服务 | Docker 镜像 `xream/script-hub@sha256:c55180dd41c07567906f17953587c25b61b427b2c5cc6b955721677fd615f470` |
 
-本地需要 Git、Node、pnpm 和网络；复现 CI 的 Script-Hub 转换路径还需要可运行 Docker 的环境。源码包含本地转换 fallback，但不能据此保证缺少 Script-Hub 时所有插件都能转换。`better-sqlite3` 和 SWC 有原生二进制依赖，换 Node 大版本或 CPU 架构后不要复用旧 `node_modules`。预编译包不可用时，需要 Python 和系统 C/C++ 编译工具链。
+本地需要 Git、Node、pnpm 和网络；复现 CI 的 Script-Hub 转换路径还需要可运行 Docker 的环境。源码包含本地转换 fallback，但不能据此保证缺少 Script-Hub 时所有插件都能转换。`better-sqlite3` 和 SWC 有原生二进制依赖，换 Node 大版本或 CPU 架构后不要复用旧 `node_modules`。预编译包不可用时，需要 Python 和系统 C/C++ 编译工具链。`pnpm test` 固定逐个运行测试文件，避免干净克隆首次创建共享 SQLite 缓存时多个测试进程争用锁。
 
 ### 2.2 目录职责
 

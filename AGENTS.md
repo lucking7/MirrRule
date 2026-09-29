@@ -156,8 +156,8 @@ eslint.config.js                   ESLint 配置
 - `ruleGroups`：普通规则组，每组包含多个文件源。
 - `specialRules`：把多个源合并为一个目标规则文件。
 - 两类配置共享 `RuleProcessingOptions`，并通过同一 ruleset publication 路径输出。
-- `DEFAULT_FILE_CONFIG`：默认处理选项。
-- `applyDefaultConfig`：合并默认配置与单个源配置。
+
+未设置的处理选项由 `EnhancedFileOutput` 在输出时应用默认值，不需要在规则源对象里预填。
 
 常见配置字段见 `Build/lib/rule-source-types.ts`：
 
@@ -177,7 +177,7 @@ eslint.config.js                   ESLint 配置
 
 规则源配置不支持自定义 `header`；模块合并流程中的同名字段是独立配置，仍然有效。
 
-添加新规则源时，优先在现有同类 `RuleGroup` 中追加 `applyDefaultConfig({ ... })`，并明确是否需要多平台输出。
+添加新规则源时，优先在现有同类 `RuleGroup` 的 `files` 中追加配置对象，并明确是否需要多平台输出。
 
 ## 7. 多平台输出约定
 
