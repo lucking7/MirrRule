@@ -332,19 +332,20 @@ job 顺序为 `prepare → convert-plugins → merge-modules → build → 两�
 
 ## 9. 故障排查与回滚
 
-| 现象                     | 检查 / 处理                                                                                                      |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| Node / native ABI 错误   | 确认 `node --version` 为 26.x；在正确 runtime 下重装依赖，必要时 `pnpm rebuild better-sqlite3`；不要改锁文件规避 |
-| `--frozen-lockfile` 失败 | 核对源码和 lock 是否来自同一 commit，pnpm 是否匹配；保留日志，不能把重新解析依赖当作等价复现                     |
-| 上游 403、404、超时      | 看具体 URL、状态、UA、直连/Worker 路径；限流等待恢复，授权问题修正权限，404 修正来源；不要无限重跑               |
-| GitHub Release 限流      | 使用已授权的 `GITHUB_TOKEN` 或等重置；fmz200 独立脚本不读该变量，须等其无认证额度恢复或另行改造                  |
-| Script-Hub 连接失败      | 检查容器、9101 健康响应、`CI` 是否错误设置、容器出站网络；不能只检查主机浏览器                                   |
-| 合并缺文件 / 未定义参数  | 对照 YAML 与 Converted 目录；先修转换依赖，再 dry-run。检查 Header/key 与模板，不用空文件占位                    |
-| `PUBLIC_DIR` 后输出分散  | 使用默认 `public` 加独立克隆；当前代码不支持所有流程统一重定向                                                   |
-| 有 index 但构建失败      | 检查退出码与 `.BUILD_FINISHED`，主构建可能继续产出部分文件。旧 `status.json` 也不能独立证明本次成功              |
-| 手动镜像/部署任务跳过    | 检查 `prepare.outputs.tasks`、Build job 的条件和结果、分支及 `deploy_target`；`deploy` 必须有本次 Build artifact |
-| Pages 成功、脚本仍404    | 检查 `SCRIPT_MIRROR_LOCATION`，核对 artifact 的 Scripts 与实际 script-path                                       |
-| Git 发布被拒绝           | 检查产物仓是否初始化 main、是否归档、令牌跨仓权限及分支保护；不要为排错 force-push                               |
+| 现象                     | 检查 / 处理                                                                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Node / native ABI 错误   | 确认 `node --version` 为 26.x；在正确 runtime 下重装依赖，必要时 `pnpm rebuild better-sqlite3`；不要改锁文件规避                        |
+| 首次测试 `SQLITE_BUSY`   | 确认使用当前 `pnpm test` 脚本，它以 `--test-concurrency=1` 串行运行测试文件，避免并发初始化共享 SQLite 缓存；不要把重跑通过当作首次通过 |
+| `--frozen-lockfile` 失败 | 核对源码和 lock 是否来自同一 commit，pnpm 是否匹配；保留日志，不能把重新解析依赖当作等价复现                                            |
+| 上游 403、404、超时      | 看具体 URL、状态、UA、直连/Worker 路径；限流等待恢复，授权问题修正权限，404 修正来源；不要无限重跑                                      |
+| GitHub Release 限流      | 使用已授权的 `GITHUB_TOKEN` 或等重置；fmz200 独立脚本不读该变量，须等其无认证额度恢复或另行改造                                         |
+| Script-Hub 连接失败      | 检查容器、9101 健康响应、`CI` 是否错误设置、容器出站网络；不能只检查主机浏览器                                                          |
+| 合并缺文件 / 未定义参数  | 对照 YAML 与 Converted 目录；先修转换依赖，再 dry-run。检查 Header/key 与模板，不用空文件占位                                           |
+| `PUBLIC_DIR` 后输出分散  | 使用默认 `public` 加独立克隆；当前代码不支持所有流程统一重定向                                                                          |
+| 有 index 但构建失败      | 检查退出码与 `.BUILD_FINISHED`，主构建可能继续产出部分文件。旧 `status.json` 也不能独立证明本次成功                                     |
+| 手动镜像/部署任务跳过    | 检查 `prepare.outputs.tasks`、Build job 的条件和结果、分支及 `deploy_target`；`deploy` 必须有本次 Build artifact                        |
+| Pages 成功、脚本仍404    | 检查 `SCRIPT_MIRROR_LOCATION`，核对 artifact 的 Scripts 与实际 script-path                                                              |
+| Git 发布被拒绝           | 检查产物仓是否初始化 main、是否归档、令牌跨仓权限及分支保护；不要为排错 force-push                                                      |
 
 上线前保存源码 commit、产物仓 commit、Pages deployment ID 和完整 artifact。失败时先停用自动发布，防止回滚后又被定时运行覆盖。
 
@@ -384,3 +385,34 @@ fmz200 日志只暴露 split 阶段失败，没有输出底层 HTTP 状态，不
 文档的本地链接、8 个 shell 示例语法和 MIGRATION.md 的 Prettier 检查通过；Wrangler 4.114.0 的创建参数已通过 `pages project create --help` 核对，未执行创建。
 
 接管完成前仍需在新账号验证：Script-Hub 完整转换、限流解除后的完整镜像、新域名与所有脚本 URL、两个发布目标和真实客户端导入。上述未验证项不会被本文的本地测试结果替代。
+
+## 11. 当前工作分支的隔离验收
+
+被验收源码提交为 `4f058204e7c96250c735b080fb8f731d412fb36b`，分支 `work/simplify-mirrrule-pipeline`。在 macOS 上使用 Node `26.8.1`、pnpm `10.15.0`，从本机仓库克隆到 `/tmp/mirrrule-goal-release.v8zq8v/repo`。该目录没有继承旧 `node_modules`、`.cache` 或 `public`，但仍复用本机 pnpm 包 store；没有验证全新操作系统或离线安装。以下命令按顺序执行，每一步退出码均为 0：
+
+```bash
+git clone --no-local --no-hardlinks --branch work/simplify-mirrrule-pipeline /Users/luck/MirrRule /tmp/mirrrule-goal-release.v8zq8v/repo
+cd /tmp/mirrrule-goal-release.v8zq8v/repo
+mise exec node@26 -- pnpm install --frozen-lockfile
+mise exec node@26 -- pnpm run validate
+mise exec node@26 -- pnpm test
+mise exec node@26 -- pnpm run knip
+mise exec node@26 -- pnpm run build
+```
+
+`mise` 是本机已有的 Node 运行时管理器。其他环境按第 3 节启用 Node 26 后直接运行同一组 `pnpm` 命令。
+
+| 验收项           | 实际结果                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 锁文件安装       | 退出 0，未改锁文件；原生依赖可运行                                                                                                   |
+| `validate`       | 退出 0；ESLint 0 errors、111 warnings；typecheck 通过                                                                                |
+| 首次 `pnpm test` | 退出 0；139 tests / 44 suites，139 pass、0 fail                                                                                      |
+| `knip`           | 退出 0，无未使用项或配置提示                                                                                                         |
+| `build`          | 退出 0；普通规则源处理 `29 files, 0 errors`，四个平台各生成 45 份规则文件，下载 4 份 GeoIP                                           |
+| 产物检查         | `.BUILD_FINISHED`、首页、`_headers`、GeoIP 与三平台 reject 文件非空；`status.json`、`sing-box/reject.json` 可解析；`public` 约 57 MB |
+
+产物检查采用第 3 节列出的 `test -s` 和 JSON 解析命令，另统计 `public/{List,Clash,Loon,sing-box}` 每目录 45 个文件、`public/GeoIP` 4 个文件。克隆后的 Git 工作区保持干净。原始日志位于 `/tmp/mirrrule-goal-release.v8zq8v/{install,validate,test,knip,build}.log`；这些临时路径不是仓库交付物。
+
+验收过程中曾在上一源码提交 `f8d4634` 的另一个干净克隆首次运行并行版 `pnpm test`，多个进程同时初始化 SQLite 缓存，出现 `SQLITE_BUSY` 并退出 1；重跑通过不能消除首次失败。随后测试脚本改为 `--test-concurrency=1`，独立新克隆首次运行 139/139 通过，以上最终克隆的首次 `pnpm test` 也 139/139 通过。本节仅将最终克隆的结果记为当前源码验收。
+
+本节只验证本地安装、检查、测试、Knip、规则构建和产物结构。没有在新账号执行完整 Script-Hub 插件转换、解除限流后的全部镜像、真实 GitHub Actions runner、Cloudflare Pages 上传、产物仓推送或新域名及客户端导入。接管者应按第 5 至 8 节替换账号、仓库、域名和 Secrets，在自己的环境逐项验证并保存运行记录；本次没有发布到生产。
