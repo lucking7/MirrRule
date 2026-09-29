@@ -6,14 +6,7 @@
 import path from 'node:path';
 import type { ScriptInfo } from './types';
 
-/**
- * 镜像配置
- * 脚本镜像到项目自身的 Cloudflare Pages 部署（CDN 加速，无 GitHub 限流）
- */
-const MIRROR_CONFIG = {
-  rawBase: 'https://nrrule.pages.dev/Scripts',
-  keyPattern: 'nrrule.pages.dev/Scripts'
-} as const;
+const MIRRORED_SCRIPT_URL_MARKER = 'nrrule.pages.dev/Scripts';
 
 /**
  * 正则表达式：匹配 script-path
@@ -44,7 +37,7 @@ export function extractScriptUrls(content: string): ScriptInfo[] {
     seen.add(url);
 
     // 检查是否已经是镜像 URL
-    const isMirrored = url.includes(MIRROR_CONFIG.keyPattern);
+    const isMirrored = url.includes(MIRRORED_SCRIPT_URL_MARKER);
 
     // 提取文件名
     const filename = extractFilename(url);
@@ -52,8 +45,7 @@ export function extractScriptUrls(content: string): ScriptInfo[] {
     scripts.push({
       originalUrl: url,
       filename,
-      isMirrored,
-      mirrorUrl: isMirrored ? undefined : buildMirrorUrl(filename)
+      isMirrored
     });
   }
 
@@ -82,16 +74,6 @@ function extractFilename(url: string): string {
 }
 
 /**
- * 构建镜像 URL
- *
- * @param filename - 文件名
- * @returns 镜像 URL
- */
-function buildMirrorUrl(filename: string): string {
-  return `${MIRROR_CONFIG.rawBase}/${filename}`;
-}
-
-/**
  * 过滤出需要镜像的脚本
  *
  * @param scripts - 脚本信息数组
@@ -101,42 +83,24 @@ export function filterUnmirroredScripts(scripts: ScriptInfo[]): ScriptInfo[] {
   return scripts.filter(script => !script.isMirrored);
 }
 
-/**
- * 替换 sgmodule 内容中的脚本 URL 为镜像 URL
- *
- * @param content - sgmodule 内容
- * @param scripts - 脚本信息数组
- * @returns 替换后的内容
- */
-function replaceScriptUrls(content: string, scripts: ScriptInfo[]): string {
-  let result = content;
-
-  for (const script of scripts) {
-    if (script.isMirrored || !script.mirrorUrl) {
-      continue;
-    }
-
-    // 使用精确匹配替换
-    // 需要转义特殊字符
-    const escapedUrl = script.originalUrl.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
-    const regex = new RegExp(escapedUrl, 'g');
-
-    result = result.replace(regex, script.mirrorUrl);
-  }
-
-  return result;
-}
-
 /** Apply resolved mirror URLs without mutating script metadata. */
 export function applyScriptMirrorMap(
   content: string,
   scripts: ScriptInfo[],
   urlMap: Readonly<Record<string, string>>
 ): string {
-  return replaceScriptUrls(content, scripts.map(script => ({
-    ...script,
-    mirrorUrl: urlMap[script.originalUrl],
-  })));
+  let result = content;
+
+  for (const script of scripts) {
+    const mirrorUrl = urlMap[script.originalUrl];
+    if (script.isMirrored || !mirrorUrl) {
+      continue;
+    }
+
+    result = result.replaceAll(script.originalUrl, () => mirrorUrl);
+  }
+
+  return result;
 }
 
 /**

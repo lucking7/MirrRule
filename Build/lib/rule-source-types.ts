@@ -10,10 +10,6 @@ export type RuleTarget = 'surge' | 'clash' | 'singbox' | 'loon';
 export interface RuleProcessingOptions {
   /** 是否允许空文件 */
   allowEmpty?: boolean,
-  /** 是否启用去重 */
-  dedup?: boolean,
-  /** 是否启用排序 */
-  sort?: boolean,
   /** 是否保留注释（行首注释） */
   keepComments?: boolean,
   /** 是否保留行内注释（优先级高于 keepComments，仅对 // 格式的行内注释生效） */
@@ -55,8 +51,6 @@ export interface RuleGroup {
   name: string,
   /** 组内文件列表 */
   files: FileConfig[],
-  /** 是否启用此组 */
-  enabled?: boolean,
   /** 组描述 */
   description?: string,
   /** 组级默认策略（覆盖全局默认，null表示无策略） */
@@ -78,8 +72,6 @@ export interface SpecialRuleConfig extends RuleProcessingOptions {
   sourceFiles: string[],
   /** 合并后是否删除源文件 */
   deleteSourceFiles?: boolean,
-  /** 是否启用此规则 */
-  enabled?: boolean,
   /** 规则描述 */
   description?: string,
   /** 默认策略组（可设为null表示无策略，null时会移除规则中的策略） */

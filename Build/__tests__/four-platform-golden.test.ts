@@ -141,8 +141,6 @@ describe('four-platform golden pipeline', () => {
         files: [{
           path: 'List/ordinary-golden.list',
           url: 'https://fixture.invalid/ordinary.list',
-          dedup: true,
-          sort: true,
           formatConversion: true,
         }],
       };
@@ -155,8 +153,6 @@ describe('four-platform golden pipeline', () => {
         sourceFiles: [firstSource, secondSource],
         targets: ['surge', 'clash', 'loon', 'singbox'],
         defaultPolicy: null,
-        dedup: true,
-        sort: true,
         formatConversion: true,
       };
 

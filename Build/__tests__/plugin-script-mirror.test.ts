@@ -21,6 +21,14 @@ function response(content: string, status = 200) {
 }
 
 describe('plugin script mirroring', () => {
+  it('extracts source metadata without predicting a mirror URL', () => {
+    assert.deepEqual(extractScriptUrls(`script-path=${firstUrl}`), [{
+      originalUrl: firstUrl,
+      filename: 'main.js',
+      isMirrored: false,
+    }]);
+  });
+
   it('uses stable collision-free names for equal basenames', async () => {
     const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-scripts-'));
 

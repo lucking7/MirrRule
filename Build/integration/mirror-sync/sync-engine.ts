@@ -1,7 +1,6 @@
 import { Buffer } from 'node:buffer';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
 import picocolors from 'picocolors';
 import { fetchLatestRelease, downloadAsset } from './github-api';
 import type { GitHubAsset } from './github-api';
@@ -29,12 +28,6 @@ export interface MirrorGroup {
   repositories: MirrorRepository[]
 }
 
-interface FileChecksum {
-  filePath: string,
-  checksum: string,
-  size: number
-}
-
 type ArtifactPublicationStatus = 'new' | 'updated' | 'unchanged';
 
 interface ArtifactPublication {
@@ -52,11 +45,7 @@ export interface SyncResult {
   skipped: number,
   hasChanges: boolean,
   updatedFiles: string[],
-  newFiles: string[],
-  failedFiles: Array<{
-    file: string,
-    error: string
-  }>
+  newFiles: string[]
 }
 
 interface PipelineFailure {
@@ -81,8 +70,7 @@ function createSyncResult(): SyncResult {
     ...createPipelineResult(),
     hasChanges: false,
     updatedFiles: [],
-    newFiles: [],
-    failedFiles: []
+    newFiles: []
   };
 }
 
@@ -90,35 +78,13 @@ export function hasRequiredFailures(result: PipelineResult): boolean {
   return result.failed.some(failure => failure.required);
 }
 
-function calculateBufferChecksum(buffer: Buffer): string {
-  return createHash('sha256').update(buffer).digest('hex');
-}
-
-async function calculateFileChecksum(filePath: string): Promise<FileChecksum | null> {
-  try {
-    const buffer = await fs.readFile(filePath);
-    const checksum = calculateBufferChecksum(buffer);
-
-    return {
-      filePath,
-      checksum,
-      size: buffer.length
-    };
-  } catch {
-    return null;
-  }
-}
-
 export async function shouldUpdateFile(filePath: string, newBuffer: Buffer): Promise<boolean> {
-  const existingChecksum = await calculateFileChecksum(filePath);
-
-  if (!existingChecksum) {
+  try {
+    const existingBuffer = await fs.readFile(filePath);
+    return !existingBuffer.equals(newBuffer);
+  } catch {
     return true;
   }
-
-  const newChecksum = calculateBufferChecksum(newBuffer);
-
-  return existingChecksum.checksum !== newChecksum;
 }
 
 function isValidFileSize(size: number, minSize = 10, maxSize = 100 * 1024 * 1024): boolean {
@@ -297,10 +263,6 @@ export async function syncRepository(
     const error = releaseResult.error;
     console.log(picocolors.red(`[Sync] ✗ Failed to fetch release: ${error.message}`));
 
-    result.failedFiles.push({
-      file: repository.repo,
-      error: error.message
-    });
     result.total = 1;
     result.failed.push({ asset: repository.repo, error: error.message, required: true });
 
@@ -327,7 +289,6 @@ export async function syncRepository(
     const error = `No release assets matched ${repository.assetNamePattern}`;
     console.log(picocolors.red(`[Sync] ✗ ${error}`));
     result.total = 1;
-    result.failedFiles.push({ file: repository.repo, error });
     result.failed.push({ asset: repository.repo, error, required: true });
     return result;
   }
@@ -346,10 +307,6 @@ export async function syncRepository(
 
       if ('error' in downloadResult) {
         console.log(picocolors.red(`[Sync] ✗ Download failed: ${downloadResult.error.message}`));
-        result.failedFiles.push({
-          file: asset.name,
-          error: downloadResult.error.message
-        });
         result.failed.push({ asset: asset.name, error: downloadResult.error.message, required: true });
         continue;
       }
@@ -380,10 +337,6 @@ export async function syncRepository(
       console.log(picocolors.red(
         `[Sync] ✗ Error processing ${asset.name}: ${getErrorMessage(error)}`
       ));
-      result.failedFiles.push({
-        file: asset.name,
-        error: getErrorMessage(error)
-      });
       result.failed.push({ asset: asset.name, error: getErrorMessage(error), required: true });
     }
   }
@@ -400,7 +353,6 @@ export function mergeSyncResults(results: SyncResult[]): SyncResult {
     }
     merged.updatedFiles.push(...result.updatedFiles);
     merged.newFiles.push(...result.newFiles);
-    merged.failedFiles.push(...result.failedFiles);
     merged.total += result.total;
     merged.succeeded += result.succeeded;
     merged.failed.push(...result.failed);
@@ -417,12 +369,12 @@ export function printSyncSummary(result: SyncResult): void {
   console.log(picocolors.gray(`  ○ Skipped: ${result.skipped}`));
   console.log(picocolors.green(`  ✓ New files: ${result.newFiles.length}`));
   console.log(picocolors.blue(`  ↻ Updated files: ${result.updatedFiles.length}`));
-  console.log(picocolors.red(`  ✗ Failed files: ${result.failedFiles.length}`));
+  console.log(picocolors.red(`  ✗ Failed files: ${result.failed.length}`));
 
-  if (result.failedFiles.length > 0) {
+  if (result.failed.length > 0) {
     console.log(picocolors.red('\n[Sync] Failed files:'));
-    for (const failed of result.failedFiles) {
-      console.log(picocolors.red(`  - ${failed.file}: ${failed.error}`));
+    for (const failed of result.failed) {
+      console.log(picocolors.red(`  - ${failed.asset}: ${failed.error}`));
     }
   }
 }

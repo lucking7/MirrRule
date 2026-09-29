@@ -82,6 +82,8 @@ Rules are automatically rebuilt and deployed on a schedule:
 
 ## Development
 
+中文迁移与从零搭建指南：[MIGRATION.md](./MIGRATION.md)，包含环境安装、功能与数据流、账号和域名替换、CI 部署、验收记录及回滚步骤。
+
 Requires **Node.js 26.x** and **pnpm 10.x**.
 
 ```bash

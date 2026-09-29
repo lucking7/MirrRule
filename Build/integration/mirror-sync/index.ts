@@ -47,7 +47,7 @@ export async function syncAllMirrors(): Promise<SyncResult> {
     console.log(picocolors.yellow(`\n[${group.name}] Group Summary:`));
     console.log(picocolors.green(`  ✓ New: ${groupResult.newFiles.length}`));
     console.log(picocolors.blue(`  ↻ Updated: ${groupResult.updatedFiles.length}`));
-    console.log(picocolors.red(`  ✗ Failed: ${groupResult.failedFiles.length}`));
+    console.log(picocolors.red(`  ✗ Failed: ${groupResult.failed.length}`));
   }
 
   // 合并所有结果

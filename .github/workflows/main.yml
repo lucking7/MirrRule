@@ -58,118 +58,86 @@ jobs:
     name: Prepare Tasks
     runs-on: ubuntu-latest
     outputs:
-      should_build: ${{ steps.decide.outputs.should_build }}
-      should_convert_plugins: ${{ steps.decide.outputs.should_convert_plugins }}
-      should_merge_modules: ${{ steps.decide.outputs.should_merge_modules }}
-      should_mirror_sync: ${{ steps.decide.outputs.should_mirror_sync }}
-      should_deploy: ${{ steps.decide.outputs.should_deploy }}
+      tasks: ${{ steps.decide.outputs.tasks }}
       deploy_target: ${{ steps.decide.outputs.deploy_target }}
     steps:
       - name: Decide tasks to run
         id: decide
         run: |
-          # 🔧 修复: 正确处理空字符串的情况
           TASK="${{ github.event.inputs.task }}"
           if [ -z "$TASK" ]; then
             TASK="all"
           fi
 
-          IS_SCHEDULE="${{ github.event_name == 'schedule' }}"
-          IS_PUSH="${{ github.event_name == 'push' }}"
-          IS_PR="${{ github.event_name == 'pull_request' }}"
-          IS_WORKFLOW_DISPATCH="${{ github.event_name == 'workflow_dispatch' }}"
+          EVENT_NAME="${{ github.event_name }}"
           CRON="${{ github.event.schedule }}"
-
-          # 默认值
-          BUILD="false"
-          CONVERT_PLUGINS="false"
-          MERGE_MODULES="false"
-          MIRROR_SYNC="false"
-          DEPLOY="false"
 
           DEPLOY_TARGET="${{ github.event.inputs.deploy_target }}"
           if [ -z "$DEPLOY_TARGET" ]; then
             DEPLOY_TARGET="all"
           fi
 
-          # 手动触发 - 根据 task 参数决定
-          if [ "$IS_WORKFLOW_DISPATCH" = "true" ]; then
-            if [ "$TASK" = "all" ] || [ "$TASK" = "build" ]; then BUILD="true"; fi
-            if [ "$TASK" = "all" ] || [ "$TASK" = "convert-plugins" ]; then CONVERT_PLUGINS="true"; fi
-            if [ "$TASK" = "all" ] || [ "$TASK" = "merge-modules" ]; then MERGE_MODULES="true"; fi
-            if [ "$TASK" = "all" ] || [ "$TASK" = "mirror-sync" ]; then MIRROR_SYNC="true"; fi
-            if [ "$TASK" = "all" ] || [ "$TASK" = "deploy" ]; then DEPLOY="true"; fi
-          fi
+          FULL_TASKS='["convert-plugins","merge-modules","mirror-sync","build","deploy"]'
+          TASKS='[]'
+          case "$EVENT_NAME" in
+            workflow_dispatch)
+              case "$TASK" in
+                all)
+                  TASKS="$FULL_TASKS"
+                  ;;
+                build)
+                  TASKS='["build"]'
+                  ;;
+                convert-plugins)
+                  TASKS='["convert-plugins"]'
+                  ;;
+                merge-modules)
+                  TASKS='["merge-modules"]'
+                  ;;
+                mirror-sync)
+                  # 镜像同步在 Build job 内执行，因此同一 run 必须同时构建产物。
+                  TASKS='["mirror-sync","build"]'
+                  ;;
+                deploy)
+                  # 部署 job 只接受本次 run 的已验收 artifact，先构建再部署。
+                  TASKS='["build","deploy"]'
+                  ;;
+              esac
+              ;;
+            push)
+              TASKS="$FULL_TASKS"
+              ;;
+            pull_request)
+              TASKS='["build"]'
+              ;;
+            schedule)
+              case "$CRON" in
+                "0 5,17 * * *")
+                  TASKS="$FULL_TASKS"
+                  ;;
+                "0 */4 * * *")
+                  TASKS='["build","deploy"]'
+                  ;;
+                "0 6,14,22 * * *")
+                  TASKS='["mirror-sync","build","deploy"]'
+                  ;;
+                "30 7,19 * * *")
+                  TASKS='["convert-plugins","merge-modules","build","deploy"]'
+                  ;;
+              esac
+              ;;
+          esac
 
-          # Push 触发 - 执行完整流程（优先级最高）
-          if [ "$IS_PUSH" = "true" ]; then
-            CONVERT_PLUGINS="true"
-            MERGE_MODULES="true"
-            MIRROR_SYNC="true"
-            BUILD="true"
-            DEPLOY="true"
-          fi
-
-          # 定时任务（仅在非 push 时生效）
-          if [ "$IS_SCHEDULE" = "true" ] && [ "$IS_PUSH" != "true" ]; then
-            case "$CRON" in
-              "0 5,17 * * *")
-                # 🌟 完整构建 - 执行所有任务 (每天 2 次)
-                MIRROR_SYNC="true"
-                CONVERT_PLUGINS="true"
-                MERGE_MODULES="true"
-                BUILD="true"
-                DEPLOY="true"
-                ;;
-              "0 */4 * * *")
-                # ⚡ 快速更新 - 仅规则构建 (每 4 小时)
-                BUILD="true"
-                DEPLOY="true"
-                ;;
-              "0 6,14,22 * * *")
-                # 🪞 镜像同步 - 镜像 + 规则 (每天 3 次)
-                MIRROR_SYNC="true"
-                BUILD="true"
-                DEPLOY="true"
-                ;;
-              "30 7,19 * * *")
-                # 🔌 插件转换 - 插件 + 模块 + 规则 (每天 2 次)
-                CONVERT_PLUGINS="true"
-                MERGE_MODULES="true"
-                BUILD="true"
-                DEPLOY="true"
-                ;;
-            esac
-          fi
-
-          # PR 触发
-          if [ "$IS_PR" = "true" ]; then
-            BUILD="true"
-            DEPLOY="false"
-          fi
-
-          echo "should_build=$BUILD" >> $GITHUB_OUTPUT
-          echo "should_convert_plugins=$CONVERT_PLUGINS" >> $GITHUB_OUTPUT
-          echo "should_merge_modules=$MERGE_MODULES" >> $GITHUB_OUTPUT
-          echo "should_mirror_sync=$MIRROR_SYNC" >> $GITHUB_OUTPUT
-          echo "should_deploy=$DEPLOY" >> $GITHUB_OUTPUT
-          echo "deploy_target=$DEPLOY_TARGET" >> $GITHUB_OUTPUT
+          echo "tasks=$TASKS" >> "$GITHUB_OUTPUT"
+          echo "deploy_target=$DEPLOY_TARGET" >> "$GITHUB_OUTPUT"
 
           echo "📋 Trigger Information:"
-          echo "  Event: ${{ github.event_name }}"
+          echo "  Event: $EVENT_NAME"
           echo "  Task: $TASK"
-          echo "  Is Schedule: $IS_SCHEDULE"
-          echo "  Is Push: $IS_PUSH"
-          echo "  Is PR: $IS_PR"
-          echo "  Is Workflow Dispatch: $IS_WORKFLOW_DISPATCH"
           echo "  Cron: $CRON"
           echo ""
-          echo "📋 Tasks to run:"
-          echo "  Build: $BUILD"
-          echo "  Convert Plugins: $CONVERT_PLUGINS"
-          echo "  Merge Modules: $MERGE_MODULES"
-          echo "  Mirror Sync: $MIRROR_SYNC"
-          echo "  Deploy: $DEPLOY (target: $DEPLOY_TARGET)"
+          echo "📋 Tasks to run: $TASKS"
+          echo "  Deploy target: $DEPLOY_TARGET"
 
   # ============================================
   # 插件转换任务 - 只有需要插件转换时才启动 Script-Hub
@@ -177,7 +145,7 @@ jobs:
   convert-plugins:
     name: Convert Plugins
     needs: prepare
-    if: needs.prepare.outputs.should_convert_plugins == 'true'
+    if: contains(fromJSON(needs.prepare.outputs.tasks), 'convert-plugins')
     runs-on: ubuntu-latest
     services:
       script-hub:
@@ -262,7 +230,7 @@ jobs:
     needs: [prepare, convert-plugins]
     if: |
       always() &&
-      needs.prepare.outputs.should_merge_modules == 'true' &&
+      contains(fromJSON(needs.prepare.outputs.tasks), 'merge-modules') &&
       (needs.convert-plugins.result == 'success' || needs.convert-plugins.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
@@ -284,7 +252,7 @@ jobs:
         run: mkdir -p public/Modules/Converted public/Modules/Merged public/Modules/Rules public/Scripts
 
       - name: Download plugin conversion output
-        if: needs.prepare.outputs.should_convert_plugins == 'true'
+        if: contains(fromJSON(needs.prepare.outputs.tasks), 'convert-plugins')
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: plugin-output-${{ github.sha }}-${{ github.run_number }}
@@ -347,7 +315,7 @@ jobs:
     needs: [prepare, convert-plugins, merge-modules]
     if: |
       always() &&
-      needs.prepare.outputs.should_build == 'true' &&
+      contains(fromJSON(needs.prepare.outputs.tasks), 'build') &&
       (needs.convert-plugins.result == 'success' || needs.convert-plugins.result == 'skipped') &&
       (needs.merge-modules.result == 'success' || needs.merge-modules.result == 'skipped')
     runs-on: ubuntu-latest
@@ -410,28 +378,27 @@ jobs:
 
       # 🔧 步骤 1: 镜像同步（如果需要）
       - name: Sync mirrors (iRingo, DualSubs, BiliUniverse)
-        if: needs.prepare.outputs.should_mirror_sync == 'true'
+        if: contains(fromJSON(needs.prepare.outputs.tasks), 'mirror-sync')
         run: pnpm run node ./Build/sync-mirrors.ts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI: true
 
       - name: Download Sukka mock & sgmodule
-        if: needs.prepare.outputs.should_mirror_sync == 'true'
+        if: contains(fromJSON(needs.prepare.outputs.tasks), 'mirror-sync')
         run: pnpm run node ./Build/download-mock-modules.ts
         env:
           CI: true
 
       - name: Download fmz200 Split Modules
-        if: needs.prepare.outputs.should_mirror_sync == 'true'
+        if: contains(fromJSON(needs.prepare.outputs.tasks), 'mirror-sync')
         run: pnpm run node ./Build/download-fmz200-split.ts
         env:
           CI: true
 
       - name: Download plugin conversion output
         if: |
-          needs.prepare.outputs.should_convert_plugins == 'true' &&
-          needs.prepare.outputs.should_merge_modules != 'true' &&
+          !contains(fromJSON(needs.prepare.outputs.tasks), 'merge-modules') &&
           needs.convert-plugins.result == 'success'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -439,9 +406,7 @@ jobs:
           path: public
 
       - name: Download module output
-        if: |
-          needs.prepare.outputs.should_merge_modules == 'true' &&
-          needs.merge-modules.result == 'success'
+        if: needs.merge-modules.result == 'success'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: module-output-${{ github.sha }}-${{ github.run_number }}
@@ -449,7 +414,6 @@ jobs:
 
       # 🔧 步骤 4.2: 清理 Modules 根目录中的历史 .sgmodule 文件
       - name: Clean legacy Modules root files
-        if: needs.prepare.outputs.should_build == 'true'
         run: |
           echo "🧹 清理 public/Modules 根目录中的历史 .sgmodule 文件..."
           if [ -d "public/Modules" ]; then
@@ -466,7 +430,6 @@ jobs:
 
       # 🔧 步骤 4.5: 下载缺失的目录用于生成完整的 index.html
       - name: Download missing directories for index.html
-        if: needs.prepare.outputs.should_build == 'true'
         run: |
           echo "📥 检查并下载缺失的目录..."
           echo "📁 当前 public 目录内容："
@@ -690,7 +653,7 @@ jobs:
     name: Deploy to Cloudflare Pages
     needs: [prepare, build]
     if: |
-      needs.prepare.outputs.should_deploy == 'true' &&
+      contains(fromJSON(needs.prepare.outputs.tasks), 'deploy') &&
       (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'cloudflare') &&
       github.ref == 'refs/heads/main' &&
       needs.build.result == 'success'
@@ -749,7 +712,7 @@ jobs:
     name: Deploy to GitHub Repository
     needs: [prepare, build]
     if: |
-      needs.prepare.outputs.should_deploy == 'true' &&
+      contains(fromJSON(needs.prepare.outputs.tasks), 'deploy') &&
       (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'github') &&
       github.ref == 'refs/heads/main' &&
       needs.build.result == 'success'
@@ -787,14 +750,14 @@ jobs:
           SYNC_DESC="rules"
 
           # 镜像同步
-          if [ "${{ needs.prepare.outputs.should_mirror_sync }}" = "true" ]; then
+          if [ "${{ contains(fromJSON(needs.prepare.outputs.tasks), 'mirror-sync') }}" = "true" ]; then
             SYNC_PATHS="$SYNC_PATHS Mirror/"
             SYNC_DESC="$SYNC_DESC+mirrors"
           fi
 
           # 插件转换 / 模块合并 - 统一处理 Modules
-          if [ "${{ needs.prepare.outputs.should_convert_plugins }}" = "true" ] || \
-             [ "${{ needs.prepare.outputs.should_merge_modules }}" = "true" ]; then
+          if [ "${{ contains(fromJSON(needs.prepare.outputs.tasks), 'convert-plugins') }}" = "true" ] || \
+             [ "${{ contains(fromJSON(needs.prepare.outputs.tasks), 'merge-modules') }}" = "true" ]; then
             SYNC_PATHS="$SYNC_PATHS Modules/"
             SYNC_DESC="$SYNC_DESC+modules"
           fi

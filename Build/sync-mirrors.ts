@@ -36,7 +36,7 @@ export const runMirrorSync = task(
 
     if (hasRequiredFailures(result)) {
       console.log(picocolors.yellow('\n[WARN] Sync completed with errors'));
-      throw new Error(`Sync completed with ${result.failedFiles.length} errors`);
+      throw new Error(`Sync completed with ${result.failed.length} errors`);
     }
 
     if (result.hasChanges) {

@@ -1,6 +1,5 @@
 import path from 'node:path';
 import fsp from 'node:fs/promises';
-import process from 'node:process';
 import { task } from './trace';
 import picocolors from 'picocolors';
 import { OUTPUT_SUKKA_MIRROR_DIR } from './constants/dir';
@@ -331,11 +330,4 @@ export function assertFmz200Success(result: PipelineResult): void {
   if (hasRequiredFailures(result)) {
     throw new Error(`fmz200 sync failed for ${result.failed.length} required assets`);
   }
-}
-
-if (require.main === module) {
-  downloadFmz200Split().catch(error => {
-    console.error(picocolors.red('Fatal error:'), error);
-    process.exit(1);
-  });
 }

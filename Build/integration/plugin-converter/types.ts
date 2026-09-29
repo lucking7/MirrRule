@@ -49,8 +49,6 @@ export interface ScriptInfo {
   originalUrl: string,
   /** 文件名 */
   filename: string,
-  /** 镜像 URL */
-  mirrorUrl?: string,
   /** 是否已镜像 */
   isMirrored: boolean
 }

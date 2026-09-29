@@ -4,15 +4,9 @@ import type {
   RuleProcessingOptions,
   SpecialRuleConfig,
 } from './rule-source-types';
-import path from 'node:path';
-
-const currentDir = path.dirname(__filename);
-const REPO_PATH = path.join(currentDir, '../..');
 
 export const DEFAULT_FILE_CONFIG = {
   validate: false,
-  dedup: true,
-  sort: true,
   keepComments: false,
   keepEmptyLines: false,
   keepInlineComments: false,
@@ -144,8 +138,6 @@ export const ruleGroups: RuleGroup[] = [
           'This file contains IP-ASN routes for mainland China networks maintained by missuo/ASN-China',
         keepComments: true, // 保留行首注释（// 格式的注释行）
         keepInlineComments: true, // 保留行内注释（规则后的 // 注释）- 提高可读性
-        dedup: false, // 禁用去重 - 保持原始顺序
-        sort: false, // 禁用排序 - 保持原始顺序
         validate: false, // 禁用规则验证 - 保留原始格式
         keepEmptyLines: false, // 不保留空行 - 减小文件体积
       }),
@@ -234,8 +226,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/domainset/download.conf',
       'https://ruleset.skk.moe/List/non_ip/download.conf',
     ],
-    targets: ['surge', 'clash', 'singbox', 'loon'], dedup: true,
-    sort: true,
+    targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
     keepEmptyLines: false,
     formatConversion: true,
@@ -249,8 +240,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/cdn.conf',
       'https://ruleset.skk.moe/List/ip/cdn.conf',
     ],
-    targets: ['surge', 'clash', 'singbox', 'loon'], dedup: true,
-    sort: true,
+    targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
     keepEmptyLines: false,
     formatConversion: true,
@@ -270,8 +260,6 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     defaultPolicy: null, // 无策略，纯RULE-SET格式
     targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持
-    dedup: true,
-    sort: true,
     keepComments: false,
     deleteSourceFiles: true,
   },
@@ -285,8 +273,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/ip/apple_services.conf',
       'https://ruleset.skk.moe/List/domainset/icloud_private_relay.conf',
     ],
-    targets: ['surge', 'clash', 'singbox', 'loon'], dedup: true,
-    sort: true,
+    targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
     keepEmptyLines: false,
     applyNoResolve: true,
@@ -299,8 +286,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/microsoft.conf',
       'https://ruleset.skk.moe/List/non_ip/microsoft_cdn.conf',
     ],
-    targets: ['surge', 'clash', 'singbox', 'loon'], dedup: true,
-    sort: true,
+    targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
     keepEmptyLines: false,
     applyNoResolve: true,
@@ -313,8 +299,6 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://github.com/MetaCubeX/meta-rules-dat/raw/meta/geo/geosite/amazon.list',
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
-    dedup: true,
-    sort: true,
     keepComments: false,
     keepEmptyLines: false,
     formatConversion: true,
@@ -331,8 +315,6 @@ export const specialRules: SpecialRuleConfig[] = [
       // 'https://raw.githubusercontent.com/Cats-Team/AdRules/main/adrules.list',
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持
-    dedup: true,
-    sort: true,
     formatConversion: true, // 启用格式转换,将 domain-set 格式(.example.com)转换为 rule-set 格式(DOMAIN-SUFFIX,example.com)
   },
   {
@@ -346,8 +328,6 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     defaultPolicy: 'REJECT', // 明确指定拒绝策略
     targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持
-    dedup: true,
-    sort: true,
     keepComments: false,
     keepEmptyLines: false,
     applyNoResolve: true,
@@ -362,8 +342,6 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     defaultPolicy: 'REJECT',
     targets: ['surge', 'clash', 'singbox', 'loon'],
-    dedup: true,
-    sort: true,
     keepComments: false,
     keepEmptyLines: false,
     applyNoResolve: true,
@@ -378,8 +356,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://github.com/kefengyoyo/own/raw/main/Emby-P.list',
       'https://github.com/Repcz/Tool/raw/X/Surge/Custom/Emby.list',
     ],
-    targets: ['surge', 'clash', 'singbox', 'loon'], dedup: true,
-    sort: false,
+    targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: true,
     formatConversion: true, // 启用格式转换,确保跨平台规则兼容性
     applyNoResolve: true,
@@ -394,8 +371,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/neteasemusic.conf',
       'https://ruleset.skk.moe/List/ip/neteasemusic.conf',
     ],
-    targets: ['surge', 'clash', 'singbox', 'loon'], dedup: true,
-    sort: true,
+    targets: ['surge', 'clash', 'singbox', 'loon'],
     deleteSourceFiles: true,
   },
   {
@@ -414,8 +390,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/domestic.conf',
       'https://ruleset.skk.moe/List/ip/domestic.conf',
     ],
-    targets: ['surge', 'clash', 'singbox', 'loon'], dedup: true,
-    sort: true,
+    targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
     keepEmptyLines: false,
   },
@@ -427,8 +402,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/ip/telegram.conf',
       'https://ruleset.skk.moe/List/ip/telegram_asn.conf',
     ],
-    targets: ['surge', 'clash', 'singbox', 'loon'], dedup: true,
-    sort: true,
+    targets: ['surge', 'clash', 'singbox', 'loon'],
   },
   {
     name: 'lucking - Direct',
@@ -437,8 +411,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/my_direct.conf',
       'https://ruleset.skk.moe/List/non_ip/direct.conf',
     ],
-    targets: ['surge', 'clash', 'singbox', 'loon'], dedup: true,
-    sort: true,
+    targets: ['surge', 'clash', 'singbox', 'loon'],
   },
   {
     name: 'Lan',
@@ -447,32 +420,6 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/lan.conf',
       'https://ruleset.skk.moe/List/ip/lan.conf',
     ],
-    targets: ['surge', 'clash', 'singbox', 'loon'], dedup: true,
-    sort: false,
+    targets: ['surge', 'clash', 'singbox', 'loon'],
   },
 ];
-
-const _ruleGroupDefaults = {
-  keepComments: true,
-  dedup: true,
-  sort: false,
-  validate: true,
-  keepEmptyLines: true,
-};
-
-const _specialRuleDefaults = {
-  keepComments: false,
-  dedup: true,
-  sort: true,
-  validate: true,
-  keepEmptyLines: false,
-  deleteSourceFiles: true,
-};
-
-const _config = {
-  repoPath: REPO_PATH,
-  defaultFormat: 'Surge',
-  deleteSourceFiles: true,
-  stats: true,
-  converter: { format: 'Surge' },
-};

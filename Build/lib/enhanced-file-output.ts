@@ -87,8 +87,6 @@ export class EnhancedFileOutput {
     formatConversion: boolean;
     applyNoResolve: boolean;
     validate: boolean;
-    dedup: boolean;
-    sort: boolean;
   };
 
   constructor(
@@ -109,8 +107,6 @@ export class EnhancedFileOutput {
       formatConversion: config?.formatConversion ?? true,
       applyNoResolve: config?.applyNoResolve ?? false,
       validate: config?.validate ?? false,
-      dedup: config?.dedup ?? true,
-      sort: config?.sort ?? true,
     };
 
     this.targets = normalizeTargets(targets);

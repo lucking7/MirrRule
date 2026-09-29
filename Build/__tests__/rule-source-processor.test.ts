@@ -333,8 +333,6 @@ describe('RuleSourceProcessor special rules', () => {
         sourceFiles: [goodSourcePath, missingSourcePath],
         targets: ['surge'],
         defaultPolicy: null,
-        dedup: true,
-        sort: true,
         formatConversion: true,
       };
 
@@ -373,8 +371,6 @@ describe('RuleSourceProcessor special rules', () => {
         sourceFiles: [firstSourcePath, secondSourcePath],
         targets: ['surge'],
         defaultPolicy: null,
-        dedup: true,
-        sort: true,
         formatConversion: true,
       };
 
@@ -411,8 +407,6 @@ describe('RuleSourceProcessor special rules', () => {
         sourceFiles: [sourcePath],
         targets: ['surge'],
         defaultPolicy: 'REJECT',
-        dedup: true,
-        sort: true,
         formatConversion: true,
       };
 

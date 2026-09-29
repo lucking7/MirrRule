@@ -25,17 +25,6 @@ const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 /**
- * 确保镜像目录存在
- */
-async function ensureMirrorDirectory(): Promise<void> {
-  try {
-    await fs.mkdir(MIRROR_DIR, { recursive: true });
-  } catch {
-    // 忽略错误
-  }
-}
-
-/**
  * 获取插件镜像路径
  */
 export function getPluginMirrorFilename(plugin: PluginInfo): string {
@@ -206,28 +195,4 @@ export async function mirrorPluginsBatch(
   }
 
   return stats;
-}
-
-/**
- * 获取镜像统计信息
- */
-async function _getMirrorStats(): Promise<{
-  totalMirrored: number;
-  mirrorPath: string;
-}> {
-  try {
-    await ensureMirrorDirectory();
-    const files = await fs.readdir(MIRROR_DIR);
-    const pluginFiles = files.filter(f => f.endsWith('.plugin') || f.endsWith('.lpx'));
-
-    return {
-      totalMirrored: pluginFiles.length,
-      mirrorPath: MIRROR_DIR,
-    };
-  } catch {
-    return {
-      totalMirrored: 0,
-      mirrorPath: MIRROR_DIR,
-    };
-  }
 }

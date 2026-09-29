@@ -157,17 +157,3 @@ function isGenericMirrorFamily(group: MirrorGroup): boolean {
 export function getGenericMirrorFamilies(): MirrorGroup[] {
   return MIRROR_GROUPS.filter(isGenericMirrorFamily);
 }
-
-/**
- * 获取所有仓库列表
- */
-function _getAllRepositories() {
-  return MIRROR_GROUPS.flatMap(group => group.repositories);
-}
-
-/**
- * 根据名称获取镜像组
- */
-function _getMirrorGroup(name: string): MirrorGroup | undefined {
-  return MIRROR_GROUPS.find(group => group.name === name);
-}

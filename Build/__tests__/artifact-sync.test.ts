@@ -9,6 +9,23 @@ import { describe, it } from 'node:test';
 import { writeFileAtomic } from '../lib/atomic-file';
 
 describe('artifact synchronization', () => {
+  it('compares file bytes and treats read failures as requiring an update', async () => {
+    const { shouldUpdateFile } = require('../integration/mirror-sync/sync-engine');
+    const directory = await fsp.mkdtemp(path.join(os.tmpdir(), 'mirrrule-byte-comparison-'));
+    const destination = path.join(directory, 'artifact.sgmodule');
+
+    try {
+      const content = Buffer.from([0, 1, 255]);
+      assert.equal(await shouldUpdateFile(destination, content), true);
+      await fsp.writeFile(destination, content);
+      assert.equal(await shouldUpdateFile(destination, Buffer.from(content)), false);
+      assert.equal(await shouldUpdateFile(destination, Buffer.from([0, 1, 254])), true);
+      assert.equal(await shouldUpdateFile(directory, content), true);
+    } finally {
+      await fsp.rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it('selects the configured release asset family', async () => {
     const { FileType, syncRepository } = require('../integration/mirror-sync/sync-engine');
     const directory = await fsp.mkdtemp(path.join(os.tmpdir(), 'mirrrule-release-selector-'));

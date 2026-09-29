@@ -165,15 +165,15 @@ eslint.config.js                   ESLint 配置
 - `url` / `fallbackUrls`：主下载地址与备用地址。
 - `targets`：目标平台，当前有效平台见 `Build/lib/platform-config.ts`：`surge`、`clash`、`singbox`、`loon`。
 - `defaultPolicy`：默认策略；设为 `null` 时会清理规则中的策略字段，输出纯规则格式。
-- `dedup`：是否去重，默认 `true`。
-- `sort`：是否排序，默认 `true`。
 - `keepComments`：是否保留行首注释，默认 `false`。
 - `keepInlineComments`：是否保留行内注释，默认 `false`。
 - `keepEmptyLines`：是否保留空行，默认 `false`。
 - `formatConversion`：是否启用格式转换，默认 `true`。
 - `applyNoResolve`：是否为 IP 类规则添加 `no-resolve`。
 - `validate`：是否启用规则合法性校验，默认 `false`。
-- `deleteSourceFiles`：处理后删除中间源文件。
+- `deleteSourceFiles`：特殊规则完成后，按来源 URL 的 basename 尝试删除输出根目录中的同名文件。当前下载器只把来源保存在内存中，不会自行创建这些根目录文件；外部预置的同名文件仍可能被删除。
+
+规则输出始终按 `EnhancedFileOutput` 的 Trie/Set 与平台 writer 处理去重和顺序，规则源配置没有单独的 `dedup` 或 `sort` 开关。
 
 规则源配置不支持自定义 `header`；模块合并流程中的同名字段是独立配置，仍然有效。
 

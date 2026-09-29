@@ -1,0 +1,386 @@
+# MirrRule 迁移与从零搭建手册
+
+本文面向拿到源码、准备在自己环境和账号下运行 MirrRule 的维护者。最初的隔离验收基线为 `01d348314f41f471390b804d235e4437f7311971`，后续源码与 CI 核对日期为 2026-09-30。版本、上游内容与云平台设置可能变化，升级后应重新核对对应源码与 workflow。
+
+先完成本地规则构建，再准备镜像、插件和模块，最后接入自己的发布账号。本文记录当前代码的真实限制；文中的配置替换由迁移者在自己的副本完成。本次交付只新增本文和 README 入口，没有修改程序或执行生产发布。
+
+## 1. 功能与交付物
+
+MirrRule 是构建型规则聚合项目：下载上游成品规则，清洗、转换、去重和排序，再生成静态文件。它没有常驻业务后端、用户数据库或登录系统；SQLite 用于下载缓存。当前代码不解析原始 adblock 过滤表。
+
+| 能力                    | 入口 / 主要实现                                                                                                                                                | 输出与边界                                                                                                          |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 规则聚合、多平台输出    | [Build/index.ts](Build/index.ts)、[rule-source-processor.ts](Build/lib/rule-source-processor.ts)、[enhanced-file-output.ts](Build/lib/enhanced-file-output.ts) | `public/List/*.list`、`Clash/*.txt`、`Loon/*.list`、`sing-box/*.json`；不同平台会丢弃不支持或非法规则，查看构建日志 |
+| GeoIP 下载              | [download-geoip.ts](Build/download-geoip.ts)                                                                                                                   | `public/GeoIP/*.mmdb`；临时文件验证大小后替换                                                                       |
+| Release 镜像            | [sync-mirrors.ts](Build/sync-mirrors.ts)、[mirror-config.ts](Build/integration/mirror-sync/mirror-config.ts)                                                   | `public/Mirror/{iRingo,DualSubs,BiliUniverse}`                                                                      |
+| Sukka、fmz200 镜像      | [download-mock-modules.ts](Build/download-mock-modules.ts)、[download-fmz200-split.ts](Build/download-fmz200-split.ts)                                         | `public/Mirror/Sukka/{mock,sgmodule}`、`public/Mirror/fmz200/sgmodule`                                              |
+| Loon 插件转换与脚本镜像 | [convert-plugins.ts](Build/convert-plugins.ts)、[plugin-converter](Build/integration/plugin-converter)                                                         | `public/Modules/Converted`、`public/Scripts`；Script-Hub 转换、本地 fallback、依赖脚本发布检查                      |
+| Surge 模块合并          | [merge-modules.ts](Build/merge-modules.ts)、[module-merger](Build/lib/module-merger)                                                                           | `public/Modules/Merged/All-in-One-Pro.sgmodule`、`public/Modules/Rules/reject-pro.list`                             |
+| 静态索引                | [build-public.ts](Build/build-public.ts)、[public-index-model.ts](Build/lib/public-index-model.ts)                                                             | `public/index.html`、`_headers`、`404.html`、生成的 README；支持搜索、客户端筛选与链接操作                          |
+| 构建状态                | [status-manifest.ts](Build/lib/status-manifest.ts)                                                                                                             | 成功主构建生成 `public/status.json` 和根目录 `.BUILD_FINISHED`                                                      |
+| 上游健康检查            | [validate-domain-alive.ts](Build/validate-domain-alive.ts)、[check-source-domain.yml](.github/workflows/check-source-domain.yml)                               | JSON 报告、定时状态分支与 Issue 告警；不等于生产构建成功                                                            |
+
+源码仓库 `lucking7/MirrRule`、产物仓库 `lucking7/NRRule`、Pages 项目 `nrrule` 是三个独立对象。源码仓不跟踪 `public/`。产物仓存放展开后的公开文件，根目录直接是 `List/`、`Modules/` 等；Pages 上传的是整个 `public/`。
+
+## 2. 技术栈、目录与数据流
+
+### 2.1 固定运行环境
+
+以 [.node-version](.node-version)、[package.json](package.json) 和 [pnpm-lock.yaml](pnpm-lock.yaml) 为准。以下依赖版本是基线锁文件安装结果，不是 npm 最新版本。
+
+| 组件         | 版本 / 用途                                                                                            |
+| ------------ | ------------------------------------------------------------------------------------------------------ |
+| Node.js      | 要求 `26.x`；本次实测 `26.8.1`                                                                         |
+| pnpm         | `packageManager` 固定 `10.15.0`，engines 允许 `10.x`                                                   |
+| TypeScript   | 锁定 `6.0.3`，package 范围 `^6.0.2`；严格类型检查，`noEmit`                                            |
+| SWC          | `@swc-node/register 1.12.1`、`@swc/core 1.16.2`；运行 TS，项目为 CommonJS                              |
+| 网络与缓存   | `undici 8.7.0`、`undici-cache-store-better-sqlite3 1.1.0`、`better-sqlite3 12.11.1`                    |
+| 数据处理     | `yaml 2.9.0`、`fast-cidr-tools 0.3.2`、`foxts 5.8.0`、`tar-fs 3.1.3`                                   |
+| 质量检查     | Node 内置 `node:test`、ESLint `9.39.1`、Sukka config `8.9.3`、Knip `6.35.1`、Prettier `3.9.6`          |
+| 发布工具     | workflow 固定 Wrangler `4.114.0`；无需为本地规则构建安装 Wrangler                                      |
+| 插件转换服务 | Docker 镜像 `xream/script-hub@sha256:c55180dd41c07567906f17953587c25b61b427b2c5cc6b955721677fd615f470` |
+
+本地需要 Git、Node、pnpm 和网络；复现 CI 的 Script-Hub 转换路径还需要可运行 Docker 的环境。源码包含本地转换 fallback，但不能据此保证缺少 Script-Hub 时所有插件都能转换。`better-sqlite3` 和 SWC 有原生二进制依赖，换 Node 大版本或 CPU 架构后不要复用旧 `node_modules`。预编译包不可用时，需要 Python 和系统 C/C++ 编译工具链。
+
+### 2.2 目录职责
+
+| 路径                                                | 维护内容                                                             |
+| --------------------------------------------------- | -------------------------------------------------------------------- |
+| `Build/*.ts`                                        | CLI 和流程入口，统一从仓库根目录执行                                 |
+| `Build/lib/rule-sources.ts`、`rule-source-types.ts` | 规则源、fallback、目标平台和处理选项                                 |
+| `Build/core/output/writing-strategy/`               | Surge、Clash、Loon、sing-box 四种输出适配                            |
+| `Build/integration/`                                | Release 镜像、插件转换和脚本镜像                                     |
+| `Build/lib/module-merger/`                          | YAML 配置、参数处理、模板和双文件发布                                |
+| `Build/utils/network/`                              | 下载重试、HTTP 缓存和 Worker URL 候选                                |
+| `Build/constants/`、`Build/trace/`                  | 路径、User-Agent、构建追踪                                           |
+| `Build/__tests__/`                                  | 回归测试                                                             |
+| `.github/workflows/`                                | 任务编排、发布、上游健康检查、Dependabot 自动合并                    |
+| `public/`、`.cache/`、`.BUILD_FINISHED`             | 生成物、下载缓存和成功标记，均不手动维护                             |
+| `ARCHITECTURE.md`、`PRODUCT.md`、`DESIGN.md`        | 架构与索引页设计说明；`PLAN.md` 是历史维护计划，版本与状态以代码为准 |
+
+### 2.3 执行顺序
+
+```text
+上游规则 + GeoIP
+  → pnpm run build
+  → 清洗 / 平台输出 → public/{List,Clash,Loon,sing-box,GeoIP}
+  → buildPublic → index.html / _headers / 404.html / README.md
+  → 全部成功 → status.json + .BUILD_FINISHED
+
+GitHub Release / Sukka / fmz200 → 各自镜像命令 → public/Mirror
+插件列表 → Script-Hub / 本地转换 → 脚本镜像 → public/Modules/Converted + Scripts
+已转换模块 → merge-modules → public/Modules/{Merged,Rules}
+上述可选产物就绪 → build-web → 更新完整文件索引
+
+CI 聚合 public artifact → Cloudflare Pages + 产物 Git 仓库
+```
+
+`pnpm run build` 只执行规则、GeoIP 和网页构建，不调用镜像、插件转换或模块合并。`pnpm run build-web` 只重建索引，不更新 `status.json` 或成功标记。`status.json` 中 `mirrors` 当前由主入口写为空数组，不能用它证明镜像已同步；本地未设置 `GITHUB_SHA` 时 `commit` 为 `null`。
+
+## 3. 干净环境安装与首次规则构建
+
+以下使用 macOS / Linux shell，在一个全新目录执行，不复制旧 `.cache`、`node_modules` 或 `public`。先通过自己的 Node 版本管理器安装并激活 Node 26，再安装固定 pnpm。仓库开发依赖参与运行，不要使用 `--prod` 安装。
+
+```bash
+git clone https://github.com/lucking7/MirrRule.git mirrrule-new
+cd mirrrule-new
+git rev-parse HEAD
+node --version
+npm install --global pnpm@10.15.0
+pnpm --version
+pnpm install --frozen-lockfile
+pnpm run validate
+pnpm test
+pnpm run knip
+pnpm run build
+```
+
+记录 commit 便于复现本次运行；正式接管时从自己的源码仓 checkout 已审核版本并建立工作分支。已有 pnpm 10.15.0 时省略全局安装。本次验证使用预装的 mise 执行 `mise exec node@26 -- pnpm ...`，未重复安装系统运行时。
+
+主构建会访问上游并写入当前克隆的 `public/` 与 `.cache/`。每条命令必须退出码为 0 才进入下一步；使用 `tee` 保存日志时启用 `set -o pipefail`，防止掩盖前一个命令的失败。
+
+成功后验证真实输出：
+
+```bash
+test -s .BUILD_FINISHED
+test -s public/index.html
+test -s public/_headers
+test -s public/GeoIP/ipinfo.mmdb
+test -s public/List/reject.list
+test -s public/Clash/reject.txt
+test -s public/Loon/reject.list
+node -e 'const fs=require("node:fs"); for (const p of ["public/status.json","public/sing-box/reject.json"]) JSON.parse(fs.readFileSync(p,"utf8")); console.log("JSON OK")'
+```
+
+如有 Python 3，可用 `python3 -m http.server 8080 --bind 127.0.0.1 --directory public` 本地预览，然后访问 `http://127.0.0.1:8080`；结束时按 Ctrl-C。这个服务器不会应用 Pages 的 `_headers`，本地预览不代表客户端规则语义或线上缓存策略已验证。
+
+## 4. 配置、环境变量与外部服务
+
+### 4.1 可配置入口
+
+规则源在 [rule-sources.ts](Build/lib/rule-sources.ts) 的 `ruleGroups` 与 `specialRules` 中声明。`url`、`fallbackUrls`、`targets`、`defaultPolicy`、`keepComments`、`formatConversion`、`applyNoResolve`、`validate` 等字段决定处理结果。`allowEmpty`、`keepInlineComments`、`keepEmptyLines` 等字段见 [rule-source-types.ts](Build/lib/rule-source-types.ts)。只选代码支持的 `surge`、`clash`、`loon`、`singbox`，未知平台会失败。规则源没有可用的 `enabled`、`dedup` 或 `sort` 开关；去重和输出顺序由处理器与平台 writer 固定处理。模块 YAML 中的 `enabledByDefault` 是另一套有效配置。
+
+镜像源在 [mirror-config.ts](Build/integration/mirror-sync/mirror-config.ts)；GeoIP URL 在 [download-geoip.ts](Build/download-geoip.ts)。插件列表与额外插件在 [plugin-list.ts](Build/integration/plugin-converter/plugin-list.ts)。模块选择和输出在 [pro-merge-config.yaml](Build/lib/module-merger/configs/pro-merge-config.yaml)。此项目没有一个能覆盖所有设置的 `.env` 文件，也没有统一的部署域名环境变量。
+
+### 4.2 环境变量
+
+通过 shell 或 GitHub Actions 的 `env` 注入；代码没有自动加载 `.env` 的入口。
+
+| 变量                      | 默认与作用                                                   | 迁移注意                                                                                                                                |
+| ------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `PUBLIC_DIR`              | `ROOT_DIR/public`，由 `Build/constants/dir.ts` 读取          | **不是全局重定向开关**。主规则构建、GeoIP、status、Release 镜像、模块 YAML 等仍有固定 `public` 路径；首次搭建保留默认并使用独立克隆隔离 |
+| `PROXY_BASE`              | 不设则直连；由 `Build/utils/network/proxy.ts` 拼接 URL       | 项目特定的 HTTP 转发入口，不是通用 `HTTP_PROXY`。新账号需要自行提供兼容服务或验证直连可用                                               |
+| `PLUGIN_LIST_URL`         | 默认 `https://hub.kelee.one/list.json`；支持逗号分隔多个候选 | 替换列表源，不自动取消代码里的额外插件 `blockAds`                                                                                       |
+| `PLUGIN_LIST_FORCE_PROXY` | 默认 `true`，仅字符串 `false` 关闭强制代理候选               | 没设置 `PROXY_BASE` 时仍只有直连；列表采用直连优先的候选顺序                                                                            |
+| `GITHUB_TOKEN`            | Release API 客户端可选令牌                                   | CI 镜像步骤使用自动令牌；本地无令牌可能限流。fmz200 的独立目录下载器未读取该变量                                                        |
+| `CI`                      | Script-Hub 客户端按非空值选择 `script.hub`，否则 `localhost` | 本地应不设置，连 `CI=false` 也会选 `script.hub`；其他代码用 `ci-info` 判定 CI                                                           |
+| `GITHUB_SHA`              | CI 注入，写入 `status.json`；本地默认 `null`                 | 可在本地以 `GITHUB_SHA="$(git rev-parse HEAD)" pnpm run build` 记录来源                                                                 |
+| `GITHUB_STEP_SUMMARY`     | Actions 注入的 summary 路径                                  | 插件 provenance 报告使用，不必在本地设置                                                                                                |
+| `DEBUG`                   | 额外统计 / 调试                                              | 上游检查可用 `DEBUG=domain-alive:dead-domain`                                                                                           |
+| `RUNNER_DEBUG`            | CI 中 `1` 开启额外追踪                                       | 通常由 runner 控制                                                                                                                      |
+| `SWC_NODE_IGNORE_DYNAMIC` | `pnpm run node` 自动设为 `true`                              | 沿用项目脚本即可                                                                                                                        |
+
+发布步骤另把 Secrets 映射为 `GH_EMAIL`、`GH_USER`、`GH_TOKEN`，见第 7 节。不要把密钥写到 YAML、命令示例或文档里。
+
+### 4.3 必要网络依赖
+
+| 来源                                               | 用途 / 是否可替换                                                                      |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| npm registry                                       | 首次安装锁定依赖                                                                       |
+| GitHub API、raw、Release、codeload                 | 规则、GeoIP、Release 镜像与脚本；部分下载使用 GitLab fallback                          |
+| `kelee.one`、`hub.kelee.one` 等配置上游            | 规则与插件列表，源文件完整清单以配置为准                                               |
+| Script-Hub 的 `localhost:9101` / `script.hub:9101` | 插件远程转换；容器同时暴露 9100、9101                                                  |
+| `cloudflare-proxy.lucking.workers.dev`             | 原维护者的公开转发 Worker，workflow 三处注入；源码仓不包含其服务实现或部署配置         |
+| 原 NRRule 产物仓                                   | workflow 补齐缺失目录、单独合并时读取已转换模块、PR 对比；新账号应改为自己的公开产物仓 |
+| Cloudflare API / GitHub Git 写入                   | 仅发布阶段需要                                                                         |
+
+Worker 的普通基址会被补成 `?url=`，随后直接拼接原始 URL；已有 `/`、`?` 或 `?url=` 的基址会按源码规则保留。自建服务需要兼容实际拼接、响应状态和二进制/文本内容。不要仅把 `PROXY_BASE` 改成不支持此协议的代理地址。规则下载和健康检查应使用一致的请求语义与 User-Agent；诊断时不要把浏览器能访问视为构建可访问的证据。
+
+## 5. 镜像、插件和模块搭建
+
+### 5.1 镜像同步
+
+从仓库根目录按需执行：
+
+```bash
+pnpm run sync-mirrors
+pnpm run node Build/download-mock-modules.ts
+pnpm run download-fmz200-split
+pnpm run build-web
+```
+
+第一条只同步 Release 镜像组，不包括后两条。也可用 `pnpm run mirror:iringo`、`mirror:dualsubs`、`mirror:biliuniverse` 分组运行。iRingo 模块会将 `Proxy` 参数改为 `🇺🇸`，迁移时确认这是否符合自己的策略组命名。Siri 读取 Release 中 `iRingo.Siri`、`iRingo.Search`、`iRingo.Spotlight` 资产，不构建上游 dev 分支。
+
+遇到限流或上游失效，保留日志和已下载的文件，停止把本次输出视为完整快照。Release 下载具备校验与保留旧文件逻辑，但第一次运行没有旧文件可以兜底。
+
+### 5.2 插件转换
+
+先完成第 6 节的脚本 URL 替换，否则新生成模块仍会引用原服务。启动与 CI 相同的容器；仅绑定本机端口：
+
+```bash
+docker run --detach --rm --name mirrrule-script-hub \
+  -p 127.0.0.1:9100:9100 -p 127.0.0.1:9101:9101 \
+  xream/script-hub@sha256:c55180dd41c07567906f17953587c25b61b427b2c5cc6b955721677fd615f470
+curl --fail http://localhost:9101/
+env -u CI pnpm run convert-plugins --wait-service
+```
+
+等待容器就绪后再执行转换。服务与转换器都需要能访问插件及脚本上游。`--wait-service` / `-w` 是 CLI 支持的开关；workflow 中的 `--timeout 600` 当前没有被 CLI 解析，不要依赖它改变超时。
+
+转换器可能使用本地 fallback；只有依赖脚本具备可用镜像或缓存 URL 后才发布插件。部分插件失败会使 CLI 返回非零，即使已有其他输出。检查转换统计、失败清单、脚本依赖与 provenance，不把“目录存在”视为完成。完成后 `docker stop mirrrule-script-hub`。
+
+### 5.3 模块合并
+
+默认配置有 48 项、启用 47 项。腾讯视频在配置中因上游停止维护及脚本失效被显式禁用，这是 2026-09-07 的记录，不代表本文再次验证了该 URL。重新启用前先恢复依赖和转换文件。
+
+```bash
+pnpm run node Build/merge-modules.ts --dry-run
+pnpm run merge-modules
+pnpm run build-web
+```
+
+首次克隆缺少 `public/Modules/Converted/*.sgmodule` 时，第一条会失败，这是依赖检查生效。`--dry-run` 仍加载和验证所有选中源，只是不发布输出。可用 `--config <path>`、`--only <key1,key2>`、`--enable <keys>`、`--disable <keys>`；没有显式 `key` 时用配置的 `header`。不要为了通过检查静默删掉失败模块。
+
+YAML 输出路径以 `./` 或 `../` 开头时相对于配置目录，普通相对路径则相对于进程工作目录。默认 `file://public/...` 依赖根目录执行。两个输出文件必须不同，模板必须保留参数所需的 `header_extra`。
+
+合并器保留并隔离源参数名、重命名脚本并调整 Panel 引用；未定义参数、缺失源、未知 key 等会中止。写入先暂存两份输出，再替换；后续替换失败会尝试恢复，不能理解为断电情况下的跨文件事务。生成模块的脚本开关以空值启用、`#` 禁用，保留源模块自身开关语义。
+
+### 5.4 使用既有产物作为迁移输入
+
+如果需要先验证合并流程，可从一个已审核的产物仓快照读取 `Modules/Converted` 与 `Scripts`。这验证的是“既有模块再合并”，不能代替插件重新转换验收。以下在源码仓根目录运行；`SEED_REPO`、`SEED_COMMIT` 先填入自己批准的仓库 URL 和完整 commit：
+
+```bash
+MIGRATION_SEED_DIR="$(mktemp -d)"
+git clone --filter=blob:none --sparse "$SEED_REPO" "$MIGRATION_SEED_DIR/artifacts"
+git -C "$MIGRATION_SEED_DIR/artifacts" checkout "$SEED_COMMIT"
+git -C "$MIGRATION_SEED_DIR/artifacts" sparse-checkout set Modules/Converted Scripts
+mkdir -p public/Modules/Converted public/Scripts
+cp -R "$MIGRATION_SEED_DIR/artifacts/Modules/Converted/." public/Modules/Converted/
+cp -R "$MIGRATION_SEED_DIR/artifacts/Scripts/." public/Scripts/
+pnpm run node Build/merge-modules.ts --dry-run
+pnpm run merge-modules
+pnpm run build-web
+```
+
+只在新的 `public` 或明确确认目标输入为空时拷贝，避免混合两个快照。已有模块可能内嵌旧域名，正式切换应在改好脚本基址后重新转换并验证引用；不要手改生成物。完整迁移必须让自己的服务提供这些脚本，不能依赖原维护者域名长期存续。
+
+## 6. 原账号、仓库与域名替换清单
+
+建议先记录新的源码仓、公开产物仓、Pages 项目名、实际分配的域名和可选 Worker 地址，再逐项修改自己的副本。Secrets 名称可以保持不变，仅替换值；若改名，需要同步 workflow 引用。
+
+| 当前值 / 标识                                              | 需要核对的位置                                                                                                                    | 替换要求                                                                         |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `lucking7/MirrRule`                                        | `package.json` repository、`Build/build-public.ts` 的来源链接/OG URL、模块模板的 homepage、README 和项目说明                      | 改为自己的源码仓；保留原项目与 SukkaW/Surge 的归属说明                           |
+| `lucking7/NRRule`                                          | `main.yml` 的模块补齐、缺失目录补齐、PR diff、部署 clone、archive/unarchive；`Build/build-public.ts` canonical 与 badge           | 全部指向自己的**产物仓**，不要指向源码仓                                         |
+| `nrrule` / `nrrule.pages.dev`                              | `main.yml` 的 `--project-name` 和成功提示、README 订阅示例、package name                                                          | 项目名和实际 Pages 域名分别核实，不假设名称一定可用                              |
+| `https://nrrule.pages.dev/Scripts`                         | `Build/integration/plugin-converter/script-mirror.ts` 的 `MIRROR_BASE_URL`；`script-extractor.ts` 的 `MIRRORED_SCRIPT_URL_MARKER` | 发布地址与已镜像脚本识别标记需对应，否则可能重复镜像已有脚本                     |
+| `cloudflare-proxy.lucking.workers.dev`                     | `main.yml` 两处 `PROXY_BASE`、`check-source-domain.yml` 一处                                                                      | 换兼容的自有 Worker；直连已验证时可移除配置                                      |
+| `lucking7/NRRule` 的 GitHub/GitLab tarball、`NRRule-main/` | `Build/download-previous-build.ts`                                                                                                | 此独立 helper 未由当前主构建调用；若继续使用需同时改 URL、分支与压缩包根目录前缀 |
+| `lucking7/ASN-China`                                       | `Build/download-geoip.ts`                                                                                                         | 这是外部 GeoIP 数据源，不能机械改用户名；选择继续依赖、维护镜像或替换有效 URL    |
+| `NRRule`、`@lucking7`、`Luck`、`MirrRule`                  | `Build/build-public.ts` 的标题/页脚/404/平台筛选 localStorage key；模块 YAML author/category；package author；产品说明            | 替换自己的展示身份，历史来源和许可证署名继续保留                                 |
+| `main`                                                     | workflow 部署条件、push 目标、Pages `--branch`、产物读取 URL                                                                      | 最省改动的方式是两仓和 Pages 都用 `main`；改分支时逐一同步                       |
+
+修改后用搜索收口，逐个判定残留属于历史署名、主动保留的上游还是遗漏：
+
+```bash
+rg -n 'lucking7|nrrule\.pages\.dev|NRRule-main|cloudflare-proxy\.lucking|project-name=nrrule' \
+  Build .github package.json README.md
+rg -n 'nrrule\.pages\.dev|cloudflare-proxy\.lucking' public
+```
+
+第二条针对新生成物检查运行时引用。产物中的上游链接是否迁移由对应来源决定，不对全仓做盲目字符串替换。源码保留 [LICENSE](LICENSE) 和 README 中的 AGPL-3.0、SukkaW/Surge attribution。
+
+## 7. 在自己的账号中接入发布
+
+本节是迁移者的操作步骤，本次没有创建云资源、设置 Secrets、推送分支或部署。启用自动发布前，先完成第 6 节并审查目标。
+
+### 7.1 创建两个仓库并准备权限
+
+1. 在自己的账号中 fork/import 源码仓，先暂停主发布 workflow，避免推送 `main` 自动发布。
+2. 创建独立的公开产物仓，初始化 `main`（例如建一个 README commit）。不要把业务源码放在产物仓，发布脚本会替换目录并清理不在发布结构中的顶层目录。
+3. 修改所有旧仓库引用。当前补齐与 diff 使用无认证的公开 clone；仅设置 `GITHUB_TOKEN` 环境变量不会自动使这些 URL 获得私有仓访问权。私有产物仓需要额外设计认证，不属于原样迁移路径。
+4. 为源码仓配置下表 Secrets。令牌只授予需要的仓库/账号，使用 GitHub UI 或安全的密钥输入方式，不把值写进 Git。
+5. 源码仓需要允许所用 Actions。若启用 Dependabot auto-merge，还需启用仓库 auto-merge、相应机器人权限，并设置必需检查 `Build`；workflow 注释本身不会创建分支保护。
+
+| Secret 名称             | 用途 / 权限                                                                              |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | 自己账号的 Pages 发布令牌，Account → Cloudflare Pages → Edit                             |
+| `CLOUDFLARE_ACCOUNT_ID` | Pages 项目所在账号 ID，按 workflow 当前形式放在 Secret 中                                |
+| `GIT_USER`              | 产物推送身份 / Git commit name                                                           |
+| `GIT_EMAIL`             | 产物 Git commit email                                                                    |
+| `GIT_TOKEN`             | 跨仓库推送令牌，需目标产物仓 Contents 写权限；若保留 archive/unarchive，还需仓库管理权限 |
+| `GITHUB_TOKEN`          | Actions 自动提供，无需复制原维护者令牌；用于 Release 读取、健康状态/Issue 和自动合并     |
+
+现有部署脚本会先尝试 unarchive，结束后再 archive 产物仓。这两步允许失败，因此部署成功并不证明最终归档成功。新部署若不需要归档，可在自己的 workflow 中去掉这两步，并缩小 `GIT_TOKEN` 权限。不要归档源码仓。
+
+### 7.2 Cloudflare Pages
+
+使用 Direct Upload 项目接收 GitHub Actions 构建好的目录，不需要 Pages 再执行 `pnpm build`。可由 Wrangler 创建空项目：
+
+```bash
+pnpm dlx wrangler@4.114.0 login
+pnpm dlx wrangler@4.114.0 whoami
+# 确认账号无误，将下值改为自己的项目名后再创建
+PAGES_PROJECT_NAME=your-rules
+pnpm dlx wrangler@4.114.0 pages project create "$PAGES_PROJECT_NAME" --production-branch=main
+```
+
+`whoami` 用于确认当前登录账号；有多个账号时需明确选择目标账号，不能沿用不明身份。创建命令要求显式项目名，生产分支设为 `main`。记录实际分配的 Pages 域名，然后更新第 6 节中的脚本基址。Direct Upload 与 Git integration 的选择和创建方法见 [Cloudflare 官方说明](https://developers.cloudflare.com/pages/get-started/direct-upload/)；令牌权限与 GitHub Secrets 设置见 [CI 发布说明](https://developers.cloudflare.com/pages/how-to/use-direct-upload-with-continuous-integration/)。
+
+workflow 的实际命令是 `pages deploy public --project-name=nrrule --commit-dirty=true --branch=main`，只修改项目名还不够，生成物内的脚本 URL 也必须迁移。需要自定义域名时先在 Pages 中配置并确认解析与 HTTPS，再切换订阅链接。
+
+### 7.3 首次上线顺序
+
+1. 完成本地规则构建及必要的转换、合并和镜像验证。全新产物仓没有旧文件可供 fallback，`merge-modules` 单独运行无法凭空产生转换模块。
+2. 配好自己的产物仓、Pages 项目、Secrets、脚本 URL 和可选 Worker。若仍无法生成默认选中的模块，先解决来源或明确调整自己配置，不能宣称完整迁移。
+3. 使用 PR 或手动 `task=build` 检查规则构建。PR 的生产对比 job 需要产物仓可以 clone；初始 README-only 仓库可用于启动，但还没有完整基线。
+4. 准备正式发布时，在自己的 `main` 手动选择 `task=all` 和所需 `deploy_target`。选择 `all` 部署到两个目标；也可先选 `cloudflare`，检查站点后再执行一次 `all`/`github`。后一次会重新构建，不保证上游字节完全相同。
+5. 检查两个部署 job 的结果，读取自己的 `status.json`，抽查四平台规则、合并模块及其 `script-path`，确认脚本 URL 返回实际 JS 而非 HTML/404，再让客户端导入。两个发布目标独立，可能一个成功、另一个失败。
+
+`pnpm run deploy` 只构建并打印提示，不执行远端部署。workflow 的手动 `task=deploy` 会在本次运行重新构建、验收并发布，不复用上一轮 artifact；新的构建可能取得不同的上游内容，见下一节。
+
+## 8. GitHub Actions 的真实行为
+
+以 [main.yml](.github/workflows/main.yml) 的 `prepare` 输出、各 job 的 `if` 和 `needs` 为准，不只看注释。
+
+| 触发 / 手动 task       | 转换 | 合并 | 镜像 | Build | 发布                     |
+| ---------------------- | ---- | ---- | ---- | ----- | ------------------------ |
+| push `main` / `master` | 是   | 是   | 是   | 是    | 仅 `main` 可发布         |
+| pull_request           | 否   | 否   | 否   | 是    | 否；另做产物 diff        |
+| 手动 `all`             | 是   | 是   | 是   | 是    | `main`，按 deploy_target |
+| 手动 `build`           | 否   | 否   | 否   | 是    | 否                       |
+| 手动 `convert-plugins` | 是   | 否   | 否   | 否    | 否，只有转换 artifact    |
+| 手动 `merge-modules`   | 否   | 是   | 否   | 否    | 否，尝试读取已有转换产物 |
+| 手动 `mirror-sync`     | 否   | 否   | 是   | 是    | 否                       |
+| 手动 `deploy`          | 否   | 否   | 否   | 是    | `main`，按 deploy_target |
+
+`prepare` 在本次运行计算 `tasks` 任务计划；镜像步骤属于 Build job，因此手动镜像会执行构建但不会发布。手动部署先完成本次 Build 的测试、Knip、构建和成功标记检查，再交给选定发布 job。任务计划映射可由仓库测试验证，但新账号中的真实 Actions、Cloudflare 和 Git 发布仍须单独验证。
+
+定时规则采用 UTC：`0 5,17 * * *` 执行完整流程；`0 */4 * * *` 规则构建与发布；`0 6,14,22 * * *` 镜像、规则构建与发布；`30 7,19 * * *` 转换、合并、规则构建与发布。新仓还需确认 Actions 定时运行已启用。相同 workflow/ref 有并发取消策略，不要把被后一次运行取消误认为代码失败。
+
+job 顺序为 `prepare → convert-plugins → merge-modules → build → 两个 deploy job`，转换或合并可按条件跳过。Build 依次运行 `validate`、测试、Knip，再处理镜像、artifact、缺失目录补齐、主构建与成功标记检查。PR 通过不证明插件转换、模块合并或部署可用。
+
+需要特别区分：
+
+- 插件 job 对转换错误有容忍和重试，并无条件上传 marker；job success 或 marker 存在不能证明全部插件成功。模块合并会进一步严格检查默认选中的输入。
+- 合并 job 仅在转换目录完全没有 `.sgmodule` 时尝试从产物仓补齐；已有一部分文件但缺少其他必需文件时，不会自动逐个补齐。
+- Build 按顶层目录缺失/为空补齐旧产物，不校验整个目录是否完整。因此一个非空目录可能仍缺少必要文件。
+- `.cache` 是可重建缓存，不是完整 `public` 备份。缓存采用 runner OS 与日期/run ID key；插件、模块、Build artifacts 仅保留 1 天，应另外保存上线快照。
+- Pages 上传本次 artifact 的整份 `public`。Git 产物部署则替换选中的非空目录、保留缺失/空目录、复制根文件，并清理发布名单之外的顶层目录。它不是逐文件补丁更新，也不保证两个目标内容在部分构建时天然一致。
+
+[check-source-domain.yml](.github/workflows/check-source-domain.yml) 每日 `03:17 UTC` 检查；定时运行维护 `source-health-state` 分支和三次连续失败告警。手动运行只生成报告和退出状态，不更新持久状态或 Issue。其权限是 `contents: write`、`issues: write`；保留该功能时需允许专用状态分支被 workflow 强制更新，并确认新账号可使用 `ubuntu-24.04-arm` runner。健康报告保留 14 天，不能用健康报告替代 Build 验收。
+
+## 9. 故障排查与回滚
+
+| 现象                     | 检查 / 处理                                                                                                      |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Node / native ABI 错误   | 确认 `node --version` 为 26.x；在正确 runtime 下重装依赖，必要时 `pnpm rebuild better-sqlite3`；不要改锁文件规避 |
+| `--frozen-lockfile` 失败 | 核对源码和 lock 是否来自同一 commit，pnpm 是否匹配；保留日志，不能把重新解析依赖当作等价复现                     |
+| 上游 403、404、超时      | 看具体 URL、状态、UA、直连/Worker 路径；限流等待恢复，授权问题修正权限，404 修正来源；不要无限重跑               |
+| GitHub Release 限流      | 使用已授权的 `GITHUB_TOKEN` 或等重置；fmz200 独立脚本不读该变量，须等其无认证额度恢复或另行改造                  |
+| Script-Hub 连接失败      | 检查容器、9101 健康响应、`CI` 是否错误设置、容器出站网络；不能只检查主机浏览器                                   |
+| 合并缺文件 / 未定义参数  | 对照 YAML 与 Converted 目录；先修转换依赖，再 dry-run。检查 Header/key 与模板，不用空文件占位                    |
+| `PUBLIC_DIR` 后输出分散  | 使用默认 `public` 加独立克隆；当前代码不支持所有流程统一重定向                                                   |
+| 有 index 但构建失败      | 检查退出码与 `.BUILD_FINISHED`，主构建可能继续产出部分文件。旧 `status.json` 也不能独立证明本次成功              |
+| 手动镜像/部署任务跳过    | 检查 `prepare.outputs.tasks`、Build job 的条件和结果、分支及 `deploy_target`；`deploy` 必须有本次 Build artifact |
+| Pages 成功、脚本仍404    | 检查 `MIRROR_BASE_URL`、`MIRRORED_SCRIPT_URL_MARKER`，核对 artifact 的 Scripts 与实际 script-path                |
+| Git 发布被拒绝           | 检查产物仓是否初始化 main、是否归档、令牌跨仓权限及分支保护；不要为排错 force-push                               |
+
+上线前保存源码 commit、产物仓 commit、Pages deployment ID 和完整 artifact。失败时先停用自动发布，防止回滚后又被定时运行覆盖。
+
+- **本地产物**：使用新的干净克隆重新执行；如需清理，只处理确认属于该验证目录的生成物，保留日志，不删除用户工作区。
+- **源码**：在新分支 revert 问题提交，跑检查后按正常审核流程合并。只回滚源码不能还原实时上游字节。
+- **产物仓**：从已知成功 commit 恢复文件树，创建新的恢复 commit 并按仓库策略推送。保留原历史，避免 reset 后 force-push；如果仓库已归档，先由有权限的人取消归档。
+- **Pages**：在项目 Deployments 中选已成功的 production deployment，执行 “Rollback to this deployment”。Preview 不可作为该操作的回滚目标，见 [官方回滚说明](https://developers.cloudflare.com/pages/configuration/rollbacks/)。Pages 回滚不会同步恢复 Git 产物仓。
+- **客户端切换**：新旧服务并行验证，确认新订阅与脚本地址可用再替换客户端配置；出错时恢复已保存的旧订阅。该客户端验收由接管者完成。
+
+## 10. 本次隔离验收记录
+
+这组历史验证的基线为 `01d348314f41f471390b804d235e4437f7311971`，使用 macOS、Node `26.8.1`、pnpm `10.15.0`。从已同步远端的干净源码通过 `git clone --no-local --no-hardlinks` 创建 `/tmp/mirrrule-migration-20260929`，未复制旧 `node_modules`、`.cache` 或 `public`。pnpm 使用本机共享包 store，因此这证明的是干净项目安装，不是离线或全新系统安装。下列 131 项测试数字仅属于该历史基线；当前工作分支的验收另见后文。
+
+| 命令 / 项目                                                        | 结果                                                                                                                |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `pnpm install --frozen-lockfile`                                   | 退出 0；原生依赖可加载，锁文件未变                                                                                  |
+| `pnpm run validate`                                                | 退出 0；ESLint 0 errors、118 个既有 warnings；typecheck 通过                                                        |
+| `pnpm test`                                                        | 退出 0；131 tests / 44 suites 全部通过                                                                              |
+| `pnpm run knip`                                                    | 退出 0；12 条配置建议，无失败                                                                                       |
+| `pnpm run build`                                                   | 退出 0；9 个普通规则组、29 个普通源文件、16 组合并规则处理完成，生成四平台规则、4 份 GeoIP、网页、status 和成功标记 |
+| 空输入 `merge-modules --dry-run`                                   | 预期退出 1，缺少转换模块时不发布                                                                                    |
+| 复用固定快照后 `merge-modules --dry-run`、`pnpm run merge-modules` | 均退出 0；47 个模块、145 个 sections、277 个去重 hostnames，生成 sgmodule 与 rulelist                               |
+| `pnpm run build-web`                                               | 合并和镜像尝试结束后退出 0，索引反映当前实际文件；不表示失败的镜像已补齐                                            |
+| 产物检查与本地 HTTP                                                | 45 个文件/规则平台，4 份 GeoIP；成功标记存在，两个 JSON 可解析；首页、status、reject 规则 HTTP 200 且与磁盘内容一致 |
+| `pnpm run sync-mirrors`                                            | 退出 1；部分文件成功，BiliUniverse 3 个仓库遇到 GitHub API 限流，未认定完整通过                                     |
+| `pnpm run node Build/download-mock-modules.ts`                     | 退出 0；41 个文件同步成功                                                                                           |
+| `pnpm run download-fmz200-split`                                   | 退出 1；3 个根模块成功，split 目录阶段失败，未认定完整通过                                                          |
+| Docker / Script-Hub / 全量插件转换                                 | 当前环境无 Docker 命令，未执行；需在具备 Docker 和上游访问条件的新环境验证                                          |
+| Cloudflare / Git 产物仓发布                                        | 仅核对源码与官方配置说明，未创建资源、注入 Secrets 或发布                                                           |
+
+模块合并的正向验证使用原产物仓 `lucking7/NRRule` 的固定快照 `42a8067d7adfaba73d523e92db8fa8dff06b7041`，只读取 `Modules/Converted` 和 `Scripts`，未推送原仓库。输入为 272 份已转换模块、175 个脚本文件，按默认配置选中其中 47 个模块。不能将复用旧产物写成全新插件转换成功。
+
+fmz200 日志只暴露 split 阶段失败，没有输出底层 HTTP 状态，不能直接归因为限流。下次应在网络可用时单独验证目录 API 和该步骤；如仍失败，保留具体响应后定位。Release 镜像日志则明确报告 BiliUniverse/Redirect、Enhanced、ADBlock 的 API 限流，待额度恢复或配置已授权令牌后再验收。
+
+本次原始日志位于 `/tmp/mirrrule-migration-{clean-install,validate,test,knip,build,merge-empty,mirrors,mock,fmz,merge-dry,merge,web}.log`，是交付机器上的临时证据，不是读者必须存在的路径。迁移者应在自己的运行中重新保存日志和版本号。
+
+文档的本地链接、8 个 shell 示例语法和 MIGRATION.md 的 Prettier 检查通过；Wrangler 4.114.0 的创建参数已通过 `pages project create --help` 核对，未执行创建。
+
+接管完成前仍需在新账号验证：Script-Hub 完整转换、限流解除后的完整镜像、新域名与所有脚本 URL、两个发布目标和真实客户端导入。上述未验证项不会被本文的本地测试结果替代。

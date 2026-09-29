@@ -23,9 +23,13 @@ Build/index.ts
 
 `EnhancedFileOutput` owns normalization, canonical rule state, finalization, and logical rule summaries. Its state is private; platform writers remain four adapters behind the existing writer seam. `RuleSourceProcessor` retains the same publication interface. Each output instance is finalized once, by either `compile()` or `write()`.
 
+Canonical rule collections deduplicate through Trie/Set storage, then platform writers apply their fixed output order. Rule source configuration does not switch either behavior per source.
+
 ## Upstream artifacts
 
 Mirror sources use release adapters behind one artifact synchronization module. Release assets are filtered before download, validated before publication, and replaced through the shared atomic-file primitive, so a failed download or post-process keeps the last-known-good file. Add another adapter only when a production source requires one.
+
+`SyncResult.failed` is the sole failure list for release mirrors. The CLI and summaries derive their counts and messages from it, so the reported failures match the required-failure decision. The fmz200 CLI uses the shared `task()` entry point once per invocation.
 
 `NSRingo/Siri` is release-driven. The mirror accepts the `iRingo.Siri`, `iRingo.Search`, and `iRingo.Spotlight` asset families and does not build the upstream `dev` branch.
 
@@ -34,6 +38,12 @@ Source health probes carry the same request profile as their build source. Rule 
 ## Plugin artifacts
 
 Plugin conversions remain pending until every required script has a mirrored or cached URL. Canonical source identity follows each plugin through remote conversion, local fallback, cache, and publication. Publication reports `ready`, `degraded`, or `failed`, uses the shared atomic-file primitive, and prevents same-name plugins from sharing cached bytes.
+
+Script extraction retains the source URL. The publication URL is chosen from the completed mirror map after downloading or cache fallback, rather than stored before those outcomes are known.
+
+## CI task plan
+
+The workflow's `prepare` job emits one `tasks` plan. Downstream jobs run from membership in that plan; the Build job owns mirror sync. A manual `mirror-sync` run therefore includes Build without deployment, while manual `deploy` builds and validates a fresh artifact before publishing it on `main`.
 
 ## Public index
 
