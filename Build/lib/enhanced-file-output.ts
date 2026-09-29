@@ -2,13 +2,13 @@ import process from 'node:process';
 import path from 'node:path';
 import type { Span } from '../trace';
 import { HostnameSmolTrie } from '../utils/data-structures/trie';
-import { not, nullthrow } from 'foxts/guard';
+import { nullthrow } from 'foxts/guard';
 import { createRetrieKeywordFilter as createKeywordFilter } from 'foxts/retrie';
 import type { BaseWriteStrategy, RuleDropSummary } from '../core/output/writing-strategy/base';
 import type { RulePlatform } from '../core/output/rule-support-matrix';
 import { createStrategiesForTargets, normalizeTargets } from './platform-config';
 import type { SupportedPlatform } from './platform-config';
-import type { FileConfig, RuleGroup, SpecialRuleConfig } from './rule-source-types';
+import type { RuleProcessingOptions } from './rule-source-types';
 import { cleanPolicy } from './policy-cleaner';
 import { smartConvertRule } from './misc';
 import { RuleLineUtils } from '../utils/validation/validators';
@@ -34,10 +34,6 @@ const RULE_TYPE_MAP: Record<string, string> = {
   'DST-PORT': 'destination-port',
   PROTOCOL: 'protocol',
   NETWORK: 'protocol',
-};
-
-type EnhancedFileConfig = FileConfig & {
-  validate?: boolean;
 };
 
 /**
@@ -92,10 +88,9 @@ export class EnhancedFileOutput {
   constructor(
     span: Span,
     private readonly id: string,
-    _ruleType: 'domainset' | 'non_ip' | 'ip' | 'mixed' | '',
     targets: SupportedPlatform[] = ['surge'],
     private readonly defaultPolicy: string | null = null,
-    config?: Partial<EnhancedFileConfig>,
+    config?: RuleProcessingOptions,
     outputBaseDir = 'public'
   ) {
     this.span = span.traceChild('RuleOutput#' + id);
@@ -452,10 +447,6 @@ export class EnhancedFileOutput {
     // DOMAIN-KEYWORD covers matching DOMAIN, DOMAIN-SUFFIX, and DOMAIN-WILDCARD rules.
     const kwfilter = createKeywordFilter(Array.from(this.domainKeywords));
 
-    if (this.strategies.filter(not(false)).length === 0) {
-      throw new Error('No strategies to write ' + this.id);
-    }
-
     const strategiesLen = this.strategies.length;
 
     this.domainTrie.dumpWithoutDot((domain, includeAllSubdomain) => {
@@ -592,48 +583,32 @@ export class EnhancedFileOutput {
       childSpan.traceChildSync('write to strategies', () => this.writeToStrategies());
 
       return childSpan.traceChildAsync('output to disk', async childSpan => {
-        const promises: Array<Promise<void>> = [];
-
         const descriptions = nullthrow(this.description, 'Missing description');
+        await Promise.all(this.strategies.map(strategy => {
+          const basename = this.id + '.' + strategy.fileExtension;
 
-        for (let i = 0, len = this.strategies.length; i < len; i++) {
-          const strategy = this.strategies[i];
-
-          const basename = (strategy.overwriteFilename || this.id) + '.' + strategy.fileExtension;
-
-          promises.push(
-            childSpan.traceChildAsync('write ' + strategy.name, childSpan =>
-              Promise.resolve(
-                strategy.output(
-                  childSpan,
-                  nullthrow(this.title, 'Missing title'),
-                  descriptions,
-                  this.date,
-                  path.join(
-                    strategy.outputDir,
-                    strategy.type ? path.join(strategy.type, basename) : basename
-                  )
-                )
+          return childSpan.traceChildAsync('write ' + strategy.name, childSpan =>
+            strategy.output(
+              childSpan,
+              nullthrow(this.title, 'Missing title'),
+              descriptions,
+              this.date,
+              path.join(
+                strategy.outputDir,
+                strategy.type ? path.join(strategy.type, basename) : basename
               )
             )
           );
-        }
-
-        if (promises.length > 0) {
-          await Promise.all(promises);
-        }
+        }));
       });
     });
   }
 
-  async compile(): Promise<Array<string[] | null>> {
+  async compile(): Promise<string[][]> {
     await this.done();
     this.writeToStrategies();
 
-    return this.strategies.reduce<Array<string[] | null>>((acc, strategy) => {
-      acc.push(strategy.content);
-      return acc;
-    }, []);
+    return this.strategies.map(strategy => strategy.content);
   }
 
   public getRuleDropSummaries(): Partial<Record<RulePlatform, RuleDropSummary>> {
@@ -642,25 +617,5 @@ export class EnhancedFileOutput {
       summaries[strategy.platform] = strategy.ruleDropSummary;
     }
     return summaries;
-  }
-
-  /**
-   * 从配置创建增强输出器
-   */
-  static fromConfig(
-    this: void,
-    span: Span,
-    config: RuleGroup | SpecialRuleConfig
-  ): EnhancedFileOutput {
-    const effectiveTargets = normalizeTargets('targets' in config ? config.targets : undefined);
-
-    const defaultPolicy =
-      'defaultPolicy' in config
-        ? (config.defaultPolicy === undefined
-          ? null
-          : config.defaultPolicy)
-        : null;
-
-    return new EnhancedFileOutput(span, config.name, 'mixed', effectiveTargets, defaultPolicy);
   }
 }

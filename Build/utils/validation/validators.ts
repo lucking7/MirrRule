@@ -1,22 +1,5 @@
 import { isIP } from 'node:net';
 
-class DomainValidator {
-  private static readonly DOMAIN_REGEX = /^\w([\w-]*\w)?(\.\w([\w-]*\w)?)*$/;
-
-  static isDomainLike(this: void, text: string): boolean {
-    return DomainValidator.DOMAIN_REGEX.test(text);
-  }
-
-  static isDomainSuffix(this: void, text: string): boolean {
-    if (!text.startsWith('.')) return false;
-    return DomainValidator.isDomainLike(text.slice(1));
-  }
-
-  static normalize(this: void, domain: string): string {
-    return domain.trim().toLowerCase();
-  }
-}
-
 export class IPValidator {
   private static isCidr(this: void, text: string, family: 4 | 6, maxPrefix: number): boolean {
     const parts = text.split('/');
@@ -47,23 +30,6 @@ export class IPValidator {
     if (IPValidator.isIPv4Cidr(text)) return 'ipv4';
     if (IPValidator.isIPv6Cidr(text)) return 'ipv6';
     return null;
-  }
-}
-
-class URL_Validator {
-  private static readonly URL_REGEX = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(:\d+)?(\/.*)?$/i;
-
-  static isValidURL(this: void, text: string): boolean {
-    return URL_Validator.URL_REGEX.test(text);
-  }
-
-  static extractHostname(this: void, url: string): string | null {
-    try {
-      const urlObj = new URL(url.includes('://') ? url : `https://${url}`);
-      return urlObj.hostname;
-    } catch {
-      return null;
-    }
   }
 }
 
@@ -164,26 +130,5 @@ export const RuleLineUtils = {
     ];
 
     return validTypes.includes(parsed.type) && Boolean(parsed.value?.length);
-  },
-};
-
-const _Validator = {
-  identifyType(text: string): 'domain' | 'domain-suffix' | 'ipv4' | 'ipv6' | 'url' | 'unknown' {
-    if (DomainValidator.isDomainSuffix(text)) return 'domain-suffix';
-    const ipType = IPValidator.getIpType(text);
-    if (ipType) return ipType;
-    if (DomainValidator.isDomainLike(text)) return 'domain';
-    if (URL_Validator.isValidURL(text)) return 'url';
-    return 'unknown';
-  },
-
-  validateAndNormalize(text: string): { normalized: string; type: string; isValid: boolean } {
-    const type = this.identifyType(text);
-    const isValid = type !== 'unknown';
-    let normalized = text.trim();
-    if (type === 'domain' || type === 'domain-suffix') {
-      normalized = DomainValidator.normalize(normalized);
-    }
-    return { normalized, type, isValid };
   },
 };

@@ -33,7 +33,7 @@ function fixture(directory: string, contents: Array<string | null>) {
 }
 
 function source(header: string, content: string) {
-  return { header, content, url: `file://${header}.sgmodule`, source: 'local' as const };
+  return { header, content };
 }
 
 describe('module merger publication contracts', () => {

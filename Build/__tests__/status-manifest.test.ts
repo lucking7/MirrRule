@@ -106,7 +106,6 @@ describe('status manifest', () => {
     const output = new EnhancedFileOutput(
       createSpan('status-count'),
       'logical-rules',
-      'mixed',
       ['loon', 'surge', 'clash', 'singbox'],
       null
     );

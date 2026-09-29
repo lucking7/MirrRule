@@ -231,28 +231,6 @@ export async function getPluginList(): Promise<PluginInfo[] | { error: string }>
 }
 
 /**
- * 按扩展名分组插件
- *
- * @param plugins - 插件列表
- * @returns 分组后的 Map
- */
-function groupPluginsByExtension(
-  plugins: PluginInfo[]
-): Map<'plugin' | 'lpx', PluginInfo[]> {
-  const groups = new Map<'plugin' | 'lpx', PluginInfo[]>([
-    ['plugin', []],
-    ['lpx', []],
-  ]);
-
-  for (const plugin of plugins) {
-    const group = groups.get(plugin.extension)!;
-    group.push(plugin);
-  }
-
-  return groups;
-}
-
-/**
  * 获取插件统计信息
  */
 export interface PluginStats {
@@ -264,13 +242,27 @@ export interface PluginStats {
 }
 
 export function getPluginStats(plugins: PluginInfo[]): PluginStats {
-  const groups = groupPluginsByExtension(plugins);
+  let pluginCount = 0;
+  let lpxCount = 0;
+
+  for (const plugin of plugins) {
+    switch (plugin.extension) {
+      case 'plugin':
+        pluginCount++;
+        break;
+      case 'lpx':
+        lpxCount++;
+        break;
+      default:
+        throw new TypeError(`Unsupported plugin extension: ${plugin.extension}`);
+    }
+  }
 
   return {
     total: plugins.length,
     byExtension: {
-      plugin: groups.get('plugin')!.length,
-      lpx: groups.get('lpx')!.length,
+      plugin: pluginCount,
+      lpx: lpxCount,
     },
   };
 }

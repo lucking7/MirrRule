@@ -92,7 +92,7 @@ async function fetchDirectoryContents(dirPath: string): Promise<any[]> {
  */
 async function downloadRootModule(
   moduleUrl: string
-): Promise<{ success: boolean; fileName?: string }> {
+): Promise<{ success: boolean }> {
   const originalFileName = path.basename(moduleUrl);
 
   try {
@@ -124,7 +124,7 @@ async function downloadRootModule(
       await fsp.writeFile(outputPath, content, 'utf-8');
 
       console.log(picocolors.green(`  ✓ ${originalFileName} → ${newFileName}`));
-      return { success: true, fileName: newFileName };
+      return { success: true };
     }
 
     // 使用提取的模块名作为文件名
@@ -138,7 +138,7 @@ async function downloadRootModule(
     console.log(
       picocolors.green(`  ✓ ${originalFileName} → ${newFileName} (from #!name=${moduleName})`)
     );
-    return { success: true, fileName: newFileName };
+    return { success: true };
   } catch (error) {
     console.error(picocolors.red(`[ERROR] Error processing ${originalFileName}:`), error);
     return { success: false };
@@ -204,12 +204,10 @@ async function downloadAndProcessFile(
 async function processSubDirectory(dirName: string): Promise<{
   processed: number;
   failed: string[];
-  files: string[];
 }> {
   const result = {
     processed: 0,
     failed: [] as string[],
-    files: [] as string[],
   };
 
   console.log(picocolors.cyan(`\nProcessing directory: ${dirName}`));
@@ -237,7 +235,6 @@ async function processSubDirectory(dirName: string): Promise<{
       result.processed++;
       const mappedDir = mapDirectoryName(dirName);
       const displayName = downloadResult.newName || file.name;
-      result.files.push(`${mappedDir}/${displayName}`);
       console.log(picocolors.green(`  ✓ ${file.name} → ${mappedDir}/${displayName}`));
     } else {
       result.failed.push(file.name);

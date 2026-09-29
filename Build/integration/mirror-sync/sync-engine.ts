@@ -130,7 +130,6 @@ function getOutputDirectory(baseDir: string, fileType: FileType): string | null 
 
 interface ClassifiedAsset {
   asset: GitHubAsset,
-  fileType: FileType,
   outputPath: string | null,
   shouldProcess: boolean
 }
@@ -159,7 +158,6 @@ function classifyAsset(
 
   return {
     asset,
-    fileType,
     outputPath,
     shouldProcess
   };
@@ -181,24 +179,17 @@ function filterProcessableAssets(
 }
 
 interface FileTypeStats {
-  total: number,
-  byType: Record<string, number>,
   processable: number,
   skipped: number
 }
 
 function getFileTypeStats(classifiedAssets: ClassifiedAsset[]): FileTypeStats {
   const stats: FileTypeStats = {
-    total: classifiedAssets.length,
-    byType: {},
     processable: 0,
     skipped: 0
   };
 
   for (const classified of classifiedAssets) {
-    const typeName = classified.fileType;
-    stats.byType[typeName] = (stats.byType[typeName] || 0) + 1;
-
     if (classified.shouldProcess) {
       stats.processable++;
     } else {

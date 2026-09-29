@@ -75,7 +75,6 @@ export class ModuleLoader {
           index: item.index,
           failure: {
             header: item.source.header,
-            url: item.source.url,
             reason: getErrorMessage(error)
           }
         });
@@ -122,9 +121,7 @@ export class ModuleLoader {
         const content = await response.text();
         return {
           header: source.header,
-          url: source.url,
-          content,
-          source: 'remote'
+          content
         };
       } finally {
         clearTimeout(timeoutId);
@@ -134,9 +131,7 @@ export class ModuleLoader {
     const content = await this.readLocalFile(source.url);
     return {
       header: source.header,
-      url: source.url,
-      content,
-      source: 'local'
+      content
     };
   }
 

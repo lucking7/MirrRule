@@ -4,7 +4,6 @@ import process from 'node:process';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import { UA_MIRROR } from '../../constants/user-agents';
 import picocolors from 'picocolors';
-import { getErrorMessage } from '../../lib/misc';
 
 export interface GitHubAsset {
   name: string,

@@ -29,20 +29,6 @@ export abstract class BaseWriteStrategy {
   }
 
   /**
-   * Parse a rule string into components - shared across all writing strategies
-   */
-  protected static parseRuleString(rule: string): { ruleType: string; value: string; params: string } | null {
-    const trimmed = rule.trim();
-    const parts = trimmed.split(',');
-    if (parts.length < 2) return null;
-    return {
-      ruleType: parts[0].trim().toUpperCase(),
-      value: parts[1].trim(),
-      params: parts.slice(2).join(','),
-    };
-  }
-
-  /**
    * Write CIDR rules with optional no-resolve parameter
    */
   protected writeCidrRules(
@@ -54,16 +40,6 @@ export abstract class BaseWriteStrategy {
     for (let i = 0, len = cidrs.length; i < len; i++) {
       result.push(`${ruleType},${cidrs[i]}${noResolve ? ',no-resolve' : ''}`);
     }
-  }
-
-  /**
-   * Sometimes a ruleset will create extra files (e.g. reject-url-regex w/ mitm.sgmodule),
-   * and doesn't share the same filename and id. This property is used to overwrite the filename.
-   */
-  public overwriteFilename: string | null = null;
-  public withFilename(filename: string) {
-    this.overwriteFilename = filename;
-    return this;
   }
 
   public abstract readonly type: 'domainset' | 'non_ip' | 'ip' | (string & {});
@@ -122,7 +98,7 @@ export abstract class BaseWriteStrategy {
     return messages;
   }
 
-  protected abstract result: string[] | null;
+  protected abstract result: string[];
 
   abstract writeDomain(domain: string): void;
   abstract writeDomainSuffix(domain: string): void;
@@ -176,11 +152,7 @@ export abstract class BaseWriteStrategy {
     description: string[] | readonly string[],
     date: Date,
     filePath: string
-  ): void | Promise<void> {
-    if (!this.result) {
-      return;
-    }
-
+  ): Promise<void> {
     for (const message of this.getRuleDropMessages()) console.warn(message);
 
     return compareAndWriteFile(

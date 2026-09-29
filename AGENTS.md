@@ -331,12 +331,10 @@ DEBUG=domain-alive:dead-domain pnpm run node Build/validate-domain-alive.ts
 
 - 代码运行在 CommonJS 项目中，但大量源码使用 TypeScript `import` 语法，并由 SWC 注册器执行。
 - `tsconfig.json` 使用：
-  - `strict: true`
-  - `strictNullChecks: true`
+  - `strict: true`（包含严格空值检查）
   - `module: node16`
   - `moduleResolution: node16`
   - `allowImportingTsExtensions: true`
-  - `allowJs: true`
   - `noEmit: true`
 - 部分运行时 `require('./file.ts')` 是有意为之，用于懒加载或兼容 SWC/CommonJS；不要无理由改写为静态 import。
 - Node 内置模块通常使用 `node:` 前缀，例如 `node:path`、`node:fs`、`node:process`。

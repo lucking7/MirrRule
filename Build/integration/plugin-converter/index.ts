@@ -238,7 +238,6 @@ export async function convertAndMirrorPlugins(
         pluginName,
         sourceId,
         sourceUrl,
-        success: true,
         outputPath,
         scripts,
       };
@@ -250,7 +249,6 @@ export async function convertAndMirrorPlugins(
         pluginName,
         sourceId,
         sourceUrl,
-        success: false,
         status: 'failed',
         scripts: [],
         error: content.error,
@@ -295,7 +293,7 @@ export async function convertAndMirrorPlugins(
   );
   for (const [index, published] of publishedResults.entries()) {
     results[pendingResultIndexes[index]] = published;
-    if (published.success && published.outputPath) {
+    if (published.status === 'ready' && published.outputPath) {
       console.log(picocolors.gray(
         `  ✓ ${published.pluginName} → ${path.basename(published.outputPath)}`
       ));

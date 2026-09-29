@@ -61,8 +61,6 @@ type PluginArtifactStatus = 'ready' | 'degraded' | 'failed';
 export interface ConversionResult extends PluginSourceIdentity {
   /** 插件名称 */
   pluginName: string,
-  /** 是否成功 */
-  success: boolean,
   /** 当前产物状态 */
   status: PluginArtifactStatus,
   /** sgmodule 文件路径 */

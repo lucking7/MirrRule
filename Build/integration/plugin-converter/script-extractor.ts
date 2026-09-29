@@ -5,8 +5,7 @@
 
 import path from 'node:path';
 import type { ScriptInfo } from './types';
-
-const MIRRORED_SCRIPT_URL_MARKER = 'nrrule.pages.dev/Scripts';
+import { SCRIPT_MIRROR_LOCATION } from './script-location';
 
 /**
  * 正则表达式：匹配 script-path
@@ -37,7 +36,7 @@ export function extractScriptUrls(content: string): ScriptInfo[] {
     seen.add(url);
 
     // 检查是否已经是镜像 URL
-    const isMirrored = url.includes(MIRRORED_SCRIPT_URL_MARKER);
+    const isMirrored = url.includes(SCRIPT_MIRROR_LOCATION);
 
     // 提取文件名
     const filename = extractFilename(url);
@@ -101,30 +100,6 @@ export function applyScriptMirrorMap(
   }
 
   return result;
-}
-
-/**
- * 批量提取多个 sgmodule 文件的脚本
- *
- * @param contents - sgmodule 内容数组
- * @returns 所有脚本信息（去重）
- */
-function _extractScriptsFromMultiple(contents: string[]): ScriptInfo[] {
-  const allScripts: ScriptInfo[] = [];
-  const seen = new Set<string>();
-
-  for (const content of contents) {
-    const scripts = extractScriptUrls(content);
-
-    for (const script of scripts) {
-      if (!seen.has(script.originalUrl)) {
-        seen.add(script.originalUrl);
-        allScripts.push(script);
-      }
-    }
-  }
-
-  return allScripts;
 }
 
 /**

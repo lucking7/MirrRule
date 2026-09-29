@@ -141,56 +141,6 @@ export function cleanPolicy(rule: string): string {
 }
 
 /**
- * 批量清理规则列表
- *
- * @param rules - 规则数组
- * @returns 清理后的规则数组
- *
- * @example
- * _cleanPolicies([
- *   'DOMAIN-SUFFIX,example.com,PROXY',
- *   'IP-CIDR,1.2.3.0/24,REJECT,no-resolve'
- * ])
- * // => [
- * //   'DOMAIN-SUFFIX,example.com',
- * //   'IP-CIDR,1.2.3.0/24,no-resolve'
- * // ]
- */
-function _cleanPolicies(rules: string[]): string[] {
-  return rules.map(cleanPolicy);
-}
-
-/**
- * 检查规则是否包含策略
- *
- * @param rule - 规则字符串
- * @returns 如果规则包含策略返回 true
- */
-function _hasPolicy(rule: string): boolean {
-  const cleaned = cleanPolicy(rule);
-  return cleaned !== rule;
-}
-
-/**
- * 检查规则是否包含允许的参数
- *
- * @param rule - 规则字符串
- * @returns 包含的允许参数列表
- */
-function _getRetainedParameters(rule: string): string[] {
-  const parts = rule.split(',').map(p => p.trim().toLowerCase());
-  const retained: string[] = [];
-
-  for (let i = 2; i < parts.length; i++) {
-    if (ALLOWED_PARAMETERS.includes(parts[i] as any)) {
-      retained.push(parts[i]);
-    }
-  }
-
-  return retained;
-}
-
-/**
  * 为模块输出清理规则策略
  *
  * 与 cleanPolicy 不同，此函数：

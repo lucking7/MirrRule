@@ -29,6 +29,13 @@ describe('plugin script mirroring', () => {
     }]);
   });
 
+  it('recognizes mirrored scripts with either HTTP scheme', () => {
+    for (const scheme of ['http', 'https']) {
+      const [script] = extractScriptUrls(`script-path=${scheme}://nrrule.pages.dev/Scripts/main.js`);
+      assert.equal(script.isMirrored, true);
+    }
+  });
+
   it('uses stable collision-free names for equal basenames', async () => {
     const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-scripts-'));
 

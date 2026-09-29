@@ -1,6 +1,5 @@
 import fsp from 'node:fs/promises';
 import { sep } from 'node:path';
-import type { VoidOrVoidArray } from './misc';
 
 // eslint-disable-next-line sukka/no-export-const-enum -- TODO: fix this in the future
 export const enum TreeFileType {

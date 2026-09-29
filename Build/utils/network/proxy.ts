@@ -30,13 +30,6 @@ function _getProxyBaseFromEnv(): string | undefined {
 }
 
 /**
- * 检查代理是否已配置
- */
-function _isProxyConfigured(): boolean {
-  return _getProxyBaseFromEnv() !== undefined;
-}
-
-/**
  * 检查 URL 是否需要使用代理
  * 目前匹配 kelee.one 域名（含子域名）
  */
@@ -68,14 +61,6 @@ export function applyProxyIfNeeded(url: string): string {
   }
 
   return proxyBase + url;
-}
-
-/**
- * 获取当前代理基础 URL
- * @returns 代理 URL 或空字符串（如果未配置）
- */
-function _getProxyBase(): string {
-  return _getProxyBaseFromEnv() || '';
 }
 
 /**

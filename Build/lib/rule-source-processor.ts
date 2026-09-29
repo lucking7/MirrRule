@@ -7,12 +7,12 @@ import type {
   FileConfig,
   RuleGroup,
   RulePolicy,
+  RuleProcessingOptions,
   RuleTarget,
   SpecialRuleConfig,
 } from './rule-source-types';
 import { normalizeTargets } from './platform-config';
 import type { SupportedPlatform } from './platform-config';
-import { applyDefaultConfig } from './rule-sources';
 import { getErrorMessage } from './misc';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -84,15 +84,14 @@ export class RuleSourceProcessor {
     fileName: string,
     rawTargets: string[] | undefined,
     defaultPolicy: string | null,
-    mergedConfig: ReturnType<typeof applyDefaultConfig>
+    options: RuleProcessingOptions
   ) {
     return new EnhancedFileOutput(
       span,
       fileName,
-      '',
       normalizeTargets(rawTargets),
       defaultPolicy,
-      mergedConfig,
+      options,
       this.outputDir
     );
   }
@@ -102,7 +101,6 @@ export class RuleSourceProcessor {
     rules: string[],
     publication: RulesetPublication
   ): Promise<RulesetSummary> {
-    const mergedConfig = applyDefaultConfig(publication.options);
     const fileName = path.basename(
       publication.path,
       path.extname(publication.path)
@@ -112,7 +110,7 @@ export class RuleSourceProcessor {
       fileName,
       publication.targets,
       publication.defaultPolicy,
-      mergedConfig
+      publication.options
     );
 
     output

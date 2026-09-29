@@ -97,8 +97,6 @@ export function createSpan(name: string, parentTraceResult?: TraceResult): Span 
   return span;
 }
 
-const _dummySpan = createSpan('');
-
 export function task(importMetaMain: boolean, importMetaPath: string) {
   return <T>(
     fn: (span: Span, onCleanup: (cb: () => Promise<void> | void) => void) => Promise<T>,

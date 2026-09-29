@@ -113,9 +113,7 @@ export interface ParsedSection {
  */
 export interface LoadedModule {
   header: string,
-  url: string,
-  content: string,
-  source: 'local' | 'remote'
+  content: string
 }
 
 /**
@@ -123,7 +121,6 @@ export interface LoadedModule {
  */
 export interface ModuleLoadError {
   header: string,
-  url: string,
   reason: string
 }
 

@@ -35,7 +35,6 @@ export async function publishPluginArtifacts(
       const status = await fileExists(artifact.result.outputPath) ? 'degraded' : 'failed';
       results.push({
         ...artifact.result,
-        success: false,
         status,
         error: `${unresolved.length} required script${unresolved.length === 1 ? '' : 's'} unavailable`,
       });
@@ -45,7 +44,6 @@ export async function publishPluginArtifacts(
     if (!artifact.result.outputPath) {
       results.push({
         ...artifact.result,
-        success: false,
         status: 'failed',
         error: 'Converted plugin has no output path',
       });
@@ -63,18 +61,16 @@ export async function publishPluginArtifacts(
       if (degradedDependencies.length > 0) {
         results.push({
           ...artifact.result,
-          success: false,
           status: 'degraded',
           error: `${degradedDependencies.length} script${degradedDependencies.length === 1 ? '' : 's'} using cached artifacts`,
         });
       } else {
-        results.push({ ...artifact.result, success: true, status: 'ready' });
+        results.push({ ...artifact.result, status: 'ready' });
       }
     } catch (error) {
       const status = await fileExists(artifact.result.outputPath) ? 'degraded' : 'failed';
       results.push({
         ...artifact.result,
-        success: false,
         status,
         error: getErrorMessage(error),
       });

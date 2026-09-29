@@ -21,9 +21,7 @@ export interface RuleProcessingOptions {
   /** 是否启用格式转换 (.domain.com → DOMAIN-SUFFIX,domain.com) */
   formatConversion?: boolean,
   /** 是否校验规则格式，丢弃无法识别的行 */
-  validate?: boolean,
-  /** 默认策略组（null时会移除规则中的策略,生成纯规则格式） */
-  defaultPolicy?: RulePolicy
+  validate?: boolean
 }
 
 /**
@@ -78,67 +76,4 @@ export interface SpecialRuleConfig extends RuleProcessingOptions {
   defaultPolicy?: RulePolicy,
   /** 目标平台列表（默认仅Surge） */
   targets?: RuleTarget[]
-}
-
-/**
- * 规则源配置文件结构
- */
-interface _RuleSourceConfig {
-  /** 规则组列表 */
-  ruleGroups: RuleGroup[],
-  /** 特殊规则合并配置列表 */
-  specialRules: SpecialRuleConfig[],
-  /** 全局配置 */
-  globalConfig?: {
-    /** 输出根目录 */
-    outputDir?: string,
-    /** 并发下载数量限制 */
-    concurrency?: number,
-    /** 默认重试次数 */
-    retryCount?: number,
-    /** 默认超时时间（毫秒） */
-    timeout?: number
-  }
-}
-
-/**
- * 处理结果统计信息
- */
-interface _ProcessingStats {
-  /** 处理的文件数量 */
-  filesProcessed: number,
-  /** 下载的文件数量 */
-  filesDownloaded?: number,
-  /** 处理的规则数量 */
-  rulesProcessed?: number,
-  /** 合并的规则数量 */
-  rulesMerged?: number,
-  /** 去重移除的规则数量 */
-  rulesDeduped?: number,
-  /** 总文件大小（字节） */
-  totalSize?: number,
-  /** 处理耗时（毫秒） */
-  processingTime: number,
-  /** 错误列表 */
-  errors: Array<{
-    file: string,
-    error: string,
-    url?: string
-  }>
-}
-
-/**
- * 文件类型枚举
- */
-enum _FileType {
-  /** GEOIP数据库文件 */
-  GEODB = 'geodb',
-  /** 规则列表文件 */
-  RULELIST = 'rulelist',
-  /** 域名集合文件 */
-  DOMAINSET = 'domainset',
-  /** IP列表文件 */
-  IPLIST = 'iplist',
-  /** 未知类型 */
-  UNKNOWN = 'unknown'
 }

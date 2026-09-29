@@ -16,6 +16,7 @@ import { buildClassifiedProxyUrlCandidates } from '../../utils/network/proxy';
 import type { DownloadSource } from '../../utils/network/proxy';
 import { updatePluginMetadata } from './provenance';
 import { writeFileAtomic } from '../../lib/atomic-file';
+import { SCRIPT_MIRROR_LOCATION } from './script-location';
 
 // CommonJS 中的 __dirname 直接可用
 
@@ -28,7 +29,7 @@ const SCRIPT_OUTPUT_DIR = path.join(__dirname, '../../../public/Scripts');
  * 最小文件大小（字节）
  */
 const MIN_FILE_SIZE = 10;
-const MIRROR_BASE_URL = 'https://nrrule.pages.dev/Scripts';
+const MIRROR_BASE_URL = `https://${SCRIPT_MIRROR_LOCATION}`;
 
 interface FetchResponse {
   ok: boolean,

@@ -1,24 +1,4 @@
-import type {
-  FileConfig,
-  RuleGroup,
-  RuleProcessingOptions,
-  SpecialRuleConfig,
-} from './rule-source-types';
-
-export const DEFAULT_FILE_CONFIG = {
-  validate: false,
-  keepComments: false,
-  keepEmptyLines: false,
-  keepInlineComments: false,
-  formatConversion: true,
-  applyNoResolve: false,
-} as const satisfies RuleProcessingOptions;
-
-export function applyDefaultConfig<T extends FileConfig | SpecialRuleConfig>(
-  fileConfig: T
-): T & typeof DEFAULT_FILE_CONFIG {
-  return { ...DEFAULT_FILE_CONFIG, ...fileConfig };
-}
+import type { RuleGroup, SpecialRuleConfig } from './rule-source-types';
 
 export const ruleGroups: RuleGroup[] = [
   {
@@ -27,53 +7,53 @@ export const ruleGroups: RuleGroup[] = [
     defaultPolicy: null, // 无策略，用户自定义
     targets: ['surge', 'clash', 'singbox', 'loon'], // 流媒体支持更多平台
     files: [
-      applyDefaultConfig({
+      {
         path: 'List/netflix.list',
         url: 'https://rule.kelee.one/Loon/Netflix.lsr',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/disney.list',
         url: 'https://rule.kelee.one/Loon/Disney.lsr',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/spotify.list',
         url: 'https://rule.kelee.one/Loon/Spotify.lsr',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/primevideo.list',
         url: 'https://rule.kelee.one/Loon/PrimeVideo.lsr',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/youtube.list',
         url: 'https://rule.kelee.one/Loon/YouTube.lsr',
-      }),
+      },
       /**
-      applyDefaultConfig({
+      {
         path: 'List/stream/video/emby.list',
         url: 'https://github.com/Repcz/Tool/raw/X/Surge/Rules/Emby.list',
         description: 'This file contains rules for EmbyServer.',
-      }),
+      },
       */
-      applyDefaultConfig({
+      {
         path: 'List/biliintl.list',
         url: 'https://ruleset.skk.moe/List/non_ip/stream_biliintl.conf',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/bilibili.list',
         url: 'https://rule.kelee.one/Loon/BiliBili.lsr',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/tiktok.list',
         url: 'https://kelee.one/Tool/Loon/Lsr/TikTok.lsr',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/streaming_cn.list',
         url: 'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Streaming/CN.list',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/streaming_!cn.list',
         url: 'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Streaming/!CN.list',
-      }),
+      },
     ],
   },
   {
@@ -82,14 +62,14 @@ export const ruleGroups: RuleGroup[] = [
     defaultPolicy: null, // 无策略，生成纯拦截规则
     targets: ['surge', 'clash', 'singbox', 'loon'], // 广告拦截支持多平台
     files: [
-      applyDefaultConfig({
+      {
         path: 'List/reject-no-drop.list',
         url: 'https://ruleset.skk.moe/List/non_ip/reject-no-drop.conf',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/reject-drop.list',
         url: 'https://ruleset.skk.moe/List/non_ip/reject-drop.conf',
-      }),
+      },
     ],
   },
   {
@@ -98,39 +78,39 @@ export const ruleGroups: RuleGroup[] = [
     defaultPolicy: null, // 无策略，纯规则格式
     targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
-      applyDefaultConfig({
+      {
         path: 'List/wechat.list',
         url: 'https://rule.kelee.one/Loon/WeChat.lsr',
-      }),
+      },
     ],
   },
   {
     name: 'CDN',
     targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
-      applyDefaultConfig({
+      {
         path: 'List/download_global.list',
         url: 'https://kelee.one/Tool/Loon/Lsr/InternationalDownloadCDN.lsr',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/download_cn.list',
         url: 'https://kelee.one/Tool/Loon/Lsr/ChinaDownloadCDN.lsr',
-      }),
+      },
     ],
   },
   {
     name: 'CN-IPCIDR',
     targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
-      applyDefaultConfig({
+      {
         path: 'List/china_ip.list',
         url: 'https://ruleset.skk.moe/List/ip/china_ip.conf',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/china_ip_ipv6.list',
         url: 'https://ruleset.skk.moe/List/ip/china_ip_ipv6.conf',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/china_asn.list',
         url: 'https://raw.githubusercontent.com/missuo/ASN-China/main/ASN.China.list',
         title: 'Ruleset - Mainland China ASNs (Missuo)',
@@ -139,26 +119,25 @@ export const ruleGroups: RuleGroup[] = [
         keepComments: true, // 保留行首注释（// 格式的注释行）
         keepInlineComments: true, // 保留行内注释（规则后的 // 注释）- 提高可读性
         validate: false, // 禁用规则验证 - 保留原始格式
-        keepEmptyLines: false, // 不保留空行 - 减小文件体积
-      }),
+      },
     ],
   },
   {
     name: 'Extra',
     targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
-      applyDefaultConfig({
+      {
         path: 'List/speedtest_china.list',
         url: 'https://kelee.one/Tool/Loon/Lsr/SpeedtestChina.lsr',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/speedtest_international.list',
         url: 'https://kelee.one/Tool/Loon/Lsr/SpeedtestInternational.lsr',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/speedtest.list',
         url: 'https://ruleset.skk.moe/List/domainset/speedtest.conf',
-      }),
+      },
     ],
   },
   {
@@ -167,53 +146,52 @@ export const ruleGroups: RuleGroup[] = [
     defaultPolicy: null, // 无策略，用户配置决定
     targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
-      applyDefaultConfig({
+      {
         path: 'List/my_proxy.list',
         url: 'https://ruleset.skk.moe/List/non_ip/my_proxy.conf',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/my_git.list',
         url: 'https://ruleset.skk.moe/List/non_ip/my_git.conf',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/my_us.list',
         url: 'https://ruleset.skk.moe/List/non_ip/my_us.conf',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/my_tw.list',
         url: 'https://ruleset.skk.moe/List/non_ip/my_tw.conf',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/my_plus.list',
         url: 'https://ruleset.skk.moe/List/non_ip/my_plus.conf',
-      }),
-      applyDefaultConfig({
+      },
+      {
         path: 'List/global.list',
         url: 'https://ruleset.skk.moe/List/non_ip/global.conf',
         keepComments: true,
-        formatConversion: true,
         applyNoResolve: true,
-      }),
+      },
     ],
   },
   {
     name: 'Google',
     targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
-      applyDefaultConfig({
+      {
         path: 'List/google.list',
         url: 'https://rule.kelee.one/Loon/Google.lsr',
-      }),
+      },
     ],
   },
   {
     name: 'Github',
     targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
-      applyDefaultConfig({
+      {
         path: 'List/github.list',
         url: 'https://rule.kelee.one/Loon/GitHub.lsr',
-      }),
+      },
     ],
   },
 ];
@@ -228,8 +206,6 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
-    keepEmptyLines: false,
-    formatConversion: true,
     deleteSourceFiles: true,
   },
   {
@@ -242,8 +218,6 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
-    keepEmptyLines: false,
-    formatConversion: true,
     applyNoResolve: true,
     deleteSourceFiles: true,
   },
@@ -275,9 +249,7 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
-    keepEmptyLines: false,
     applyNoResolve: true,
-    formatConversion: true,
   },
   {
     name: 'Microsoft',
@@ -288,9 +260,7 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
-    keepEmptyLines: false,
     applyNoResolve: true,
-    formatConversion: true,
   },
   {
     name: 'Amazon',
@@ -300,8 +270,6 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
-    keepEmptyLines: false,
-    formatConversion: true,
   },
   {
     name: 'Reject',
@@ -315,7 +283,6 @@ export const specialRules: SpecialRuleConfig[] = [
       // 'https://raw.githubusercontent.com/Cats-Team/AdRules/main/adrules.list',
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持
-    formatConversion: true, // 启用格式转换,将 domain-set 格式(.example.com)转换为 rule-set 格式(DOMAIN-SUFFIX,example.com)
   },
   {
     name: 'lucking - Reject',
@@ -329,9 +296,7 @@ export const specialRules: SpecialRuleConfig[] = [
     defaultPolicy: 'REJECT', // 明确指定拒绝策略
     targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持
     keepComments: false,
-    keepEmptyLines: false,
     applyNoResolve: true,
-    formatConversion: true,
     deleteSourceFiles: true,
   },
   {
@@ -343,9 +308,7 @@ export const specialRules: SpecialRuleConfig[] = [
     defaultPolicy: 'REJECT',
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
-    keepEmptyLines: false,
     applyNoResolve: true,
-    formatConversion: true,
     deleteSourceFiles: true,
   },
 
@@ -358,7 +321,6 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: true,
-    formatConversion: true, // 启用格式转换,确保跨平台规则兼容性
     applyNoResolve: true,
     // Drop unrecoverable garbage; YAML list markers are stripped earlier.
     validate: true,
@@ -392,7 +354,6 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
-    keepEmptyLines: false,
   },
   {
     name: 'Telegram',

@@ -11,15 +11,6 @@ import type { BaseWriteStrategy } from '../core/output/writing-strategy/base';
 
 export type SupportedPlatform = 'surge' | 'clash' | 'singbox' | 'loon';
 
-interface PlatformConfig {
-  /** 启用的目标平台（默认仅Surge） */
-  targets: SupportedPlatform[];
-  /** 全局默认策略 */
-  globalDefaultPolicy: 'DIRECT' | 'REJECT' | 'PROXY' | null;
-  /** 每个平台的输出目录配置 */
-  outputDirs: Record<SupportedPlatform, string>;
-}
-
 function isSupportedPlatform(target: string): target is SupportedPlatform {
   return target === 'surge' ||
     target === 'clash' ||
@@ -41,15 +32,11 @@ export function normalizeTargets(
   return rawTargets as SupportedPlatform[];
 }
 
-const DEFAULT_PLATFORM_CONFIG: PlatformConfig = {
-  targets: ['surge'],
-  globalDefaultPolicy: null,
-  outputDirs: {
-    surge: 'List',
-    clash: 'Clash',
-    singbox: 'sing-box',
-    loon: 'Loon',
-  },
+const PLATFORM_OUTPUT_DIRS: Record<SupportedPlatform, string> = {
+  surge: 'List',
+  clash: 'Clash',
+  singbox: 'sing-box',
+  loon: 'Loon',
 };
 
 export function createStrategiesForTargets(
@@ -60,7 +47,7 @@ export function createStrategiesForTargets(
 
   // 使用静态导入避免动态加载问题
   for (const target of targets) {
-    const platformDir = DEFAULT_PLATFORM_CONFIG.outputDirs[target];
+    const platformDir = PLATFORM_OUTPUT_DIRS[target];
     const fullOutputDir = path.join(outputBaseDir, platformDir);
 
     switch (target) {
@@ -87,13 +74,3 @@ export function createStrategiesForTargets(
 
   return strategies;
 }
-
-/**
- * 策略组清理配置 - 针对不支持策略的平台
- */
-const _PLATFORM_POLICY_SUPPORT: Record<SupportedPlatform, boolean> = {
-  surge: true, // 完整策略支持
-  clash: false, // 不支持策略组
-  singbox: false, // 不支持策略组
-  loon: true, // 支持策略组
-};

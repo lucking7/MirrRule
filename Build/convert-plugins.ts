@@ -29,7 +29,7 @@ async function main() {
 
   printConversionSummary(results);
 
-  const failedCount = results.filter(r => !r.success).length;
+  const failedCount = results.filter(r => r.status !== 'ready').length;
   const successCount = results.length - failedCount;
 
   console.log(`转换统计: 总数=${results.length} 成功=${successCount} 失败=${failedCount} 耗时=${duration}s`);

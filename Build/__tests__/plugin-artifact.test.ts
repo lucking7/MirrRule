@@ -30,7 +30,6 @@ describe('plugin artifact lifecycle', () => {
         result: {
           pluginName: 'example',
           ...pluginIdentity('example'),
-          success: true,
           outputPath,
           scripts: [{
             originalUrl: 'https://upstream.test/main.js',
@@ -41,7 +40,6 @@ describe('plugin artifact lifecycle', () => {
         content: 'script-path=https://upstream.test/main.js',
       }], {});
 
-      assert.equal(result.success, false);
       assert.equal(result.status, 'degraded');
       assert.match(result.error ?? '', /required script/i);
       assert.equal(await fsp.readFile(outputPath, 'utf8'), 'known-good');
@@ -61,7 +59,6 @@ describe('plugin artifact lifecycle', () => {
         result: {
           pluginName: 'example',
           ...pluginIdentity('example'),
-          success: true,
           outputPath,
           scripts: [{
             originalUrl: 'https://upstream.test/main.js',
@@ -74,7 +71,6 @@ describe('plugin artifact lifecycle', () => {
         'https://upstream.test/main.js': mirrorUrl,
       });
 
-      assert.equal(result.success, true);
       assert.equal(result.status, 'ready');
       assert.equal(await fsp.readFile(outputPath, 'utf8'), `script-path=${mirrorUrl}`);
       assert.deepEqual(await fsp.readdir(directory), ['example.sgmodule']);
@@ -92,7 +88,6 @@ describe('plugin artifact lifecycle', () => {
         result: {
           pluginName: 'missing',
           ...pluginIdentity('missing'),
-          success: true,
           outputPath,
           scripts: [{
             originalUrl: 'https://upstream.test/missing.js',
@@ -103,7 +98,6 @@ describe('plugin artifact lifecycle', () => {
         content: 'script-path=https://upstream.test/missing.js',
       }], {});
 
-      assert.equal(result.success, false);
       assert.equal(result.status, 'failed');
       await assert.rejects(fsp.access(outputPath));
     } finally {
@@ -122,14 +116,12 @@ describe('plugin artifact lifecycle', () => {
         result: {
           pluginName: 'cached',
           ...pluginIdentity('cached'),
-          success: true,
           outputPath,
           scripts: [{ originalUrl, filename: 'cached.js', isMirrored: false }],
         },
         content: `script-path=${originalUrl}`,
       }], { [originalUrl]: mirrorUrl }, new Set([originalUrl]));
 
-      assert.equal(result.success, false);
       assert.equal(result.status, 'degraded');
       assert.match(result.error ?? '', /cached artifact/);
       assert.equal(await fsp.readFile(outputPath, 'utf8'), `script-path=${mirrorUrl}`);

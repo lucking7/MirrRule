@@ -21,11 +21,6 @@ interface SingboxHeadlessRule {
   network?: string[];
 }
 
-interface SingboxSourceFormat {
-  version: 2 | (number & {});
-  rules: SingboxHeadlessRule[];
-}
-
 export class SingboxSource extends BaseWriteStrategy {
   public readonly platform = 'singbox' as const;
   public readonly name = 'singbox';

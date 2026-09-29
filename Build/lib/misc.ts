@@ -32,8 +32,6 @@ interface Write {
   ): Promise<void>
 }
 
-export type VoidOrVoidArray = void | VoidOrVoidArray[];
-
 export function mkdirp(dir: string) {
   if (fs.existsSync(dir)) {
     return;
@@ -67,13 +65,6 @@ export function withBannerArray(title: string, description: string[] | readonly 
 
   return result;
 };
-
-function _notSupported(name: string) {
-  return (...args: unknown[]) => {
-    console.error(`${name}: not supported.`, args);
-    throw new Error(`${name}: not implemented.`);
-  };
-}
 
 export function withIdentityContent(title: string, description: string[] | readonly string[], date: Date, content: string[]) {
   return content;

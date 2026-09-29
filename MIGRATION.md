@@ -2,7 +2,7 @@
 
 本文面向拿到源码、准备在自己环境和账号下运行 MirrRule 的维护者。最初的隔离验收基线为 `01d348314f41f471390b804d235e4437f7311971`，后续源码与 CI 核对日期为 2026-09-30。版本、上游内容与云平台设置可能变化，升级后应重新核对对应源码与 workflow。
 
-先完成本地规则构建，再准备镜像、插件和模块，最后接入自己的发布账号。本文记录当前代码的真实限制；文中的配置替换由迁移者在自己的副本完成。本次交付只新增本文和 README 入口，没有修改程序或执行生产发布。
+先完成本地规则构建，再准备镜像、插件和模块，最后接入自己的发布账号。本文记录当前代码的真实限制；文中的配置替换由迁移者在自己的副本完成。本文的验收不包含生产发布。
 
 ## 1. 功能与交付物
 
@@ -228,17 +228,17 @@ pnpm run build-web
 
 建议先记录新的源码仓、公开产物仓、Pages 项目名、实际分配的域名和可选 Worker 地址，再逐项修改自己的副本。Secrets 名称可以保持不变，仅替换值；若改名，需要同步 workflow 引用。
 
-| 当前值 / 标识                                              | 需要核对的位置                                                                                                                    | 替换要求                                                                         |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `lucking7/MirrRule`                                        | `package.json` repository、`Build/build-public.ts` 的来源链接/OG URL、模块模板的 homepage、README 和项目说明                      | 改为自己的源码仓；保留原项目与 SukkaW/Surge 的归属说明                           |
-| `lucking7/NRRule`                                          | `main.yml` 的模块补齐、缺失目录补齐、PR diff、部署 clone、archive/unarchive；`Build/build-public.ts` canonical 与 badge           | 全部指向自己的**产物仓**，不要指向源码仓                                         |
-| `nrrule` / `nrrule.pages.dev`                              | `main.yml` 的 `--project-name` 和成功提示、README 订阅示例、package name                                                          | 项目名和实际 Pages 域名分别核实，不假设名称一定可用                              |
-| `https://nrrule.pages.dev/Scripts`                         | `Build/integration/plugin-converter/script-mirror.ts` 的 `MIRROR_BASE_URL`；`script-extractor.ts` 的 `MIRRORED_SCRIPT_URL_MARKER` | 发布地址与已镜像脚本识别标记需对应，否则可能重复镜像已有脚本                     |
-| `cloudflare-proxy.lucking.workers.dev`                     | `main.yml` 两处 `PROXY_BASE`、`check-source-domain.yml` 一处                                                                      | 换兼容的自有 Worker；直连已验证时可移除配置                                      |
-| `lucking7/NRRule` 的 GitHub/GitLab tarball、`NRRule-main/` | `Build/download-previous-build.ts`                                                                                                | 此独立 helper 未由当前主构建调用；若继续使用需同时改 URL、分支与压缩包根目录前缀 |
-| `lucking7/ASN-China`                                       | `Build/download-geoip.ts`                                                                                                         | 这是外部 GeoIP 数据源，不能机械改用户名；选择继续依赖、维护镜像或替换有效 URL    |
-| `NRRule`、`@lucking7`、`Luck`、`MirrRule`                  | `Build/build-public.ts` 的标题/页脚/404/平台筛选 localStorage key；模块 YAML author/category；package author；产品说明            | 替换自己的展示身份，历史来源和许可证署名继续保留                                 |
-| `main`                                                     | workflow 部署条件、push 目标、Pages `--branch`、产物读取 URL                                                                      | 最省改动的方式是两仓和 Pages 都用 `main`；改分支时逐一同步                       |
+| 当前值 / 标识                                              | 需要核对的位置                                                                                                          | 替换要求                                                                         |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `lucking7/MirrRule`                                        | `package.json` repository、`Build/build-public.ts` 的来源链接/OG URL、模块模板的 homepage、README 和项目说明            | 改为自己的源码仓；保留原项目与 SukkaW/Surge 的归属说明                           |
+| `lucking7/NRRule`                                          | `main.yml` 的模块补齐、缺失目录补齐、PR diff、部署 clone、archive/unarchive；`Build/build-public.ts` canonical 与 badge | 全部指向自己的**产物仓**，不要指向源码仓                                         |
+| `nrrule` / `nrrule.pages.dev`                              | `main.yml` 的 `--project-name` 和成功提示、README 订阅示例、package name                                                | 项目名和实际 Pages 域名分别核实，不假设名称一定可用                              |
+| `nrrule.pages.dev/Scripts`                                 | `Build/integration/plugin-converter/script-location.ts` 的 `SCRIPT_MIRROR_LOCATION`                                     | 改为自己的 Pages 域名和脚本路径；生成 URL 与已镜像识别共用此值                   |
+| `cloudflare-proxy.lucking.workers.dev`                     | `main.yml` 两处 `PROXY_BASE`、`check-source-domain.yml` 一处                                                            | 换兼容的自有 Worker；直连已验证时可移除配置                                      |
+| `lucking7/NRRule` 的 GitHub/GitLab tarball、`NRRule-main/` | `Build/download-previous-build.ts`                                                                                      | 此独立 helper 未由当前主构建调用；若继续使用需同时改 URL、分支与压缩包根目录前缀 |
+| `lucking7/ASN-China`                                       | `Build/download-geoip.ts`                                                                                               | 这是外部 GeoIP 数据源，不能机械改用户名；选择继续依赖、维护镜像或替换有效 URL    |
+| `NRRule`、`@lucking7`、`Luck`、`MirrRule`                  | `Build/build-public.ts` 的标题/页脚/404/平台筛选 localStorage key；模块 YAML author/category；package author；产品说明  | 替换自己的展示身份，历史来源和许可证署名继续保留                                 |
+| `main`                                                     | workflow 部署条件、push 目标、Pages `--branch`、产物读取 URL                                                            | 最省改动的方式是两仓和 Pages 都用 `main`；改分支时逐一同步                       |
 
 修改后用搜索收口，逐个判定残留属于历史署名、主动保留的上游还是遗漏：
 
@@ -343,7 +343,7 @@ job 顺序为 `prepare → convert-plugins → merge-modules → build → 两�
 | `PUBLIC_DIR` 后输出分散  | 使用默认 `public` 加独立克隆；当前代码不支持所有流程统一重定向                                                   |
 | 有 index 但构建失败      | 检查退出码与 `.BUILD_FINISHED`，主构建可能继续产出部分文件。旧 `status.json` 也不能独立证明本次成功              |
 | 手动镜像/部署任务跳过    | 检查 `prepare.outputs.tasks`、Build job 的条件和结果、分支及 `deploy_target`；`deploy` 必须有本次 Build artifact |
-| Pages 成功、脚本仍404    | 检查 `MIRROR_BASE_URL`、`MIRRORED_SCRIPT_URL_MARKER`，核对 artifact 的 Scripts 与实际 script-path                |
+| Pages 成功、脚本仍404    | 检查 `SCRIPT_MIRROR_LOCATION`，核对 artifact 的 Scripts 与实际 script-path                                       |
 | Git 发布被拒绝           | 检查产物仓是否初始化 main、是否归档、令牌跨仓权限及分支保护；不要为排错 force-push                               |
 
 上线前保存源码 commit、产物仓 commit、Pages deployment ID 和完整 artifact。失败时先停用自动发布，防止回滚后又被定时运行覆盖。
