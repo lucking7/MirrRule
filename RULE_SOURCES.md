@@ -36,7 +36,17 @@ Surge 与 Loon 保留 `.list`，Clash 输出 classical `.txt`，sing-box 输出 
 | `speedtest`                                  | Sukka domainset Speedtest                          | 已有全球测速集合，继续使用                                                                     |
 | `speedtest_china`、`speedtest_international` | Kelee SpeedtestChina、SpeedtestInternational       | 保留地域语义，CI 通过下述 browser gateway 下载                                                 |
 
-调查过 blackmatrix7 Download、Speedtest，Meta `category-cdn@cn`、`category-cdn@!cn`、游戏下载与 Speedtest，以及 Moli-X 镜像。blackmatrix7 Download 包含进程名等应用规则，不等价于下载 CDN；Meta 游戏下载不覆盖全部软件与对象存储；全球 Speedtest 集合不能直接替换中国/国际两个文件。Moli-X 下载 CDN 样本与 Repcz 相同，本次选用许可证与来源更明确的 Repcz。UsbEAm 备份是 hosts 编辑器 XML，没有当作 Surge ruleset 导入。
+调查过 blackmatrix7 Download、Speedtest，Meta `category-cdn-cn`、`category-cdn-!cn`、游戏下载与 Speedtest，以及 Moli-X 镜像。blackmatrix7 Download 包含进程名等应用规则，不等价于下载 CDN；Meta 游戏下载不覆盖全部软件与对象存储；全球 Speedtest 集合不能直接替换中国/国际两个文件。Moli-X 下载 CDN 样本与 Repcz 相同，本次选用许可证与来源更明确的 Repcz。UsbEAm 备份是 hosts 编辑器 XML，没有当作 Surge ruleset 导入。
+
+本次实际下载为 HTTP 200 的其他候选（样本条数只表示覆盖规模，不是质量排序）：
+
+| 候选         | 已验证路径                                                          | 样本与处理决定                                                                   |
+| ------------ | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| blackmatrix7 | `rule/Surge/Speedtest/Speedtest.list`                               | 9 条通用规则；包含 UA，不能等价替换两个地域列表                                  |
+| Meta `meta`  | `geo/geosite/category-speedtest.list`、`category-speedtest@cn.list` | 76、17 条；原始文本可经现有转换，classical 版本含不支持的 DOMAIN-REGEX，暂不导入 |
+| Meta `meta`  | `geo/geosite/category-cdn-!cn.list`、`category-cdn-cn.list`         | 195、93 条，小型地域分类，不能与完整下载 CDN 等同                                |
+| Sukka        | `List/domainset/speedtest.conf`                                     | 3408 条全球 endpoint；本项目已有使用                                             |
+| Repcz        | `Surge/Rules/CDN.list`                                              | 4756 条，与 Sukka 高度重叠，暂不另加                                             |
 
 SukkaW/Surge 的源码生成 domainset、non_ip、ip 等类别，发布到 ruleset.skk.moe。本项目已使用其 CDN、Download、Reject、AI、Apple、Streaming、Domestic、Telegram、LAN 等产物，继续复用这些生成结果。本次补齐 AI 与 Download 的 IP 文件，没有复制 Sukka 的整套构建器。源码和产物提交分别核对为 `4ce04be3cc548c672e3350afd47ded7089ccb7ab`、`21060773c1f3c88fbf2da211aff1a5b74236917a`。
 
@@ -82,4 +92,27 @@ PROXY_BASE='http://127.0.0.1:13193?url=' pnpm run node Build/validate-domain-ali
 
 ## 本次验收
 
-验收命令、结果与产物在完成后补录，未完成项不宣称通过。
+代码验收提交：`2cf8d79b6cf654e02b9d80e52d121ed0f3646445`，功能分支 `work/replace-blocked-rule-sources-20261001`。本地使用 macOS、Node `26.8.1`、pnpm `10.15.0`。在 `/Users/luck/.codex/workspaces/mirrrule-rule-migration-twmdssg8/clean-acceptance.Apt5QaO4/repo` 创建独立克隆，没有继承 `node_modules`、`.cache`、`public`，仍共享本机 pnpm store，不能称为全新操作系统或离线安装。
+
+```bash
+git clone --no-local --no-hardlinks --branch work/replace-blocked-rule-sources-20261001 /Users/luck/.codex/workspaces/mirrrule-rule-migration-twmdssg8/repo /Users/luck/.codex/workspaces/mirrrule-rule-migration-twmdssg8/clean-acceptance.Apt5QaO4/repo
+cd /Users/luck/.codex/workspaces/mirrrule-rule-migration-twmdssg8/clean-acceptance.Apt5QaO4/repo
+mise exec node@26 -- pnpm install --frozen-lockfile
+mise exec node@26 -- pnpm run validate
+mise exec node@26 -- pnpm test
+mise exec node@26 -- pnpm run build
+```
+
+以上命令全部退出 0；144/144 Node tests 通过。19 个普通 ruleset 与 26 个特殊 ruleset 处理无错误，四个平台各生成 45 文件，另有 4 个 GeoIP 文件、`status.json`（45 ruleset）、索引页与 `.BUILD_FINISHED`。45 个 sing-box JSON 都成功解析。本地完整构建走直连，不能单凭此结果证明数据中心 gateway 可用。
+
+独立 gateway 测试命令 `PYTHONDONTWRITEBYTECODE=1 mise exec node@26 -- /tmp/mirrrule-method-check.l5k77c0j/venv/bin/python Build/__tests__/browser-rule-gateway.test.py -v` 为 5/5 通过，包含真实 loopback HTTP、fake browser、无外网。另启动 gateway，通过自己的 Worker 实网 GET 两个测速文件，分别取得 551 与 613635 bytes、HTTP 200；China 的 HEAD 为 200、Content-Length 551。实网首次发现逗号后空格被正文检查误拒绝，修复后增加对应 GET/HEAD 与空 operand 回归覆盖，再重新验证成功。
+
+GitHub runner 构建 [36763750302](https://github.com/lucking7/MirrRule/actions/runs/36763750302) 与手动健康检查 [36763787102](https://github.com/lucking7/MirrRule/actions/runs/36763787102) 均 conclusion=success。runner 安装锁定 Python 依赖，5/5 Python tests、144/144 Node tests、typecheck、lint（0 errors）与 Knip 通过。gateway 下载日志记录两个测速 source status=200；健康检查 97/97 ok，0 dead、0 unknown，两个测速经 HEAD 正文检查为 200。手动健康检查没有写状态分支或 Issue。
+
+Build artifact 名为 `build-artifact-2cf8d79b6cf654e02b9d80e52d121ed0f3646445-6773`；ZIP 完整性检查通过；artifact 每个平台目录各有 47 个文件，其中 45 个属于本轮构建，`direct-fmz` 与 `reject-fmz` 两个文件由原产物仓保留。4 个 GeoIP、45 条 status ruleset 和全部 sing-box JSON 均再次核对，不能把 47 个文件都记为本轮新生成。插件转换、模块合并与两个部署 job 均 skipped，artifact 的模块和镜像目录由原产物仓补齐，不能声称本轮重新转换或同步过。原始 ZIP 与日志保存在上述 workspace 的 `acceptance/`；macOS 解压历史镜像中大小写近似名称可能发生冲突，核对规则时直接读取 ZIP，不把解压失败误判为规则生成失败。
+
+三轮简化审查采纳质量建议 2 项（统一 workflow 测试 helper、修正请求路径注释），复用与效率没有修改；跳过 3 项建议（新增跨 workflow action、改写正文扫描、扩大修改 IP validator），保留现有边界。首次 runner lint 比本地多出 2 个测试 optional-chain warning，后续仅清理测试中已被断言收窄的 optional chain，没有改变构建行为。
+
+最终代码复核提交 `392dc09abb37b80399ddbf41af91aa700d7ab439` 的 [构建 36764346571](https://github.com/lucking7/MirrRule/actions/runs/36764346571) 同样成功：144/144 Node tests、5/5 Python tests、typecheck、Knip、规则构建均通过；lint 0 errors，剩余 111 条为既有 warning。gateway 日志再次记录两个测速 source status=200。随后提交只补齐本文验收记录，不改运行代码。
+
+未验证：生产 Pages/NRRule 发布、Surge/Loon/Clash/sing-box 客户端实际分流、应用登录与播放、模块新转换、新账号 Worker/Secrets/部署权限，以及 upstream origin 最新性。CI 使用原有 HTTP 缓存恢复策略，健康检查额外通过 gateway GET 正文验证；若需要证明每个上游都是新下载，应在独立 runner 禁用 HTTP 缓存另做验收。
