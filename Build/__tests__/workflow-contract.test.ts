@@ -13,6 +13,8 @@ interface WorkflowStep {
   if?: string;
   run?: string;
   with?: Record<string, unknown>;
+  env?: Record<string, unknown>;
+  'continue-on-error'?: boolean;
 }
 
 interface WorkflowJob {
@@ -35,9 +37,15 @@ const workflowPath = path.join(
   'main.yml',
 );
 const workflow = parse(fs.readFileSync(workflowPath, 'utf8')) as Workflow;
+const sourceHealthWorkflow = parse(
+  fs.readFileSync(
+    path.join(process.cwd(), '.github', 'workflows', 'check-source-domain.yml'),
+    'utf8',
+  ),
+) as Workflow;
 
-function getJob(id: string) {
-  const job = workflow.jobs?.[id];
+function getJob(id: string, targetWorkflow: Workflow = workflow) {
+  const job = targetWorkflow.jobs?.[id];
   assert.ok(job, `job ${id} should exist`);
   return job;
 }
@@ -230,6 +238,90 @@ describe('GitHub Actions workflow contract', () => {
           String(step.with?.name).startsWith('build-artifact-'),
       ) ?? -1;
     assert.ok(verifyIndex >= 0 && uploadIndex > verifyIndex);
+  });
+
+  it('runs the pinned Python browser gateway before the Node build', () => {
+    const buildJob = getJob('build');
+    const pythonSetup = buildJob.steps?.find((step) =>
+      step.uses?.startsWith('actions/setup-python@'),
+    );
+    assert.equal(
+      pythonSetup?.uses,
+      'actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065',
+    );
+    assert.equal(pythonSetup?.with?.['python-version'], '3.11');
+
+    const installStep = getStep(buildJob, 'Install browser gateway dependencies');
+    assert.match(String(installStep.run), /python3 -m pip install/);
+    assert.match(String(installStep.run), /Build\/browser-rule-requirements\.txt/);
+    assert.match(
+      String(getStep(buildJob, 'Run browser gateway tests').run),
+      /python3 Build\/__tests__\/browser-rule-gateway\.test\.py/,
+    );
+
+    const startStep = getStep(buildJob, 'Start browser rule gateway');
+    assert.match(String(startStep.run), /--port 13193/);
+    assert.match(
+      String(startStep.run),
+      /--upstream-base https:\/\/cloudflare-proxy\.lucking\.workers\.dev/,
+    );
+    assert.match(String(startStep.run), /127\.0\.0\.1:13193\/health/);
+    assert.match(String(startStep.run), /seq 1 30/);
+    assert.match(String(startStep.run), /--max-time 2/);
+    assert.match(
+      String(getStep(buildJob, 'Stop browser rule gateway').if),
+      /always\(\)/,
+    );
+    assert.match(String(getStep(buildJob, 'Stop browser rule gateway').run), /kill/);
+
+    const buildStep = buildJob.steps?.find((step) =>
+      step.run?.includes('pnpm run build'),
+    );
+    assert.equal(buildStep?.env?.PROXY_BASE, 'http://127.0.0.1:13193?url=');
+  });
+
+  it('uses the same bounded gateway contract for source health and propagates health failures', () => {
+    const healthJob = getJob('check', sourceHealthWorkflow);
+    const pythonSetup = healthJob.steps?.find((step) =>
+      step.uses?.startsWith('actions/setup-python@'),
+    );
+    assert.equal(
+      pythonSetup?.uses,
+      'actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065',
+    );
+    assert.equal(pythonSetup?.with?.['python-version'], '3.11');
+    assert.match(
+      String(getStep(healthJob, 'Install browser gateway dependencies').run),
+      /Build\/browser-rule-requirements\.txt/,
+    );
+    assert.match(
+      String(getStep(healthJob, 'Run browser gateway tests').run),
+      /python3 Build\/__tests__\/browser-rule-gateway\.test\.py/,
+    );
+
+    const startStep = getStep(healthJob, 'Start browser rule gateway');
+    assert.match(String(startStep.run), /--port 13193/);
+    assert.match(
+      String(startStep.run),
+      /--upstream-base https:\/\/cloudflare-proxy\.lucking\.workers\.dev/,
+    );
+    assert.match(String(startStep.run), /127\.0\.0\.1:13193\/health/);
+    assert.match(String(startStep.run), /seq 1 30/);
+    assert.match(String(startStep.run), /--max-time 2/);
+    assert.equal(
+      getStep(healthJob, 'Check sources').env?.PROXY_BASE,
+      'http://127.0.0.1:13193?url=',
+    );
+    assert.equal(getStep(healthJob, 'Check sources')['continue-on-error'], true);
+    assert.match(
+      String(getStep(healthJob, 'Propagate health result').if),
+      /steps\.health\.outcome == 'failure'/,
+    );
+    assert.match(
+      String(getStep(healthJob, 'Stop browser rule gateway').if),
+      /always\(\)/,
+    );
+    assert.match(String(getStep(healthJob, 'Stop browser rule gateway').run), /kill/);
   });
 
   it('runs Script-Hub only in the plugin conversion job', () => {

@@ -25,6 +25,8 @@ Build/index.ts
 
 Canonical rule collections deduplicate through Trie/Set storage, then platform writers apply their fixed output order. Rule source configuration does not switch either behavior per source.
 
+Service subscriptions use `specialRules` to merge complementary blackmatrix7 Surge rules and MetaCubeX text geosite categories. Netflix also merges MetaCubeX geoip CIDRs; WeChat remains a single blackmatrix7 source. `smartConvertRule` normalizes numeric-leading domains and bare IPv4/IPv6 CIDRs before they enter the same canonical collections. A required source failure prevents publishing its merged ruleset; `sourceFiles` are complementary inputs, not fallback URLs.
+
 ## Upstream artifacts
 
 Mirror sources use release adapters behind one artifact synchronization module. Release assets are filtered before download, validated before publication, and replaced through the shared atomic-file primitive, so a failed download or post-process keeps the last-known-good file. Add another adapter only when a production source requires one.

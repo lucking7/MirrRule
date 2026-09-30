@@ -120,6 +120,8 @@ node -e 'const fs=require("node:fs"); for (const p of ["public/status.json","pub
 
 规则源在 [rule-sources.ts](Build/lib/rule-sources.ts) 的 `ruleGroups` 与 `specialRules` 中声明。`url`、`fallbackUrls`、`targets`、`defaultPolicy`、`keepComments`、`formatConversion`、`applyNoResolve`、`validate` 等字段决定处理结果。`allowEmpty`、`keepInlineComments`、`keepEmptyLines` 等字段见 [rule-source-types.ts](Build/lib/rule-source-types.ts)。只选代码支持的 `surge`、`clash`、`loon`、`singbox`，未知平台会失败。规则源没有可用的 `enabled`、`dedup` 或 `sort` 开关；去重和输出顺序由处理器与平台 writer 固定处理。模块 YAML 中的 `enabledByDefault` 是另一套有效配置。
 
+2026-10 的服务规则迁移与下载验证见 [RULE_SOURCES.md](RULE_SOURCES.md)。Netflix、Disney 等独立服务使用 blackmatrix7 Surge 规则与 MetaCubeX `meta` 分支的文本 geosite 合并；Netflix 还合并 geoip，WeChat 只有 blackmatrix7 来源。`specialRules.sourceFiles` 中任一必需来源失败会阻止该合并文件发布，不能把它当成备用 URL。裸域名、`+.` 后缀域名、数字开头合法域名和裸 IPv4/IPv6 CIDR 统一转换后再输出四个平台；`.mrs`、`.srs` 不属于文本输入。旧来源健康状态 ID 不沿用到新 URL，应在首次验收后检查历史告警。模块列表、插件和脚本下载仍需单独验收，规则构建成功不代表模块转换恢复。
+
 镜像源在 [mirror-config.ts](Build/integration/mirror-sync/mirror-config.ts)；GeoIP URL 在 [download-geoip.ts](Build/download-geoip.ts)。插件列表与额外插件在 [plugin-list.ts](Build/integration/plugin-converter/plugin-list.ts)。模块选择和输出在 [pro-merge-config.yaml](Build/lib/module-merger/configs/pro-merge-config.yaml)。此项目没有一个能覆盖所有设置的 `.env` 文件，也没有统一的部署域名环境变量。
 
 ### 4.2 环境变量
@@ -148,11 +150,13 @@ node -e 'const fs=require("node:fs"); for (const p of ["public/status.json","pub
 | -------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | npm registry                                       | 首次安装锁定依赖                                                                       |
 | GitHub API、raw、Release、codeload                 | 规则、GeoIP、Release 镜像与脚本；部分下载使用 GitLab fallback                          |
-| `kelee.one`、`hub.kelee.one` 等配置上游            | 规则与插件列表，源文件完整清单以配置为准                                               |
+| `kelee.one`、`hub.kelee.one` 等配置上游            | 两个地域 Speedtest 规则与插件列表，源文件完整清单以配置为准                            |
 | Script-Hub 的 `localhost:9101` / `script.hub:9101` | 插件远程转换；容器同时暴露 9100、9101                                                  |
 | `cloudflare-proxy.lucking.workers.dev`             | 原维护者的公开转发 Worker，workflow 三处注入；源码仓不包含其服务实现或部署配置         |
 | 原 NRRule 产物仓                                   | workflow 补齐缺失目录、单独合并时读取已转换模块、PR 对比；新账号应改为自己的公开产物仓 |
 | Cloudflare API / GitHub Git 写入                   | 仅发布阶段需要                                                                         |
+
+规则 Build 与 source-health 现通过 Python 3.11 browser gateway 使用自己的 Worker；安装锁定依赖、启动与退出命令见 [RULE_SOURCES.md](RULE_SOURCES.md)。仅接受 HTTPS Kelee `.lsr`，不能用于插件转换。Node `PROXY_BASE` 设置为 `http://127.0.0.1:13193?url=`，gateway 上游设置为自有 HTTPS Worker；新账号必须独立验证，不能沿用原维护者 Worker 作为长期依赖。
 
 Worker 的普通基址会被补成 `?url=`，随后直接拼接原始 URL；已有 `/`、`?` 或 `?url=` 的基址会按源码规则保留。自建服务需要兼容实际拼接、响应状态和二进制/文本内容。不要仅把 `PROXY_BASE` 改成不支持此协议的代理地址。规则下载和健康检查应使用一致的请求语义与 User-Agent；诊断时不要把浏览器能访问视为构建可访问的证据。
 
@@ -234,7 +238,7 @@ pnpm run build-web
 | `lucking7/NRRule`                                          | `main.yml` 的模块补齐、缺失目录补齐、PR diff、部署 clone、archive/unarchive；`Build/build-public.ts` canonical 与 badge | 全部指向自己的**产物仓**，不要指向源码仓                                         |
 | `nrrule` / `nrrule.pages.dev`                              | `main.yml` 的 `--project-name` 和成功提示、README 订阅示例、package name                                                | 项目名和实际 Pages 域名分别核实，不假设名称一定可用                              |
 | `nrrule.pages.dev/Scripts`                                 | `Build/integration/plugin-converter/script-location.ts` 的 `SCRIPT_MIRROR_LOCATION`                                     | 改为自己的 Pages 域名和脚本路径；生成 URL 与已镜像识别共用此值                   |
-| `cloudflare-proxy.lucking.workers.dev`                     | `main.yml` 两处 `PROXY_BASE`、`check-source-domain.yml` 一处                                                            | 换兼容的自有 Worker；直连已验证时可移除配置                                      |
+| `cloudflare-proxy.lucking.workers.dev`                     | `main.yml` 的转换 PROXY_BASE 与 gateway 上游、`check-source-domain.yml` 的 gateway 上游                                 | 换兼容的自有 Worker；直连已验证时可移除配置                                      |
 | `lucking7/NRRule` 的 GitHub/GitLab tarball、`NRRule-main/` | `Build/download-previous-build.ts`                                                                                      | 此独立 helper 未由当前主构建调用；若继续使用需同时改 URL、分支与压缩包根目录前缀 |
 | `lucking7/ASN-China`                                       | `Build/download-geoip.ts`                                                                                               | 这是外部 GeoIP 数据源，不能机械改用户名；选择继续依赖、维护镜像或替换有效 URL    |
 | `NRRule`、`@lucking7`、`Luck`、`MirrRule`                  | `Build/build-public.ts` 的标题/页脚/404/平台筛选 localStorage key；模块 YAML author/category；package author；产品说明  | 替换自己的展示身份，历史来源和许可证署名继续保留                                 |
@@ -386,7 +390,7 @@ fmz200 日志只暴露 split 阶段失败，没有输出底层 HTTP 状态，不
 
 接管完成前仍需在新账号验证：Script-Hub 完整转换、限流解除后的完整镜像、新域名与所有脚本 URL、两个发布目标和真实客户端导入。上述未验证项不会被本文的本地测试结果替代。
 
-## 11. 当前工作分支的隔离验收
+## 11. 已完成架构整理分支的隔离验收
 
 被验收源码提交为 `4f058204e7c96250c735b080fb8f731d412fb36b`，分支 `work/simplify-mirrrule-pipeline`。在 macOS 上使用 Node `26.8.1`、pnpm `10.15.0`，从本机仓库克隆到 `/tmp/mirrrule-goal-release.v8zq8v/repo`。该目录没有继承旧 `node_modules`、`.cache` 或 `public`，但仍复用本机 pnpm 包 store；没有验证全新操作系统或离线安装。以下命令按顺序执行，每一步退出码均为 0：
 
@@ -416,3 +420,7 @@ mise exec node@26 -- pnpm run build
 验收过程中曾在上一源码提交 `f8d4634` 的另一个干净克隆首次运行并行版 `pnpm test`，多个进程同时初始化 SQLite 缓存，出现 `SQLITE_BUSY` 并退出 1；重跑通过不能消除首次失败。随后测试脚本改为 `--test-concurrency=1`，独立新克隆首次运行 139/139 通过，以上最终克隆的首次 `pnpm test` 也 139/139 通过。本节仅将最终克隆的结果记为当前源码验收。
 
 本节只验证本地安装、检查、测试、Knip、规则构建和产物结构。没有在新账号执行完整 Script-Hub 插件转换、解除限流后的全部镜像、真实 GitHub Actions runner、Cloudflare Pages 上传、产物仓推送或新域名及客户端导入。接管者应按第 5 至 8 节替换账号、仓库、域名和 Secrets，在自己的环境逐项验证并保存运行记录；本次没有发布到生产。
+
+## 12. 后续规则来源迁移
+
+2026-10-01 的 blackmatrix7 + Meta 服务合并、CDN 来源替换与地域测速 gateway 接入，详见 [RULE_SOURCES.md](RULE_SOURCES.md)。该文记录本次独立验收，不沿用第 10、11 节的历史测试数字；模块转换、生产发布和新账号部署仍需分别核对。
