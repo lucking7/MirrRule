@@ -7,26 +7,6 @@ export const ruleGroups: RuleGroup[] = [
     defaultPolicy: null, // 无策略，用户自定义
     targets: ['surge', 'clash', 'singbox', 'loon'], // 流媒体支持更多平台
     files: [
-      {
-        path: 'List/netflix.list',
-        url: 'https://rule.kelee.one/Loon/Netflix.lsr',
-      },
-      {
-        path: 'List/disney.list',
-        url: 'https://rule.kelee.one/Loon/Disney.lsr',
-      },
-      {
-        path: 'List/spotify.list',
-        url: 'https://rule.kelee.one/Loon/Spotify.lsr',
-      },
-      {
-        path: 'List/primevideo.list',
-        url: 'https://rule.kelee.one/Loon/PrimeVideo.lsr',
-      },
-      {
-        path: 'List/youtube.list',
-        url: 'https://rule.kelee.one/Loon/YouTube.lsr',
-      },
       /**
       {
         path: 'List/stream/video/emby.list',
@@ -37,14 +17,6 @@ export const ruleGroups: RuleGroup[] = [
       {
         path: 'List/biliintl.list',
         url: 'https://ruleset.skk.moe/List/non_ip/stream_biliintl.conf',
-      },
-      {
-        path: 'List/bilibili.list',
-        url: 'https://rule.kelee.one/Loon/BiliBili.lsr',
-      },
-      {
-        path: 'List/tiktok.list',
-        url: 'https://kelee.one/Tool/Loon/Lsr/TikTok.lsr',
       },
       {
         path: 'List/streaming_cn.list',
@@ -73,28 +45,16 @@ export const ruleGroups: RuleGroup[] = [
     ],
   },
   {
-    name: 'Domestic',
-    description: 'China mainland services and websites',
-    defaultPolicy: null, // 无策略，纯规则格式
-    targets: ['surge', 'clash', 'singbox', 'loon'],
-    files: [
-      {
-        path: 'List/wechat.list',
-        url: 'https://rule.kelee.one/Loon/WeChat.lsr',
-      },
-    ],
-  },
-  {
     name: 'CDN',
     targets: ['surge', 'clash', 'singbox', 'loon'],
     files: [
       {
         path: 'List/download_global.list',
-        url: 'https://kelee.one/Tool/Loon/Lsr/InternationalDownloadCDN.lsr',
+        url: 'https://raw.githubusercontent.com/Repcz/Tool/X/Surge/Rules/DownloadCDN_Global.list',
       },
       {
         path: 'List/download_cn.list',
-        url: 'https://kelee.one/Tool/Loon/Lsr/ChinaDownloadCDN.lsr',
+        url: 'https://raw.githubusercontent.com/Repcz/Tool/X/Surge/Rules/DownloadCDN_CN.list',
       },
     ],
   },
@@ -174,35 +134,47 @@ export const ruleGroups: RuleGroup[] = [
       },
     ],
   },
-  {
-    name: 'Google',
-    targets: ['surge', 'clash', 'singbox', 'loon'],
-    files: [
-      {
-        path: 'List/google.list',
-        url: 'https://rule.kelee.one/Loon/Google.lsr',
-      },
-    ],
-  },
-  {
-    name: 'Github',
-    targets: ['surge', 'clash', 'singbox', 'loon'],
-    files: [
-      {
-        path: 'List/github.list',
-        url: 'https://rule.kelee.one/Loon/GitHub.lsr',
-      },
-    ],
-  },
 ];
 
+const BLACKMATRIX_SURGE = 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge';
+const META_RULES = 'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo';
+
+// Keep service subscriptions separate from the existing regional/aggregate rulesets.
+const serviceRules: SpecialRuleConfig[] = [
+  { name: 'Netflix', id: 'netflix', blackmatrix: 'Netflix', geosite: 'netflix', geoip: 'netflix' },
+  { name: 'Disney', id: 'disney', blackmatrix: 'Disney', geosite: 'disney' },
+  { name: 'Spotify', id: 'spotify', blackmatrix: 'Spotify', geosite: 'spotify' },
+  { name: 'Prime Video', id: 'primevideo', blackmatrix: 'AmazonPrimeVideo', geosite: 'primevideo' },
+  { name: 'YouTube', id: 'youtube', blackmatrix: 'YouTube', geosite: 'youtube' },
+  { name: 'BiliBili', id: 'bilibili', blackmatrix: 'BiliBili', geosite: 'bilibili' },
+  { name: 'TikTok', id: 'tiktok', blackmatrix: 'TikTok', geosite: 'tiktok' },
+  // Meta has no dedicated WeChat category; do not merge the broader Tencent category.
+  { name: 'WeChat', id: 'wechat', blackmatrix: 'WeChat' },
+  { name: 'Google', id: 'google', blackmatrix: 'Google', geosite: 'google' },
+  { name: 'GitHub', id: 'github', blackmatrix: 'GitHub', geosite: 'github' },
+].map(({ name, id, blackmatrix, geosite, geoip }): SpecialRuleConfig => ({
+  name,
+  targetFile: `List/${id}.list`,
+  sourceFiles: [
+    `${BLACKMATRIX_SURGE}/${blackmatrix}/${blackmatrix}.list`,
+    ...(geosite ? [`${META_RULES}/geosite/${geosite}.list`] : []),
+    ...(geoip ? [`${META_RULES}/geoip/${geoip}.list`] : []),
+  ],
+  description: 'Service rules from blackmatrix7, merged with available MetaCubeX domain and IP categories.',
+  targets: ['surge', 'clash', 'singbox', 'loon'],
+  defaultPolicy: null,
+  applyNoResolve: true,
+}));
+
 export const specialRules: SpecialRuleConfig[] = [
+  ...serviceRules,
   {
     name: 'Download',
     targetFile: 'List/download.list',
     sourceFiles: [
       'https://ruleset.skk.moe/List/domainset/download.conf',
       'https://ruleset.skk.moe/List/non_ip/download.conf',
+      'https://ruleset.skk.moe/List/ip/download.conf',
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
@@ -226,11 +198,12 @@ export const specialRules: SpecialRuleConfig[] = [
     targetFile: 'List/ai.list',
     sourceFiles: [
       'https://ruleset.skk.moe/List/non_ip/ai.conf',
-      'https://kelee.one/Tool/Loon/Lsr/AI.lsr',
+      `${BLACKMATRIX_SURGE}/OpenAI/OpenAI.list`,
+      'https://ruleset.skk.moe/List/ip/ai.conf',
       'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/AI.list',
       'https://github.com/dler-io/Rules/raw/main/Surge/Surge%203/Provider/AI%20Suite.list',
-      // MetaCubeX sing-box 格式 AI 规则（自动转换为 Surge 格式）
-      'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/category-ai-!cn.json',
+      // Use Meta's text geosite format; the JSON path cannot preserve every field.
+      `${META_RULES}/geosite/category-ai-!cn.list`,
     ],
     defaultPolicy: null, // 无策略，纯RULE-SET格式
     targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持

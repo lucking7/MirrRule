@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import type { PathLike } from 'node:fs';
 import fsp from 'node:fs/promises';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
+import { IPValidator } from '../utils/validation/validators';
 
 export function fastStringCompare(a: string, b: string) {
   const lenA = a.length;
@@ -85,6 +86,7 @@ export function getErrorMessage(error: unknown): string {
 }
 
 const STARTS_WITH_DIGIT = /^\d/;
+const NUMERIC_LEADING_DOMAIN = /^(?=.{1,253}$)(?:[\da-z](?:[\da-z-]{0,61}[\da-z])?\.)+[a-z](?:[\da-z-]{0,61}[\da-z])?$/i;
 
 const GEOSITE_PREFIXES: ReadonlyArray<{ prefix: string; type: string; strip?: string }> = [
   { prefix: '+.', type: 'DOMAIN-SUFFIX' },
@@ -101,10 +103,18 @@ const GEOSITE_PREFIXES: ReadonlyArray<{ prefix: string; type: string; strip?: st
  * - `keyword:example` → `DOMAIN-KEYWORD,example`
  * - `.example.com` → `DOMAIN-SUFFIX,example.com`
  * - `example.com`（纯域名，无逗号）→ `DOMAIN,example.com`
+ * - `192.0.2.0/24` → `IP-CIDR,192.0.2.0/24`
+ * - `2001:db8::/32` → `IP-CIDR6,2001:db8::/32`
  * - 其他规则原样返回
  */
 export function smartConvertRule(rule: string): string {
   if (!rule || rule.includes(',')) return rule;
+
+  if (rule.includes('/')) {
+    const ipType = IPValidator.getIpType(rule);
+    if (ipType === 'ipv4') return `IP-CIDR,${rule}`;
+    if (ipType === 'ipv6') return `IP-CIDR6,${rule}`;
+  }
 
   for (const { prefix, type, strip } of GEOSITE_PREFIXES) {
     if (rule.startsWith(prefix)) {
@@ -122,7 +132,7 @@ export function smartConvertRule(rule: string): string {
     !rule.startsWith('!') &&
     !rule.startsWith('//') &&
     !rule.startsWith(';') &&
-    !STARTS_WITH_DIGIT.test(rule)
+    (!STARTS_WITH_DIGIT.test(rule) || NUMERIC_LEADING_DOMAIN.test(rule))
   ) {
     return `DOMAIN,${rule}`;
   }
