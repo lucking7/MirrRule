@@ -249,7 +249,7 @@ describe('GitHub Actions workflow contract', () => {
       pythonSetup?.uses,
       'actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065',
     );
-    assert.equal(pythonSetup?.with?.['python-version'], '3.11');
+    assert.equal(pythonSetup.with?.['python-version'], '3.11');
 
     const installStep = getStep(buildJob, 'Install browser gateway dependencies');
     assert.match(String(installStep.run), /python3 -m pip install/);
@@ -289,7 +289,7 @@ describe('GitHub Actions workflow contract', () => {
       pythonSetup?.uses,
       'actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065',
     );
-    assert.equal(pythonSetup?.with?.['python-version'], '3.11');
+    assert.equal(pythonSetup.with?.['python-version'], '3.11');
     assert.match(
       String(getStep(healthJob, 'Install browser gateway dependencies').run),
       /Build\/browser-rule-requirements\.txt/,
