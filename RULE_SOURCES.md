@@ -177,3 +177,7 @@ GitHub runner 的 [Build 36880826814](https://github.com/lucking7/MirrRule/actio
 最终审计发现上述成功构建仍混入 Sukka 新归属水印域名，已有测试只覆盖旧水印，因此不能把前述 success 当作水印清理通过。新增真实水印 fixture 后，过滤与产物测试均先失败；修正共享识别后，又在完整构建中发现六个仅含水印的地域 IP 来源清理后为空，导致构建失败。随后只对六个地域合并启用既有空来源选项，保持全部下载成功与合并结果非空的要求。回归覆盖旧水印、真实数字域名、相似域名边界、四平台产物无新水印、空 IP 仍输出域名，以及全部来源为空时报错并保留旧产物。
 
 修正后再次执行 `mise exec node@26 -- pnpm run validate`、`mise exec node@26 -- pnpm test`、`mise exec node@26 -- pnpm run knip`、`mise exec node@26 -- pnpm run build`，均退出 0。148/148 tests 通过，lint 0 errors、既有 111 warnings。本地产物重新核对为 58/57/57/57 文件，全部规则文件不含该新水印，57 个 sing-box JSON 成功解析，新增 49 文件存在且非空，CloudMounter 恰有 40 条 AND、没有其他规则行，status 为 58 个集合，仓库根目录 `.BUILD_FINISHED` 存在。失败与修复日志分别保留在 `watermark-red.log`、`build-watermark.log` 与 `*-watermark-final.log`，输出核对清单为 `outputs-watermark.json`。
+
+最终代码提交 `478078dccb996b6cf7465cc73059a8131f3d5b1e` 的 [Build 36882205589](https://github.com/lucking7/MirrRule/actions/runs/36882205589) 为 success：148/148 Node tests、5/5 Python gateway tests、lint/typecheck、Knip 和完整构建通过。普通集合 19 个、特殊集合 39 个，处理错误为 0。Cloudflare Pages 与 GitHub Repository 部署、插件转换、模块合并和差异预览均 skipped，未更新生产。
+
+再次直接核对 `build-artifact-478078dccb996b6cf7465cc73059a8131f3d5b1e-6785` 原始 ZIP，完整性通过；全部规则文件不含新水印，新增 49 文件存在且非空，所有 sing-box JSON 可解析，CloudMounter 恰有 40 条 AND，其他三个平台没有 CloudMounter 文件，status 为 58 个集合。CI 目录仍为 60/59/59/59，各保留两个 fmz 文件。核对脚本为 `acceptance/sukka-additions/verify-watermark-artifact.py`，记录为 `outputs-watermark-ci.json`，ZIP 与 CI 日志同目录保留。source-health 继续引用本轮此前的 116/116 来源检查，过滤修正没有改动 URL，未重复健康检查。随后提交仅补齐验收记录。
