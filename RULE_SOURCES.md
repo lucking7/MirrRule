@@ -144,3 +144,28 @@ Build artifact 名为 `build-artifact-2cf8d79b6cf654e02b9d80e52d121ed0f3646445-6
 最终代码复核提交 `392dc09abb37b80399ddbf41af91aa700d7ab439` 的 [构建 36764346571](https://github.com/lucking7/MirrRule/actions/runs/36764346571) 同样成功：144/144 Node tests、5/5 Python tests、typecheck、Knip、规则构建均通过；lint 0 errors，剩余 111 条为既有 warning。gateway 日志再次记录两个测速 source status=200。随后提交只补齐本文验收记录，不改运行代码。
 
 未验证：生产 Pages/NRRule 发布、Surge/Loon/Clash/sing-box 客户端实际分流、应用登录与播放、模块新转换、新账号 Worker/Secrets/部署权限，以及 upstream origin 最新性。CI 使用原有 HTTP 缓存恢复策略，健康检查额外通过 gateway GET 正文验证；若需要证明每个上游都是新下载，应在独立 runner 禁用 HTTP 缓存另做验收。
+
+## Sukka 补充分类验收
+
+本轮配置与测试提交为 `4ebd3708f4274f5d78a91f32be048cb091a1f893`。本地沿用隔离 workspace，不重复声明全新安装；在 Node `26.8.1`、pnpm `10.15.0` 下执行 `pnpm run validate`、`pnpm test`、`pnpm run knip`、`pnpm run build`（均通过 mise Node 26）。全部退出 0，146/146 tests 通过，lint 0 errors、保留既有 111 warnings。新增两个测试覆盖输出身份、废弃来源排除、domainset/IPv4/IPv6 转换，以及 CloudMounter 复合条件不被扩大、不产生其他平台文件。
+
+实际构建处理 19 个普通 ruleset 与 39 个特殊 ruleset，共 58 个独立订阅。输出 Surge 58 文件，Clash/Loon/sing-box 各 57 文件，另有 4 个 GeoIP 文件、status、索引与完成标记。新增 49 个规则文件全部非空，新增 12 个 sing-box JSON 均解析成功；CloudMounter 的 40 条 AND 完整保留。此处为本地生成目录数量，CI 如从原产物仓补齐其他旧文件，应另计，不能混作本轮新增。
+
+新增集合的已知平台丢弃如下，未发现新增 malformed 或 unknown：
+
+| 集合           | Clash 丢弃   | sing-box 丢弃                 | Loon 丢弃         |
+| -------------- | ------------ | ----------------------------- | ----------------- |
+| `stream_us`    | 9 USER-AGENT | 9 USER-AGENT + 1 PROCESS-NAME | 1 PROCESS-NAME    |
+| `stream_hk`    | 2 USER-AGENT | 2 USER-AGENT + 5 PROCESS-NAME | 5 PROCESS-NAME    |
+| `stream_jp`    | 2 USER-AGENT | 2 USER-AGENT                  | 无                |
+| `stream_tw`    | 4 USER-AGENT | 4 USER-AGENT + 1 PROCESS-NAME | 1 PROCESS-NAME    |
+| `stream_kr`    | 1 USER-AGENT | 1 USER-AGENT                  | 无                |
+| `stream_eu`    | 2 USER-AGENT | 2 USER-AGENT                  | 无                |
+| `sogouinput`   | 2 USER-AGENT | 2 USER-AGENT + 3 PROCESS-NAME | 3 PROCESS-NAME    |
+| `domestic_cdn` | 无           | 无                            | 1 DOMAIN-WILDCARD |
+
+其他新增集合在配置的目标平台未出现类型丢弃，CloudMounter 根本不请求其他三个 writer。以上证明生成与转换路径运行成功，不证明客户端已订阅、策略匹配、云盘挂载、游戏实际下载或地区解锁。新增规则来源继续滚动更新，条数和丢弃数应以各次构建日志为准。本轮核对的 Sukka 发布仓 HEAD 为 `ff57325d2494d72ba0a234184d4e3a988d9847b2`，来源配置没有锁定该 commit。
+
+GitHub runner 的 [Build 36880826814](https://github.com/lucking7/MirrRule/actions/runs/36880826814) 与 [source-health 36880833202](https://github.com/lucking7/MirrRule/actions/runs/36880833202) 均 success，验收 head 与上述配置提交一致。runner 的 146/146 Node tests、5/5 Python gateway tests、lint/typecheck、Knip 和完整构建通过；健康检查 116/116 ok，0 dead、0 unknown。两个部署 job、插件转换与模块合并均 skipped。
+
+下载并直接读取 `build-artifact-4ebd3708f4274f5d78a91f32be048cb091a1f893-6784` 的原始 ZIP，完整性检查通过；新增 49 文件全部存在且非空，12 个新增 sing-box JSON 成功解析，CloudMounter 40 条 AND 与仅 Surge 输出再次确认。CI 目录总计 Surge 60、其他平台各 59，分别包含 2 个从原产物仓保留的 fmz 文件，实际本轮配置的输出仍为 58/57/57/57。status 包含 58 个 ruleset。日志、ZIP、输出大小清单保存在隔离 workspace 的 `acceptance/sukka-additions/`。随后提交仅补录本文验收数据，不改运行代码。
