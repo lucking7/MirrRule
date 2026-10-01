@@ -303,6 +303,9 @@ export const specialRules: SpecialRuleConfig[] = [
     targetFile: 'List/reject_extra.list',
     sourceFiles: [
       'https://ruleset.skk.moe/List/domainset/reject_extra.conf',
+      ...sukkaAdditionalRules
+        .filter(rule => rule.targetFile === 'List/reject_phishing.list')
+        .flatMap(rule => rule.sourceFiles),
     ],
     defaultPolicy: 'REJECT',
     targets: ['surge', 'clash', 'singbox', 'loon'],
@@ -341,8 +344,14 @@ export const specialRules: SpecialRuleConfig[] = [
     sourceFiles: [
       'https://ruleset.skk.moe/List/non_ip/stream.conf',
       'https://ruleset.skk.moe/List/ip/stream.conf',
+      ...sukkaAdditionalRules
+        .filter(rule => rule.targetFile.startsWith('List/stream_'))
+        .flatMap(rule => rule.sourceFiles),
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
+    // Empty IP sources are valid; all downloads and a nonempty union remain required.
+    allowEmpty: true,
+    applyNoResolve: true,
   },
   {
     name: 'lucking - Domestic',

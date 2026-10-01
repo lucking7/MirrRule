@@ -426,3 +426,5 @@ mise exec node@26 -- pnpm run build
 2026-10-01 的 blackmatrix7 + Meta 服务合并、CDN 来源替换与地域测速 gateway 接入，详见 [RULE_SOURCES.md](RULE_SOURCES.md)。该文记录本次独立验收，不沿用第 10、11 节的历史测试数字；模块转换、生产发布和新账号部署仍需分别核对。
 
 2026-10-01 后续补充了 13 个 Sukka 独立订阅，包括 Apple Intelligence、游戏下载、六个地区流媒体、钓鱼拦截、国内 CDN、GitLab、搜狗输入法和 CloudMounter。来源、输出路径和策略建议见 [Sukka 补充分类](RULE_SOURCES.md#sukka-补充分类)。CloudMounter 仅生成 Surge 输出，部署后再在客户端配置订阅；规则构建不修改现有客户端策略。
+
+2026-10-02 补齐聚合：总 `stream` 合并全部六个地域的域名与 IP 来源，允许有效下载但清理后为空的来源；`reject_extra` 合并钓鱼集合，基础 `reject` 不变。独立订阅保留。聚合范围、来源失败行为、其他分类的覆盖关系和本轮验收见 [同类规则的聚合归属](RULE_SOURCES.md#同类规则的聚合归属)，旧验收条数不能代替本轮结果。

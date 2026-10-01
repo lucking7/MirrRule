@@ -52,7 +52,7 @@ SukkaW/Surge 的源码生成 domainset、non_ip、ip 等类别，发布到 rules
 
 ## Sukka 补充分类
 
-在同一功能分支新增 13 个独立订阅，沿用现有 `specialRules` 下载、去重、格式转换与发布流程，不复制 Sukka 构建器。不把新集合并入已有 `apple`、`download`、`stream`、`reject` 等聚合文件，客户端可单独选择策略。目标文件和来源如下，来源基址是 `https://ruleset.skk.moe/List/`：
+在同一功能分支新增 13 个独立订阅，沿用现有 `specialRules` 下载、去重、格式转换与发布流程，不复制 Sukka 构建器。2026-10-02 补齐聚合归属：六个地域规则也纳入总 `stream`，钓鱼规则也纳入 `reject_extra`，独立订阅继续供客户端选择专用策略。目标文件和来源如下，来源基址是 `https://ruleset.skk.moe/List/`：
 
 | 输出 basename        | 上游路径（省略 `.conf`）            | 输出平台 | 用途与限制                                                                 |
 | -------------------- | ----------------------------------- | -------- | -------------------------------------------------------------------------- |
@@ -64,7 +64,7 @@ SukkaW/Surge 的源码生成 domainset、non_ip、ip 等类别，发布到 rules
 | `stream_tw`          | `non_ip/stream_tw` + `ip/stream_tw` | 四平台   | 台湾流媒体域名和 IP                                                        |
 | `stream_kr`          | `non_ip/stream_kr` + `ip/stream_kr` | 四平台   | 韩国流媒体域名和 IP                                                        |
 | `stream_eu`          | `non_ip/stream_eu` + `ip/stream_eu` | 四平台   | 欧洲流媒体域名和 IP                                                        |
-| `reject_phishing`    | `domainset/reject_phishing`         | 四平台   | 独立钓鱼网站拦截，客户端通常绑定 REJECT；不强制修改现有广告拦截集合        |
+| `reject_phishing`    | `domainset/reject_phishing`         | 四平台   | 独立钓鱼网站拦截，客户端通常绑定 REJECT；同时纳入扩展集合 reject_extra     |
 | `domestic_cdn`       | `non_ip/domestic_cdn`               | 四平台   | 境外回国场景，可在回国代理规则之前绑定 DIRECT；其内容也在 domestic 中      |
 | `gitlab`             | `non_ip/gitlab`                     | 四平台   | 单独指定 GitLab 出口；可能与 global 重叠                                   |
 | `sogouinput`         | `non_ip/sogouinput`                 | 四平台   | 输入法隐私拦截，通常绑定 REJECT，可能影响账号同步、词库更新和反馈          |
@@ -72,13 +72,21 @@ SukkaW/Surge 的源码生成 domainset、non_ip、ip 等类别，发布到 rules
 
 本次核对时，六个 `ip/stream_<region>.conf` 都只含注释与归属水印，暂无实际 CIDR。配置保留两类来源，未来上游补充 IP 时可经现有转换自动合并；本轮地域分流覆盖主要来自 non_ip，测试中的 IPv4/IPv6 样例只验证转换能力，不是实际新增地域 IP。
 
-六个地域集合配置 `allowEmpty: true`，允许水印清理后为空的输入来源参与合并。所有来源仍须下载成功，合并后仍须至少有一条规则；如果域名来源与 IP 来源都为空则报错，保留旧产物。其他新增集合不启用空来源许可。共享清理逻辑精确识别 Sukka 当前归属水印域名，同时保留合法数字开头域名与旧水印过滤。
+六个地域集合及总 `stream` 配置 `allowEmpty: true`，允许水印清理后为空的输入来源参与合并。所有来源仍须下载成功，合并后仍须至少有一条规则；如果全部来源都为空则报错，保留旧产物。其他新增集合不启用空来源许可。共享清理逻辑精确识别 Sukka 当前归属水印域名，同时保留合法数字开头域名与旧水印过滤。
 
 四平台输出为 `List/<basename>.list`、`Clash/<basename>.txt`、`Loon/<basename>.list`、`sing-box/<basename>.json`。所有新增集合清理上游策略字段，IP 规则添加 `no-resolve`；同一文件的域名和 IP 顺序由既有 writer 决定。这里的“接入”是生成可订阅产物，不会自动修改客户端配置或启用拦截。在发布到自己的服务后使用对应路径，并按需要选择出口、拦截策略及匹配顺序。此功能分支尚未发布到生产，不能假设现有 `nrrule.pages.dev` 已提供新增路径。
 
 客户端按先匹配先执行安排订阅顺序：`game_download` 放在 `download` 前，地域 `stream_*` 放在总 `stream` 前，`apple_intelligence` 放在覆盖这些域名的 Apple/AI 规则前，`domestic_cdn` 放在 `domestic` 前。本次样本中 game-download 的 52 条都在 download 中，地域分类也与总 stream 大量重叠；若通用规则先匹配，独立策略不会生效。GitLab 样本仅有 `gitlab.com` 的 DOMAIN-SUFFIX，不能据此保证所有 GitLab 托管站点与 registry 都被覆盖。
 
 CloudMounter 的规则包含 AND、`PROCESS-NAME,*CloudMounter`、`SRC-IP` 和嵌套 `DOMAIN-WILDCARD` 条件。sing-box 当前不输出 AND，Loon/Clash 的顶层类型支持也不能证明嵌套条件等价。因此这份订阅只发布 Surge 格式，不生成空文件或扩大成无条件云盘域名。其他新增订阅中平台不支持的类型仍按现有矩阵计数丢弃，验收记录应列明具体情况，不能宣称四个平台语义完全一致。
+
+### 同类规则的聚合归属
+
+总 `stream` 合并总 non_ip/ip 与六个地域的 non_ip/ip，共 14 个来源，统一去重并给 IP 添加 `no-resolve`。聚合直接复用独立地域订阅的 `sourceFiles`，`reject_extra` 同样复用独立钓鱼订阅的来源，避免两边换源不同步。2026-10-02 核对的样本中，地域并集比总 non_ip 多 7 条规则（Hulu Japan 三条后缀域名、LiTV 四条精确域名），补入后只订阅总列表也可覆盖这些规则。来源会滚动变化，此差集不是固定产物条数承诺。
+
+`reject_extra` 合并 Sukka 原扩展集合与 `reject_phishing`，继续沿用 REJECT 用途。基础 `reject` 不引入钓鱼或搜狗来源；使用扩展集合意味着启用其钓鱼覆盖，不能再把它描述为仅有原 Sukka reject_extra。独立 `reject_phishing` 仍可供只需钓鱼拦截的客户端使用。上轮样本中钓鱼集合为 141666 条，与原扩展集合有 106 条完全相同行、143 条含父域覆盖的重叠，最终输出仍以 Trie 去重结果为准。
+
+其余分类按用途与策略核对，不仅凭域名重复决定归并：game_download 的 52 条已在 download 中；domestic_cdn 的 19 条均被 domestic 完全相同行或父域后缀规则覆盖；Apple Intelligence 的 5 条已在 ai 中；GitLab 已在 global 中。因此不重复添加这些来源，保留独立出口订阅。sogouinput 可能拦截账号、词库与输入法进程，不自动纳入基础或扩展拦截；CloudMounter 保留带条件的 Surge 专用订阅，不并成通用无条件域名。
 
 `non_ip/global_plus.conf` 和 `non_ip/apple_cdn.conf` 已废弃，分别合并进 `non_ip/global.conf` 和 `domainset/apple_cdn.conf`，不重复接入。私有偏好的 `my_*`、`reject_sukka` 与未列入本次清单的模块、MITM URL 拦截、teleproto 也不在本次新增范围。
 
@@ -181,3 +189,15 @@ GitHub runner 的 [Build 36880826814](https://github.com/lucking7/MirrRule/actio
 最终代码提交 `478078dccb996b6cf7465cc73059a8131f3d5b1e` 的 [Build 36882205589](https://github.com/lucking7/MirrRule/actions/runs/36882205589) 为 success：148/148 Node tests、5/5 Python gateway tests、lint/typecheck、Knip 和完整构建通过。普通集合 19 个、特殊集合 39 个，处理错误为 0。Cloudflare Pages 与 GitHub Repository 部署、插件转换、模块合并和差异预览均 skipped，未更新生产。
 
 再次直接核对 `build-artifact-478078dccb996b6cf7465cc73059a8131f3d5b1e-6785` 原始 ZIP，完整性通过；全部规则文件不含新水印，新增 49 文件存在且非空，所有 sing-box JSON 可解析，CloudMounter 恰有 40 条 AND，其他三个平台没有 CloudMounter 文件，status 为 58 个集合。CI 目录仍为 60/59/59/59，各保留两个 fmz 文件。核对脚本为 `acceptance/sukka-additions/verify-watermark-artifact.py`，记录为 `outputs-watermark-ci.json`，ZIP 与 CI 日志同目录保留。source-health 继续引用本轮此前的 116/116 来源检查，过滤修正没有改动 URL，未重复健康检查。随后提交仅补齐验收记录。
+
+## 2026-10-02 聚合归属验收
+
+本轮只调整 `stream` 与 `reject_extra` 的聚合输入，保留 13 个独立订阅、基础 reject 和全部其他规则配置。新增 `sukka-aggregate.test.ts` 的两个测试先在旧配置下失败，再在新配置下通过；真实 loopback HTTP 覆盖六区输入、空 IP、水印清理、域名/IPv4/IPv6 去重、四平台输出、独立文件保留，以及任一来源返回 HTML 时停止发布并保留旧文件。
+
+本地沿用隔离 workspace 和 HTTP 缓存，在 Node `26.8.1`、pnpm `10.15.0` 下执行 `mise exec node@26 -- pnpm run validate`、`mise exec node@26 -- pnpm test`、`mise exec node@26 -- pnpm run knip`、`mise exec node@26 -- pnpm run build`，均退出 0。150/150 tests 通过，lint 0 errors、111 既有 warnings。首次 lint 的两个测试写法错误已修复；简化审查采纳复用建议 1 项、质量建议 2 项，效率建议 1 项跳过，因为跨集合 Promise 缓存需要改动处理器的重试和缓存生命周期。三项审查的定向测试尝试受 Node 25 SQLite ABI 阻塞，主验收统一使用 Node 26，通过定向及全量测试，不把审查失败记为测试通过。
+
+实际本地输出仍为 Surge 58、Clash/Loon/sing-box 各 57 文件、58 个 status 集合。对所有规则文件构建前后的 SHA-256 比较，只有两类聚合文件在四个平台的 8 个文件变化，独立订阅、基础 reject 和其他规则文件内容未变。与上轮 ZIP 及本轮地域/钓鱼文件逐条比较，验证旧规则和新增来源均仍被完全相同行或父域后缀/CIDR 覆盖；sing-box 同时检查域名、keyword 与 IP 覆盖。
+
+本轮 Surge stream 为 361 条，Clash 为 312 条，Loon 为 347 条，三个文本平台均增加相同 7 条域名规则。reject_extra 在三个文本平台均为 216987 条：相比旧 75471 条，新增 141523 条完全不同的规则，同时删除 7 条被更宽后缀规则覆盖的旧行，净增 141516 条，覆盖没有丢失。规则规模是本轮样本结果，平台类型丢弃仍按既有矩阵处理，不能视为客户端实测。
+
+命令日志、失败样例与产物核对保存在 `acceptance/sukka-additions/aggregate-*.log`、`aggregate-before-hashes.json`、`aggregate-outputs-local.json`，复核脚本为 `verify-aggregate.py`。本轮没有新建来源 URL，不重复宣称当前 source-health 已重新验证，也不把本地缓存构建当作 origin 最新性证明。生产、客户端应用与新账号部署仍未验证。
