@@ -3,7 +3,34 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-const { IPValidator } = require('../utils/validation/validators');
+const { IPValidator, RuleLineUtils } = require('../utils/validation/validators');
+
+describe('Sukka watermark filtering', () => {
+  it('recognizes current domainset and rule forms alongside legacy watermarks', () => {
+    const watermark = '7h15.ru1353t.1s.m4d3.by.5ukk4w.skk.moe';
+    for (const line of [
+      watermark, `.${watermark}`, `DOMAIN,${watermark}`,
+      `DOMAIN-SUFFIX,${watermark},REJECT`, ` DOMAIN, ${watermark} `,
+      `DOMAIN,${watermark.toUpperCase()}`,
+      'DOMAIN,7h1s_rul35et_i5_mad3_by_5ukk4w.ruleset.skk.moe',
+      'DOMAIN,this_ruleset_is_made_by_sukkaw.ruleset.skk.moe',
+    ]) {
+      assert.equal(RuleLineUtils.isSukkaWatermark(line), true, line);
+      assert.equal(RuleLineUtils.shouldSkipLine(line), true, line);
+    }
+  });
+
+  it('retains legitimate numeric domains and watermark lookalikes', () => {
+    const watermark = '7h15.ru1353t.1s.m4d3.by.5ukk4w.skk.moe';
+    for (const line of [
+      'DOMAIN,2mdn.net', '0x0.st', 'DOMAIN,skk.moe', 'DOMAIN,ruleset.skk.moe',
+      `DOMAIN,prefix${watermark}`, `DOMAIN,${watermark}.example.com`,
+    ]) {
+      assert.equal(RuleLineUtils.isSukkaWatermark(line), false, line);
+      assert.equal(RuleLineUtils.shouldSkipLine(line), false, line);
+    }
+  });
+});
 
 describe('IPValidator', () => {
   it('validates IPv6 addresses and CIDR prefix bounds', () => {

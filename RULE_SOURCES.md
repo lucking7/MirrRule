@@ -72,7 +72,11 @@ SukkaW/Surge 的源码生成 domainset、non_ip、ip 等类别，发布到 rules
 
 本次核对时，六个 `ip/stream_<region>.conf` 都只含注释与归属水印，暂无实际 CIDR。配置保留两类来源，未来上游补充 IP 时可经现有转换自动合并；本轮地域分流覆盖主要来自 non_ip，测试中的 IPv4/IPv6 样例只验证转换能力，不是实际新增地域 IP。
 
+六个地域集合配置 `allowEmpty: true`，允许水印清理后为空的输入来源参与合并。所有来源仍须下载成功，合并后仍须至少有一条规则；如果域名来源与 IP 来源都为空则报错，保留旧产物。其他新增集合不启用空来源许可。共享清理逻辑精确识别 Sukka 当前归属水印域名，同时保留合法数字开头域名与旧水印过滤。
+
 四平台输出为 `List/<basename>.list`、`Clash/<basename>.txt`、`Loon/<basename>.list`、`sing-box/<basename>.json`。所有新增集合清理上游策略字段，IP 规则添加 `no-resolve`；同一文件的域名和 IP 顺序由既有 writer 决定。这里的“接入”是生成可订阅产物，不会自动修改客户端配置或启用拦截。在发布到自己的服务后使用对应路径，并按需要选择出口、拦截策略及匹配顺序。此功能分支尚未发布到生产，不能假设现有 `nrrule.pages.dev` 已提供新增路径。
+
+客户端按先匹配先执行安排订阅顺序：`game_download` 放在 `download` 前，地域 `stream_*` 放在总 `stream` 前，`apple_intelligence` 放在覆盖这些域名的 Apple/AI 规则前，`domestic_cdn` 放在 `domestic` 前。本次样本中 game-download 的 52 条都在 download 中，地域分类也与总 stream 大量重叠；若通用规则先匹配，独立策略不会生效。GitLab 样本仅有 `gitlab.com` 的 DOMAIN-SUFFIX，不能据此保证所有 GitLab 托管站点与 registry 都被覆盖。
 
 CloudMounter 的规则包含 AND、`PROCESS-NAME,*CloudMounter`、`SRC-IP` 和嵌套 `DOMAIN-WILDCARD` 条件。sing-box 当前不输出 AND，Loon/Clash 的顶层类型支持也不能证明嵌套条件等价。因此这份订阅只发布 Surge 格式，不生成空文件或扩大成无条件云盘域名。其他新增订阅中平台不支持的类型仍按现有矩阵计数丢弃，验收记录应列明具体情况，不能宣称四个平台语义完全一致。
 
@@ -169,3 +173,7 @@ Build artifact 名为 `build-artifact-2cf8d79b6cf654e02b9d80e52d121ed0f3646445-6
 GitHub runner 的 [Build 36880826814](https://github.com/lucking7/MirrRule/actions/runs/36880826814) 与 [source-health 36880833202](https://github.com/lucking7/MirrRule/actions/runs/36880833202) 均 success，验收 head 与上述配置提交一致。runner 的 146/146 Node tests、5/5 Python gateway tests、lint/typecheck、Knip 和完整构建通过；健康检查 116/116 ok，0 dead、0 unknown。两个部署 job、插件转换与模块合并均 skipped。
 
 下载并直接读取 `build-artifact-4ebd3708f4274f5d78a91f32be048cb091a1f893-6784` 的原始 ZIP，完整性检查通过；新增 49 文件全部存在且非空，12 个新增 sing-box JSON 成功解析，CloudMounter 40 条 AND 与仅 Surge 输出再次确认。CI 目录总计 Surge 60、其他平台各 59，分别包含 2 个从原产物仓保留的 fmz 文件，实际本轮配置的输出仍为 58/57/57/57。status 包含 58 个 ruleset。日志、ZIP、输出大小清单保存在隔离 workspace 的 `acceptance/sukka-additions/`。随后提交仅补录本文验收数据，不改运行代码。
+
+最终审计发现上述成功构建仍混入 Sukka 新归属水印域名，已有测试只覆盖旧水印，因此不能把前述 success 当作水印清理通过。新增真实水印 fixture 后，过滤与产物测试均先失败；修正共享识别后，又在完整构建中发现六个仅含水印的地域 IP 来源清理后为空，导致构建失败。随后只对六个地域合并启用既有空来源选项，保持全部下载成功与合并结果非空的要求。回归覆盖旧水印、真实数字域名、相似域名边界、四平台产物无新水印、空 IP 仍输出域名，以及全部来源为空时报错并保留旧产物。
+
+修正后再次执行 `mise exec node@26 -- pnpm run validate`、`mise exec node@26 -- pnpm test`、`mise exec node@26 -- pnpm run knip`、`mise exec node@26 -- pnpm run build`，均退出 0。148/148 tests 通过，lint 0 errors、既有 111 warnings。本地产物重新核对为 58/57/57/57 文件，全部规则文件不含该新水印，57 个 sing-box JSON 成功解析，新增 49 文件存在且非空，CloudMounter 恰有 40 条 AND、没有其他规则行，status 为 58 个集合，仓库根目录 `.BUILD_FINISHED` 存在。失败与修复日志分别保留在 `watermark-red.log`、`build-watermark.log` 与 `*-watermark-final.log`，输出核对清单为 `outputs-watermark.json`。

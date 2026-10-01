@@ -187,6 +187,8 @@ const sukkaAdditionalRules: SpecialRuleConfig[] = [
   targets: surgeOnly ? ['surge'] : ['surge', 'clash', 'singbox', 'loon'],
   defaultPolicy: null,
   applyNoResolve: true,
+  // Regional IP sources currently contain only comments and a watermark.
+  allowEmpty: id.startsWith('stream_'),
 }));
 
 export const specialRules: SpecialRuleConfig[] = [

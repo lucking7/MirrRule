@@ -28,8 +28,11 @@ describe('additional Sukka subscriptions', () => {
       assert.deepEqual(rule.targets, id === 'cloudmounter' ? ['surge'] : ['surge', 'clash', 'singbox', 'loon']);
       assert.ok(rule.sourceFiles.every(url => url.startsWith('https://ruleset.skk.moe/List/')));
       if (id.startsWith('stream_')) {
+        assert.equal(rule.allowEmpty, true);
         assert.ok(rule.sourceFiles.some(url => url.includes(`/non_ip/${id}.conf`)));
         assert.ok(rule.sourceFiles.some(url => url.includes(`/ip/${id}.conf`)));
+      } else {
+        assert.notEqual(rule.allowEmpty, true);
       }
     }
     const sources = specialRules.flatMap(rule => rule.sourceFiles);
@@ -41,11 +44,13 @@ describe('additional Sukka subscriptions', () => {
     const condition = 'AND,((DOMAIN-SUFFIX,sharepoint.com),(PROCESS-NAME,*CloudMounter))';
     const sourceIpCondition = 'AND,((DOMAIN,www.googleapis.com),(SRC-IP,10.0.0.0/8))';
     const wildcardCondition = 'AND,((DOMAIN-WILDCARD,*-medi*.svc.ms),(SRC-IP,192.168.0.0/16))';
+    const watermark = '7h15.ru1353t.1s.m4d3.by.5ukk4w.skk.moe';
     const bodies = [
-      '# game download\n.steamcontent.com\n',
-      '# regional streaming\nDOMAIN-SUFFIX,netflix.com\n',
-      '# streaming IP\nIP-CIDR,203.0.113.0/24\nIP-CIDR6,2001:db8::/32\n',
-      `# CloudMounter\n${condition}\n${sourceIpCondition}\n${wildcardCondition}\n`,
+      `# game download\n${watermark}\n.steamcontent.com\n`,
+      `# regional streaming\nDOMAIN,${watermark}\nDOMAIN-SUFFIX,netflix.com\n`,
+      `# streaming IP\nDOMAIN,${watermark}\nIP-CIDR,203.0.113.0/24\nIP-CIDR6,2001:db8::/32\n`,
+      `# CloudMounter\nDOMAIN,${watermark}\n${condition}\n${sourceIpCondition}\n${wildcardCondition}\n`,
+      `# currently empty regional IP source\nDOMAIN,${watermark}\n`,
     ];
     const server = http.createServer((request, response) => {
       response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
@@ -67,6 +72,12 @@ describe('additional Sukka subscriptions', () => {
       const stats = await processor.processSpecialRules(configs);
       assert.deepEqual(stats.errors, []);
       assert.equal(stats.filesProcessed, 3);
+      for (const directory of ['List', 'Clash', 'Loon', 'sing-box']) {
+        for (const file of fs.readdirSync(path.join(outputDir, directory))) {
+          const content = fs.readFileSync(path.join(outputDir, directory, file), 'utf8');
+          assert.equal(content.includes(watermark), false, `${directory}/${file}`);
+        }
+      }
       for (const [directory, extension] of [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list']]) {
         const game = fs.readFileSync(path.join(outputDir, directory, `game_download.${extension}`), 'utf8');
         const stream = fs.readFileSync(path.join(outputDir, directory, `stream_us.${extension}`), 'utf8');
@@ -86,6 +97,24 @@ describe('additional Sukka subscriptions', () => {
       for (const directory of ['Clash', 'Loon', 'sing-box']) {
         assert.equal(fs.readdirSync(path.join(outputDir, directory)).some(name => name.startsWith('cloudmounter.')), false);
       }
+      const regional = configs[1];
+      const emptyIpStats = await processor.processSpecialRules([
+        { ...regional, sourceFiles: [`http://127.0.0.1:${port}/1`, `http://127.0.0.1:${port}/4`] },
+      ]);
+      assert.deepEqual(emptyIpStats.errors, []);
+      assert.equal(emptyIpStats.filesProcessed, 1);
+      const regionalOutput = fs.readFileSync(path.join(outputDir, 'List/stream_us.list'), 'utf8');
+      assert.match(regionalOutput, /DOMAIN-SUFFIX,netflix\.com/);
+      assert.equal(regionalOutput.includes(watermark), false);
+      assert.equal(regionalOutput.includes('IP-CIDR'), false);
+
+      const emptyAllStats = await processor.processSpecialRules([
+        { ...regional, sourceFiles: [`http://127.0.0.1:${port}/4`] },
+      ]);
+      assert.equal(emptyAllStats.filesProcessed, 0);
+      assert.equal(emptyAllStats.errors.length, 1);
+      assert.match(emptyAllStats.errors[0].error, /No rules loaded/);
+      assert.equal(fs.readFileSync(path.join(outputDir, 'List/stream_us.list'), 'utf8'), regionalOutput);
     } finally {
       fs.rmSync(outputDir, { recursive: true, force: true });
       await new Promise<void>((resolve, reject) => {
