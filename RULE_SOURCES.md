@@ -50,6 +50,34 @@ Surge 与 Loon 保留 `.list`，Clash 输出 classical `.txt`，sing-box 输出 
 
 SukkaW/Surge 的源码生成 domainset、non_ip、ip 等类别，发布到 ruleset.skk.moe。本项目已使用其 CDN、Download、Reject、AI、Apple、Streaming、Domestic、Telegram、LAN 等产物，继续复用这些生成结果。本次补齐 AI 与 Download 的 IP 文件，没有复制 Sukka 的整套构建器。源码和产物提交分别核对为 `4ce04be3cc548c672e3350afd47ded7089ccb7ab`、`21060773c1f3c88fbf2da211aff1a5b74236917a`。
 
+## Sukka 补充分类
+
+在同一功能分支新增 13 个独立订阅，沿用现有 `specialRules` 下载、去重、格式转换与发布流程，不复制 Sukka 构建器。不把新集合并入已有 `apple`、`download`、`stream`、`reject` 等聚合文件，客户端可单独选择策略。目标文件和来源如下，来源基址是 `https://ruleset.skk.moe/List/`：
+
+| 输出 basename        | 上游路径（省略 `.conf`）            | 输出平台 | 用途与限制                                                                 |
+| -------------------- | ----------------------------------- | -------- | -------------------------------------------------------------------------- |
+| `apple_intelligence` | `non_ip/apple_intelligence`         | 四平台   | Apple Intelligence / Apple Relay 单独出口；与现有 Apple 或 AI 集合可能重叠 |
+| `game_download`      | `domainset/game-download`           | 四平台   | Steam、Epic、暴雪、Xbox、PlayStation 等游戏下载 CDN，不含中国 CDN          |
+| `stream_us`          | `non_ip/stream_us` + `ip/stream_us` | 四平台   | 北美流媒体域名和 IP                                                        |
+| `stream_hk`          | `non_ip/stream_hk` + `ip/stream_hk` | 四平台   | 香港流媒体域名和 IP                                                        |
+| `stream_jp`          | `non_ip/stream_jp` + `ip/stream_jp` | 四平台   | 日本流媒体域名和 IP                                                        |
+| `stream_tw`          | `non_ip/stream_tw` + `ip/stream_tw` | 四平台   | 台湾流媒体域名和 IP                                                        |
+| `stream_kr`          | `non_ip/stream_kr` + `ip/stream_kr` | 四平台   | 韩国流媒体域名和 IP                                                        |
+| `stream_eu`          | `non_ip/stream_eu` + `ip/stream_eu` | 四平台   | 欧洲流媒体域名和 IP                                                        |
+| `reject_phishing`    | `domainset/reject_phishing`         | 四平台   | 独立钓鱼网站拦截，客户端通常绑定 REJECT；不强制修改现有广告拦截集合        |
+| `domestic_cdn`       | `non_ip/domestic_cdn`               | 四平台   | 境外回国场景，可在回国代理规则之前绑定 DIRECT；其内容也在 domestic 中      |
+| `gitlab`             | `non_ip/gitlab`                     | 四平台   | 单独指定 GitLab 出口；可能与 global 重叠                                   |
+| `sogouinput`         | `non_ip/sogouinput`                 | 四平台   | 输入法隐私拦截，通常绑定 REJECT，可能影响账号同步、词库更新和反馈          |
+| `cloudmounter`       | `non_ip/cloudmounter`               | 仅 Surge | CloudMounter/RaiDrive 云盘分流，保留完整 AND 条件                          |
+
+本次核对时，六个 `ip/stream_<region>.conf` 都只含注释与归属水印，暂无实际 CIDR。配置保留两类来源，未来上游补充 IP 时可经现有转换自动合并；本轮地域分流覆盖主要来自 non_ip，测试中的 IPv4/IPv6 样例只验证转换能力，不是实际新增地域 IP。
+
+四平台输出为 `List/<basename>.list`、`Clash/<basename>.txt`、`Loon/<basename>.list`、`sing-box/<basename>.json`。所有新增集合清理上游策略字段，IP 规则添加 `no-resolve`；同一文件的域名和 IP 顺序由既有 writer 决定。这里的“接入”是生成可订阅产物，不会自动修改客户端配置或启用拦截。在发布到自己的服务后使用对应路径，并按需要选择出口、拦截策略及匹配顺序。此功能分支尚未发布到生产，不能假设现有 `nrrule.pages.dev` 已提供新增路径。
+
+CloudMounter 的规则包含 AND、`PROCESS-NAME,*CloudMounter`、`SRC-IP` 和嵌套 `DOMAIN-WILDCARD` 条件。sing-box 当前不输出 AND，Loon/Clash 的顶层类型支持也不能证明嵌套条件等价。因此这份订阅只发布 Surge 格式，不生成空文件或扩大成无条件云盘域名。其他新增订阅中平台不支持的类型仍按现有矩阵计数丢弃，验收记录应列明具体情况，不能宣称四个平台语义完全一致。
+
+`non_ip/global_plus.conf` 和 `non_ip/apple_cdn.conf` 已废弃，分别合并进 `non_ip/global.conf` 和 `domainset/apple_cdn.conf`，不重复接入。私有偏好的 `my_*`、`reject_sukka` 与未列入本次清单的模块、MITM URL 拦截、teleproto 也不在本次新增范围。
+
 ## TutuBetterRules 的方法与本项目接入
 
 [TutuBetterRules](https://github.com/bunizao/TutuBetterRules) 主要从 GitHub 同步 [Mirrored](https://github.com/bunizao/Mirrored) 的成品，不是直接用 Surge UA 下载 Kelee 规则。Mirrored 使用 `cloudscraper` 模拟 Chrome/Windows，通过配置的 Worker 下载，再把插件暂存到本地 HTTP 服务交给 Script-Hub。Worker 服务实现没有在这两个仓库内提供，不能据此声称复制一个 UA 就能恢复。
@@ -86,7 +114,7 @@ PROXY_BASE='http://127.0.0.1:13193?url=' pnpm run node Build/validate-domain-ali
 
 核对的 upstream snapshot：blackmatrix7 `c9b2158695596a1ba866adcf74def8d5ab348e25`；Meta `dff97e403383374dbfe39792d3dfdcf6717e385e`；Repcz `a209e056f977bb49f11cab7c13b5393fdbbba053`。配置仍跟随对应分支更新，以上提交只标识调查样本，不是生产锁定。
 
-[blackmatrix7](https://github.com/blackmatrix7/ios_rule_script) 声明 GPL-2.0，[MetaCubeX](https://github.com/MetaCubeX/meta-rules-dat) 声明 GPL-3.0，[SukkaW/Surge](https://github.com/SukkaW/Surge) 声明 AGPL-3.0，[Repcz/Tool](https://github.com/Repcz/Tool/tree/X) 声明 MIT。保留本项目及上游归属、许可证，分发时核对各分类的来源说明。
+[blackmatrix7](https://github.com/blackmatrix7/ios_rule_script) 声明 GPL-2.0，[MetaCubeX](https://github.com/MetaCubeX/meta-rules-dat) 声明 GPL-3.0，[SukkaW/Surge](https://github.com/SukkaW/Surge) 主要使用 AGPL-3.0，其 `List/ip/china_ip.conf` 单独采用 CC BY-SA 2.0，[Repcz/Tool](https://github.com/Repcz/Tool/tree/X) 声明 MIT。保留本项目及上游归属、许可证，分发时核对各分类的来源说明。
 
 撤销这次源码提交可以恢复旧来源配置，但不会解除 Kelee 的下载阻塞。生产回滚应恢复经审核的旧产物快照，不要依赖从受阻来源重新构建。功能分支手动执行 `task=build` 只产生验收 artifact；本次不发布 Pages 或 NRRule。
 

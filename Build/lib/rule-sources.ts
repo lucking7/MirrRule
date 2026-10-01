@@ -166,7 +166,31 @@ const serviceRules: SpecialRuleConfig[] = [
   applyNoResolve: true,
 }));
 
+const sukkaAdditionalRules: SpecialRuleConfig[] = [
+  { name: 'Apple Intelligence', id: 'apple_intelligence', sources: ['non_ip/apple_intelligence'] },
+  { name: 'Game Download', id: 'game_download', sources: ['domainset/game-download'] },
+  ...['us', 'hk', 'jp', 'tw', 'kr', 'eu'].map(region => ({
+    name: `Streaming - ${region.toUpperCase()}`,
+    id: `stream_${region}`,
+    sources: [`non_ip/stream_${region}`, `ip/stream_${region}`],
+  })),
+  { name: 'Reject Phishing', id: 'reject_phishing', sources: ['domainset/reject_phishing'] },
+  { name: 'Domestic CDN', id: 'domestic_cdn', sources: ['non_ip/domestic_cdn'] },
+  { name: 'GitLab', id: 'gitlab', sources: ['non_ip/gitlab'] },
+  { name: 'Sogou Input', id: 'sogouinput', sources: ['non_ip/sogouinput'] },
+  // Keep process/source-IP conditions intact; other writers cannot preserve this ruleset.
+  { name: 'CloudMounter / RaiDrive', id: 'cloudmounter', sources: ['non_ip/cloudmounter'], surgeOnly: true },
+].map(({ name, id, sources, surgeOnly }): SpecialRuleConfig => ({
+  name,
+  targetFile: `List/${id}.list`,
+  sourceFiles: sources.map(source => `https://ruleset.skk.moe/List/${source}.conf`),
+  targets: surgeOnly ? ['surge'] : ['surge', 'clash', 'singbox', 'loon'],
+  defaultPolicy: null,
+  applyNoResolve: true,
+}));
+
 export const specialRules: SpecialRuleConfig[] = [
+  ...sukkaAdditionalRules,
   ...serviceRules,
   {
     name: 'Download',

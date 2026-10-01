@@ -68,6 +68,16 @@ Service subscriptions merge [blackmatrix7 Surge rules](https://github.com/blackm
 | `domestic` | China domestic sites |
 | `lan` | Local network |
 | `speedtest` | Speedtest servers |
+| `apple_intelligence` | Apple Intelligence and Apple Relay |
+| `game_download` | Game download CDNs outside China |
+| `stream_us`, `stream_hk`, `stream_jp`, `stream_tw`, `stream_kr`, `stream_eu` | Regional streaming domains and IP ranges |
+| `reject_phishing` | Phishing domain blocking |
+| `domestic_cdn` | Domestic CDN routing for users outside China |
+| `gitlab` | GitLab |
+| `sogouinput` | Sogou Input privacy blocking |
+| `cloudmounter` | CloudMounter / RaiDrive conditions, Surge only |
+
+Additional Sukka categories are published separately so clients can assign their own policies. `cloudmounter` is available only as a Surge ruleset; its AND/process/source-IP conditions are retained. See [规则来源与迁移记录](RULE_SOURCES.md#sukka-补充分类) for source paths, routing guidance, and compatibility.
 
 ## Surge Modules
 
