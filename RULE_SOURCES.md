@@ -194,10 +194,14 @@ GitHub runner 的 [Build 36880826814](https://github.com/lucking7/MirrRule/actio
 
 本轮只调整 `stream` 与 `reject_extra` 的聚合输入，保留 13 个独立订阅、基础 reject 和全部其他规则配置。新增 `sukka-aggregate.test.ts` 的两个测试先在旧配置下失败，再在新配置下通过；真实 loopback HTTP 覆盖六区输入、空 IP、水印清理、域名/IPv4/IPv6 去重、四平台输出、独立文件保留，以及任一来源返回 HTML 时停止发布并保留旧文件。
 
-本地沿用隔离 workspace 和 HTTP 缓存，在 Node `26.8.1`、pnpm `10.15.0` 下执行 `mise exec node@26 -- pnpm run validate`、`mise exec node@26 -- pnpm test`、`mise exec node@26 -- pnpm run knip`、`mise exec node@26 -- pnpm run build`，均退出 0。150/150 tests 通过，lint 0 errors、111 既有 warnings。首次 lint 的两个测试写法错误已修复；简化审查采纳复用建议 1 项、质量建议 2 项，效率建议 1 项跳过，因为跨集合 Promise 缓存需要改动处理器的重试和缓存生命周期。三项审查的定向测试尝试受 Node 25 SQLite ABI 阻塞，主验收统一使用 Node 26，通过定向及全量测试，不把审查失败记为测试通过。
+本地沿用隔离 workspace 和 HTTP 缓存，在 Node `26.8.1`、pnpm `10.15.0` 下执行 `mise exec node@26 -- pnpm run validate`、`mise exec node@26 -- pnpm test`、`mise exec node@26 -- pnpm run knip`、`mise exec node@26 -- pnpm run build`，均退出 0。150/150 tests 通过，lint 0 errors、111 既有 warnings。首次 lint 的两个测试写法错误已修复；简化审查采纳复用建议 1 项、质量建议 2 项，效率建议 1 项跳过，因为跨集合 Promise 缓存需要改动处理器的重试和缓存生命周期。审查中的定向测试尝试受 Node 25 SQLite ABI 阻塞，主验收统一使用 Node 26，通过定向及全量测试，不把审查失败记为测试通过。
 
 实际本地输出仍为 Surge 58、Clash/Loon/sing-box 各 57 文件、58 个 status 集合。对所有规则文件构建前后的 SHA-256 比较，只有两类聚合文件在四个平台的 8 个文件变化，独立订阅、基础 reject 和其他规则文件内容未变。与上轮 ZIP 及本轮地域/钓鱼文件逐条比较，验证旧规则和新增来源均仍被完全相同行或父域后缀/CIDR 覆盖；sing-box 同时检查域名、keyword 与 IP 覆盖。
 
 本轮 Surge stream 为 361 条，Clash 为 312 条，Loon 为 347 条，三个文本平台均增加相同 7 条域名规则。reject_extra 在三个文本平台均为 216987 条：相比旧 75471 条，新增 141523 条完全不同的规则，同时删除 7 条被更宽后缀规则覆盖的旧行，净增 141516 条，覆盖没有丢失。规则规模是本轮样本结果，平台类型丢弃仍按既有矩阵处理，不能视为客户端实测。
 
 命令日志、失败样例与产物核对保存在 `acceptance/sukka-additions/aggregate-*.log`、`aggregate-before-hashes.json`、`aggregate-outputs-local.json`，复核脚本为 `verify-aggregate.py`。本轮没有新建来源 URL，不重复宣称当前 source-health 已重新验证，也不把本地缓存构建当作 origin 最新性证明。生产、客户端应用与新账号部署仍未验证。
+
+最终代码提交 `650613c50f4e95f10adc7c147ff345ae361ce225` 的 [Build 36893345820](https://github.com/lucking7/MirrRule/actions/runs/36893345820) 为 success，150/150 Node tests、5/5 Python gateway tests、lint/typecheck、Knip 和完整规则构建均通过。19 个普通集合处理无错误，39 个特殊集合处理完成；两个部署、插件转换、模块合并与差异预览 job 均 skipped，未发布生产。
+
+下载 `build-artifact-650613c50f4e95f10adc7c147ff345ae361ce225-6786` 原始 ZIP 并核对完整性，聚合条数与本地一致，四平台旧覆盖、地域覆盖及钓鱼覆盖检查均通过。58 个 status 集合、全部 sing-box JSON、49 个独立新增文件、水印清理与 CloudMounter 40 条 AND 均再次核对通过。CI 规则目录为 60/59/59/59，仍各有两个保留的 fmz 文件。本轮记录为 `aggregate-outputs-ci.json`、`aggregate-integrity-ci.json` 与 `aggregate-ci.log`，ZIP 为 `aggregate-build.zip`。随后提交只补录验收文档；若以后发布后需撤销本轮聚合，可 revert 本轮代码提交并恢复保存的旧产物快照，不必删除独立订阅。
