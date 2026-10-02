@@ -17,7 +17,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import picocolors from 'picocolors';
 import { getPluginList, getPluginStats } from './plugin-list';
-import { convertPluginsBatchFromRemote, waitForScriptHub } from './script-hub-client';
+import { convertPluginsBatchFromLocalMirror, waitForScriptHub } from './script-hub-client';
+import type { LocalMirrorPluginConversionResult } from './script-hub-client';
 import {
   extractScriptUrls,
   filterUnmirroredScripts,
@@ -25,11 +26,11 @@ import {
 } from './script-extractor';
 import { mirrorScripts, printMirrorSummary } from './script-mirror';
 import { convertPluginsLocallyBatch } from './local-converter';
-import { mirrorPluginsBatch } from './plugin-mirror';
+import { getPluginContent } from './plugin-mirror';
 import { publishPluginArtifacts } from './plugin-artifact';
 import { identifyPluginSource } from './plugin-identity';
 import type { PendingPluginArtifact } from './plugin-artifact';
-import type { ConversionResult, PluginConversionResult } from './types';
+import type { ConversionResult } from './types';
 
 // CommonJS 中的 __dirname 直接可用
 
@@ -109,7 +110,7 @@ export async function convertAndMirrorPlugins(
   }
 
   // 1. 获取插件列表
-  console.log(picocolors.cyan('\n[Step 1/3] Fetching plugin list...\n'));
+  console.log(picocolors.cyan('\n[Step 1/4] Fetching plugin list...\n'));
   const pluginsResult = await getPluginList();
 
   if ('error' in pluginsResult) {
@@ -141,7 +142,7 @@ export async function convertAndMirrorPlugins(
   console.log(picocolors.cyan('\n[Step 2/4] Converting plugins to sgmodule...\n'));
   await ensureOutputDirectory();
 
-  const conversionResults: PluginConversionResult[] = [];
+  const conversionResults: LocalMirrorPluginConversionResult[] = [];
 
   // 2a. 本地转换 (useLocalOnly 插件)
   if (localOnlyPlugins.length > 0) {
@@ -151,11 +152,25 @@ export async function convertAndMirrorPlugins(
       )
     );
 
-    // 先镜像插件文件
-    await mirrorPluginsBatch(localOnlyPlugins);
+    const freshLocalPlugins: typeof localOnlyPlugins = [];
+    for (const plugin of localOnlyPlugins) {
+      const refreshed = await getPluginContent(plugin, true);
+      if (refreshed.success && refreshed.content && !refreshed.degraded) {
+        freshLocalPlugins.push(plugin);
+      } else {
+        conversionResults.push({
+          pluginName: plugin.name,
+          ...identifyPluginSource(plugin),
+          content: {
+            error: `Plugin download failed: ${refreshed.error ?? 'fresh plugin content unavailable'}`,
+          },
+          failureStage: 'download',
+        });
+      }
+    }
 
-    // 本地转换
-    const localResults = await convertPluginsLocallyBatch(localOnlyPlugins);
+    // 本地转换器从刚刷新并验证过的镜像读取。
+    const localResults = await convertPluginsLocallyBatch(freshLocalPlugins);
     conversionResults.push(...localResults);
   }
 
@@ -166,7 +181,7 @@ export async function convertAndMirrorPlugins(
         `\n[Script-Hub] Converting ${remotePlugins.length} plugins with Script-Hub...\n`
       )
     );
-    const remoteResults = await convertPluginsBatchFromRemote(remotePlugins);
+    const remoteResults = await convertPluginsBatchFromLocalMirror(remotePlugins);
     conversionResults.push(...remoteResults);
   }
 
@@ -181,7 +196,7 @@ export async function convertAndMirrorPlugins(
     );
 
     for (const result of conversionResults) {
-      if (typeof result.content === 'string') {
+      if (typeof result.content === 'string' || result.failureStage !== 'script-hub') {
         continue;
       }
 
@@ -198,10 +213,7 @@ export async function convertAndMirrorPlugins(
         )
       );
 
-      // 先镜像失败的插件
-      await mirrorPluginsBatch(failedPlugins);
-
-      // 本地转换
+      // 本地转换器复用本轮已成功刷新的插件镜像。
       const localResults = await convertPluginsLocallyBatch(failedPlugins);
 
       // 替换失败的结果

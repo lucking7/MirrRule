@@ -96,7 +96,7 @@ CloudMounter 的规则包含 AND、`PROCESS-NAME,*CloudMounter`、`SRC-IP` 和�
 
 在本仓 GitHub runner 的受控实验中，普通 requests、Node、Surge/CFNetwork UA 对照仍返回 403；本项目自己的 Worker 配合 cloudscraper 成功下载 15/15 个规则。随后经现有 fetchAssets 与四平台 writer 生成 60 个文件并检查 JSON。实验运行：[36756620028](https://github.com/lucking7/MirrRule/actions/runs/36756620028)、[36756838931](https://github.com/lucking7/MirrRule/actions/runs/36756838931)、[36757060330](https://github.com/lucking7/MirrRule/actions/runs/36757060330)。第二轮失败是 Node 对照失败，不能记作成功构建。实验不能证明 origin 最新性，Worker 可能缓存；TLS 指纹、headers 顺序等具体原因也未单独隔离。
 
-因此规则构建与 source-health 接入 [browser-rule-gateway.py](Build/browser-rule-gateway.py)，仅代理 Kelee 的 HTTPS `.lsr`。它固定监听 `127.0.0.1`，每请求创建独立 browser session，要求 HTTP 200、非空 UTF-8 规则正文，拒绝 HTML/JSON，限制 8 MiB，关闭 redirect 并设置超时。HEAD 健康探针在上游使用 GET 并校验正文；`/health` 仅表示本地服务已启动。它不是通用代理，不接受插件列表、插件或脚本。
+规则构建、source-health 与插件转换均接入 [browser-rule-gateway.py](Build/browser-rule-gateway.py)。它只接受 Kelee HTTPS `.lsr`、`.plugin`、`.lpx`、`.js` 及固定目录 `https://hub.kelee.one/list.json`。它固定监听 `127.0.0.1`，每请求创建独立 browser session，要求 HTTP 200、非空 UTF-8 规则正文，拒绝 HTML/JSON，限制 8 MiB，关闭 redirect 并设置超时。HEAD 健康探针在上游使用 GET 并校验正文；`/health` 仅表示本地服务已启动。目录用 browser session 直连并校验 JSON（包括 `loon://` 安装链接）；其他资源经自有 Worker 下载，插件要求名称和有效 section，脚本拒绝 HTML/challenge 正文。它不是通用代理。
 
 使用 Python 3.11，并安装精确锁定的 [requirements](Build/browser-rule-requirements.txt)。本地直连规则源可用时不必设置 gateway；需要复现 CI 的路径时，在仓库根目录运行：
 
@@ -116,11 +116,11 @@ PROXY_BASE='http://127.0.0.1:13193?url=' pnpm run build
 PROXY_BASE='http://127.0.0.1:13193?url=' pnpm run node Build/validate-domain-alive.ts source-health-report.json
 ```
 
-完成后在 gateway 终端按 Ctrl-C。可用 `BROWSER_RULE_UPSTREAM_BASE` 配置上游，`BROWSER_RULE_GATEWAY_PORT` 或 `--port` 配置端口；更换端口时同步 Node 的 `PROXY_BASE`。Node.js 也是 cloudscraper 的 JavaScript interpreter，仍需 Node 26。不要把 localhost 基址作为 gateway 的上游，会被拒绝。CI 的 Build 与 source-health 启动并清理进程，插件转换 job 仍使用原 Worker。
+完成后在 gateway 终端按 Ctrl-C。可用 `BROWSER_RULE_UPSTREAM_BASE` 配置上游，`BROWSER_RULE_GATEWAY_PORT` 或 `--port` 配置端口；更换端口时同步 Node 的 `PROXY_BASE`。Node.js 也是 cloudscraper 的 JavaScript interpreter，仍需 Node 26。不要把 localhost 基址作为 gateway 的上游，会被拒绝。CI 的 Build、source-health 与插件转换均启动并清理 gateway。转换 job 用 Docker host network，让 Script-Hub 读取 runner 上仅供本轮已验证插件使用的 loopback 服务。
 
 403/502 表示上游下载或正文验证失败，504 表示超时；`/health` 成功不能解除这个故障。检查 gateway 日志中的公开 source URL/status、Worker 可用性和新账号权限，不要仅改 UA。gateway 不提供无限重试，Node 保留原有候选、重试与缓存行为。外部防护或 Worker 失效仍可能阻塞两个地域测速文件，需要由新账号再次验收。
 
-模块转换没有随本次规则迁移修复。此前转换运行 [36704699346](https://github.com/lucking7/MirrRule/actions/runs/36704699346) 的插件目录下载失败，新增转换数为 0；后续合并取旧产物可以成功，不能代表重新转换成功。要采用 Mirrored 的插件方案，需另行处理目录、插件、脚本预下载和 Script-Hub 的暂存输入，以及失败状态传播。
+此前转换运行 [36704699346](https://github.com/lucking7/MirrRule/actions/runs/36704699346) 的插件目录下载失败，新增转换数为 0；后续合并取旧产物可以成功，不能代表重新转换成功。当前实现参考 Mirrored 的下载后转换方法：先刷新并校验目录/插件，再用 loopback 暂存输入调用 Script-Hub，依赖脚本具备可用镜像后才原子发布。下载失败不能被旧缓存标成 fresh；CLI 的非零退出传递到 job，零产物不能用 marker 冒充成功，要求本轮转换时也不能由旧 NRRule 模块兜底。完整实网转换及合并的验证记录将在验收完成后补充，方法接入不等于已经通过。
 
 ## 来源、许可证与回滚
 

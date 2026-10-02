@@ -37,7 +37,7 @@ function getPluginMirrorPath(plugin: PluginInfo, mirrorDirectory = MIRROR_DIR): 
   return path.join(mirrorDirectory, getPluginMirrorFilename(plugin));
 }
 
-interface PluginMirrorOptions {
+export interface PluginMirrorOptions {
   mirrorDirectory?: string,
   fetchFn?: (
     url: string,
@@ -50,12 +50,22 @@ interface PluginMirrorOptions {
   }>
 }
 
-interface PluginContentResult {
+export interface PluginContentResult {
   success: boolean,
   content?: string,
   error?: string,
   fromCache?: boolean,
   degraded?: boolean
+}
+
+function validatePluginContent(content: string): string | null {
+  if (content.trim().length === 0) return 'Empty plugin response';
+
+  const hasPluginSection = /^\s*\[(?:Argument|General|Host|Map Local|MITM|Rewrite|Rule|Script)\]\s*$/imu
+    .test(content);
+  if (!hasPluginSection) return 'Invalid plugin format';
+
+  return null;
 }
 
 /**
@@ -86,6 +96,12 @@ async function mirrorPlugin(
     }
 
     const content = await response.text();
+
+    const validationError = validatePluginContent(content);
+    if (validationError) {
+      console.log(picocolors.red(`  [Mirror] ✗ ${plugin.name}: ${validationError}`));
+      return { success: false, error: validationError };
+    }
 
     const mirrorPath = getPluginMirrorPath(plugin, options.mirrorDirectory);
     await writeFileAtomic(mirrorPath, content);
@@ -140,59 +156,4 @@ export async function getPluginContent(
     fromCache: true,
     degraded: true,
   };
-}
-
-/**
- * 批量镜像插件
- */
-export async function mirrorPluginsBatch(
-  plugins: PluginInfo[],
-  forceUpdate = false,
-  options: PluginMirrorOptions = {}
-): Promise<{
-  total: number;
-  mirrored: number;
-  cached: number;
-  failed: number;
-  failedPlugins: Array<{ name: string; error: string }>;
-}> {
-  console.log(picocolors.cyan(`\n[Plugin Mirror] Processing ${plugins.length} plugins...\n`));
-
-  const stats = {
-    total: plugins.length,
-    mirrored: 0,
-    cached: 0,
-    failed: 0,
-    failedPlugins: [] as Array<{ name: string; error: string }>,
-  };
-
-  for (const plugin of plugins) {
-    const result = await getPluginContent(plugin, forceUpdate, options);
-
-    if (result.success) {
-      if (result.fromCache) stats.cached++;
-      else stats.mirrored++;
-    } else {
-      stats.failed++;
-      stats.failedPlugins.push({
-        name: plugin.name,
-        error: result.error || 'Unknown error',
-      });
-    }
-  }
-
-  console.log(picocolors.green('\n[Plugin Mirror] Complete:'));
-  console.log(picocolors.gray(`  - Total: ${stats.total}`));
-  console.log(picocolors.gray(`  - Mirrored: ${stats.mirrored}`));
-  console.log(picocolors.gray(`  - Cached: ${stats.cached}`));
-  console.log(picocolors.gray(`  - Failed: ${stats.failed}`));
-
-  if (stats.failedPlugins.length > 0) {
-    console.log(picocolors.red('\n[Plugin Mirror] Failed plugins:'));
-    for (const failed of stats.failedPlugins) {
-      console.log(picocolors.red(`  - ${failed.name}: ${failed.error}`));
-    }
-  }
-
-  return stats;
 }

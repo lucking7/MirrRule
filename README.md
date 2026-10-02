@@ -111,6 +111,8 @@ pnpm run build
 - `pnpm run knip` checks for unused code and dependencies.
 - `pnpm run build` builds the rule artifacts only (GEOIP download + rule processing + web index generation); mirror sync, plugin conversion and module merging are separate scripts (`sync-mirrors`, `convert-plugins`, `merge-modules`) orchestrated by CI. It downloads upstream assets and writes generated files under `public/**`, so only run it when you intend to produce those artifacts.
 
+Plugin conversion downloads and validates fresh inputs before serving them on loopback to Script-Hub. The CI container uses host networking; setup and local Linux instructions are in [MIGRATION.md](./MIGRATION.md#52-插件转换). Failed or degraded conversions return a nonzero status and block publication.
+
 Module merging uses `Build/lib/module-merger/configs/pro-merge-config.yaml`. Every selected input must load and contain usable sections; missing inputs, undefined parameters, and unknown selection keys fail the command before publication. `--dry-run` performs the same validation without writing files. Outputs are staged in both destination directories, replaced by rename, and restored if a later replacement fails.
 
 Imported parameters retain their defaults and descriptions under per-source names. Script names are unique across sources and within each source; Panel references follow the renamed scripts. For the generated module script switches, leave the value **empty to enable** or enter **`#` to disable**. Use an empty value instead of `1` so a source module's own script switches can still disable individual scripts.

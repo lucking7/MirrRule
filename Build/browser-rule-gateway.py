@@ -9,7 +9,7 @@ import os
 import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
 import cloudscraper
 import requests
@@ -22,6 +22,7 @@ READ_TIMEOUT_SECONDS = 30
 READ_CHUNK_BYTES = 64 * 1024
 
 BrowserFactory = Callable[[], requests.Session]
+BodyValidator = Callable[[bytes], bool]
 
 DOMAIN_PATTERN = re.compile(
     r"^(?=.{1,253}$)(?:[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?\.)+"
@@ -30,6 +31,18 @@ DOMAIN_PATTERN = re.compile(
 )
 CANONICAL_RULE_PATTERN = re.compile(r"^[A-Z][A-Z\d-]*,\s*\S+", re.IGNORECASE)
 GEOSITE_PREFIXES = ("+.", "full:", "domain:", "keyword:")
+RESOURCE_RULE = "rule"
+RESOURCE_PLUGIN_CATALOG = "plugin-catalog"
+RESOURCE_PLUGIN = "plugin"
+RESOURCE_SCRIPT = "script"
+PLUGIN_SECTION_PATTERN = re.compile(
+    r"^[ \t]*\[(?:argument|general|rewrite|script|mitm|rule)\][ \t]*\r?$",
+    re.IGNORECASE | re.MULTILINE,
+)
+PLUGIN_NAME_PATTERN = re.compile(
+    r"^#!name\s*=\s*\S.*?\r?$",
+    re.IGNORECASE | re.MULTILINE,
+)
 
 
 def create_browser_session() -> requests.Session:
@@ -38,6 +51,18 @@ def create_browser_session() -> requests.Session:
         interpreter="nodejs",
         delay=10,
     )
+
+
+def classify_resource_url(hostname: str, path: str) -> str:
+    if hostname == "hub.kelee.one" and path == "/list.json":
+        return RESOURCE_PLUGIN_CATALOG
+    if path.lower().endswith(".lsr"):
+        return RESOURCE_RULE
+    if path.lower().endswith((".plugin", ".lpx")):
+        return RESOURCE_PLUGIN
+    if path.lower().endswith(".js"):
+        return RESOURCE_SCRIPT
+    raise ValueError("target resource type is not allowed")
 
 
 def canonicalize_rule_url(raw_url: str) -> str:
@@ -65,8 +90,9 @@ def canonicalize_rule_url(raw_url: str) -> str:
         raise ValueError("target hostname is not allowed")
     if port not in (None, 443):
         raise ValueError("target port is not allowed")
-    if not parsed.path.lower().endswith(".lsr"):
-        raise ValueError("target must be an .lsr resource")
+    resource_type = classify_resource_url(hostname, parsed.path)
+    if resource_type == RESOURCE_PLUGIN_CATALOG and parsed.query:
+        raise ValueError("plugin catalog query parameters are not allowed")
 
     return urlunsplit(("https", hostname, parsed.path, parsed.query, ""))
 
@@ -138,6 +164,90 @@ def is_rule_text(body: bytes) -> bool:
     return False
 
 
+def iter_nested_strings(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, list):
+        for item in value:
+            yield from iter_nested_strings(item)
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from iter_nested_strings(item)
+
+
+def is_plugin_catalog(body: bytes) -> bool:
+    if not body:
+        return False
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return False
+
+    pending = list(iter_nested_strings(payload))
+    visited: set[str] = set()
+    while pending:
+        candidate = pending.pop().strip()
+        if not candidate or candidate in visited:
+            continue
+        visited.add(candidate)
+        try:
+            parsed = urlsplit(candidate)
+            if (
+                parsed.scheme.lower() == "https"
+                and parsed.hostname
+                and parsed.username is None
+                and parsed.password is None
+                and parsed.path.lower().endswith((".plugin", ".lpx"))
+            ):
+                return True
+            if parsed.scheme.lower() == "loon":
+                pending.extend(value for _, value in parse_qsl(parsed.query))
+                pending.extend(unquote(part) for part in parsed.path.split("/"))
+        except ValueError:
+            continue
+    return False
+
+
+def is_plugin_text(body: bytes) -> bool:
+    if not body:
+        return False
+    try:
+        text = body.decode("utf-8").lstrip("\ufeff")
+    except UnicodeDecodeError:
+        return False
+    if not text.strip():
+        return False
+    prefix = text.lstrip()[:2048].lower()
+    if any(marker in prefix for marker in ("<!doctype html", "<html", "<body", "<script")):
+        return False
+    return bool(PLUGIN_NAME_PATTERN.search(text) and PLUGIN_SECTION_PATTERN.search(text))
+
+
+def is_script_text(body: bytes) -> bool:
+    if not body:
+        return False
+    try:
+        text = body.decode("utf-8").lstrip("\ufeff")
+    except UnicodeDecodeError:
+        return False
+    if not text.strip():
+        return False
+
+    prefix = text.lstrip()[:8192].lower()
+    blocked_markers = (
+        "<!doctype html",
+        "<html",
+        "<body",
+        "cf-chl-",
+        "challenge-platform",
+        "just a moment",
+        "attention required",
+        "enable javascript and cookies to continue",
+        "cloudflare ray id",
+    )
+    return not any(marker in prefix for marker in blocked_markers)
+
+
 def read_limited_response(response: requests.Response) -> bytes | None:
     content_length = response.headers.get("Content-Length")
     if content_length:
@@ -159,17 +269,18 @@ def read_limited_response(response: requests.Response) -> bytes | None:
     return bytes(body)
 
 
-def fetch_rule(
-    upstream_base: str,
-    target_url: str,
+def fetch_resource(
+    request_url: str,
     browser_factory: BrowserFactory,
+    validator: BodyValidator,
+    invalid_message: bytes,
 ) -> tuple[int, bytes]:
     session = None
     response = None
     try:
         session = browser_factory()
         response = session.get(
-            build_upstream_url(upstream_base, target_url),
+            request_url,
             timeout=(CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS),
             stream=True,
             allow_redirects=False,
@@ -178,8 +289,8 @@ def fetch_rule(
             return 502, b"upstream request failed\n"
 
         body = read_limited_response(response)
-        if body is None or not is_rule_text(body):
-            return 502, b"upstream response is not a valid rule file\n"
+        if body is None or not validator(body):
+            return 502, invalid_message
         return 200, body
     except requests.exceptions.Timeout:
         return 504, b"upstream request timed out\n"
@@ -190,6 +301,57 @@ def fetch_rule(
             response.close()
         if session is not None:
             session.close()
+
+
+def fetch_rule(
+    upstream_base: str,
+    target_url: str,
+    browser_factory: BrowserFactory,
+) -> tuple[int, bytes]:
+    return fetch_resource(
+        build_upstream_url(upstream_base, target_url),
+        browser_factory,
+        is_rule_text,
+        b"upstream response is not a valid rule file\n",
+    )
+
+
+def fetch_plugin(
+    upstream_base: str,
+    target_url: str,
+    browser_factory: BrowserFactory,
+) -> tuple[int, bytes]:
+    return fetch_resource(
+        build_upstream_url(upstream_base, target_url),
+        browser_factory,
+        is_plugin_text,
+        b"upstream response is not a valid plugin file\n",
+    )
+
+
+def fetch_script(
+    upstream_base: str,
+    target_url: str,
+    browser_factory: BrowserFactory,
+) -> tuple[int, bytes]:
+    return fetch_resource(
+        build_upstream_url(upstream_base, target_url),
+        browser_factory,
+        is_script_text,
+        b"upstream response is not valid JavaScript\n",
+    )
+
+
+def fetch_plugin_catalog(
+    target_url: str,
+    browser_factory: BrowserFactory,
+) -> tuple[int, bytes]:
+    return fetch_resource(
+        target_url,
+        browser_factory,
+        is_plugin_catalog,
+        b"upstream response is not a valid plugin catalog\n",
+    )
 
 
 def public_source_url(target_url: str) -> str:
@@ -262,12 +424,32 @@ def create_server(
             try:
                 target_url = canonicalize_rule_url(query[0][1])
             except ValueError:
-                self.send_body(400, b"invalid rule URL\n", head_only=head_only)
+                self.send_body(400, b"invalid resource URL\n", head_only=head_only)
                 return
 
-            status, body = fetch_rule(normalized_upstream, target_url, browser_factory)
+            resource_type = classify_resource_url(
+                urlsplit(target_url).hostname or "",
+                urlsplit(target_url).path,
+            )
+            if resource_type == RESOURCE_PLUGIN_CATALOG:
+                status, body = fetch_plugin_catalog(target_url, browser_factory)
+                content_type = "application/json; charset=utf-8"
+            elif resource_type == RESOURCE_PLUGIN:
+                status, body = fetch_plugin(normalized_upstream, target_url, browser_factory)
+                content_type = "text/plain; charset=utf-8"
+            elif resource_type == RESOURCE_SCRIPT:
+                status, body = fetch_script(normalized_upstream, target_url, browser_factory)
+                content_type = "application/javascript; charset=utf-8"
+            else:
+                status, body = fetch_rule(normalized_upstream, target_url, browser_factory)
+                content_type = "text/plain; charset=utf-8"
             gateway_logger.info("source=%s status=%d", public_source_url(target_url), status)
-            self.send_body(status, body, head_only=head_only)
+            self.send_body(
+                status,
+                body,
+                head_only=head_only,
+                content_type=content_type,
+            )
 
         def do_GET(self) -> None:
             self.handle_request(head_only=False)
@@ -297,7 +479,7 @@ def create_server(
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Loopback browser-backed Kelee rule gateway")
+    parser = argparse.ArgumentParser(description="Loopback browser-backed Kelee resource gateway")
     parser.add_argument(
         "--upstream-base",
         default=os.environ.get("BROWSER_RULE_UPSTREAM_BASE") or os.environ.get("PROXY_BASE"),

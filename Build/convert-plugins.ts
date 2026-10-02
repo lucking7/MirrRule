@@ -4,6 +4,8 @@
  */
 
 import process from 'node:process';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { convertAndMirrorPlugins, printConversionSummary } from './integration/plugin-converter';
 import { getErrorMessage, registerGlobalErrorHandlers } from './lib/misc';
 
@@ -21,6 +23,25 @@ async function main() {
   const startTime = Date.now();
   const results = await convertAndMirrorPlugins(waitForService);
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+  const reportPath = process.env.PLUGIN_CONVERSION_REPORT;
+  if (reportPath) {
+    await fs.mkdir(path.dirname(reportPath), { recursive: true });
+    await fs.writeFile(reportPath, JSON.stringify({
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      total: results.length,
+      ready: results.filter(result => result.status === 'ready').length,
+      degraded: results.filter(result => result.status === 'degraded').length,
+      failed: results.filter(result => result.status === 'failed').length,
+      results: results.map(result => ({
+        pluginName: result.pluginName,
+        sourceId: result.sourceId,
+        file: result.outputPath ? path.basename(result.outputPath) : undefined,
+        status: result.status,
+        error: result.error,
+      })),
+    }, null, 2));
+  }
 
   if (results.length === 0) {
     console.error('没有插件被转换');

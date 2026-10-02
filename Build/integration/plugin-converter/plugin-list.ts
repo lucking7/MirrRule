@@ -37,7 +37,7 @@ function resolvePluginListSources(): ProxyUrlCandidate[] {
   for (const base of bases) {
     const candidates = buildClassifiedProxyUrlCandidates(base, {
       forceProxy: FORCE_PROXY_FOR_LIST,
-      preferDirect: true,
+      preferDirect: false,
     });
 
     for (const candidate of candidates) {
@@ -61,11 +61,6 @@ const EXTRA_PLUGINS: PluginInfo[] = [
     useLocalOnly: true, // 仅使用本地转换器
   },
 ];
-
-/**
- * 插件 URL 正则表达式
- */
-const PLUGIN_URL_REGEX = /https?:\/\/[^"]+\.(?:plugin|lpx)/g;
 
 /**
  * 下载插件列表
@@ -146,24 +141,49 @@ async function downloadPluginList(): Promise<PluginListDownload | { error: strin
  * @param jsonText - 插件列表 JSON
  * @returns 插件 URL 数组
  */
-function extractPluginUrls(jsonText: string): string[] {
-  const urls: string[] = [];
-  const seen = new Set<string>();
+export function extractPluginUrls(jsonText: string): string[] {
+  const urls = new Set<string>();
+  const visited = new Set<string>();
 
-  // 重置正则表达式
-  PLUGIN_URL_REGEX.lastIndex = 0;
+  function visitLink(value: string): void {
+    const candidate = value.trim();
+    if (!candidate || visited.has(candidate)) return;
+    visited.add(candidate);
 
-  let match;
-  while ((match = PLUGIN_URL_REGEX.exec(jsonText)) !== null) {
-    const url = match[0];
-
-    if (!seen.has(url)) {
-      seen.add(url);
-      urls.push(url);
+    let parsed: URL;
+    try {
+      parsed = new URL(candidate);
+    } catch {
+      return;
+    }
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      if (/\.(?:plugin|lpx)$/i.test(parsed.pathname) && !parsed.username && !parsed.password) {
+        urls.add(candidate);
+      }
+      return;
+    }
+    if (parsed.protocol === 'loon:') {
+      for (const link of parsed.searchParams.values()) visitLink(link);
+      for (const part of parsed.pathname.split('/')) {
+        try {
+          visitLink(decodeURIComponent(part));
+        } catch {
+          // Malformed installation links do not identify a usable plugin.
+        }
+      }
     }
   }
 
-  return urls;
+  function visit(node: unknown): void {
+    if (typeof node === 'string') {
+      visitLink(node);
+    } else if (node !== null && typeof node === 'object') {
+      for (const value of Object.values(node)) visit(value);
+    }
+  }
+
+  visit(JSON.parse(jsonText));
+  return Array.from(urls);
 }
 
 /**

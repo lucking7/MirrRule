@@ -180,7 +180,7 @@ describe('plugin artifact lifecycle', () => {
     const options = {
       mirrorDirectory: directory,
       fetchFn: () => Promise.resolve(available
-        ? new Response('last-known-good plugin')
+        ? new Response('#!name = last-known-good\n[Rewrite]\n^https://ads\\.test/ reject\n')
         : new Response('unavailable', { status: 503 })),
     };
 
@@ -192,7 +192,7 @@ describe('plugin artifact lifecycle', () => {
       available = false;
       const fallback = await getPluginContent(plugin, true, options);
       assert.equal(fallback.success, true);
-      assert.equal(fallback.content, 'last-known-good plugin');
+      assert.equal(fallback.content, '#!name = last-known-good\n[Rewrite]\n^https://ads\\.test/ reject\n');
       assert.equal(fallback.fromCache, true);
       assert.equal(fallback.degraded, true);
       assert.match(fallback.error ?? '', /HTTP 503/);

@@ -68,7 +68,7 @@ MirrRule 是构建型规则聚合项目：下载上游成品规则，清洗、�
   → 全部成功 → status.json + .BUILD_FINISHED
 
 GitHub Release / Sukka / fmz200 → 各自镜像命令 → public/Mirror
-插件列表 → Script-Hub / 本地转换 → 脚本镜像 → public/Modules/Converted + Scripts
+插件列表 → 本轮插件下载/校验 → loopback 服务 → Script-Hub / 本地转换 → 脚本镜像 → public/Modules/Converted + Scripts
 已转换模块 → merge-modules → public/Modules/{Merged,Rules}
 上述可选产物就绪 → build-web → 更新完整文件索引
 
@@ -156,7 +156,7 @@ node -e 'const fs=require("node:fs"); for (const p of ["public/status.json","pub
 | 原 NRRule 产物仓                                   | workflow 补齐缺失目录、单独合并时读取已转换模块、PR 对比；新账号应改为自己的公开产物仓 |
 | Cloudflare API / GitHub Git 写入                   | 仅发布阶段需要                                                                         |
 
-规则 Build 与 source-health 现通过 Python 3.11 browser gateway 使用自己的 Worker；安装锁定依赖、启动与退出命令见 [RULE_SOURCES.md](RULE_SOURCES.md)。仅接受 HTTPS Kelee `.lsr`，不能用于插件转换。Node `PROXY_BASE` 设置为 `http://127.0.0.1:13193?url=`，gateway 上游设置为自有 HTTPS Worker；新账号必须独立验证，不能沿用原维护者 Worker 作为长期依赖。
+规则 Build 与 source-health 现通过 Python 3.11 browser gateway 使用自己的 Worker；安装锁定依赖、启动与退出命令见 [RULE_SOURCES.md](RULE_SOURCES.md)。只接受 HTTPS Kelee `.lsr`、`.plugin`、`.lpx`、`.js` 及固定插件目录；目录直连 browser session，其他资源经 Worker。插件转换也设置同一 Node `PROXY_BASE`。Node `PROXY_BASE` 设置为 `http://127.0.0.1:13193?url=`，gateway 上游设置为自有 HTTPS Worker；新账号必须独立验证，不能沿用原维护者 Worker 作为长期依赖。
 
 Worker 的普通基址会被补成 `?url=`，随后直接拼接原始 URL；已有 `/`、`?` 或 `?url=` 的基址会按源码规则保留。自建服务需要兼容实际拼接、响应状态和二进制/文本内容。不要仅把 `PROXY_BASE` 改成不支持此协议的代理地址。规则下载和健康检查应使用一致的请求语义与 User-Agent；诊断时不要把浏览器能访问视为构建可访问的证据。
 
@@ -179,19 +179,21 @@ pnpm run build-web
 
 ### 5.2 插件转换
 
-先完成第 6 节的脚本 URL 替换，否则新生成模块仍会引用原服务。启动与 CI 相同的容器；仅绑定本机端口：
+先完成第 6 节的脚本 URL 替换，否则新生成模块仍会引用原服务。启动上述 gateway，然后在与 CI 一致的 Linux Docker 环境运行。Script-Hub 必须能访问 runner 的 loopback 插件服务，因此使用 host network；普通 Docker 端口映射不能满足这一要求。macOS 上未验证这条容器网络路径，建议先在 Linux 环境验收：
 
 ```bash
 docker run --detach --rm --name mirrrule-script-hub \
-  -p 127.0.0.1:9100:9100 -p 127.0.0.1:9101:9101 \
+  --network host \
   xream/script-hub@sha256:c55180dd41c07567906f17953587c25b61b427b2c5cc6b955721677fd615f470
 curl --fail http://localhost:9101/
-env -u CI pnpm run convert-plugins --wait-service
+env -u CI PROXY_BASE='http://127.0.0.1:13193?url=' \
+  PLUGIN_CONVERSION_REPORT="$PWD/plugin-conversion-report.json" \
+  pnpm run convert-plugins --wait-service
 ```
 
-等待容器就绪后再执行转换。服务与转换器都需要能访问插件及脚本上游。`--wait-service` / `-w` 是 CLI 支持的开关；workflow 中的 `--timeout 600` 当前没有被 CLI 解析，不要依赖它改变超时。
+等待容器就绪后再执行转换。转换器下载并校验本轮插件，再将允许的正文通过临时 loopback 服务交给 Script-Hub；服务在转换结束或异常时关闭。`--wait-service` / `-w` 是 CLI 支持的开关。`PLUGIN_CONVERSION_REPORT` 可将结果写到指定 JSON 文件，包含名称、sourceId、状态、产物名及错误，不包含源 URL。
 
-转换器可能使用本地 fallback；只有依赖脚本具备可用镜像或缓存 URL 后才发布插件。部分插件失败会使 CLI 返回非零，即使已有其他输出。检查转换统计、失败清单、脚本依赖与 provenance，不把“目录存在”视为完成。完成后 `docker stop mirrrule-script-hub`。
+转换器可能使用本地 fallback；只有依赖脚本具备可用镜像或缓存 URL 后才发布插件。部分插件失败会使 CLI 返回非零，即使已有其他输出。检查转换统计、失败清单、脚本依赖与 provenance，不把“目录存在”视为完成。CI 只上传成功转换的真实产物；失败时上传诊断报告并阻止后续合并和发布。完成后 `docker stop mirrrule-script-hub`，并在 gateway 终端按 Ctrl-C。
 
 ### 5.3 模块合并
 
@@ -238,7 +240,7 @@ pnpm run build-web
 | `lucking7/NRRule`                                          | `main.yml` 的模块补齐、缺失目录补齐、PR diff、部署 clone、archive/unarchive；`Build/build-public.ts` canonical 与 badge | 全部指向自己的**产物仓**，不要指向源码仓                                         |
 | `nrrule` / `nrrule.pages.dev`                              | `main.yml` 的 `--project-name` 和成功提示、README 订阅示例、package name                                                | 项目名和实际 Pages 域名分别核实，不假设名称一定可用                              |
 | `nrrule.pages.dev/Scripts`                                 | `Build/integration/plugin-converter/script-location.ts` 的 `SCRIPT_MIRROR_LOCATION`                                     | 改为自己的 Pages 域名和脚本路径；生成 URL 与已镜像识别共用此值                   |
-| `cloudflare-proxy.lucking.workers.dev`                     | `main.yml` 的转换 PROXY_BASE 与 gateway 上游、`check-source-domain.yml` 的 gateway 上游                                 | 换兼容的自有 Worker；直连已验证时可移除配置                                      |
+| `cloudflare-proxy.lucking.workers.dev`                     | `main.yml` 的 gateway 上游、`check-source-domain.yml` 的 gateway 上游                                 | 换兼容的自有 Worker；直连已验证时可移除配置                                      |
 | `lucking7/NRRule` 的 GitHub/GitLab tarball、`NRRule-main/` | `Build/download-previous-build.ts`                                                                                      | 此独立 helper 未由当前主构建调用；若继续使用需同时改 URL、分支与压缩包根目录前缀 |
 | `lucking7/ASN-China`                                       | `Build/download-geoip.ts`                                                                                               | 这是外部 GeoIP 数据源，不能机械改用户名；选择继续依赖、维护镜像或替换有效 URL    |
 | `NRRule`、`@lucking7`、`Luck`、`MirrRule`                  | `Build/build-public.ts` 的标题/页脚/404/平台筛选 localStorage key；模块 YAML author/category；package author；产品说明  | 替换自己的展示身份，历史来源和许可证署名继续保留                                 |

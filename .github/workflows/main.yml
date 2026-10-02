@@ -147,13 +147,6 @@ jobs:
     needs: prepare
     if: contains(fromJSON(needs.prepare.outputs.tasks), 'convert-plugins')
     runs-on: ubuntu-latest
-    services:
-      script-hub:
-        # Docker Hub latest digest retrieved 2026-07-24 (multi-arch, including ARM64).
-        image: xream/script-hub@sha256:c55180dd41c07567906f17953587c25b61b427b2c5cc6b955721677fd615f470
-        ports:
-          - 9100:9100
-          - 9101:9101
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -167,17 +160,59 @@ jobs:
           node-version-file: ".node-version"
           cache: "pnpm"
 
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
       - run: pnpm install --frozen-lockfile
+
+      - name: Install browser gateway dependencies
+        run: python3 -m pip install --requirement Build/browser-rule-requirements.txt
+
+      - name: Run browser gateway tests
+        run: python3 Build/__tests__/browser-rule-gateway.test.py
 
       - name: Setup plugin output directories
         run: mkdir -p public/Modules/Converted public/Scripts
 
+      - name: Start browser rule gateway
+        run: |
+          set -euo pipefail
+          gateway_log="$RUNNER_TEMP/browser-rule-gateway.log"
+          gateway_pid="$RUNNER_TEMP/browser-rule-gateway.pid"
+          nohup python3 Build/browser-rule-gateway.py \
+            --upstream-base https://cloudflare-proxy.lucking.workers.dev \
+            --port 13193 >"$gateway_log" 2>&1 &
+          gateway_pid_value=$!
+          printf '%s\n' "$gateway_pid_value" > "$gateway_pid"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 2 \
+              http://127.0.0.1:13193/health >/dev/null; then
+              echo "✅ Browser rule gateway ready (attempt $attempt/30)"
+              exit 0
+            fi
+            if ! kill -0 "$gateway_pid_value" 2>/dev/null; then
+              echo "❌ Browser rule gateway exited during startup" >&2
+              cat "$gateway_log" >&2 || true
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "❌ Browser rule gateway startup timed out" >&2
+          cat "$gateway_log" >&2 || true
+          exit 1
+
       - name: Configure Script-Hub
         run: |
+          set -euo pipefail
           echo "127.0.0.1 script.hub" | sudo tee -a /etc/hosts
+          docker run --detach --rm \
+            --name mirrrule-script-hub \
+            --network host \
+            xream/script-hub@sha256:c55180dd41c07567906f17953587c25b61b427b2c5cc6b955721677fd615f470
           echo "⏳ 等待 Script-Hub 服务启动..."
           for i in {1..30}; do
-            if curl -f -s http://script.hub:9101/ > /dev/null 2>&1; then
+            if curl --fail --silent --max-time 2 http://script.hub:9101/ > /dev/null 2>&1; then
               echo "✓ Script-Hub 服务就绪 (尝试 $i/30)"
               sleep 10
               exit 0
@@ -189,38 +224,83 @@ jobs:
           exit 1
 
       - name: Convert plugins
-        continue-on-error: true
         run: |
-          pnpm run convert-plugins --wait-service --timeout 600 || {
-            echo "⚠️ 首次转换失败，等待 10 秒后重试..."
-            sleep 10
-            pnpm run convert-plugins --wait-service --timeout 600 || {
-              echo "❌ 两次转换都失败，继续构建流程"
-            }
-          }
+          set -euo pipefail
+          last_status=1
+          for attempt in 1 2; do
+            if pnpm run convert-plugins --wait-service; then
+              exit 0
+            else
+              last_status=$?
+            fi
+            if [ "$attempt" -lt 2 ]; then
+              echo "⚠️ 首次转换失败，等待 10 秒后重试..."
+              sleep 10
+            fi
+          done
+          echo "❌ 两次转换都失败" >&2
+          exit "$last_status"
         env:
           CI: true
-          # Maintainer-controlled Worker fallback; provenance and SHA-256 warnings flag content changes.
-          PROXY_BASE: https://cloudflare-proxy.lucking.workers.dev
+          PROXY_BASE: http://127.0.0.1:13193?url=
+          PLUGIN_CONVERSION_REPORT: ${{ runner.temp }}/plugin-conversion-report.json
 
-      - name: Prepare plugin artifact marker
-        if: always()
+      - name: Verify converted outputs
         run: |
-          mkdir -p public/_artifacts
-          printf 'plugin-output-ready\n' > public/_artifacts/plugin-output-ready
+          set -euo pipefail
+          converted_count=$(find public/Modules/Converted -type f -name '*.sgmodule' -size +0c | wc -l)
+          if [ "$converted_count" -eq 0 ]; then
+            echo "❌ Plugin conversion produced no non-empty .sgmodule files" >&2
+            exit 1
+          fi
+          echo "✅ Plugin conversion produced $converted_count non-empty .sgmodule files"
 
       - name: Upload plugin conversion output
-        if: always()
+        if: success()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: plugin-output-${{ github.sha }}-${{ github.run_number }}
           path: |
-            public/_artifacts
             public/Modules/Converted
             public/Scripts
           retention-days: 1
           compression-level: 4
-          if-no-files-found: warn
+          if-no-files-found: error
+
+      - name: Upload plugin conversion report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: plugin-conversion-report-${{ github.sha }}-${{ github.run_number }}
+          path: ${{ runner.temp }}/plugin-conversion-report.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Stop plugin conversion services
+        if: always()
+        run: |
+          pid_file="$RUNNER_TEMP/browser-rule-gateway.pid"
+          if [ -f "$pid_file" ]; then
+            pid=$(cat "$pid_file")
+            if kill -0 "$pid" 2>/dev/null; then
+              kill "$pid" 2>/dev/null || true
+              for _ in $(seq 1 10); do
+                kill -0 "$pid" 2>/dev/null || break
+                sleep 1
+              done
+              kill -9 "$pid" 2>/dev/null || true
+            fi
+          fi
+          docker rm --force mirrrule-script-hub 2>/dev/null || true
+
+      - name: Upload browser gateway log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: plugin-browser-rule-gateway-log-${{ github.sha }}-${{ github.run_number }}
+          path: ${{ runner.temp }}/browser-rule-gateway.log
+          retention-days: 7
+          if-no-files-found: ignore
 
   # ============================================
   # 模块合并任务 - 不需要 Script-Hub 服务
@@ -260,6 +340,7 @@ jobs:
 
       - name: Ensure converted modules exist
         run: |
+          set -euo pipefail
           CONVERTED_DIR="public/Modules/Converted"
           if [ -d "$CONVERTED_DIR" ]; then
             FILE_COUNT=$(find "$CONVERTED_DIR" -type f -name '*.sgmodule' 2>/dev/null | wc -l)
@@ -272,11 +353,17 @@ jobs:
             exit 0
           fi
 
-          echo "📥 转换后的模块文件缺失，从生产环境下载..."
+          CONVERSION_REQUESTED="${{ contains(fromJSON(needs.prepare.outputs.tasks), 'convert-plugins') }}"
+          if [ "$CONVERSION_REQUESTED" = "true" ]; then
+            echo "❌ Plugin conversion was requested, but its artifact contains no converted modules" >&2
+            exit 1
+          fi
+
+          echo "📥 No conversion was requested; downloading existing converted modules..."
           git clone --depth=1 --filter=blob:none --sparse \
             https://github.com/lucking7/NRRule.git ./temp-converted 2>/dev/null || {
-            echo "⚠️ 无法下载生产环境的模块文件，模块合并可能失败"
-            exit 0
+            echo "❌ Unable to download existing converted modules" >&2
+            exit 1
           }
           cd ./temp-converted
           git sparse-checkout set Modules/Converted
@@ -285,9 +372,15 @@ jobs:
           mkdir -p "$CONVERTED_DIR"
           if [ -d "temp-converted/Modules/Converted" ]; then
             cp -r temp-converted/Modules/Converted/* "$CONVERTED_DIR/" 2>/dev/null || true
-            echo "✅ 从生产环境下载了 $(find "$CONVERTED_DIR" -type f -name '*.sgmodule' 2>/dev/null | wc -l) 个模块文件"
           fi
           rm -rf ./temp-converted
+
+          FILE_COUNT=$(find "$CONVERTED_DIR" -type f -name '*.sgmodule' 2>/dev/null | wc -l)
+          if [ "$FILE_COUNT" -eq 0 ]; then
+            echo "❌ Existing converted modules are unavailable" >&2
+            exit 1
+          fi
+          echo "✅ Downloaded $FILE_COUNT existing converted modules"
 
       - name: Merge modules
         run: |

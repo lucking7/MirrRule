@@ -324,27 +324,139 @@ describe('GitHub Actions workflow contract', () => {
     assert.match(String(getStep(healthJob, 'Stop browser rule gateway').run), /kill/);
   });
 
-  it('runs Script-Hub only in the plugin conversion job', () => {
+  it('runs the pinned Script-Hub container on the host network only for plugin conversion', () => {
     const convertJob = getJob('convert-plugins');
 
-    // Supply-chain contract: the Script-Hub image must be pinned by digest,
-    // not a mutable tag (see plans/009-pin-ci-publishing-supply-chain.md).
+    assert.equal(convertJob.services?.['script-hub'], undefined);
+    const configureStep = getStep(convertJob, 'Configure Script-Hub');
+    const configureScript = String(configureStep.run);
+    assert.match(configureScript, /docker run/);
+    assert.match(configureScript, /--name mirrrule-script-hub/);
+    assert.match(configureScript, /--network host/);
     assert.match(
-      convertJob.services?.['script-hub']?.image ?? '',
-      /^xream\/script-hub@sha256:[\da-f]{64}$/,
+      configureScript,
+      /xream\/script-hub@sha256:c55180dd41c07567906f17953587c25b61b427b2c5cc6b955721677fd615f470/,
     );
+    assert.match(configureScript, /127\.0\.0\.1 script\.hub/);
     assert.match(
       convertJob.if ?? '',
       /contains\(fromJSON\(needs\.prepare\.outputs\.tasks\), 'convert-plugins'\)/,
     );
-    assert.equal(hasStep(convertJob, 'Configure Script-Hub'), true);
     assert.equal(hasStep(convertJob, 'Convert plugins'), true);
-    assert.equal(hasStep(convertJob, 'Prepare plugin artifact marker'), true);
+    assert.equal(hasStep(convertJob, 'Prepare plugin artifact marker'), false);
+    assert.equal(hasStep(convertJob, 'Verify converted outputs'), true);
     assert.equal(hasStep(convertJob, 'Upload plugin conversion output'), true);
+    assert.equal(hasStep(convertJob, 'Stop plugin conversion services'), true);
 
     const uploadStep = getStep(convertJob, 'Upload plugin conversion output');
-    assert.match(String(uploadStep.if), /always\(\)/);
-    assert.match(String(uploadStep.with?.path), /public\/_artifacts/);
+    assert.match(String(uploadStep.if), /success\(\)/);
+    assert.doesNotMatch(String(uploadStep.with?.path), /public\/_artifacts/);
+    assert.match(String(uploadStep.with?.path), /public\/Modules\/Converted/);
+    assert.match(String(uploadStep.with?.path), /public\/Scripts/);
+    assert.equal(uploadStep.with?.['if-no-files-found'], 'error');
+
+    const cleanupStep = getStep(convertJob, 'Stop plugin conversion services');
+    assert.match(String(cleanupStep.if), /always\(\)/);
+    assert.match(String(cleanupStep.run), /docker rm --force mirrrule-script-hub/);
+  });
+
+  it('runs the browser gateway before plugin conversion and always uploads its diagnostics', () => {
+    const convertJob = getJob('convert-plugins');
+    const pythonSetup = convertJob.steps?.find((step) =>
+      step.uses?.startsWith('actions/setup-python@'),
+    );
+    assert.equal(
+      pythonSetup?.uses,
+      'actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065',
+    );
+    assert.equal(pythonSetup.with?.['python-version'], '3.11');
+    assert.match(
+      String(getStep(convertJob, 'Install browser gateway dependencies').run),
+      /Build\/browser-rule-requirements\.txt/,
+    );
+    assert.match(
+      String(getStep(convertJob, 'Run browser gateway tests').run),
+      /python3 Build\/__tests__\/browser-rule-gateway\.test\.py/,
+    );
+
+    const startStep = getStep(convertJob, 'Start browser rule gateway');
+    assert.match(String(startStep.run), /--port 13193/);
+    assert.match(
+      String(startStep.run),
+      /--upstream-base https:\/\/cloudflare-proxy\.lucking\.workers\.dev/,
+    );
+    assert.match(String(startStep.run), /127\.0\.0\.1:13193\/health/);
+    assert.match(String(startStep.run), /seq 1 30/);
+    assert.match(String(startStep.run), /--max-time 2/);
+
+    const convertStep = getStep(convertJob, 'Convert plugins');
+    assert.equal(convertStep.env?.PROXY_BASE, 'http://127.0.0.1:13193?url=');
+    assert.equal(convertStep['continue-on-error'], undefined);
+    assert.doesNotMatch(String(convertStep.run), /--timeout/);
+
+    const logUpload = getStep(convertJob, 'Upload browser gateway log');
+    assert.match(String(logUpload.if), /always\(\)/);
+    assert.equal(
+      logUpload.with?.path,
+      githubExpression('runner.temp') + '/browser-rule-gateway.log',
+    );
+  });
+
+  it('propagates the final plugin conversion failure after one bounded retry', () => {
+    const convertScript = String(getStep(getJob('convert-plugins'), 'Convert plugins').run);
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-convert-retry-'));
+    const binDir = path.join(tempDir, 'bin');
+    const attemptFile = path.join(tempDir, 'attempts');
+    fs.mkdirSync(binDir);
+    fs.writeFileSync(
+      path.join(binDir, 'pnpm'),
+      '#!/bin/bash\ncount=0\n[ ! -f "$ATTEMPT_FILE" ] || count=$(<"$ATTEMPT_FILE")\nprintf "%s\\n" "$((count + 1))" > "$ATTEMPT_FILE"\nexit 17\n',
+      { mode: 0o755 },
+    );
+    fs.writeFileSync(path.join(binDir, 'sleep'), '#!/bin/bash\nexit 0\n', {
+      mode: 0o755,
+    });
+
+    try {
+      let exitStatus: number | undefined;
+      try {
+        execFileSync('/bin/bash', ['-c', convertScript], {
+          cwd: tempDir,
+          env: {
+            ...process.env,
+            ATTEMPT_FILE: attemptFile,
+            PATH: `${binDir}:${process.env.PATH ?? ''}`,
+          },
+          stdio: 'pipe',
+        });
+      } catch (error) {
+        exitStatus = (error as { status?: number }).status;
+      }
+      assert.equal(exitStatus, 17);
+      assert.equal(fs.readFileSync(attemptFile, 'utf8').trim(), '2');
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects zero converted modules before artifact upload', () => {
+    const verifyScript = String(
+      getStep(getJob('convert-plugins'), 'Verify converted outputs').run,
+    );
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-convert-output-'));
+    try {
+      fs.mkdirSync(path.join(tempDir, 'public', 'Modules', 'Converted'), {
+        recursive: true,
+      });
+      assert.throws(() => {
+        execFileSync('/bin/bash', ['-eu', '-o', 'pipefail', '-c', verifyScript], {
+          cwd: tempDir,
+          stdio: 'pipe',
+        });
+      });
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   it('merges modules without starting a Script-Hub service', () => {
@@ -370,6 +482,9 @@ describe('GitHub Actions workflow contract', () => {
 
     const ensureStep = getStep(mergeJob, 'Ensure converted modules exist');
     assert.equal(ensureStep.if, undefined);
+    assert.match(String(ensureStep.run), /conversion was requested/i);
+    assert.match(String(ensureStep.run), /exit 1/);
+    assert.match(String(ensureStep.run), /existing converted modules/i);
 
     assert.equal(hasStep(mergeJob, 'Merge modules'), true);
     assert.equal(hasStep(mergeJob, 'Upload module output'), true);

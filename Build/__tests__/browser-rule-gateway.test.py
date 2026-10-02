@@ -1,6 +1,7 @@
 import http.client
 import importlib.util
 import io
+import json
 import logging
 from pathlib import Path
 import threading
@@ -104,6 +105,175 @@ def rule_path(target):
 
 
 class BrowserRuleGatewayTest(unittest.TestCase):
+    def test_plugin_catalog_is_fetched_directly_and_returned_as_json(self):
+        catalog_body = json.dumps(
+            {
+                "plugins": [
+                    {
+                        "name": "Bilibili",
+                        "download": "https://kelee.one/Tool/Loon/Plugin/Bilibili.plugin",
+                    },
+                    {
+                        "nested": {
+                            "url": "https://kelee.one/Tool/Loon/Plugin/YouTube.lpx"
+                        }
+                    },
+                ]
+            }
+        ).encode()
+        response = FakeResponse(body=catalog_body)
+        factory = FakeBrowserFactory([response])
+
+        with GatewayHarness(factory) as harness:
+            status, headers, body = harness.request(
+                "GET",
+                rule_path("https://hub.kelee.one/list.json"),
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "application/json; charset=utf-8")
+        self.assertEqual(body, catalog_body)
+        self.assertEqual(factory.calls[0][0], "https://hub.kelee.one/list.json")
+        self.assertEqual(factory.created_sessions, 1)
+        self.assertEqual(factory.closed_sessions, 1)
+        self.assertTrue(response.closed)
+
+    def test_plugin_catalog_rejects_invalid_or_oversized_json(self):
+        outcomes = [
+            FakeResponse(body=b"not-json"),
+            FakeResponse(body=b'{"plugins": []}'),
+            FakeResponse(body=b'{"url": "https://kelee.one/file.txt"}'),
+            FakeResponse(body=b"\xff\xfe"),
+            FakeResponse(
+                body=b'{}',
+                headers={"Content-Length": str(gateway.MAX_RESPONSE_BYTES + 1)},
+            ),
+        ]
+        factory = FakeBrowserFactory(outcomes)
+
+        with GatewayHarness(factory) as harness:
+            statuses = [
+                harness.request(
+                    "GET",
+                    rule_path("https://hub.kelee.one/list.json"),
+                )[0]
+                for _ in outcomes
+            ]
+
+        self.assertEqual(statuses, [502, 502, 502, 502, 502])
+
+    def test_plugin_catalog_accepts_encoded_loon_install_links(self):
+        catalog_body = json.dumps({"plugins": [{"url":
+            "loon://install-plugin?url=https%3A%2F%2Fkelee.one%2Ftest.lpx%3Fversion%3D2"
+        }]}).encode()
+        factory = FakeBrowserFactory([FakeResponse(body=catalog_body)])
+        with GatewayHarness(factory) as harness:
+            status, _, body = harness.request("GET", rule_path("https://hub.kelee.one/list.json"))
+        self.assertEqual(status, 200)
+        self.assertEqual(body, catalog_body)
+        self.assertFalse(gateway.is_plugin_catalog(b'{"url":"https://[/test.lpx"}'))
+        self.assertFalse(gateway.is_plugin_catalog(b'{"url":"loon://install-plugin?url=https%3A%2F%2Fu%3Ap%40kelee.one%2Ftest.lpx"}'))
+
+    def test_plugin_resources_use_the_worker_and_require_plugin_structure(self):
+        plugin_body = (
+            b"#!name=Bilibili\n"
+            b"[Script]\n"
+            b"http-response ^https://example.com script-path=https://example.com/a.js\n"
+        )
+        response = FakeResponse(body=plugin_body)
+        factory = FakeBrowserFactory([response])
+
+        with GatewayHarness(factory) as harness:
+            target = "https://kelee.one/Tool/Loon/Plugin/Bilibili.plugin"
+            status, headers, body = harness.request("GET", rule_path(target))
+
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "text/plain; charset=utf-8")
+        self.assertEqual(body, plugin_body)
+        query = parse_qs(urlsplit(factory.calls[0][0]).query)
+        self.assertEqual(query["url"], [target])
+
+    def test_lpx_accepts_crlf_and_head_still_validates_the_body(self):
+        plugin_body = b"#!name = YouTube\r\n  [General]  \r\nforce-http-engine = example.com\r\n"
+        response = FakeResponse(body=plugin_body)
+        factory = FakeBrowserFactory([response])
+
+        with GatewayHarness(factory) as harness:
+            status, headers, body = harness.request(
+                "HEAD",
+                rule_path("https://kelee.one/Tool/Loon/Plugin/YouTube.lpx"),
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body, b"")
+        self.assertEqual(headers["Content-Length"], str(len(plugin_body)))
+        self.assertEqual(factory.calls[0][1]["allow_redirects"], False)
+
+    def test_plugin_resources_reject_invalid_content_and_validate_head_bodies(self):
+        outcomes = [
+            FakeResponse(body=b"#!name=Missing section\n"),
+            FakeResponse(body=b"[Script]\nvalue=1\n"),
+            FakeResponse(body=b"#!name=Unknown\n[Unknown]\nvalue=1\n"),
+            FakeResponse(body=b"<!doctype html><html>challenge</html>"),
+            FakeResponse(body=b"\xff\xfe"),
+        ]
+        factory = FakeBrowserFactory(outcomes)
+
+        with GatewayHarness(factory) as harness:
+            statuses = [
+                harness.request(
+                    "HEAD",
+                    rule_path("https://kelee.one/Tool/Loon/Plugin/Test.lpx"),
+                )[0]
+                for _ in outcomes
+            ]
+
+        self.assertEqual(statuses, [502, 502, 502, 502, 502])
+        self.assertTrue(all(call[1]["stream"] for call in factory.calls))
+
+    def test_script_resources_use_the_worker_and_return_utf8_javascript(self):
+        script_body = "const message = '你好';\n$done({ body: message });\n".encode()
+        response = FakeResponse(body=script_body)
+        factory = FakeBrowserFactory([response])
+
+        with GatewayHarness(factory) as harness:
+            target = "https://kelee.one/Resource/Script/Bilibili.js?token=do-not-log"
+            status, headers, body = harness.request("GET", rule_path(target))
+            logs = harness.log_stream.getvalue()
+
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            headers["Content-Type"],
+            "application/javascript; charset=utf-8",
+        )
+        self.assertEqual(body, script_body)
+        query = parse_qs(urlsplit(factory.calls[0][0]).query)
+        self.assertEqual(query["url"], [target])
+        self.assertIn("https://kelee.one/Resource/Script/Bilibili.js", logs)
+        self.assertNotIn("do-not-log", logs)
+
+    def test_script_resources_reject_html_challenges_empty_and_non_utf8_content(self):
+        outcomes = [
+            FakeResponse(body=b"<!doctype html><html>blocked</html>"),
+            FakeResponse(body=b"<html>Just a moment...</html>"),
+            FakeResponse(body=b"window.location='/cdn-cgi/challenge-platform/test';"),
+            FakeResponse(body=b"Enable JavaScript and cookies to continue"),
+            FakeResponse(body=b" \n\t"),
+            FakeResponse(body=b"\xff\xfe"),
+        ]
+        factory = FakeBrowserFactory(outcomes)
+
+        with GatewayHarness(factory) as harness:
+            statuses = [
+                harness.request(
+                    "GET",
+                    rule_path("https://kelee.one/Resource/Script/Test.js"),
+                )[0]
+                for _ in outcomes
+            ]
+
+        self.assertEqual(statuses, [502, 502, 502, 502, 502, 502])
+
     def test_valid_get_and_head_use_independent_browser_sessions(self):
         rule_body = b"# RuleCount: 11\nDOMAIN, cesu-hz.zjtelecom.com.cn\nDOMAIN, 4gsuzhou1.speedtest.jsinfo.net\n"
         get_response = FakeResponse(body=rule_body)
@@ -149,6 +319,10 @@ class BrowserRuleGatewayTest(unittest.TestCase):
             rule_path("https://evilkelee.one/path/test.lsr"),
             rule_path("https://user:pass@rule.kelee.one/path/test.lsr"),
             rule_path("https://rule.kelee.one/path/test.list"),
+            rule_path("https://rule.kelee.one/list.json"),
+            rule_path("https://hub.kelee.one/path/list.json"),
+            rule_path("https://hub.kelee.one/list.json?cache=bust"),
+            rule_path("https://kelee.one/path/test.css"),
             rule_path("https://rule.kelee.one:8443/path/test.lsr"),
             "/?url=https%3A%2F%2Frule.kelee.one%2Fa.lsr&url=https%3A%2F%2Frule.kelee.one%2Fb.lsr",
             "/?url=https%3A%2F%2Frule.kelee.one%2Fa.lsr&extra=1",

@@ -11,12 +11,15 @@ import { applyProxyIfNeeded, shouldUseProxy } from '../../utils/network/proxy';
 import type { PluginConversionResult, PluginInfo, ConversionConfig } from './types.ts';
 import { getErrorMessage } from '../../lib/misc';
 import { identifyPluginSource } from './plugin-identity';
+import { getPluginContent } from './plugin-mirror';
+import type { PluginMirrorOptions } from './plugin-mirror';
+import { startLocalPluginServer } from './local-plugin-server';
 
 /**
  * Script-Hub API 配置
  *
  * 本地开发：使用 localhost
- * GitHub Actions：使用 script.hub（通过 services 自动启动）
+ * GitHub Actions：使用 script.hub（host-network 容器）
  */
 const SCRIPT_HUB_CONFIG = {
   host: process.env.CI ? 'script.hub' : 'localhost',
@@ -61,6 +64,37 @@ function buildConversionUrlFromRemote(
   return `${baseUrl}?${query}`;
 }
 
+interface ScriptHubResponse {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  text: () => Promise<string>
+}
+
+type ScriptHubFetch = (
+  url: string,
+  init?: Parameters<typeof $$fetch>[1]
+) => Promise<ScriptHubResponse>;
+
+interface RemoteConversionOptions {
+  sourceUrls: ReadonlyMap<string, string>;
+  fetchFn?: ScriptHubFetch
+}
+
+export interface LocalMirrorConversionOptions {
+  mirrorOptions?: PluginMirrorOptions;
+  scriptHubFetchFn?: ScriptHubFetch
+}
+
+export interface LocalMirrorPluginConversionResult extends PluginConversionResult {
+  failureStage?: 'download' | 'script-hub'
+}
+
+function describeSource(sourceUrl: string): string {
+  const parsed = new URL(sourceUrl);
+  return `${parsed.hostname}${parsed.pathname}`;
+}
+
 /**
  * 批量转换插件 (从远程 URL，推荐使用)
  *
@@ -69,10 +103,11 @@ function buildConversionUrlFromRemote(
  * @param concurrency - 并发数
  * @returns 转换结果数组
  */
-export async function convertPluginsBatchFromRemote(
+async function convertPluginsBatchFromRemote(
   plugins: PluginInfo[],
-  config?: ConversionConfig,
-  concurrency = 5
+  config: ConversionConfig | undefined,
+  concurrency: number,
+  options: RemoteConversionOptions
 ): Promise<PluginConversionResult[]> {
   const results: PluginConversionResult[] = [];
 
@@ -97,8 +132,10 @@ export async function convertPluginsBatchFromRemote(
     const batchResults = await Promise.all(
       batch.map(async plugin => {
         const identity = identifyPluginSource(plugin);
+        const sourceUrl = options.sourceUrls.get(identity.sourceId);
+        if (!sourceUrl) throw new Error(`Missing staged plugin source: ${identity.sourceId}`);
         const url = buildConversionUrlFromRemote(
-          plugin.url,
+          sourceUrl,
           plugin.name,
           config || {
             sourceType: 'loon-plugin',
@@ -107,16 +144,12 @@ export async function convertPluginsBatchFromRemote(
         );
 
         // kelee.one/rule.kelee.one 通过 PROXY_BASE 加速，并显式传入 Loon/Surge UA。
-        const usesProxy = shouldUseProxy(plugin.url);
+        const usesProxy = shouldUseProxy(sourceUrl);
         const proxyIndicator = usesProxy ? picocolors.yellow(' [PROXY+UA]') : '';
 
-        console.log(picocolors.gray(`[Convert] ${plugin.name}${proxyIndicator}`));
-        if (usesProxy) {
-          console.log(picocolors.yellow(`  Source: ${plugin.url}`));
-          console.log(picocolors.yellow(`  Via proxy: ${applyProxyIfNeeded(plugin.url)}`));
-          console.log(picocolors.yellow(`  Headers: User-Agent: ${UA_SURGE_MAC}`));
-        }
-        console.log(picocolors.gray(`  URL: ${url}`));
+        console.log(picocolors.gray(
+          `[Convert] name=${plugin.name} source=${describeSource(sourceUrl)} status=starting${proxyIndicator}`
+        ));
 
         let lastError = '';
         const maxRetries = 3;
@@ -137,7 +170,7 @@ export async function convertPluginsBatchFromRemote(
               });
             }
 
-            const response = await $$fetch(url, {
+            const response = await (options.fetchFn ?? $$fetch)(url, {
               ...defaultRequestInit,
               headers: {
                 'User-Agent': UA_SURGE_MAC,
@@ -234,6 +267,83 @@ export async function convertPluginsBatchFromRemote(
   }
 
   return results;
+}
+
+/**
+ * Refresh plugins on the runner, expose only valid bodies on loopback, then ask Script-Hub to
+ * convert those local URLs. Canonical upstream identity remains attached to every result.
+ */
+export async function convertPluginsBatchFromLocalMirror(
+  plugins: PluginInfo[],
+  config?: ConversionConfig,
+  concurrency = 5,
+  options: LocalMirrorConversionOptions = {}
+): Promise<LocalMirrorPluginConversionResult[]> {
+  const downloaded = new Map<string, string>();
+  const downloadFailures = new Map<string, LocalMirrorPluginConversionResult>();
+
+  for (let i = 0; i < plugins.length; i += concurrency) {
+    const batch = plugins.slice(i, i + concurrency);
+    await Promise.all(batch.map(async plugin => {
+      const identity = identifyPluginSource(plugin);
+      const key = `${identity.sourceId}\0${plugin.name}`;
+      const result = await getPluginContent(plugin, true, options.mirrorOptions);
+
+      if (!result.success || !result.content || result.degraded) {
+        downloadFailures.set(key, {
+          pluginName: plugin.name,
+          ...identity,
+          content: {
+            error: `Plugin download failed: ${result.error ?? 'fresh plugin content unavailable'}`,
+          },
+          failureStage: 'download',
+        });
+        return;
+      }
+
+      downloaded.set(key, result.content);
+    }));
+  }
+
+  const readyPlugins = plugins.filter(plugin => {
+    const identity = identifyPluginSource(plugin);
+    return downloaded.has(`${identity.sourceId}\0${plugin.name}`);
+  });
+  if (readyPlugins.length === 0) {
+    return plugins.map(plugin => {
+      const identity = identifyPluginSource(plugin);
+      return downloadFailures.get(`${identity.sourceId}\0${plugin.name}`)!;
+    });
+  }
+
+  const server = await startLocalPluginServer(readyPlugins.map(plugin => {
+    const identity = identifyPluginSource(plugin);
+    return {
+      plugin,
+      content: downloaded.get(`${identity.sourceId}\0${plugin.name}`)!,
+    };
+  }));
+
+  try {
+    const converted = await convertPluginsBatchFromRemote(readyPlugins, config, concurrency, {
+      sourceUrls: server.sourceUrls,
+      fetchFn: options.scriptHubFetchFn,
+    });
+    const convertedByKey = new Map(converted.map(result => [
+      `${result.sourceId}\0${result.pluginName}`,
+      typeof result.content === 'string'
+        ? result
+        : { ...result, failureStage: 'script-hub' as const },
+    ]));
+
+    return plugins.map(plugin => {
+      const identity = identifyPluginSource(plugin);
+      const key = `${identity.sourceId}\0${plugin.name}`;
+      return downloadFailures.get(key) ?? convertedByKey.get(key)!;
+    });
+  } finally {
+    await server.close();
+  }
 }
 
 /**
