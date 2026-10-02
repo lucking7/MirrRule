@@ -42,7 +42,7 @@ ce-simplify-code 复查：复用 0 项直接应用；质量 4 项应用；效率
 | N4 | TS issueAction 与 workflow deadStreak 判断重复 | 收敛三次失败决策；中风险；持久故障与当次 transition 不同 | 拒绝原切法 |
 | N7 | source inventory 与 health 的 URL 脱敏重复 | 去安全规则双维护；中低风险；source ID/报告值等价比较 | 已实施 |
 | N10 | IPValidator.isIpCidr 仅 tests 使用 | 小收益；内部 API shape 变化；完整 IPValidator 接口/测试仍可用 | 拒绝，小收益且切除可用 API |
-| C1 | previous-build/mock modules 重复 tarball transport，两个 CLI 均保留 | 去双份下载状态机；中低风险；HTTP/tar fixture 和两入口验收 | 待实施 |
+| C1 | previous-build/mock modules 重复 tarball transport，两个 CLI 均保留 | 去双份下载状态机；中低风险；HTTP/tar fixture；两入口 live 待验收 | 已实施 |
 
 ## 明确保留或拒绝
 
@@ -97,3 +97,11 @@ Verify：固定输入含注释/空/unknown/unsupported/malformed/逻辑规则/po
 Before/Cut/After：inventory identity 与 health report 分别维护同一敏感 query regex 和 credentials 处理。统一到 utils/network/url-redaction；health 仍 re-export 原函数名，原始 entry.url、source ID prefix、fragment 与无效 URL 的当前行为全部保留。净减少一份安全规则维护点，新增一个内部 helper，无配置/存储迁移。
 
 Verify：固定 URL corpus 覆盖重复 query、大小写、credentials、fragment、无效 URL；8 项 redaction/health/inventory tests 通过。原实现与两调用方在固定 corpus 和调查期随机输入对照相同；持久化 ID 不变。typecheck、Knip 通过，最终 integrated suite 另跑；无生成物或 state 改写。四个源码/测试文件及 receipt 独立 commit 可 revert。
+
+## C1 批次回执
+
+Before：previous-build 与 mock-modules 两 CLI 各自维护 HEAD 源选择、相同 undici.pipeline GET/profile/status 分发。二者均有 CLI/文档消费者，必须保留；路径过滤、根前缀、category 后处理和 required failure 属于各入口。
+
+Cut/After：选择和 GET body 初始化统一到 tarball-utils；每入口保留 UA、trace、日志/404 文案、过滤与生命周期。HEAD 继续 requestWithLog，>=400 抛错不改成 fallback；新 helper 不引入另一个 dispatcher/cache/retry。headStatus 原两个外部内部调用被 chooseTarballUrl 接管，rg/Knip 证实 export 无剩余消费者，仅将其私有化而不删除 HEAD 实现。净减少两份 transport 状态机，独特分支仍由各 CLI 所有。
+
+Verify：真实 loopback HTTP + tar.gz fixture 检查 HEAD 200/304 fallback/404 无 fallback，GET 两种现有 UA、same-origin、200 解包原字节及 caller-specific 404。两个定向 tests 通过，typecheck/diff-check 通过。完整 tests 在批次整合中通过；Knip 曾发现 headStatus dead export，收窄后重新通过。生产 URL 未在本批访问，previous-build 与 mock 的实网执行留到最终独立目录/runner，不能用 fixture 冒充。源码与 fixture tests 独立 commit 可 revert。

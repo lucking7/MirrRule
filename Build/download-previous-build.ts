@@ -2,7 +2,6 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import zlib from 'node:zlib';
-import undici from 'undici';
 import picocolors from 'picocolors';
 
 import { task } from './trace';
@@ -11,7 +10,7 @@ import { isDirectoryEmptySync } from './lib/misc';
 import type { Headers as TarEntryHeaders } from 'tar-fs';
 import { extract as tarExtract } from 'tar-fs';
 import { isCI } from 'ci-info';
-import { headStatus } from './lib/tarball-utils.ts';
+import { chooseTarballUrl, getTarballBody } from './lib/tarball-utils.ts';
 
 const GITHUB_CODELOAD_URL = 'https://codeload.github.com/lucking7/NRRule/tar.gz/main';
 const GITLAB_CODELOAD_URL =
@@ -31,39 +30,20 @@ export const downloadPreviousBuild = task(
     throw new Error('CI environment detected, but public directory is empty');
   }
 
-  const tarGzUrl = await span.traceChildAsync('get tar.gz url', async () => {
-    const statusCode = await headStatus(GITHUB_CODELOAD_URL);
-    if (statusCode !== 200) {
+  const tarGzUrl = await span.traceChildAsync('get tar.gz url', () =>
+    chooseTarballUrl(GITHUB_CODELOAD_URL, GITLAB_CODELOAD_URL, statusCode => {
       console.warn('Download previous build from GitHub failed! Status:', statusCode);
       console.warn('Switch to GitLab');
-      return GITLAB_CODELOAD_URL;
-    }
-    return GITHUB_CODELOAD_URL;
-  });
+    })
+  );
 
   return span.traceChildAsync('download & extract previous build', () => {
-    const respBody = undici
-      .pipeline(
-        tarGzUrl,
-        {
-          method: 'GET',
-          headers: {
-            'User-Agent': 'curl/8.12.1',
-            // 规避部分服务对 UA/Fetch-Mode 的限制
-            'sec-fetch-mode': 'same-origin',
-          },
-        },
-        ({ statusCode, body }) => {
-          if (statusCode !== 200) {
-            console.warn('Download previous build failed! Status:', statusCode);
-            if (statusCode === 404) {
-              throw new Error('Download previous build failed! 404');
-            }
-          }
-          return body;
-        }
-      )
-      .end();
+    const respBody = getTarballBody(tarGzUrl, 'curl/8.12.1', statusCode => {
+      console.warn('Download previous build failed! Status:', statusCode);
+      if (statusCode === 404) {
+        throw new Error('Download previous build failed! 404');
+      }
+    });
 
     const pathPrefix = 'NRRule-main/';
 

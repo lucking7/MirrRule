@@ -7,7 +7,6 @@ import { task } from './trace';
 import { extract as tarExtract } from 'tar-fs';
 import type { Headers as TarEntryHeaders } from 'tar-fs';
 import zlib from 'node:zlib';
-import undici from 'undici';
 import picocolors from 'picocolors';
 import { OUTPUT_MOCK_DIR, OUTPUT_MODULES_DIR, OUTPUT_SUKKA_MIRROR_DIR } from './constants/dir';
 import { UA_MIRROR } from './constants/user-agents';
@@ -17,7 +16,7 @@ import {
   shouldUpdateFile
 } from './integration/mirror-sync/sync-engine';
 import type { PipelineResult } from './integration/mirror-sync/sync-engine';
-import { headStatus } from './lib/tarball-utils.ts';
+import { chooseTarballUrl, getTarballBody } from './lib/tarball-utils.ts';
 import { getErrorMessage } from './lib/misc';
 
 const GITHUB_CODELOAD_URL = 'https://codeload.github.com/SukkaLab/ruleset.skk.moe/tar.gz/master';
@@ -62,15 +61,12 @@ export const downloadMockAndModules = task(
   console.log(picocolors.gray(`  mock: ${OUTPUT_MOCK_DIR}`));
   console.log(picocolors.gray(`  sgmodule: ${OUTPUT_MODULES_DIR}\n`));
 
-  const tarGzUrl = await span.traceChildAsync('获取 tar.gz URL', async () => {
-    const statusCode = await headStatus(GITHUB_CODELOAD_URL);
-    if (statusCode !== 200) {
+  const tarGzUrl = await span.traceChildAsync('获取 tar.gz URL', () =>
+    chooseTarballUrl(GITHUB_CODELOAD_URL, GITLAB_CODELOAD_URL, statusCode => {
       console.warn(picocolors.yellow('从 GitHub 下载失败！状态码:'), statusCode);
       console.warn(picocolors.yellow('切换到 GitLab'));
-      return GITLAB_CODELOAD_URL;
-    }
-    return GITHUB_CODELOAD_URL;
-  });
+    })
+  );
 
   await span.traceChildAsync('下载并解压 mock 和 sgmodule', async () => {
     const result = createPipelineResult();
@@ -80,27 +76,12 @@ export const downloadMockAndModules = task(
       await fsp.mkdir(tempDir, { recursive: true });
 
       console.log(picocolors.cyan('Downloading tar.gz...'));
-      const respBody = undici
-        .pipeline(
-          tarGzUrl,
-          {
-            method: 'GET',
-            headers: {
-              'User-Agent': UA_MIRROR,
-              'sec-fetch-mode': 'same-origin'
-            }
-          },
-          ({ statusCode, body }) => {
-            if (statusCode !== 200) {
-              console.warn(picocolors.red('下载失败！状态码:'), statusCode);
-              if (statusCode === 404) {
-                throw new Error('下载失败！404');
-              }
-            }
-            return body;
-          }
-        )
-        .end();
+      const respBody = getTarballBody(tarGzUrl, UA_MIRROR, statusCode => {
+        console.warn(picocolors.red('下载失败！状态码:'), statusCode);
+        if (statusCode === 404) {
+          throw new Error('下载失败！404');
+        }
+      });
 
       const pathPrefix = 'ruleset.skk.moe-master/';
       const extractedFiles: string[] = [];
