@@ -105,3 +105,18 @@ Before：previous-build 与 mock-modules 两 CLI 各自维护 HEAD 源选择、�
 Cut/After：选择和 GET body 初始化统一到 tarball-utils；每入口保留 UA、trace、日志/404 文案、过滤与生命周期。HEAD 继续 requestWithLog，>=400 抛错不改成 fallback；新 helper 不引入另一个 dispatcher/cache/retry。headStatus 原两个外部内部调用被 chooseTarballUrl 接管，rg/Knip 证实 export 无剩余消费者，仅将其私有化而不删除 HEAD 实现。净减少两份 transport 状态机，独特分支仍由各 CLI 所有。
 
 Verify：真实 loopback HTTP + tar.gz fixture 检查 HEAD 200/304 fallback/404 无 fallback，GET 两种现有 UA、same-origin、200 解包原字节及 caller-specific 404。两个定向 tests 通过，typecheck/diff-check 通过。完整 tests 在批次整合中通过；Knip 曾发现 headStatus dead export，收窄后重新通过。生产 URL 未在本批访问，previous-build 与 mock 的实网执行留到最终独立目录/runner，不能用 fixture 冒充。源码与 fixture tests 独立 commit 可 revert。
+
+## 最终三路复查与 C1 实网验收
+
+复用、质量、效率三路独立只读复查已完成（0708974）。应用 1 项：Script-Hub 私有函数/类型改为 staged source 名称，纠正旧“远程转换”注释，URL、请求头、重试和日志值不变。其余未发现有证据的高收益行为保持切法。
+
+效率建议 3 项不实施：localOnly 当前仅 1 个插件，传正文需新增接口与协调状态；旧脚本提前 readFile 同时证明可读缓存并取得本次快照，改为失败后 stat/access 会将不可读文件或并发修改视为同一缓存，改变 failed-cached 契约；UTF-8 前缀优化需额外处理任意前导空白、字符边界和全体合法性，不是直接字节 slice 的等价替换。保留简单路径，不能用新增适配复杂度充当净简化。
+
+C1 实网命令（隔离 PUBLIC_DIR，CI 未设置）：
+
+- `PUBLIC_DIR=/tmp/mirrrule-previous-acceptance-20261003 pnpm run node Build/download-previous-build.ts`：退出 0，GitHub tarball 解包成功，约 27.7 秒。
+- `PUBLIC_DIR=/tmp/mirrrule-mock-acceptance-20261003 pnpm run node Build/download-mock-modules.ts`：退出 0，41 文件成功、0 失败，约 9.3 秒。
+
+命令均经 `mise exec node@26 --` 执行；日志 `/tmp/mirrrule-previous-live.log`、`/tmp/mirrrule-mock-live.log`。fixture 与 live 各证明独立一层，不代表客户端或新账号部署验收。
+
+整合 0708974：validate 退出 0（0 errors、113 warnings），166/166 Node tests，13/13 Python tests，Knip 退出 0。原 reliability lint 错误已经 d51e780 修复；writer 被现有 ESLint 默认忽略，靠 typecheck、定向输出比较及不更新的四平台 golden 验证，不能声称 scoped lint 已覆盖。最终 main 和部署仍待验证。

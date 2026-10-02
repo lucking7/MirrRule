@@ -38,14 +38,14 @@ function encodeURIComponentSafe(str: string): string {
 }
 
 /**
- * 构建转换 URL (从远程 URL，支持代理)
+ * 构建本地暂存插件的转换 URL
  *
  * @param sourceUrl - 插件源 URL
  * @param pluginName - 插件名称
  * @param config - 转换配置
  * @returns 转换 API URL
  */
-function buildConversionUrlFromRemote(
+function buildStagedConversionUrl(
   sourceUrl: string,
   pluginName: string,
   config: ConversionConfig
@@ -77,7 +77,7 @@ type ScriptHubFetch = (
   init?: Parameters<typeof $$fetch>[1]
 ) => Promise<ScriptHubResponse>;
 
-interface RemoteConversionOptions {
+interface StagedConversionOptions {
   sourceUrls: ReadonlyMap<string, string>;
   sourceContents: ReadonlyMap<string, string>;
   fetchFn?: ScriptHubFetch
@@ -98,18 +98,18 @@ function describeSource(sourceUrl: string): string {
 }
 
 /**
- * 批量转换插件 (从远程 URL，推荐使用)
+ * 批量转换本轮下载并验证的暂存插件
  *
  * @param plugins - 插件信息数组
  * @param config - 转换配置
  * @param concurrency - 并发数
  * @returns 转换结果数组
  */
-async function convertPluginsBatchFromRemote(
+async function convertStagedPluginsBatch(
   plugins: PluginInfo[],
   config: ConversionConfig | undefined,
   concurrency: number,
-  options: RemoteConversionOptions
+  options: StagedConversionOptions
 ): Promise<PluginConversionResult[]> {
   const results: PluginConversionResult[] = [];
 
@@ -136,7 +136,7 @@ async function convertPluginsBatchFromRemote(
         const identity = identifyPluginSource(plugin);
         const sourceUrl = options.sourceUrls.get(identity.sourceId);
         if (!sourceUrl) throw new Error(`Missing staged plugin source: ${identity.sourceId}`);
-        const url = buildConversionUrlFromRemote(
+        const url = buildStagedConversionUrl(
           sourceUrl,
           plugin.name,
           config || {
@@ -145,7 +145,7 @@ async function convertPluginsBatchFromRemote(
           }
         );
 
-        // kelee.one/rule.kelee.one 通过 PROXY_BASE 加速，并显式传入 Loon/Surge UA。
+        // 根据实际暂存地址保留代理标识，请求继续使用 Surge UA。
         const usesProxy = shouldUseProxy(sourceUrl);
         const proxyIndicator = usesProxy ? picocolors.yellow(' [PROXY+UA]') : '';
 
@@ -334,7 +334,7 @@ export async function convertPluginsBatchFromLocalMirror(
   }));
 
   try {
-    const converted = await convertPluginsBatchFromRemote(readyPlugins, config, concurrency, {
+    const converted = await convertStagedPluginsBatch(readyPlugins, config, concurrency, {
       sourceUrls: server.sourceUrls,
       sourceContents: downloaded,
       fetchFn: options.scriptHubFetchFn,
