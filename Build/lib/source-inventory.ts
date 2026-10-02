@@ -1,5 +1,6 @@
 import type { RuleGroup, SpecialRuleConfig } from './rule-source-types';
 import type { MirrorGroup } from '../integration/mirror-sync/sync-engine';
+import { redactUrl } from '../utils/network/url-redaction';
 
 export type SourceRole = 'primary' | 'fallback' | 'special-source' | 'mirror-repository';
 type SourceRequestProfile = 'rule' | 'github-release';
@@ -17,17 +18,7 @@ function add(
   requestProfile: SourceRequestProfile,
   url: string
 ): void {
-  let identityUrl = url;
-  try {
-    const parsed = new URL(url);
-    parsed.username = '';
-    parsed.password = '';
-    for (const key of parsed.searchParams.keys()) {
-      if (/token|key|secret|signature|credential|password|auth/i.test(key)) parsed.searchParams.set(key, '[REDACTED]');
-    }
-    identityUrl = parsed.toString();
-  } catch {}
-  entries.push({ id: `${role}:${identityUrl}`, role, requestProfile, url });
+  entries.push({ id: `${role}:${redactUrl(url)}`, role, requestProfile, url });
 }
 
 function isNetworkSource(source: string): boolean {

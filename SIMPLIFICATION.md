@@ -34,13 +34,13 @@ ce-simplify-code 复查：复用 0 项直接应用；质量 4 项应用；效率
 | --- | --- | --- | --- |
 | R1 | `Build/index.ts` 的 step.name 与固定 outputDir 参数仅写入，入口函数仅一个固定调用 | 少一层步骤元数据/参数；低风险；完整 build 和测试 | 已实施，完整 build 待最终 runner |
 | R2 | `rule-source-processor.ts` processingTime 仅赋值，追踪已有耗时 | 去重复计时状态；内部返回 shape 变化；测试/manifest/构建核对 | 已实施，构建待最终 runner |
-| R3 | Clash/Loon writer 的 other-rule passthrough 同序逻辑 | 去双份转换步骤；中低风险；固定输入四平台 golden 比较 | 待实施 |
+| R3 | Clash/Loon writer 的 other-rule passthrough 同序逻辑 | 去双份转换步骤；中低风险；固定输入四平台 golden 比较 | 已实施，content/drop summary 等价 |
 | R4 | `RuleFormat.short` 仅复制，UI 使用 CLIENT_DIRS.short | 去无消费者数据字段；低风险；固定 public index HTML 比较 | 已实施，HTML 等价 |
 | N1 | Trace.tracePromise/traceChildPromise 仅 test fake 声明 | 去无消费者接口；低风险；typecheck/全部 tests | 已实施 |
 | N2 | task 的 onCleanup 无任何 callback 消费，独立真实 cleanup 仍有效 | 去闲置生命周期抽象；中低风险；成功/失败入口 trace 验证 | 已实施 |
 | N3 | deprecated requestWithLog 仅 headStatus，后者供两个 tarball CLI | 可能少一套请求 API；实测 wire headers 和 ResponseError.res 不同 | 拒绝直接替换 |
 | N4 | TS issueAction 与 workflow deadStreak 判断重复 | 收敛三次失败决策；中风险；持久故障与当次 transition 不同 | 拒绝原切法 |
-| N7 | source inventory 与 health 的 URL 脱敏重复 | 去安全规则双维护；中低风险；source ID/报告值等价比较 | 待核对 |
+| N7 | source inventory 与 health 的 URL 脱敏重复 | 去安全规则双维护；中低风险；source ID/报告值等价比较 | 已实施 |
 | N10 | IPValidator.isIpCidr 仅 tests 使用 | 小收益；内部 API shape 变化；完整 IPValidator 接口/测试仍可用 | 拒绝，小收益且切除可用 API |
 | C1 | previous-build/mock modules 重复 tarball transport，两个 CLI 均保留 | 去双份下载状态机；中低风险；HTTP/tar fixture 和两入口验收 | 待实施 |
 
@@ -85,3 +85,15 @@ Cut/After：移除 Promise API 与对应 fake；删除闲置注册 slot、无操
 Verify：相关 reliability/processor/golden tests 通过，新增导入调用 reject 与 CLI 抛错退出 1 且保留 trace 检查，既有 exitCode=7 和 CLI 单次执行检查保留；typecheck 退出 0；全仓残留搜索为空。日志 /tmp/mirrrule-simplify-trace.log、trace-types.log。trace 耗时数字本身会随运行变化，验证的是结构、错误传播和退出码。独立 commit 可 revert。
 
 N10：isIpCidr 已有独立测试，可被调用，删除仅节省几行并切除一个有效校验 API；缺少收益足以承担内部源码消费者的兼容风险，因此保留，并保留全部 CIDR 边界测试。
+
+## R3 批次回执
+
+Before/Cut/After：Clash/Loon 的相同 passthrough 转换均被 EnhancedFileOutput 调用，收敛到 BaseWriteStrategy 默认 writeOtherRules，移除两个 override 和专用 imports。Surge/sing-box 专用处理保留。trim、skip/account、accepts、转换/清策略、result 写入的顺序及平台 drop summary 均保留；没有新增 wrapper。未来新 writer 可以继承此默认路径，当前四个平台无能力切除。
+
+Verify：固定输入含注释/空/unknown/unsupported/malformed/逻辑规则/policy，两个 writer 的 content 与 ruleDropSummary 前后 cmp 退出 0（/tmp/mirrrule-r3-baseline.json、after.json）。writing-strategy 与 8 个四平台 golden 通过，typecheck/diff-check 通过，不更新 golden。全仓 lint 在该时点发现父任务新增 reliability tests 的格式错误，归父任务修复，不能标成历史错误。三个 writer 文件以独立 commit revert 回滚。
+
+## N7 批次回执
+
+Before/Cut/After：inventory identity 与 health report 分别维护同一敏感 query regex 和 credentials 处理。统一到 utils/network/url-redaction；health 仍 re-export 原函数名，原始 entry.url、source ID prefix、fragment 与无效 URL 的当前行为全部保留。净减少一份安全规则维护点，新增一个内部 helper，无配置/存储迁移。
+
+Verify：固定 URL corpus 覆盖重复 query、大小写、credentials、fragment、无效 URL；8 项 redaction/health/inventory tests 通过。原实现与两调用方在固定 corpus 和调查期随机输入对照相同；持久化 ID 不变。typecheck、Knip 通过，最终 integrated suite 另跑；无生成物或 state 改写。四个源码/测试文件及 receipt 独立 commit 可 revert。

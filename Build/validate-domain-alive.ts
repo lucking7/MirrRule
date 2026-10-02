@@ -9,7 +9,10 @@ import { ruleGroups, specialRules } from './lib/rule-sources';
 import { MIRROR_GROUPS } from './integration/mirror-sync/mirror-config';
 import { UA_MIRROR, UA_SURGE_MAC } from './constants/user-agents';
 import { applyProxyIfNeeded } from './utils/network/proxy';
+import { redactUrl } from './utils/network/url-redaction';
 import { writeFileAtomic } from './lib/atomic-file';
+
+export { redactUrl };
 
 export type HealthStatus = 'ok' | 'dead' | 'unknown';
 
@@ -32,22 +35,6 @@ export interface SourceHealthReport {
 }
 
 export type SourceProbe = (source: SourceInventoryEntry) => Promise<ProbeResult>;
-
-export function redactUrl(value: string): string {
-  try {
-    const url = new URL(value);
-    for (const key of url.searchParams.keys()) {
-      if (/token|key|secret|signature|credential|password|auth/i.test(key)) url.searchParams.set(key, '[REDACTED]');
-    }
-    if (url.username || url.password) {
-      url.username = '';
-      url.password = '';
-    }
-    return url.toString();
-  } catch {
-    return value;
-  }
-}
 
 export async function probeSource(
   source: SourceInventoryEntry,
