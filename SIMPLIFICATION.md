@@ -32,8 +32,8 @@ ce-simplify-code 复查：复用 0 项直接应用；质量 4 项应用；效率
 
 | ID | 精确切除/合并与消费者证据 | 收益、风险和反证检查 | 当前结论 |
 | --- | --- | --- | --- |
-| R1 | `Build/index.ts` 的 step.name 与固定 outputDir 参数仅写入，入口函数仅一个固定调用 | 少一层步骤元数据/参数；低风险；完整 build 和测试 | 已实施，完整 build 待最终 runner |
-| R2 | `rule-source-processor.ts` processingTime 仅赋值，追踪已有耗时 | 去重复计时状态；内部返回 shape 变化；测试/manifest/构建核对 | 已实施，构建待最终 runner |
+| R1 | `Build/index.ts` 的 step.name 与固定 outputDir 参数仅写入，入口函数仅一个固定调用 | 少一层步骤元数据/参数；低风险；完整 build 和测试 | 已实施，本地完整 build 通过，main runner 待核对 |
+| R2 | `rule-source-processor.ts` processingTime 仅赋值，追踪已有耗时 | 去重复计时状态；内部返回 shape 变化；测试/manifest/构建核对 | 已实施，本地完整 build 通过，main runner 待核对 |
 | R3 | Clash/Loon writer 的 other-rule passthrough 同序逻辑 | 去双份转换步骤；中低风险；固定输入四平台 golden 比较 | 已实施，content/drop summary 等价 |
 | R4 | `RuleFormat.short` 仅复制，UI 使用 CLIENT_DIRS.short | 去无消费者数据字段；低风险；固定 public index HTML 比较 | 已实施，HTML 等价 |
 | N1 | Trace.tracePromise/traceChildPromise 仅 test fake 声明 | 去无消费者接口；低风险；typecheck/全部 tests | 已实施 |
@@ -120,3 +120,9 @@ C1 实网命令（隔离 PUBLIC_DIR，CI 未设置）：
 命令均经 `mise exec node@26 --` 执行；日志 `/tmp/mirrrule-previous-live.log`、`/tmp/mirrrule-mock-live.log`。fixture 与 live 各证明独立一层，不代表客户端或新账号部署验收。
 
 整合 0708974：validate 退出 0（0 errors、113 warnings），166/166 Node tests，13/13 Python tests，Knip 退出 0。原 reliability lint 错误已经 d51e780 修复；writer 被现有 ESLint 默认忽略，靠 typecheck、定向输出比较及不更新的四平台 golden 验证，不能声称 scoped lint 已覆盖。最终 main 和部署仍待验证。
+
+## 隔离目录完整规则构建
+
+`PROXY_BASE='http://127.0.0.1:13195?url=' mise exec node@26 -- pnpm run build`：退出 0，约 32.9 秒。gateway 使用受限 loopback 端口 13195，本次启动与关闭均完成。6 个 groups、39 个 special rules；普通 19 文件、0 errors，特殊 39 文件、509170 条合并输入。public/status.json 有 58 个 rulesets，.BUILD_FINISHED 写入；public 共 238 文件，List 58、Clash/Loon/sing-box 各 57（按原配置不同 targets）。GEOIP、四平台文件、索引和部署辅助文件均由源码生成，没有手改产物。日志 `/tmp/mirrrule-cleanup-build.log`。
+
+previous-build 目录 1507 文件/111374853 bytes，mock 目录 41 文件/179570 bytes。二者输出完全位于独立临时目录；完整 build 仅修改隔离 worktree 的生成物，不写原任务工作区或生产。

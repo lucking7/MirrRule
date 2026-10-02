@@ -23,7 +23,7 @@ Build/index.ts
 
 `EnhancedFileOutput` owns normalization, canonical rule state, finalization, and logical rule summaries. Its state is private; platform writers remain four adapters behind the existing writer seam. `RuleSourceProcessor` retains the same publication interface. Each output instance is finalized once, by either `compile()` or `write()`.
 
-Canonical rule collections deduplicate through Trie/Set storage, then platform writers apply their fixed output order. Rule source configuration does not switch either behavior per source.
+Canonical rule collections deduplicate through Trie/Set storage, then platform writers apply their fixed output order. Clash and Loon share the default passthrough conversion in `BaseWriteStrategy`; Surge and sing-box retain their own overrides. Rule source configuration does not switch either behavior per source.
 
 Service subscriptions use `specialRules` to merge complementary blackmatrix7 Surge rules and MetaCubeX text geosite categories. Netflix also merges MetaCubeX geoip CIDRs; WeChat remains a single blackmatrix7 source. `smartConvertRule` normalizes numeric-leading domains and bare IPv4/IPv6 CIDRs before they enter the same canonical collections. A required source failure prevents publishing its merged ruleset; `sourceFiles` are complementary inputs, not fallback URLs.
 
@@ -34,6 +34,8 @@ Mirror sources use release adapters behind one artifact synchronization module. 
 `SyncResult.failed` is the sole failure list for release mirrors. The CLI and summaries derive their counts and messages from it, so the reported failures match the required-failure decision. The fmz200 CLI uses the shared `task()` entry point once per invocation.
 
 `NSRingo/Siri` is release-driven. The mirror accepts the `iRingo.Siri`, `iRingo.Search`, and `iRingo.Spotlight` asset families and does not build the upstream `dev` branch.
+
+`tarball-utils` owns source selection and streaming transport for the previous-build and Sukka mock/module CLIs; extraction, filtering, category labels, and lifecycle remain with each CLI. Source inventory and health reports share URL redaction without changing source identity.
 
 Source health probes carry the same request profile as their build source. Rule inputs use the Surge User-Agent, while GitHub release metadata uses the mirror User-Agent.
 
