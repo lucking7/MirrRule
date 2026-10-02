@@ -3,9 +3,6 @@ import { BaseWriteStrategy } from './base';
 import { withBannerArray } from '../../../lib/misc';
 import { fastIpVersion } from 'foxts/fast-ip-version';
 import { OUTPUT_CLASH_DIR } from '../../../constants/dir';
-import { RuleLineUtils } from '../../../utils/validation/validators';
-import { smartConvertRule } from '../../../lib/misc';
-import { cleanPolicy } from '../../../lib/policy-cleaner';
 
 export class ClashClassicRuleSet extends BaseWriteStrategy {
   public readonly platform = 'clash' as const;
@@ -116,21 +113,6 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
     }
     if (protocol.has('TCP')) {
       this.result.push('NETWORK,TCP');
-    }
-  }
-
-  /**
-   * 处理其他规则（包括逻辑规则 AND/OR/NOT）
-   * 将 Surge 格式的规则转换为 Clash 格式
-   */
-  writeOtherRules(rules: string[]): void {
-    for (const rule of rules) {
-      const trimmed = rule.trim();
-      if (RuleLineUtils.shouldSkipLine(trimmed)) continue;
-      const type = this.accountOtherRule(trimmed);
-      if (type === 'skip' || type === 'unknown' || !this.accepts(type)) continue;
-      const converted = cleanPolicy(smartConvertRule(trimmed));
-      this.result.push(converted);
     }
   }
 }

@@ -1,7 +1,10 @@
 import type { Span } from '../../../trace';
 import { compareAndWriteFile } from '../../../lib/create-file';
+import { smartConvertRule } from '../../../lib/misc';
+import { cleanPolicy } from '../../../lib/policy-cleaner';
 import type { CanonicalRuleType, RulePlatform } from '../rule-support-matrix';
 import { MALFORMED_RULE_POLICY, RULE_SUPPORT_MATRIX } from '../rule-support-matrix';
+import { RuleLineUtils } from '../../../utils/validation/validators';
 
 export interface RuleDropSummary {
   unsupported: Partial<Record<CanonicalRuleType, number>>;
@@ -116,7 +119,16 @@ export abstract class BaseWriteStrategy {
   abstract writeSourcePorts(port: Set<string>): void;
   abstract writeDestinationPorts(port: Set<string>): void;
   abstract writeProtocols(protocol: Set<string>): void;
-  abstract writeOtherRules(rule: string[]): void;
+  writeOtherRules(rules: string[]): void {
+    for (const rule of rules) {
+      const trimmed = rule.trim();
+      if (RuleLineUtils.shouldSkipLine(trimmed)) continue;
+      const type = this.accountOtherRule(trimmed);
+      if (type === 'skip' || type === 'unknown' || !this.accepts(type)) continue;
+      const converted = cleanPolicy(smartConvertRule(trimmed));
+      this.result.push(converted);
+    }
+  }
 
   protected abstract withPadding(
     title: string,

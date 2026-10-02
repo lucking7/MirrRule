@@ -3,8 +3,6 @@ import { BaseWriteStrategy } from './base';
 import { withBannerArray } from '../../../lib/misc';
 import { OUTPUT_LOON_DIR } from '../../../constants/dir';
 import { RuleLineUtils } from '../../../utils/validation/validators';
-import { smartConvertRule } from '../../../lib/misc';
-import { cleanPolicy } from '../../../lib/policy-cleaner';
 
 /**
  * Loon规则集输出策略
@@ -103,24 +101,5 @@ export class LoonRuleSet extends BaseWriteStrategy {
 
   writeProtocols(protocols: Set<string>): void {
     appendSetElementsToArray(this.result, protocols, i => `PROTOCOL,${i}`);
-  }
-
-  /**
-   * 处理其他规则（包括逻辑规则 AND/OR/NOT）
-   * 将 Surge 格式的规则转换为 Loon 格式
-   */
-  writeOtherRules(rules: string[]): void {
-    for (const rule of rules) {
-      const trimmed = rule.trim();
-
-
-      if (RuleLineUtils.shouldSkipLine(trimmed)) {
-        continue;
-      }
-      const type = this.accountOtherRule(trimmed);
-      if (type === 'skip' || type === 'unknown' || !this.accepts(type)) continue;
-      const converted = cleanPolicy(smartConvertRule(trimmed));
-      this.result.push(converted);
-    }
   }
 }
