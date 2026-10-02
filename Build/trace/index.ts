@@ -1,5 +1,4 @@
 import { isCI } from 'ci-info';
-import { noop } from 'foxts/noop';
 import { basename, extname } from 'node:path';
 import process from 'node:process';
 import picocolors from 'picocolors';
@@ -29,10 +28,8 @@ export interface Span {
   readonly traceChild: (name: string) => Span,
   readonly traceSyncFn: <T>(fn: (span: Span) => T) => T,
   readonly traceAsyncFn: <T>(fn: (span: Span) => T | Promise<T>) => Promise<T>,
-  readonly tracePromise: <T>(promise: Promise<T>) => Promise<T>,
   readonly traceChildSync: <T>(name: string, fn: (span: Span) => T) => T,
   readonly traceChildAsync: <T>(name: string, fn: (span: Span) => Promise<T>) => Promise<T>,
-  readonly traceChildPromise: <T>(name: string, promise: Promise<T>) => Promise<T>,
   readonly traceResult: TraceResult
 }
 
@@ -83,14 +80,8 @@ export function createSpan(name: string, parentTraceResult?: TraceResult): Span 
       return res;
     },
     traceResult: curTraceResult,
-    async tracePromise<T>(promise: Promise<T>): Promise<T> {
-      const res = await promise;
-      span.stop();
-      return res;
-    },
     traceChildSync: <T>(name: string, fn: (span: Span) => T): T => traceChild(name).traceSyncFn(fn),
-    traceChildAsync: <T>(name: string, fn: (span: Span) => T | Promise<T>): Promise<T> => traceChild(name).traceAsyncFn(fn),
-    traceChildPromise: <T>(name: string, promise: Promise<T>): Promise<T> => traceChild(name).tracePromise(promise)
+    traceChildAsync: <T>(name: string, fn: (span: Span) => T | Promise<T>): Promise<T> => traceChild(name).traceAsyncFn(fn)
   };
 
   // eslint-disable-next-line sukka/no-redundant-variable -- self reference
@@ -99,17 +90,10 @@ export function createSpan(name: string, parentTraceResult?: TraceResult): Span 
 
 export function task(importMetaMain: boolean, importMetaPath: string) {
   return <T>(
-    fn: (span: Span, onCleanup: (cb: () => Promise<void> | void) => void) => Promise<T>,
+    fn: (span: Span) => Promise<T>,
     customName?: string
   ) => {
     const taskName = customName ?? basename(importMetaPath, extname(importMetaPath));
-    let cleanup: () => Promise<void> | void = noop;
-    const onCleanup = (cb: () => Promise<void> | void) => {
-      cleanup = cb;
-    };
-    const runCleanup = async () => {
-      await cleanup();
-    };
 
     const _dummySpan = createSpan(taskName);
     if (importMetaMain) {
@@ -125,7 +109,7 @@ export function task(importMetaMain: boolean, importMetaPath: string) {
       void (async () => {
         let exitCode = 0;
         try {
-          await _dummySpan.traceChildAsync('dummy', childSpan => fn(childSpan, onCleanup));
+          await _dummySpan.traceChildAsync('dummy', fn);
           if (typeof process.exitCode === 'number') {
             exitCode = process.exitCode;
           }
@@ -133,12 +117,6 @@ export function task(importMetaMain: boolean, importMetaPath: string) {
           exitCode = 1;
           console.error(error);
         } finally {
-          try {
-            await runCleanup();
-          } catch (error) {
-            exitCode = 1;
-            console.error('Cleanup failed:', error);
-          }
           _dummySpan.stop();
           printTraceResult(_dummySpan.traceResult);
           await whyIsNodeRunning();
@@ -148,20 +126,8 @@ export function task(importMetaMain: boolean, importMetaPath: string) {
     }
 
     return async (span?: Span) => {
-      if (span) {
-        return span.traceChildAsync(taskName, async childSpan => {
-          try {
-            return await fn(childSpan, onCleanup);
-          } finally {
-            await runCleanup();
-          }
-        });
-      }
-      try {
-        return await fn(_dummySpan, onCleanup);
-      } finally {
-        await runCleanup();
-      }
+      if (span) return span.traceChildAsync(taskName, fn);
+      return fn(_dummySpan);
     };
   };
 }

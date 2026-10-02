@@ -36,12 +36,12 @@ ce-simplify-code 复查：复用 0 项直接应用；质量 4 项应用；效率
 | R2 | `rule-source-processor.ts` processingTime 仅赋值，追踪已有耗时 | 去重复计时状态；内部返回 shape 变化；测试/manifest/构建核对 | 已实施，构建待最终 runner |
 | R3 | Clash/Loon writer 的 other-rule passthrough 同序逻辑 | 去双份转换步骤；中低风险；固定输入四平台 golden 比较 | 待实施 |
 | R4 | `RuleFormat.short` 仅复制，UI 使用 CLIENT_DIRS.short | 去无消费者数据字段；低风险；固定 public index HTML 比较 | 已实施，HTML 等价 |
-| N1 | Trace.tracePromise/traceChildPromise 仅 test fake 声明 | 去无消费者接口；低风险；typecheck/全部 tests | 待实施 |
-| N2 | task 的 onCleanup 无任何 callback 消费，独立真实 cleanup 仍有效 | 去闲置生命周期抽象；中低风险；成功/失败入口 trace 验证 | 待实施 |
+| N1 | Trace.tracePromise/traceChildPromise 仅 test fake 声明 | 去无消费者接口；低风险；typecheck/全部 tests | 已实施 |
+| N2 | task 的 onCleanup 无任何 callback 消费，独立真实 cleanup 仍有效 | 去闲置生命周期抽象；中低风险；成功/失败入口 trace 验证 | 已实施 |
 | N3 | deprecated requestWithLog 仅 headStatus，后者供两个 tarball CLI | 可能少一套请求 API；实测 wire headers 和 ResponseError.res 不同 | 拒绝直接替换 |
 | N4 | TS issueAction 与 workflow deadStreak 判断重复 | 收敛三次失败决策；中风险；持久故障与当次 transition 不同 | 拒绝原切法 |
 | N7 | source inventory 与 health 的 URL 脱敏重复 | 去安全规则双维护；中低风险；source ID/报告值等价比较 | 待核对 |
-| N10 | IPValidator.isIpCidr 仅 tests 使用 | 小收益；内部 API shape 变化；保留 IPv4/IPv6 验证测试 | 待核对 |
+| N10 | IPValidator.isIpCidr 仅 tests 使用 | 小收益；内部 API shape 变化；完整 IPValidator 接口/测试仍可用 | 拒绝，小收益且切除可用 API |
 | C1 | previous-build/mock modules 重复 tarball transport，两个 CLI 均保留 | 去双份下载状态机；中低风险；HTTP/tar fixture 和两入口验收 | 待实施 |
 
 ## 明确保留或拒绝
@@ -75,3 +75,13 @@ N4 拒绝证据：workflow 从全部持久 state 查 deadStreak>=3，包括当�
 Before/Cut/After：索引聚合模型自 cb70e14 起把 CLIENT_DIRS.short 复制到各 RuleFormat，但页面只读 CLIENT_DIRS；去掉该复制字段，保留页面字母、client/dir/filename/href 和格式顺序。没有新增映射状态。类型为内部模型，package 不发布；没有发现文档或仓内 field 消费者，仓外非约定源码 import 不在可证明范围。
 
 Verify：固定包含中文、HTML 特殊字符、四客户端与 Scripts 的树，生成 ruleCardsHtml+treeHtml，前后 cmp 退出 0（/tmp/mirrrule-index-before.html、after.html）。build-public 测试通过；不需要因删除无消费者字段而改 fixture/assertion。最终 integrated validate/typecheck 仍为必要层。可独立 revert 本批提交。
+
+## N1/N2 批次回执
+
+Before：Trace 两个 Promise API 仅存在于自身和 test fake；task 第二个 onCleanup 参数及单个 callback slot 没有注册者（全 Build rg）。它们是旧追踪层遗留，不拥有任何实际 gateway、Docker、stream 或 durable 写入的资源。
+
+Cut/After：移除 Promise API 与对应 fake；删除闲置注册 slot、无操作 await 和包装 finally，保留 traceChildAsync/Sync、task 成功/失败/exitCode、uncaught/unhandled handlers、进程退出和真实资源所有者的 finally。净减少两项 API 和一项无消费者 lifecycle contract，没有替换 coordinator。
+
+Verify：相关 reliability/processor/golden tests 通过，新增导入调用 reject 与 CLI 抛错退出 1 且保留 trace 检查，既有 exitCode=7 和 CLI 单次执行检查保留；typecheck 退出 0；全仓残留搜索为空。日志 /tmp/mirrrule-simplify-trace.log、trace-types.log。trace 耗时数字本身会随运行变化，验证的是结构、错误传播和退出码。独立 commit 可 revert。
+
+N10：isIpCidr 已有独立测试，可被调用，删除仅节省几行并切除一个有效校验 API；缺少收益足以承担内部源码消费者的兼容风险，因此保留，并保留全部 CIDR 边界测试。

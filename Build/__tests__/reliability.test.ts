@@ -55,6 +55,28 @@ describe('validate-domain-alive entry point', () => {
 });
 
 describe('task runner exit handling', () => {
+  it('propagates a failed task to the importing caller', async () => {
+    const { task } = require('../trace');
+    const failingTask = task(false, 'failing-task.ts')(async () => {
+      throw new Error('task failure');
+    });
+    await assert.rejects(failingTask(), /task failure/);
+  });
+
+  it('exits with failure when a CLI task throws and still prints its trace', () => {
+    const result = spawnSync(process.execPath, [
+      '-r', '@swc-node/register', '-e',
+      "require('./Build/trace').task(true, __filename)(async () => { throw new Error('task failure'); });",
+    ], {
+      cwd: process.cwd(),
+      env: { ...process.env, SWC_NODE_IGNORE_DYNAMIC: 'true' },
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /task failure/);
+    assert.match(result.stdout, /dummy/);
+  });
+
   it('preserves process.exitCode set by a CLI task', () => {
     const result = spawnSync(
       process.execPath,

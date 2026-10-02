@@ -12,10 +12,8 @@ interface FakeSpan {
   traceChild: () => FakeSpan;
   traceSyncFn: <T>(fn: (span: FakeSpan) => T) => T;
   traceAsyncFn: <T>(fn: (span: FakeSpan) => T | Promise<T>) => Promise<T>;
-  tracePromise: <T>(promise: Promise<T>) => Promise<T>;
   traceChildSync: <T>(_name: string, fn: (span: FakeSpan) => T) => T;
   traceChildAsync: <T>(_name: string, fn: (span: FakeSpan) => T | Promise<T>) => Promise<T>;
-  traceChildPromise: <T>(_name: string, promise: Promise<T>) => Promise<T>;
   stop: () => void;
   traceResult: { name: string; start: number; end: number; children: unknown[] };
 }
@@ -30,17 +28,11 @@ const fakeSpan: FakeSpan = {
   traceAsyncFn(fn) {
     return Promise.resolve(fn(fakeSpan));
   },
-  tracePromise(promise) {
-    return promise;
-  },
   traceChildSync(_name, fn) {
     return fn(fakeSpan);
   },
   traceChildAsync(_name, fn) {
     return Promise.resolve(fn(fakeSpan));
-  },
-  traceChildPromise(_name, promise) {
-    return promise;
   },
   stop() {
     // no-op
