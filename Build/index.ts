@@ -19,7 +19,6 @@ import type { RulesetSummary } from './lib/rule-source-processor';
 import type { Span } from './trace';
 
 interface BuildStepResult {
-  name: string;
   success: boolean;
   errors: string[];
   rulesets?: RulesetSummary[];
@@ -29,18 +28,17 @@ async function executeGeoIpBuildStep(span: Span): Promise<BuildStepResult> {
   try {
     const stats = await downloadGEOIP(span);
     return {
-      name: 'geoip',
       success: stats.failed === 0,
       errors: stats.failed > 0 ? [`GEOIP download failed for ${stats.failed} file(s)`] : [],
     };
   } catch (error) {
-    return { name: 'geoip', success: false, errors: [getErrorMessage(error)] };
+    return { success: false, errors: [getErrorMessage(error)] };
   }
 }
 
-async function executeRuleProcessingBuildStep(span: Span, outputDir = 'public'): Promise<BuildStepResult> {
+async function executeRuleProcessingBuildStep(span: Span): Promise<BuildStepResult> {
   try {
-    const processor = new RuleSourceProcessor(span, outputDir);
+    const processor = new RuleSourceProcessor(span);
     console.log(`Processing ${ruleGroups.length} groups, ${specialRules.length} special rules`);
 
     const groupStats = await processor.processRuleGroups(ruleGroups);
@@ -54,22 +52,21 @@ async function executeRuleProcessingBuildStep(span: Span, outputDir = 'public'):
     );
 
     return {
-      name: 'rules',
       success: errors.length === 0,
       errors,
       rulesets: [...groupStats.rulesets, ...ruleStats.rulesets],
     };
   } catch (error) {
-    return { name: 'rules', success: false, errors: [getErrorMessage(error)] };
+    return { success: false, errors: [getErrorMessage(error)] };
   }
 }
 
 async function executeWebBuildStep(): Promise<BuildStepResult> {
   try {
     await buildPublic();
-    return { name: 'web', success: true, errors: [] };
+    return { success: true, errors: [] };
   } catch (error) {
-    return { name: 'web', success: false, errors: [getErrorMessage(error)] };
+    return { success: false, errors: [getErrorMessage(error)] };
   }
 }
 
@@ -88,7 +85,7 @@ export const buildRuleset = task(
   const steps = [
     await span.traceChildAsync('download GEOIP', stepSpan => executeGeoIpBuildStep(stepSpan)),
     await span.traceChildAsync('unified rule processing system', stepSpan =>
-      executeRuleProcessingBuildStep(stepSpan, 'public')
+      executeRuleProcessingBuildStep(stepSpan)
     ),
     await span.traceChildAsync('build web page', () => executeWebBuildStep()),
   ];

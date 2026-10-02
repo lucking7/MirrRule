@@ -32,14 +32,14 @@ ce-simplify-code 复查：复用 0 项直接应用；质量 4 项应用；效率
 
 | ID | 精确切除/合并与消费者证据 | 收益、风险和反证检查 | 当前结论 |
 | --- | --- | --- | --- |
-| R1 | `Build/index.ts` 的 step.name 与固定 outputDir 参数仅写入，入口函数仅一个固定调用 | 少一层步骤元数据/参数；低风险；完整 build 和测试 | 待实施 |
-| R2 | `rule-source-processor.ts` processingTime 仅赋值，追踪已有耗时 | 去重复计时状态；内部返回 shape 变化；测试/manifest/构建核对 | 待实施 |
+| R1 | `Build/index.ts` 的 step.name 与固定 outputDir 参数仅写入，入口函数仅一个固定调用 | 少一层步骤元数据/参数；低风险；完整 build 和测试 | 已实施，完整 build 待最终 runner |
+| R2 | `rule-source-processor.ts` processingTime 仅赋值，追踪已有耗时 | 去重复计时状态；内部返回 shape 变化；测试/manifest/构建核对 | 已实施，构建待最终 runner |
 | R3 | Clash/Loon writer 的 other-rule passthrough 同序逻辑 | 去双份转换步骤；中低风险；固定输入四平台 golden 比较 | 待实施 |
 | R4 | `RuleFormat.short` 仅复制，UI 使用 CLIENT_DIRS.short | 去无消费者数据字段；低风险；固定 public index HTML 比较 | 待实施 |
 | N1 | Trace.tracePromise/traceChildPromise 仅 test fake 声明 | 去无消费者接口；低风险；typecheck/全部 tests | 待实施 |
 | N2 | task 的 onCleanup 无任何 callback 消费，独立真实 cleanup 仍有效 | 去闲置生命周期抽象；中低风险；成功/失败入口 trace 验证 | 待实施 |
-| N3 | deprecated requestWithLog 仅 headStatus，后者供两个 tarball CLI | 可能少一套请求 API；需证明 HEAD retry/cache/error 等价 | 待 characterization |
-| N4 | TS issueAction 与 workflow deadStreak 判断重复 | 收敛三次失败决策；中风险；state fixtures 和 shell dry-run | 待 characterization |
+| N3 | deprecated requestWithLog 仅 headStatus，后者供两个 tarball CLI | 可能少一套请求 API；实测 wire headers 和 ResponseError.res 不同 | 拒绝直接替换 |
+| N4 | TS issueAction 与 workflow deadStreak 判断重复 | 收敛三次失败决策；中风险；持久故障与当次 transition 不同 | 拒绝原切法 |
 | N7 | source inventory 与 health 的 URL 脱敏重复 | 去安全规则双维护；中低风险；source ID/报告值等价比较 | 待核对 |
 | N10 | IPValidator.isIpCidr 仅 tests 使用 | 小收益；内部 API shape 变化；保留 IPv4/IPv6 验证测试 | 待核对 |
 | C1 | previous-build/mock modules 重复 tarball transport，两个 CLI 均保留 | 去双份下载状态机；中低风险；HTTP/tar fixture 和两入口验收 | 待实施 |
@@ -57,3 +57,15 @@ ce-simplify-code 复查：复用 0 项直接应用；质量 4 项应用；效率
 ## 完成判据
 
 候选逐项进入已实施/已拒绝/有明确缺失事实的未决状态；高置信可执行队列清零；最终三路复查及固定输入比较完成；Node/Python 检查、实际转换/合并/构建通过后推送 main，核对 Actions 与线上产物。当前未达到这一判据。
+
+## R1/R2 批次回执
+
+Before：内部步骤结果维护未读取的 name；处理器单独保存耗时但追踪系统已计时。历史 owner 分别为旧入口（89d21460）及初始处理器（938c33f），当前入口和 manifest 无消费者。
+
+Cut/After：删除六处步骤名称、入口固定 outputDir 转发和 processingTime 字段/计时赋值；RuleSourceProcessor 可注入目录、其余 stats、执行顺序、错误、manifest 和 trace 保留。净减少一份步骤身份、一份计时状态及固定参数转发，没有新增协调层。内部返回 shape 不再包含无消费者字段，不改变已记录的 CLI/公开产物。
+
+Verify：隔离目录 Node 26 下 frozen-lockfile install 退出 0；R1/R2 相关 processor、四平台 golden、status-manifest 测试全部通过；typecheck 退出 0。8 个既有 golden 逐字通过，未设置 UPDATE_GOLDEN。完整真实 build、部署及客户端属于后续层，不能由本层替代。日志 /tmp/mirrrule-simplify-r1-r2.log、/tmp/mirrrule-simplify-r1-r2-types.log；本批独立 commit 可 revert。
+
+N3 拒绝证据：本地 HTTP HEAD fixture 对照 /ok、/missing，状态与错误文本相同，但 requestWithLog 无默认 UA/Accept，$$fetch 为 undici/*；404 ResponseError.res 分别为有 statusCode/body 字段的 Object 与 Fetch Response。直接替换改变 wire/error 契约，若补适配则净收益不足，保留（/tmp/mirrrule-head-characterization.log）。
+
+N4 拒绝证据：workflow 从全部持久 state 查 deadStreak>=3，包括当次 unknown 和未重新观察的来源；transition.issueAction 只描述当次变化。只序列化 transition 会漏持续故障并改变 close 条件。完整 action projection 需新增状态机而非删除重复，本轮保留三次失败和持续告警，不修改 state schema。

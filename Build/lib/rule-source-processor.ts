@@ -26,7 +26,6 @@ export interface RulesetSummary {
 interface ProcessorStats {
   filesProcessed: number;
   rulesMerged: number;
-  processingTime: number;
   errors: Array<{ file: string; error: string }>;
   rulesets: RulesetSummary[];
 }
@@ -52,7 +51,6 @@ function createProcessorStats(): ProcessorStats {
   return {
     filesProcessed: 0,
     rulesMerged: 0,
-    processingTime: 0,
     errors: [],
     rulesets: [],
   };
@@ -177,7 +175,6 @@ export class RuleSourceProcessor {
   }
 
   async processRuleGroups(groups: RuleGroup[]): Promise<ProcessorStats> {
-    const startTime = Date.now();
     const stats = createProcessorStats();
 
     for (const group of groups) {
@@ -217,12 +214,10 @@ export class RuleSourceProcessor {
       }
     }
 
-    stats.processingTime = Date.now() - startTime;
     return stats;
   }
 
   async processSpecialRules(rules: SpecialRuleConfig[]): Promise<ProcessorStats> {
-    const startTime = Date.now();
     const stats = createProcessorStats();
 
     for (const ruleConfig of rules) {
@@ -301,7 +296,6 @@ export class RuleSourceProcessor {
       }
     }
 
-    stats.processingTime = Date.now() - startTime;
     return stats;
   }
 }
