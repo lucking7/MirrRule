@@ -29,6 +29,15 @@ function _getProxyBaseFromEnv(): string | undefined {
   return undefined;
 }
 
+function buildProxiedUrl(proxyBase: string, url: string): string {
+  const parsed = new URL(proxyBase);
+  if (parsed.hostname === '127.0.0.1' && parsed.searchParams.has('url')) {
+    parsed.searchParams.set('url', url);
+    return parsed.href;
+  }
+  return proxyBase + url;
+}
+
 /**
  * 检查 URL 是否需要使用代理
  * 目前匹配 kelee.one 域名（含子域名）
@@ -60,7 +69,7 @@ export function applyProxyIfNeeded(url: string): string {
     return url;
   }
 
-  return proxyBase + url;
+  return buildProxiedUrl(proxyBase, url);
 }
 
 /**
@@ -91,7 +100,7 @@ export function buildProxyUrlCandidates(
     return [url];
   }
 
-  const proxied = proxyBase + url;
+  const proxied = buildProxiedUrl(proxyBase, url);
   if (options?.preferDirect) {
     return [url, proxied];
   }
