@@ -8,6 +8,7 @@ import { getErrorMessage } from '../../lib/misc';
 import { LocalPluginConverter } from './loon-to-surge-converter';
 import { getPluginContent } from './plugin-mirror';
 import { identifyPluginSource } from './plugin-identity';
+import { validateScriptPreservation } from './script-extractor';
 import type { PluginConversionResult, PluginInfo } from './types';
 
 let loadPluginContent: typeof getPluginContent = getPluginContent;
@@ -50,6 +51,10 @@ async function convertPluginLocally(
     // 本地转换（使用 async 版本）
     const converter = new LocalPluginConverter();
     const surgeContent = await converter.convert(loonContent);
+    const preservationError = validateScriptPreservation(loonContent, surgeContent);
+    if (preservationError) {
+      return { pluginName: plugin.name, ...identity, content: { error: preservationError } };
+    }
 
     console.log(picocolors.green(`  [Local] ✓ ${plugin.name} converted successfully`));
 

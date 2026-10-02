@@ -12,6 +12,19 @@ import { SCRIPT_MIRROR_LOCATION } from './script-location';
  */
 const SCRIPT_PATH_REGEX = /script-path\s*=\s*(https?:\/\/[^\s",]+\.js[^\s",]*)/gi;
 
+/** Reject converters that silently remove source script dependencies. */
+export function validateScriptPreservation(source: string, converted: string): string | undefined {
+  const activeSource = source.split('\n').filter(line => !/^\s*[#;]/.test(line)).join('\n');
+  const expected = new Set(extractScriptUrls(activeSource).map(script => script.originalUrl));
+  for (const match of activeSource.matchAll(/\bscript\(\s*["'](https?:\/\/[^"'\s]+)["']/g)) {
+    expected.add(match[1]);
+  }
+  const actual = new Set(extractScriptUrls(converted).map(script => script.originalUrl));
+  const missing = [...expected].filter(url => !actual.has(url));
+  if (missing.length) return `Conversion dropped ${missing.length} source script dependencies`;
+  return undefined;
+}
+
 /**
  * 从 sgmodule 内容中提取所有脚本 URL
  *

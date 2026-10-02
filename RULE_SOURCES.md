@@ -96,7 +96,7 @@ CloudMounter 的规则包含 AND、`PROCESS-NAME,*CloudMounter`、`SRC-IP` 和�
 
 在本仓 GitHub runner 的受控实验中，普通 requests、Node、Surge/CFNetwork UA 对照仍返回 403；本项目自己的 Worker 配合 cloudscraper 成功下载 15/15 个规则。随后经现有 fetchAssets 与四平台 writer 生成 60 个文件并检查 JSON。实验运行：[36756620028](https://github.com/lucking7/MirrRule/actions/runs/36756620028)、[36756838931](https://github.com/lucking7/MirrRule/actions/runs/36756838931)、[36757060330](https://github.com/lucking7/MirrRule/actions/runs/36757060330)。第二轮失败是 Node 对照失败，不能记作成功构建。实验不能证明 origin 最新性，Worker 可能缓存；TLS 指纹、headers 顺序等具体原因也未单独隔离。
 
-规则构建、source-health 与插件转换均接入 [browser-rule-gateway.py](Build/browser-rule-gateway.py)。它只接受 Kelee HTTPS `.lsr`、`.plugin`、`.lpx`、`.js` 及固定目录 `https://hub.kelee.one/list.json`。它固定监听 `127.0.0.1`，每请求创建独立 browser session，要求 HTTP 200、非空 UTF-8 规则正文，拒绝 HTML/JSON，限制 8 MiB，关闭 redirect 并设置超时。HEAD 健康探针在上游使用 GET 并校验正文；`/health` 仅表示本地服务已启动。目录用 browser session 直连并校验 JSON（包括 `loon://` 安装链接）；其他资源经自有 Worker 下载，插件要求名称和有效 section，脚本拒绝 HTML/challenge 正文。它不是通用代理。
+规则构建、source-health 与插件转换均接入 [browser-rule-gateway.py](Build/browser-rule-gateway.py)。它只接受 Kelee HTTPS `.lsr`、`.plugin`、`.lpx`、`.js` 及固定目录 `https://hub.kelee.one/list.json`。它固定监听 `127.0.0.1`，每请求创建独立 browser session，要求 HTTP 200，限制 8 MiB，关闭 redirect 并设置超时。HEAD 健康探针在上游使用 GET 并校验正文；`/health` 仅表示本地服务已启动。目录用 browser session 直连并校验 JSON（包括 `loon://` 安装链接）；其他资源经自有 Worker 下载，规则要求非空 UTF-8 规则正文且拒绝 HTML/JSON，插件要求名称和有效 section，脚本拒绝 HTML/challenge 正文。它不是通用代理。
 
 使用 Python 3.11，并安装精确锁定的 [requirements](Build/browser-rule-requirements.txt)。本地直连规则源可用时不必设置 gateway；需要复现 CI 的路径时，在仓库根目录运行：
 
