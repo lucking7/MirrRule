@@ -209,7 +209,7 @@ jobs:
           docker run --detach --rm \
             --name mirrrule-script-hub \
             --network host \
-            xream/script-hub@sha256:c55180dd41c07567906f17953587c25b61b427b2c5cc6b955721677fd615f470
+            xream/script-hub@sha256:8880569ae0014260432b964792eed302335f503ed90380adfdda6d83f8f8f265
           echo "⏳ 等待 Script-Hub 服务启动..."
           for i in {1..30}; do
             if curl --fail --silent --max-time 2 http://script.hub:9101/ > /dev/null 2>&1; then

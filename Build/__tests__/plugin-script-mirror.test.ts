@@ -6,7 +6,7 @@ import process from 'node:process';
 import { describe, it } from 'node:test';
 
 import { applyScriptMirrorMap } from '../integration/plugin-converter';
-import { extractScriptUrls } from '../integration/plugin-converter/script-extractor';
+import { extractScriptUrls, validateScriptPreservation } from '../integration/plugin-converter/script-extractor';
 import { mirrorScripts } from '../integration/plugin-converter/script-mirror';
 
 const firstUrl = 'https://one.example/assets/main.js';
@@ -21,6 +21,31 @@ function response(content: string, status = 200) {
 }
 
 describe('plugin script mirroring', () => {
+  it('requires both legacy and Loon v2 source scripts to survive conversion', () => {
+    const source = `#!name=sample\n[Script]\nhttp-response ^https://one script-path=${firstUrl}\nresponse if \u0024{url} == "https://two" then script("${secondUrl}") with requires_body=true\n# response then script("https://ignored.test/example.js")\n`;
+    assert.match(validateScriptPreservation(source, '#!name=sample\n[MITM]\nhostname=one') ?? '', /dropped 2/);
+    assert.match(validateScriptPreservation(source, `[Script]\nfirst=script-path=${firstUrl}`) ?? '', /dropped 1/);
+    assert.equal(validateScriptPreservation(source, `[Script]\nfirst=script-path=${firstUrl}\nsecond=script-path=${secondUrl}`), undefined);
+  });
+  it('rejects HTTP 200 challenge pages and preserves only a degraded warm mirror', async () => {
+    const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-scripts-'));
+    try {
+      const options = { outputDirectory, metadataPath: path.join(outputDirectory, 'metadata.json') };
+      const ready = await mirrorScripts([script(firstUrl)], 1, {
+        ...options, fetchFn: () => response('console.log("valid script");'),
+      });
+      const blocked = await mirrorScripts([script(firstUrl), script(secondUrl)], 1, {
+        ...options, fetchFn: () => response('<!doctype html><title>Just a moment</title>'),
+      });
+      assert.equal(blocked.failed, 2);
+      assert.deepEqual(blocked.degradedUrls, [firstUrl]);
+      assert.equal(blocked.urlMap[firstUrl], ready.urlMap[firstUrl]);
+      assert.equal(blocked.urlMap[secondUrl], undefined);
+      assert.equal(fs.readFileSync(path.join(outputDirectory, path.basename(ready.urlMap[firstUrl])), 'utf8'), 'console.log("valid script");');
+    } finally {
+      fs.rmSync(outputDirectory, { recursive: true, force: true });
+    }
+  });
   it('extracts source metadata without predicting a mirror URL', () => {
     assert.deepEqual(extractScriptUrls(`script-path=${firstUrl}`), [{
       originalUrl: firstUrl,

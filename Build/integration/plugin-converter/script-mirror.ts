@@ -4,7 +4,7 @@
  */
 
 import fs from 'node:fs/promises';
-import { Buffer } from 'node:buffer';
+import { Buffer, isUtf8 } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import picocolors from 'picocolors';
@@ -125,7 +125,8 @@ async function downloadScript(
   const existing = await readExisting(filePath);
 
   console.log(picocolors.gray(`[Mirror] ${filename}`));
-  console.log(picocolors.gray(`  From: ${script.originalUrl}`));
+  const source = new URL(script.originalUrl);
+  console.log(picocolors.gray(`  From: ${source.hostname}${source.pathname}`));
 
   for (const candidate of buildClassifiedProxyUrlCandidates(script.originalUrl, { preferDirect: true })) {
     try {
@@ -147,6 +148,12 @@ async function downloadScript(
       // 验证文件大小
       if (content.byteLength < MIN_FILE_SIZE) {
         console.log(picocolors.yellow(`[Mirror] File too small: ${content.length} bytes`));
+        continue;
+      }
+
+      const prefix = content.toString('utf8').trimStart().slice(0, 8192).toLowerCase();
+      if (!isUtf8(content) || /<!doctype html|<html|<body|cf-chl-|challenge-platform|just a moment|attention required|enable javascript and cookies to continue|cloudflare ray id/.test(prefix)) {
+        console.log(picocolors.red(`[Mirror] ✗ ${candidate.source}: Invalid JavaScript response`));
         continue;
       }
 

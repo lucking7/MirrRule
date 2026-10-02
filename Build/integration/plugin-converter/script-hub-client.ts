@@ -14,6 +14,7 @@ import { identifyPluginSource } from './plugin-identity';
 import { getPluginContent } from './plugin-mirror';
 import type { PluginMirrorOptions } from './plugin-mirror';
 import { startLocalPluginServer } from './local-plugin-server';
+import { validateScriptPreservation } from './script-extractor';
 
 /**
  * Script-Hub API 配置
@@ -78,6 +79,7 @@ type ScriptHubFetch = (
 
 interface RemoteConversionOptions {
   sourceUrls: ReadonlyMap<string, string>;
+  sourceContents: ReadonlyMap<string, string>;
   fetchFn?: ScriptHubFetch
 }
 
@@ -220,6 +222,13 @@ async function convertPluginsBatchFromRemote(
               return { pluginName: plugin.name, ...identity, content: { error: lastError } };
             }
 
+            const sourceContent = options.sourceContents.get(`${identity.sourceId}\0${plugin.name}`);
+            if (sourceContent === undefined) throw new Error('Missing staged plugin content');
+            const preservationError = validateScriptPreservation(sourceContent, content);
+            if (preservationError) {
+              return { pluginName: plugin.name, ...identity, content: { error: preservationError } };
+            }
+
             console.log(
               picocolors.green(
                 `[Convert] ✓ ${plugin.name}${attempt > 1 ? ` (attempt ${attempt})` : ''}`
@@ -327,6 +336,7 @@ export async function convertPluginsBatchFromLocalMirror(
   try {
     const converted = await convertPluginsBatchFromRemote(readyPlugins, config, concurrency, {
       sourceUrls: server.sourceUrls,
+      sourceContents: downloaded,
       fetchFn: options.scriptHubFetchFn,
     });
     const convertedByKey = new Map(converted.map(result => [

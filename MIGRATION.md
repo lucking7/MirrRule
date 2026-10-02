@@ -38,7 +38,7 @@ MirrRule 是构建型规则聚合项目：下载上游成品规则，清洗、�
 | 数据处理     | `yaml 2.9.0`、`fast-cidr-tools 0.3.2`、`foxts 5.8.0`、`tar-fs 3.1.3`                                   |
 | 质量检查     | Node 内置 `node:test`、ESLint `9.39.1`、Sukka config `8.9.3`、Knip `6.35.1`、Prettier `3.9.6`          |
 | 发布工具     | workflow 固定 Wrangler `4.114.0`；无需为本地规则构建安装 Wrangler                                      |
-| 插件转换服务 | Docker 镜像 `xream/script-hub@sha256:c55180dd41c07567906f17953587c25b61b427b2c5cc6b955721677fd615f470` |
+| 插件转换服务 | Docker 镜像 `xream/script-hub@sha256:8880569ae0014260432b964792eed302335f503ed90380adfdda6d83f8f8f265` |
 
 本地需要 Git、Node、pnpm 和网络；复现 CI 的 Script-Hub 转换路径还需要可运行 Docker 的环境。源码包含本地转换 fallback，但不能据此保证缺少 Script-Hub 时所有插件都能转换。`better-sqlite3` 和 SWC 有原生二进制依赖，换 Node 大版本或 CPU 架构后不要复用旧 `node_modules`。预编译包不可用时，需要 Python 和系统 C/C++ 编译工具链。`pnpm test` 固定逐个运行测试文件，避免干净克隆首次创建共享 SQLite 缓存时多个测试进程争用锁。
 
@@ -158,7 +158,7 @@ node -e 'const fs=require("node:fs"); for (const p of ["public/status.json","pub
 
 规则 Build 与 source-health 现通过 Python 3.11 browser gateway 使用自己的 Worker；安装锁定依赖、启动与退出命令见 [RULE_SOURCES.md](RULE_SOURCES.md)。只接受 HTTPS Kelee `.lsr`、`.plugin`、`.lpx`、`.js` 及固定插件目录；目录直连 browser session，其他资源经 Worker。插件转换也设置同一 Node `PROXY_BASE`。Node `PROXY_BASE` 设置为 `http://127.0.0.1:13193?url=`，gateway 上游设置为自有 HTTPS Worker；新账号必须独立验证，不能沿用原维护者 Worker 作为长期依赖。
 
-Worker 的普通基址会被补成 `?url=`，随后直接拼接原始 URL；已有 `/`、`?` 或 `?url=` 的基址会按源码规则保留。自建服务需要兼容实际拼接、响应状态和二进制/文本内容。不要仅把 `PROXY_BASE` 改成不支持此协议的代理地址。规则下载和健康检查应使用一致的请求语义与 User-Agent；诊断时不要把浏览器能访问视为构建可访问的证据。
+Worker 的普通基址会被补成 `?url=`，随后直接拼接原始 URL；已有 `/`、`?` 或 `?url=` 的基址会按源码规则保留。loopback gateway 使用编码后的 `url` 查询参数，保留源地址内部的查询参数。自建服务需要兼容实际拼接、响应状态和二进制/文本内容。不要仅把 `PROXY_BASE` 改成不支持此协议的代理地址。规则下载和健康检查应使用一致的请求语义与 User-Agent；诊断时不要把浏览器能访问视为构建可访问的证据。
 
 ## 5. 镜像、插件和模块搭建
 
@@ -184,7 +184,7 @@ pnpm run build-web
 ```bash
 docker run --detach --rm --name mirrrule-script-hub \
   --network host \
-  xream/script-hub@sha256:c55180dd41c07567906f17953587c25b61b427b2c5cc6b955721677fd615f470
+  xream/script-hub@sha256:8880569ae0014260432b964792eed302335f503ed90380adfdda6d83f8f8f265
 curl --fail http://localhost:9101/
 env -u CI PROXY_BASE='http://127.0.0.1:13193?url=' \
   PLUGIN_CONVERSION_REPORT="$PWD/plugin-conversion-report.json" \
@@ -328,8 +328,8 @@ job 顺序为 `prepare → convert-plugins → merge-modules → build → 两�
 
 需要特别区分：
 
-- 插件 job 对转换错误有容忍和重试，并无条件上传 marker；job success 或 marker 存在不能证明全部插件成功。模块合并会进一步严格检查默认选中的输入。
-- 合并 job 仅在转换目录完全没有 `.sgmodule` 时尝试从产物仓补齐；已有一部分文件但缺少其他必需文件时，不会自动逐个补齐。
+- 插件 job 最多重试两次，最终非零退出会使 job 失败；只上传非空转换产物，另存诊断报告，不再上传 marker 冒充转换成功。模块合并进一步严格检查默认选中的输入。
+- 本轮要求插件转换时，合并禁止从旧产物仓补齐转换模块。单独运行合并且转换目录完全没有 `.sgmodule` 时，才允许读取产物仓；已有一部分文件但缺少其他必需文件时，不会自动逐个补齐。
 - Build 按顶层目录缺失/为空补齐旧产物，不校验整个目录是否完整。因此一个非空目录可能仍缺少必要文件。
 - `.cache` 是可重建缓存，不是完整 `public` 备份。缓存采用 runner OS 与日期/run ID key；插件、模块、Build artifacts 仅保留 1 天，应另外保存上线快照。
 - Pages 上传本次 artifact 的整份 `public`。Git 产物部署则替换选中的非空目录、保留缺失/空目录、复制根文件，并清理发布名单之外的顶层目录。它不是逐文件补丁更新，也不保证两个目标内容在部分构建时天然一致。
