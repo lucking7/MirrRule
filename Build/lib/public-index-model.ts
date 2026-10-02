@@ -27,7 +27,6 @@ const SKIP_INDEX_FILES = new Set([
 
 export interface RuleFormat {
   client: string,
-  short: string,
   dir: string,
   filename: string,
   /** encodeURI'd relative href */
@@ -75,7 +74,6 @@ export function collectRules(tree: TreeTypeArray): {
       }
       formats.set(metadata.dir, {
         client: metadata.client,
-        short: metadata.short,
         dir: metadata.dir,
         filename: child.name,
         href: encodeURI(child.path),
