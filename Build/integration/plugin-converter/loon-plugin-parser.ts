@@ -68,7 +68,10 @@ export class LoonPluginParser {
           if (trimmedLine.startsWith('#')) {
             LoonPluginParser.lastComment = trimmedLine.slice(1).trim();
           } else if (!trimmedLine.startsWith(';')) {
-            if (/\s(?:response-)?header-(?:del|add|replace|replace-regex)\s/.test(trimmedLine)) {
+            if (/^(?:http-request|http-response|cron|event|generic)\s/.test(trimmedLine) && trimmedLine.includes('script-path=')) {
+              const script = LoonPluginParser.parseScript(trimmedLine);
+              if (script) plugin.scripts.push(script);
+            } else if (/\s(?:response-)?header-(?:del|add|replace|replace-regex)\s/.test(trimmedLine)) {
               const headerRewrite = LoonPluginParser.parseHeaderRewrite(trimmedLine);
               if (headerRewrite) {
                 if (LoonPluginParser.lastComment) {
@@ -188,8 +191,8 @@ export class LoonPluginParser {
     const scriptPath = LoonPluginParser.extractParam(line, 'script-path');
     const tag = LoonPluginParser.extractParam(line, 'tag');
     const argument = LoonPluginParser.extractParam(line, 'argument');
-    const requiresBody = LoonPluginParser.extractParam(line, 'requires-body') === '1';
-    const binaryBodyMode = LoonPluginParser.extractParam(line, 'binary-body-mode') === '1';
+    const requiresBody = /^(?:1|true)$/i.test(LoonPluginParser.extractParam(line, 'requires-body') || '');
+    const binaryBodyMode = /^(?:1|true)$/i.test(LoonPluginParser.extractParam(line, 'binary-body-mode') || '');
     const timeout =
       Number.parseInt(LoonPluginParser.extractParam(line, 'timeout') || '0', 10) || undefined;
     const maxSize =

@@ -123,3 +123,33 @@ test('Script-Hub reads freshly downloaded plugins from a closed loopback mirror'
     await fsp.rm(mirrorDirectory, { recursive: true, force: true });
   }
 });
+
+test('staged jq_file actions use the gateway without changing canonical source identity', async () => {
+  const previous = process.env.PROXY_BASE;
+  process.env.PROXY_BASE = 'http://127.0.0.1:13193?url=';
+  const mirrorDirectory = await fsp.mkdtemp(path.join(os.tmpdir(), 'mirrrule-jq-plugin-'));
+  const plugin: PluginInfo = { name: 'jq', url: 'https://plugins.test/jq.plugin', extension: 'plugin' };
+  const dependency = 'https://kelee.one/Resource/JQLang/Bilibili/test.jq?version=2&key=a%2Bb';
+  const other = 'https://other.test/test.jq';
+  const source = `#!name=JQ\n[Rewrite]\nresponse then response.json.jq_file("${dependency}")\nresponse then response.json.jq_file("${other}")\n`;
+  try {
+    const results = await convertPluginsBatchFromLocalMirror([plugin], undefined, 1, {
+      mirrorOptions: { mirrorDirectory, fetchFn: () => Promise.resolve(new Response(source)) },
+      async scriptHubFetchFn(url) {
+        const match = /\/file\/_start_\/(.+)\/_end_\//.exec(url)!;
+        const staged = await (await fetch(decodeURI(match[1]))).text();
+        assert.ok(staged.includes(`jq_file("${applyProxyIfNeeded(dependency)}")`));
+        assert.ok(staged.includes(`jq_file("${other}")`));
+        const gateway = new URL(/jq_file\("([^"]+)"\)/.exec(staged)![1]);
+        assert.equal(gateway.searchParams.get('url'), dependency);
+        return new Response('#!name=JQ\n[Body Rewrite]\nhttp-response-jq ^https://test/ del(.ads)\n');
+      },
+    });
+    assert.equal(results[0].sourceId, identifyPluginSource(plugin).sourceId);
+    assert.equal(typeof results[0].content, 'string');
+  } finally {
+    if (previous === undefined) delete process.env.PROXY_BASE;
+    else process.env.PROXY_BASE = previous;
+    await fsp.rm(mirrorDirectory, { recursive: true, force: true });
+  }
+});

@@ -9,6 +9,27 @@ import {
 } from '../integration/plugin-converter/local-converter';
 import { identifyPluginSource } from '../integration/plugin-converter/plugin-identity';
 import type { PluginInfo } from '../integration/plugin-converter/types';
+import { LocalPluginConverter } from '../integration/plugin-converter/loon-to-surge-converter';
+
+test('mixed Rewrite script entries retain body flags expressed as booleans', async () => {
+  const source = '#!name=Mixed\n[Rewrite]\nhttp-response ^https://example.test/data script-path=https://example.test/a.js, requires-body=true, binary-body-mode=true\n';
+  const converted = await new LocalPluginConverter().convert(source);
+  assert.match(converted, /\[Script\]/);
+  assert.match(converted, /script-path=https:\/\/example\.test\/a\.js/);
+  assert.match(converted, /requires-body=1/);
+  assert.match(converted, /binary-body-mode=1/);
+});
+
+test('local fallback rejects native Loon v2 actions instead of publishing empty conversion', async t => {
+  t.after(() => setLocalConverterContentLoader(null));
+  setLocalConverterContentLoader(() => Promise.resolve({
+    success: true,
+    // eslint-disable-next-line no-template-curly-in-string -- Literal Loon v2 variable.
+    content: '#!name=Native\n[Rewrite]\nresponse if ${url} ~= /^https:/ then response.body.mock("json", "{}", 200)\n',
+  }));
+  const [result] = await convertPluginsLocallyBatch([{ name: 'Native', url: 'fixture://native', extension: 'plugin' }]);
+  assert.deepEqual(result.content, { error: 'Local fallback does not support Loon v2 syntax' });
+});
 
 const fixtureRoot = path.join(process.cwd(), 'Build', '__tests__', 'fixtures');
 const fixtureNames = ['metadata-rules', 'rewrites', 'scripts', 'minimal'] as const;

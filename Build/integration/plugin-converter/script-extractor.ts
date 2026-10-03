@@ -14,6 +14,7 @@ const SCRIPT_PATH_REGEX = /script-path\s*=\s*(https?:\/\/[^\s",]+\.js[^\s",]*)/g
 
 /** Reject converters that silently remove source script dependencies. */
 export function validateScriptPreservation(source: string, converted: string): string | undefined {
+  if (converted.includes('[Loon v2:')) return 'Unsupported Loon v2 action in converted output';
   const activeSource = source.split('\n').filter(line => !/^\s*[#;]/.test(line)).join('\n');
   const expected = new Set(extractScriptUrls(activeSource).map(script => script.originalUrl));
   for (const match of activeSource.matchAll(/\bscript\(\s*["'](https?:\/\/[^"'\s]+)["']/g)) {

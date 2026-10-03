@@ -31,6 +31,12 @@ const SCRIPT_OUTPUT_DIR = path.join(__dirname, '../../../public/Scripts');
 const MIN_FILE_SIZE = 10;
 const MIRROR_BASE_URL = `https://${SCRIPT_MIRROR_LOCATION}`;
 
+function isScriptContentValid(content: Buffer): boolean {
+  if (content.length < MIN_FILE_SIZE || !isUtf8(content)) return false;
+  const prefix = content.toString('utf8').trimStart().slice(0, 8192).toLowerCase();
+  return !/^(?:<!doctype\s+html\b|<(?:html|head|body|script)\b|just a moment\b|attention required\b|enable javascript and cookies to continue\b|window\.location\s*=\s*['"][^'"]*\/cdn-cgi\/challenge-platform\/)/.test(prefix);
+}
+
 interface FetchResponse {
   ok: boolean,
   status: number,
@@ -151,8 +157,7 @@ async function downloadScript(
         continue;
       }
 
-      const prefix = content.toString('utf8').trimStart().slice(0, 8192).toLowerCase();
-      if (!isUtf8(content) || /<!doctype html|<html|<body|cf-chl-|challenge-platform|just a moment|attention required|enable javascript and cookies to continue|cloudflare ray id/.test(prefix)) {
+      if (!isScriptContentValid(content)) {
         console.log(picocolors.red(`[Mirror] ✗ ${candidate.source}: Invalid JavaScript response`));
         continue;
       }

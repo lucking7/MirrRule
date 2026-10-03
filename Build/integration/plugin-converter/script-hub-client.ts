@@ -329,7 +329,16 @@ export async function convertPluginsBatchFromLocalMirror(
     const identity = identifyPluginSource(plugin);
     return {
       plugin,
-      content: downloaded.get(`${identity.sourceId}\0${plugin.name}`)!,
+      // jq_file is fetched during conversion, so it needs the same validated gateway as plugins.
+      content: downloaded.get(`${identity.sourceId}\0${plugin.name}`)!.replace(
+        /(\b(?:request|response)\.json\.jq_file\(\s*)(["'])(https:\/\/[^"'\s]+)\2/g,
+        (match, prefix: string, quote: string, dependency: string) => {
+          const parsed = new URL(dependency);
+          if (parsed.hostname !== 'kelee.one' || !parsed.pathname.startsWith('/Resource/JQLang/')
+            || !parsed.pathname.endsWith('.jq')) return match;
+          return `${prefix}${quote}${applyProxyIfNeeded(dependency)}${quote}`;
+        }
+      ),
     };
   }));
 
