@@ -12,6 +12,7 @@ import { applyProxyIfNeeded } from '../../utils/network/proxy';
 import { getErrorMessage } from '../../lib/misc';
 import { writeFileAtomic } from '../../lib/atomic-file';
 import { identifyPluginSource } from './plugin-identity';
+import { validateScriptPreservation } from './script-extractor';
 
 /**
  * 镜像目录（放在 .cache 目录下，不部署到生产环境）
@@ -58,8 +59,9 @@ export interface PluginContentResult {
   degraded?: boolean
 }
 
-function validatePluginContent(content: string): string | null {
+function validatePluginContent(content: string, useNativeSurge = false): string | null {
   if (content.trim().length === 0) return 'Empty plugin response';
+  if (useNativeSurge) return validateScriptPreservation(content, content) ?? null;
 
   const hasPluginSection = /^\s*\[(?:Argument|General|Host|Map Local|MITM|Rewrite|Rule|Script)\]\s*$/imu
     .test(content);
@@ -97,7 +99,7 @@ async function mirrorPlugin(
 
     const content = await response.text();
 
-    const validationError = validatePluginContent(content);
+    const validationError = validatePluginContent(content, plugin.useNativeSurge);
     if (validationError) {
       console.log(picocolors.red(`  [Mirror] ✗ ${plugin.name}: ${validationError}`));
       return { success: false, error: validationError };

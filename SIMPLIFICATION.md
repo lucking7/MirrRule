@@ -164,3 +164,13 @@ C6：三个 Script-Hub 补丁阶段的非重叠锚点计数完全相同，统一
 实际产物核对：哔哩哔哩转换模块保留 4 Script、11 Body Rewrite、1 Header Rewrite；合并模块引用 64 次、29 个不同镜像脚本，产物中无缺失依赖。记录的是源码转换及产物完整性，未在实体 Surge/Loon 客户端逐项执行。
 
 未通过项及解除步骤：blockAds 与 Prevent_DNS_Leaks 的 Loon PROXY 不能无绑定复制到 Surge，需原生 Surge 来源或接管者独立规则集绑定自己的策略后验收；EasyBike_remove_ads 的 mobileconfig-gateway.js、Tencent_Video_remove_ads 的 replace-body.js 上游不可用，需上游恢复或维护者提供等价脚本，再运行默认严格转换并核对依赖。它们不在 47 个启用输入内，不能当作 ready；历史 optional 保留也不更改失败报告。没有以忽略错误、启用旧产物充当 fresh 或改写 golden 换取通过。
+
+## 原生 fmz200 与最终校验边界
+
+77306e1 改用上游原生 `Surge/module/blockAds.module`，不再把含 PROXY 的 Loon 合集无绑定转换。native adapter 强制 fresh 下载、拒 degraded，并进入既有脚本镜像与原子发布链，保留 Header/Body Rewrite；历史恢复统一使用活动功能节校验。新来源的实网结果以最终 runner 报告为准，旧 6be19ba 的四项失败清单属于该提交的历史记录。
+
+质量复查发现 native 仅含 Header/Body/URL Rewrite 或 Panel 时，下载层旧 Loon regex 会先拒绝。下载层现对 native 复用既有功能校验，Loon regex 不变；经过实际 getPluginContent 和 fetch seam 的回归先报 Invalid plugin format，再通过。空原生模块及缓存 degraded 均不得成为 ready。三路终轮复核已结束，无新增值得实施项。native adapter 保留自身校验，覆盖可注入 loader；当前只有一个 native 源，拆校验接口不构成净收益。
+
+最终验收命令均在隔离 worktree 使用 Node 26：`pnpm run validate`、`pnpm test`、`pnpm run knip`。Python 14 项测试已通过，完整规则 build 和固定输入比较见上文。回滚以逐批 revert 或 main 合并提交 revert 为入口，保留原 main 基线 `e03e34f5`、NRRule 基线 `7b4d094d`；生产产物需分别按 MIGRATION 的 Pages/产物仓步骤恢复，源码回滚不能还原动态上游字节。
+
+最终本地结果：229/229 Node tests、52 suites，validate/typecheck 退出 0（143 warnings、0 errors），Knip 退出 0；日志 `/tmp/mirrrule-native-validator-tests.log`、`/tmp/mirrrule-native-validator-validate.log`、`/tmp/mirrrule-native-validator-knip.log`。Native 下载校验红绿日志为 `/tmp/mirrrule-native-validator-red.log`、green.log。warnings 没有当成 errors 或静默忽略；未削弱校验/测试来降低数量。
