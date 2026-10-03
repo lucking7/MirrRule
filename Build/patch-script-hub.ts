@@ -43,7 +43,7 @@ const MOCK_PREFLIGHT = [
   '      mp4: \'video/mp4\',',
   '      \'form-data\': \'application/x-www-form-urlencoded\',',
   '    }',
-  '    const mimeType = contentTypes[contentType.value]',
+  '    const mimeType = Object.hasOwn(contentTypes, contentType.value) ? contentTypes[contentType.value] : undefined',
   '    if (typeof mimeType !== \'string\') {',
   '      return { unsupported: true, reason: \'response.body.mock 不支持 contentType=\' + contentType.value }',
   '    }',

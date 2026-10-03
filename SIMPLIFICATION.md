@@ -16,7 +16,7 @@
 
 ## P0，先修复插件转换（待 runner 全量验收）
 
-候选/位置：`plugin-converter`、Python gateway、`main.yml`。旧流程目录失败却上传 marker，合并再取历史 NRRule，形成假成功。新路径先校验/刷新插件，再供 loopback Script-Hub 转换，校验依赖并原子发布；下载失败不能通过旧缓存成为 fresh。CLI 非零、零转换 artifact 及本轮转换缺失均阻断后续发布。
+候选/位置：`plugin-converter`、Python gateway、`main.yml`。旧流程目录失败却上传 marker，合并再取历史 NRRule，形成假成功。新路径先校验/刷新插件，再供 loopback Script-Hub 转换，校验依赖并原子发布；下载失败不能通过旧缓存成为 fresh。默认严格模式中任一非 ready 插件使 CLI 非零；CI 的 required-config 模式必须让默认启用的 47 个模块全部来自本轮 ready 产物并通过实际 dry-run，其他失败单独报告。零转换 artifact、必需输出缺失或降级均阻断发布。
 
 消费者：`convert-plugins` CLI、完整/插件 Actions、模块合并及公开输出。canonical source ID、旧缓存和发布格式保持；行为变化是让真实失败如实失败。回滚：revert 本批提交；生成物不手改。
 
@@ -40,6 +40,7 @@ ce-simplify-code 复查：复用 0 项直接应用；质量 4 项应用；效率
 | N2 | task 的 onCleanup 无任何 callback 消费，独立真实 cleanup 仍有效 | 去闲置生命周期抽象；中低风险；成功/失败入口 trace 验证 | 已实施 |
 | N3 | deprecated requestWithLog 仅 headStatus，后者供两个 tarball CLI | 可能少一套请求 API；实测 wire headers 和 ResponseError.res 不同 | 拒绝直接替换 |
 | N4 | TS issueAction 与 workflow deadStreak 判断重复 | 收敛三次失败决策；中风险；持久故障与当次 transition 不同 | 拒绝原切法 |
+| N8 | 脚本 validator 长度判断由唯一调用方 Buffer.byteLength gate 保证 | 少一份校验；低风险；short-body 专用日志及脚本测试保留 | 已实施 |
 | N7 | source inventory 与 health 的 URL 脱敏重复 | 去安全规则双维护；中低风险；source ID/报告值等价比较 | 已实施 |
 | N10 | IPValidator.isIpCidr 仅 tests 使用 | 小收益；内部 API shape 变化；完整 IPValidator 接口/测试仍可用 | 拒绝，小收益且切除可用 API |
 | C1 | previous-build/mock modules 重复 tarball transport，两个 CLI 均保留 | 去双份下载状态机；中低风险；HTTP/tar fixture；两入口 live 待验收 | 已实施 |
@@ -126,3 +127,15 @@ C1 实网命令（隔离 PUBLIC_DIR，CI 未设置）：
 `PROXY_BASE='http://127.0.0.1:13195?url=' mise exec node@26 -- pnpm run build`：退出 0，约 32.9 秒。gateway 使用受限 loopback 端口 13195，本次启动与关闭均完成。6 个 groups、39 个 special rules；普通 19 文件、0 errors，特殊 39 文件、509170 条合并输入。public/status.json 有 58 个 rulesets，.BUILD_FINISHED 写入；public 共 238 文件，List 58、Clash/Loon/sing-box 各 57（按原配置不同 targets）。GEOIP、四平台文件、索引和部署辅助文件均由源码生成，没有手改产物。日志 `/tmp/mirrrule-cleanup-build.log`。
 
 previous-build 目录 1507 文件/111374853 bytes，mock 目录 41 文件/179570 bytes。二者输出完全位于独立临时目录；完整 build 仅修改隔离 worktree 的生成物，不写原任务工作区或生产。
+
+## 插件补充修复整合与复查
+
+010bdaf 修复了 Loon v2 脚本/布尔参数、JS 正文内正常 HTML 字符串被误判、jq_file 的受限 gateway，以及 response.body.mock 的 text/Base64、状态与 Content-Type。固定 digest 的 Script-Hub 在 runner 内应用带精确锚点校验的补丁，不匹配则失败；unsupported action 保留诊断，不能当成功。CI required-config 复用合并器的默认筛选/路径解析，并要求 47 个启用输出实际对应本轮 ready 结果且 dry-run 通过。配置只有产物路径，不能从它反推 source URL，未声称具有该额外身份验证。
+
+整合提交 0c796428：194/194 Node tests、14/14 Python tests、validate 0 errors/122 warnings、Knip 成功。新修复的三路补充复查均已结束；应用 2 项：删除私有脚本 validator 中已由唯一调用方保证的重复 Buffer 长度判断（保留专用过小日志与 UTF-8/challenge 检查），以及用 Object.hasOwn 明确限制 MIME own-key 白名单。后者是预发布实现的校验 bug 修复，同一 VM 的 Object.prototype.xml 字符串属性可使未知 xml 类型错误通过；新增回归先失败后修复，已支持类型的结果不变。
+
+不实施 readiness 的重复读取切法：首次读取证明本轮 ready 路径和非空，第二次走实际 ModuleLoader/dry-run；去重需要扩充合并器接口并改变资源/失败顺序，当前 47 项不值得增加协调层。保留原 source identity、缓存/降级、参数和发布契约。新 required 规则与严格 CLI 模式的区别已经在迁移文档说明；两个失效外部脚本不能标为成功。
+
+终轮三路复核：上述两项应用后均无新增值得实施的复用、质量或效率候选。195/195 Node tests；validate 首次在新增 VM fixture string 发现 singlequote lint 错误，修正后 validate/typecheck 退出 0，仍有 122 warnings。Knip 成功，diff-check 成功。高置信简化队列已清零，功能修复不以降低门槛结束。
+
+runner 37080295586（010bdaf）未通过：265 ready、11 failed，其中 9 个 Loon v2 插件因 unsupported actions 被明确拒绝，另有 2 个失效脚本。默认可莉广告过滤器、知识星球有漏项，required 检查阻断了合并、Build、Pages/NRRule；当前没有把该 runner 标为通过，main 尚未合入清理分支。后续须补齐正则字面量/捕获组/文件 mock 等实际语义后重验，不能绕过 required 筛选。

@@ -145,6 +145,14 @@ test('dynamic variables in mock arguments stay unsupported instead of being gues
   }
 });
 
+test('mock MIME whitelist rejects inherited strings in the parser realm', async () => {
+  const api = evaluateFixture('Object.prototype.xml = "text/xml";\n' + patchScriptHubParser(fixtureSource));
+  const result = await api.normalizeLoonV2RewriteLine('response.body.mock("xml", "body")');
+
+  assert.equal(result?.unsupported, true);
+  assert.equal(api.getMapLocal().length, 0);
+});
+
 test('invalid type, body, status, Base64, and arity stay unsupported', async () => {
   const actions = [
     'response.body.mock("xml", "body")',
