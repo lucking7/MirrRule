@@ -441,3 +441,26 @@ mise exec node@26 -- pnpm run build
 2026-10-01 后续补充了 13 个 Sukka 独立订阅，包括 Apple Intelligence、游戏下载、六个地区流媒体、钓鱼拦截、国内 CDN、GitLab、搜狗输入法和 CloudMounter。来源、输出路径和策略建议见 [Sukka 补充分类](RULE_SOURCES.md#sukka-补充分类)。CloudMounter 仅生成 Surge 输出，部署后再在客户端配置订阅；规则构建不修改现有客户端策略。
 
 2026-10-02 补齐聚合：总 `stream` 合并全部六个地域的域名与 IP 来源，允许有效下载但清理后为空的来源；`reject_extra` 合并钓鱼集合，基础 `reject` 不变。独立订阅保留。聚合范围、来源失败行为、其他分类的覆盖关系和本轮验收见 [同类规则的聚合归属](RULE_SOURCES.md#同类规则的聚合归属)，旧验收条数不能代替本轮结果。
+
+## 13. 2026-10-03 插件转换修复验收
+
+此前 main 的 Actions 虽然显示成功，实际插件列表下载失败、转换数量为 0，上传物只有 marker；合并阶段读取旧产物完成了 47 项合并。这不能作为新转换成功的证据。本次参考 [TutuBetterRules](https://github.com/bunizao/TutuBetterRules) 的下载与转换分离方式，使用 runner 校验插件正文和依赖、host-network Script-Hub 转换，再检查真实产物。固定镜像与受限兼容补丁同时解决原生 Loon v2 Action、捕获组、正则字面量和 mock 响应问题。
+
+修复源码 `77306e16f1e1dc1bea82d256e92a0e2aa8912b66` 的 [完整分支验收 37083775680](https://github.com/lucking7/MirrRule/actions/runs/37083775680) 为 success，安装、lint/typecheck、220 项 Node tests、14 项 Python gateway tests、Knip、镜像同步、插件转换、47 项模块合并和主规则构建通过。两个 deploy job 因分支条件 skipped，该 run 没有发布生产。后续收尾只补录本文、客户端范围与 DNS 错误文字；DNS 拒绝路径又经过 6 项定向测试。
+
+| 核对项 | 本轮观察结果 |
+|---|---|
+| Conversion report | 276 项，273 ready、0 degraded、3 failed；required ready=47 |
+| 本轮插件 artifact | 273 个 `.sgmodule`、188 个 `.js`，没有 metadata-only 模块或缺失的自有脚本引用 |
+| 合并 artifact | 273 个 Converted 模块、1 个 All-in-One-Pro、189 个脚本；历史补回不计入 fresh report |
+| 哔哩哔哩转换 | 4 条 Script、11 条 Body Rewrite、1 条 Header Rewrite、8 条 Map Local |
+| 哔哩哔哩独立合并 | 用本轮输入在临时配置中单独合并，以上四类条数不变，pattern 均保留；它不在默认 47 项集合中 |
+| fmz200 原生模块 | 2993 条 Rule、1 条 Header Rewrite、528 条 URL Rewrite、104 条 Body Rewrite、837 条 Map Local、255 条活动 Script；与下载的原生源逐节条数一致 |
+| 小桔文件模拟响应 | 生成约 1.77 MB 模块，内联 JavaScript 的 `Error:`/`error:` 字符串不会再触发服务错误误判 |
+| 当前规则来源 | [健康检查 37083860431](https://github.com/lucking7/MirrRule/actions/runs/37083860431) 为 success，116/116 OK；这不是所有插件依赖健康的替代证明 |
+
+三个失败项不能宣称可用：`Prevent_DNS_Leaks` 使用不受 Surge module Rule 支持的 Loon `PROXY` 策略，应改为独立规则集并在主配置指定策略；`EasyBike_remove_ads` 的 `mobileconfig-gateway.js`、`Tencent_Video_remove_ads` 的 `replace-body.js` 上游返回 404，需上游恢复或选择经过内容与功能验收的替代脚本后重跑。腾讯视频在默认合并配置中仍禁用。它们均不属于本轮默认启用的 47 项。旧的 DNS 空模块也不会补回。
+
+本机使用 `mise exec node@26 -- pnpm run validate`、`mise exec node@26 -- pnpm test`、`mise exec node@26 -- pnpm run knip` 和 `python -B Build/__tests__/browser-rule-gateway.test.py` 验收；完整上游 Parser 的 VM 检查共 34/34，包括真实失败插件及 Script 捕获绑定负例。本机没有 Docker，Docker 网络与完整转换的证据来自上述真实 GitHub runner，不能混写成本机容器验收。临时日志为 `/tmp/mirrrule-plugin-final-{validate6,tests6,knip6}.log`、`/tmp/mirrrule-plugin-final-python.log`、`/tmp/mirrrule-combined-native-strict-tests4.log`；下载及核对结果在 `/tmp/mirrrule-plugin-feature-native/`。这些路径不是迁移者的前置条件，重现时应按第 5、8 节保存自己的报告和产物。
+
+以上使用现有维护账号。新账号的 Secrets、仓库权限、Cloudflare Pages 和域名仍需重新验证；未进行真实客户端导入、广告行为或地区解锁实测。fmz200 原生输入的 iOS 限制保持上游设置。生产发布应另外核对对应 main run 与公开文件，不能用分支成功代替发布成功。
