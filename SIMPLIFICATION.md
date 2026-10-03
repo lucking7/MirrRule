@@ -1,6 +1,6 @@
 # 全项目简化与验收记录
 
-目标：在保留功能、四平台语义、订阅地址、CLI/env、校验、缓存、原子发布及回滚的前提下，减少重复状态、无消费者接口和重复流程。基线为 `e03e34f5`，先独立修复插件转换，再按职责边界实施候选。当前记录为进行中，未完成项不能视为已验收。
+目标：在保留功能、四平台语义、订阅地址、CLI/env、校验、缓存、原子发布及回滚的前提下，减少重复状态、无消费者接口和重复流程。基线为 `e03e34f5`，先独立修复插件转换，再按职责边界实施候选。源码简化队列及最终三路复查已完成；发布验收进行中，未完成项不能视为已验收。
 
 ## 覆盖与外部边界
 
@@ -12,9 +12,9 @@
 | 镜像与模块 | mirror sync、插件、module-merger | last-known-good、canonical identity、47 个启用模块、参数与脚本隔离、双文件回滚 |
 | 入口与运维 | CLI、package/Knip、三个 workflow、README/MIGRATION/RULE_SOURCES | 公开命令、固定 runtime/image、失败传播、产物仓和 Pages 发布 |
 
-以上领域已完成第一轮只读调查。仓库为 private package；不能从静态搜索证明无人从仓库外直接 import 内部源码。保留有文档/CLI/持久化意义的接口。客户端导入和实际分流、新账号 Worker/Secret/域名仍是外部验收边界；源码检查、HTTP 200 和 Actions 成功不能替代这些验证。
+以上领域已完成调查、候选实施及终轮复查。仓库为 private package；不能从静态搜索证明无人从仓库外直接 import 内部源码。保留有文档/CLI/持久化意义的接口。客户端导入和实际分流、新账号 Worker/Secret/域名仍是外部验收边界；源码检查、HTTP 200 和 Actions 成功不能替代这些验证。
 
-## P0，先修复插件转换（待 runner 全量验收）
+## P0，先修复插件转换（验收按提交记录）
 
 候选/位置：`plugin-converter`、Python gateway、`main.yml`。旧流程目录失败却上传 marker，合并再取历史 NRRule，形成假成功。新路径先校验/刷新插件，再供 loopback Script-Hub 转换，校验依赖并原子发布；下载失败不能通过旧缓存成为 fresh。默认严格模式中任一非 ready 插件使 CLI 非零；CI 的 required-config 模式必须让默认启用的 47 个模块全部来自本轮 ready 产物并通过实际 dry-run，其他失败单独报告。零转换 artifact、必需输出缺失或降级均阻断发布。
 
@@ -153,3 +153,14 @@ C6：三个 Script-Hub 补丁阶段的非重叠锚点计数完全相同，统一
 最终三路独立只读复查覆盖整合提交和上述改动，均无新增值得实施项。optional 脚本重复读取的实际引用规模未证明值得引入缓存状态；stat.isFile 与 readFile 对目录和错误的契约不同，保留。高置信可执行队列清零，净实施 9 项（R1/R2/R3/R4/N1/N2/N7/C1/C6），N8 的旧切法已恢复。
 
 隔离目录验收：222/222 Node tests、52 suites；validate/typecheck 退出 0，0 errors、132 warnings；Knip 退出 0；固定输入四平台 golden 未更新。日志 `/tmp/mirrrule-native-final-tests.log`、`/tmp/mirrrule-native-final-validate.log`。当前记录尚不代表清理分支已完成 main/生产验收。
+
+
+## 6be19ba 实际转换验收
+
+最新整合代码的 Node 26 validate/typecheck 退出 0（139 warnings、0 errors）、226/226 Node tests、52 suites、Knip 成功；Python gateway 14/14 tests。`f6c0e3d` 的空功能模块检查、裸 PROXY 拒绝及首部 Error 检查经补充三路复查，无新增值得实施项。
+
+[清理分支 runner 37083428866](https://github.com/lucking7/MirrRule/actions/runs/37083428866) 转换与模块合并已成功；276 total、272 ready、0 degraded、4 failed，47 required ready。原插件分支 [37082874939](https://github.com/lucking7/MirrRule/actions/runs/37082874939) 的转换、合并及 Build 完整通过，部署按 feature branch 限制跳过。不能把 feature 成功写成生产发布成功。
+
+实际产物核对：哔哩哔哩转换模块保留 4 Script、11 Body Rewrite、1 Header Rewrite；合并模块引用 64 次、29 个不同镜像脚本，产物中无缺失依赖。记录的是源码转换及产物完整性，未在实体 Surge/Loon 客户端逐项执行。
+
+未通过项及解除步骤：blockAds 与 Prevent_DNS_Leaks 的 Loon PROXY 不能无绑定复制到 Surge，需原生 Surge 来源或接管者独立规则集绑定自己的策略后验收；EasyBike_remove_ads 的 mobileconfig-gateway.js、Tencent_Video_remove_ads 的 replace-body.js 上游不可用，需上游恢复或维护者提供等价脚本，再运行默认严格转换并核对依赖。它们不在 47 个启用输入内，不能当作 ready；历史 optional 保留也不更改失败报告。没有以忽略错误、启用旧产物充当 fresh 或改写 golden 换取通过。
