@@ -330,7 +330,10 @@ describe('GitHub Actions workflow contract', () => {
     assert.equal(convertJob.services?.['script-hub'], undefined);
     const configureStep = getStep(convertJob, 'Configure Script-Hub');
     const configureScript = String(configureStep.run);
-    assert.match(configureScript, /docker run/);
+    assert.match(configureScript, /docker create/);
+    assert.match(configureScript, /pnpm run node Build\/patch-script-hub\.ts/);
+    assert.match(configureScript, /docker cp .*mirrrule-script-hub:\/app\/Rewrite-Parser\.beta\.js/);
+    assert.match(configureScript, /docker start mirrrule-script-hub/);
     assert.match(configureScript, /--name mirrrule-script-hub/);
     assert.match(configureScript, /--network host/);
     assert.match(
@@ -393,6 +396,7 @@ describe('GitHub Actions workflow contract', () => {
     assert.equal(convertStep.env?.PROXY_BASE, 'http://127.0.0.1:13193?url=');
     assert.equal(convertStep['continue-on-error'], undefined);
     assert.doesNotMatch(String(convertStep.run), /--timeout/);
+    assert.match(String(convertStep.run), /--required-config Build\/lib\/module-merger\/configs\/pro-merge-config\.yaml/);
 
     const logUpload = getStep(convertJob, 'Upload browser gateway log');
     assert.match(String(logUpload.if), /always\(\)/);

@@ -42,7 +42,7 @@ export async function mergeModules(
   );
 
   // 1.1 根据运行时选项筛选需要参与合并的模块
-  const selectedModules = _applyModuleSelection(config.modules, runtimeOptions);
+  const selectedModules = selectModuleSources(config.modules, runtimeOptions);
   if (!selectedModules.length) throw new Error('没有选中任何模块，拒绝生成空产物');
   console.log(
     picocolors.gray(
@@ -216,7 +216,7 @@ interface ScriptToggleInfo {
 /**
  * 根据运行时选项筛选需要参与合并的模块
  */
-function _applyModuleSelection(
+export function selectModuleSources(
   modules: ModuleSource[],
   runtimeOptions: MergeRuntimeOptions
 ): ModuleSource[] {

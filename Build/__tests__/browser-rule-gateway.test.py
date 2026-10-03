@@ -232,7 +232,7 @@ class BrowserRuleGatewayTest(unittest.TestCase):
         self.assertTrue(all(call[1]["stream"] for call in factory.calls))
 
     def test_script_resources_use_the_worker_and_return_utf8_javascript(self):
-        script_body = "const message = '你好';\n$done({ body: message });\n".encode()
+        script_body = "const message = '<body>你好';\n$done({ body: message });\n".encode()
         response = FakeResponse(body=script_body)
         factory = FakeBrowserFactory([response])
 
@@ -273,6 +273,21 @@ class BrowserRuleGatewayTest(unittest.TestCase):
             ]
 
         self.assertEqual(statuses, [502, 502, 502, 502, 502, 502])
+
+    def test_jq_dependencies_use_validated_text_and_a_limited_path(self):
+        factory = FakeBrowserFactory([
+            FakeResponse(body=b'del(.data.ads)\n'),
+            FakeResponse(body=b'<html>challenge</html>'),
+        ])
+        with GatewayHarness(factory) as harness:
+            target = 'https://kelee.one/Resource/JQLang/Bilibili/test.jq'
+            status, headers, body = harness.request('GET', rule_path(target))
+            self.assertEqual(status, 200)
+            self.assertEqual(headers['Content-Type'], 'text/plain; charset=utf-8')
+            self.assertEqual(body, b'del(.data.ads)\n')
+            self.assertEqual(harness.request('GET', rule_path(target))[0], 502)
+            self.assertEqual(harness.request('GET', rule_path('https://kelee.one/other/test.jq'))[0], 400)
+        self.assertEqual(len(factory.calls), 2)
 
     def test_valid_get_and_head_use_independent_browser_sessions(self):
         rule_body = b"# RuleCount: 11\nDOMAIN, cesu-hz.zjtelecom.com.cn\nDOMAIN, 4gsuzhou1.speedtest.jsinfo.net\n"

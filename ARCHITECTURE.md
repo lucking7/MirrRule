@@ -39,9 +39,13 @@ Source health probes carry the same request profile as their build source. Rule 
 
 ## Plugin artifacts
 
+The runner downloads and validates fresh plugin bodies through the browser gateway, then serves only those bodies on loopback. A pinned Script-Hub container uses host networking to convert the staged inputs, keeping canonical upstream identity in the results. A version-checked parser patch preserves static Loon v2 mock responses as Map Local actions, and jq_file dependencies use the gateway. Source script dependencies must survive conversion; unsupported Loon v2 actions fail instead of passing through the legacy fallback as empty modules.
+
 Plugin conversions remain pending until every required script has a mirrored or cached URL. Canonical source identity follows each plugin through remote conversion, local fallback, cache, and publication. Publication reports `ready`, `degraded`, or `failed`, uses the shared atomic-file primitive, and prevents same-name plugins from sharing cached bytes.
 
 Script extraction retains the source URL. The publication URL is chosen from the completed mirror map after downloading or cache fallback, rather than stored before those outcomes are known.
+
+The standalone CLI requires every result to be `ready`. CI explicitly supplies the merge configuration and verifies every enabled input against the current ready results and dry-run merging. Optional failures remain failed in the conversion report; missing required inputs cannot be replaced by previous NRRule artifacts in a run that requested conversion.
 
 ## CI task plan
 

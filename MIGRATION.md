@@ -182,18 +182,23 @@ pnpm run build-web
 先完成第 6 节的脚本 URL 替换，否则新生成模块仍会引用原服务。启动上述 gateway，然后在与 CI 一致的 Linux Docker 环境运行。Script-Hub 必须能访问 runner 的 loopback 插件服务，因此使用 host network；普通 Docker 端口映射不能满足这一要求。macOS 上未验证这条容器网络路径，建议先在 Linux 环境验收：
 
 ```bash
-docker run --detach --rm --name mirrrule-script-hub \
+docker create --name mirrrule-script-hub \
   --network host \
   xream/script-hub@sha256:8880569ae0014260432b964792eed302335f503ed90380adfdda6d83f8f8f265
+docker cp mirrrule-script-hub:/app/Rewrite-Parser.beta.js /tmp/mirrrule-script-hub-original.js
+pnpm run node Build/patch-script-hub.ts \
+  /tmp/mirrrule-script-hub-original.js /tmp/mirrrule-script-hub-patched.js
+docker cp /tmp/mirrrule-script-hub-patched.js mirrrule-script-hub:/app/Rewrite-Parser.beta.js
+docker start mirrrule-script-hub
 curl --fail http://localhost:9101/
 env -u CI PROXY_BASE='http://127.0.0.1:13193?url=' \
   PLUGIN_CONVERSION_REPORT="$PWD/plugin-conversion-report.json" \
   pnpm run convert-plugins --wait-service
 ```
 
-等待容器就绪后再执行转换。转换器下载并校验本轮插件，再将允许的正文通过临时 loopback 服务交给 Script-Hub；服务在转换结束或异常时关闭。`--wait-service` / `-w` 是 CLI 支持的开关。`PLUGIN_CONVERSION_REPORT` 可将结果写到指定 JSON 文件，包含名称、sourceId、状态、产物名及错误，不包含源 URL。
+等待容器就绪后再执行转换。转换器下载并校验本轮插件，再将允许的正文通过临时 loopback 服务交给 Script-Hub；服务在转换结束或异常时关闭。固定镜像支持原生 Loon v2，启动前对该版本应用受限补丁，将静态 `response.body.mock` 转为 Map Local 并保留状态、Content-Type 与 Base64 语义；补丁锚点不匹配会中止。Kelee `Resource/JQLang/*.jq` 依赖同样经网关读取，HTML challenge 和空响应会失败；转换后丢失源脚本依赖会被拒绝，本地 fallback 不能将未支持的 v2 脚本静默丢弃后标为成功。`--wait-service` / `-w` 是 CLI 支持的开关。`PLUGIN_CONVERSION_REPORT` 可将结果写到指定 JSON 文件，包含名称、sourceId、状态、产物名及错误，不包含源 URL。
 
-转换器可能使用本地 fallback；只有依赖脚本具备可用镜像或缓存 URL 后才发布插件。部分插件失败会使 CLI 返回非零，即使已有其他输出。检查转换统计、失败清单、脚本依赖与 provenance，不把“目录存在”视为完成。CI 只上传成功转换的真实产物；失败时上传诊断报告并阻止后续合并和发布。完成后 `docker stop mirrrule-script-hub`，并在 gateway 终端按 Ctrl-C。
+转换器可能使用本地 fallback；只有依赖脚本具备可用镜像或缓存 URL 后才发布插件。默认 CLI 要求全部插件 `ready`，部分失败或使用旧缓存会返回非零，即使已有其他输出。CI 显式传入 `--required-config Build/lib/module-merger/configs/pro-merge-config.yaml`，要求默认启用的 47 项全部匹配本轮 `ready` 结果，且通过 dry-run 合并。任一必需项缺失、降级或参数无效仍阻断发布；非必需插件失败保留报告与 warning，不改成成功，也不生成空模块。检查转换统计、失败清单、脚本依赖与 provenance，不把“目录存在”视为完成。完成后 `docker rm --force mirrrule-script-hub`，并在 gateway 终端按 Ctrl-C。
 
 ### 5.3 模块合并
 
@@ -328,7 +333,7 @@ job 顺序为 `prepare → convert-plugins → merge-modules → build → 两�
 
 需要特别区分：
 
-- 插件 job 最多重试两次，最终非零退出会使 job 失败；只上传非空转换产物，另存诊断报告，不再上传 marker 冒充转换成功。模块合并进一步严格检查默认选中的输入。
+- 插件 job 最多重试两次，最终非零退出会使 job 失败；显式按合并配置校验本轮必需输入，非必需失败另存报告并发 warning。只上传非空转换产物，不再上传 marker 冒充转换成功。模块合并进一步严格检查默认选中的输入。
 - 本轮要求插件转换时，合并禁止从旧产物仓补齐转换模块。单独运行合并且转换目录完全没有 `.sgmodule` 时，才允许读取产物仓；已有一部分文件但缺少其他必需文件时，不会自动逐个补齐。
 - Build 按顶层目录缺失/为空补齐旧产物，不校验整个目录是否完整。因此一个非空目录可能仍缺少必要文件。
 - `.cache` 是可重建缓存，不是完整 `public` 备份。缓存采用 runner OS 与日期/run ID key；插件、模块、Build artifacts 仅保留 1 天，应另外保存上线快照。

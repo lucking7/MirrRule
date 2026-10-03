@@ -35,6 +35,7 @@ RESOURCE_RULE = "rule"
 RESOURCE_PLUGIN_CATALOG = "plugin-catalog"
 RESOURCE_PLUGIN = "plugin"
 RESOURCE_SCRIPT = "script"
+RESOURCE_JQ = "jq"
 PLUGIN_SECTION_PATTERN = re.compile(
     r"^[ \t]*\[(?:argument|general|rewrite|script|mitm|rule)\][ \t]*\r?$",
     re.IGNORECASE | re.MULTILINE,
@@ -62,6 +63,8 @@ def classify_resource_url(hostname: str, path: str) -> str:
         return RESOURCE_PLUGIN
     if path.lower().endswith(".js"):
         return RESOURCE_SCRIPT
+    if path.startswith("/Resource/JQLang/") and path.lower().endswith(".jq"):
+        return RESOURCE_JQ
     raise ValueError("target resource type is not allowed")
 
 
@@ -234,18 +237,12 @@ def is_script_text(body: bytes) -> bool:
         return False
 
     prefix = text.lstrip()[:8192].lower()
-    blocked_markers = (
-        "<!doctype html",
-        "<html",
-        "<body",
-        "cf-chl-",
-        "challenge-platform",
-        "just a moment",
-        "attention required",
-        "enable javascript and cookies to continue",
-        "cloudflare ray id",
+    return not re.match(
+        r"^(?:<!doctype\s+html\b|<(?:html|head|body|script)\b|"
+        r"just a moment\b|attention required\b|enable javascript and cookies to continue\b|"
+        r"window\.location\s*=\s*['\"][^'\"]*/cdn-cgi/challenge-platform/)",
+        prefix,
     )
-    return not any(marker in prefix for marker in blocked_markers)
 
 
 def read_limited_response(response: requests.Response) -> bytes | None:
@@ -437,9 +434,13 @@ def create_server(
             elif resource_type == RESOURCE_PLUGIN:
                 status, body = fetch_plugin(normalized_upstream, target_url, browser_factory)
                 content_type = "text/plain; charset=utf-8"
-            elif resource_type == RESOURCE_SCRIPT:
+            elif resource_type in (RESOURCE_SCRIPT, RESOURCE_JQ):
                 status, body = fetch_script(normalized_upstream, target_url, browser_factory)
-                content_type = "application/javascript; charset=utf-8"
+                content_type = (
+                    "application/javascript; charset=utf-8"
+                    if resource_type == RESOURCE_SCRIPT
+                    else "text/plain; charset=utf-8"
+                )
             else:
                 status, body = fetch_rule(normalized_upstream, target_url, browser_factory)
                 content_type = "text/plain; charset=utf-8"

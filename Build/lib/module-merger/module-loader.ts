@@ -24,6 +24,27 @@ interface IndexedLoadResult {
   failure?: ModuleLoadError
 }
 
+export function resolveLocalModuleCandidates(raw: string, searchDirs: string[]): string[] {
+  const sanitized = raw.startsWith('file://') ? raw.slice('file://'.length) : raw;
+  if (!sanitized) {
+    return searchDirs.map(dir => path.resolve(dir));
+  }
+
+  if (sanitized.startsWith('~/')) {
+    return [path.resolve(os.homedir(), sanitized.slice(2))];
+  }
+
+  if (path.isAbsolute(sanitized)) {
+    return [sanitized];
+  }
+
+  const unique = new Set<string>();
+  searchDirs.forEach(dir => {
+    unique.add(path.resolve(dir, sanitized));
+  });
+  return Array.from(unique);
+}
+
 export class ModuleLoader {
   constructor(
     private readonly searchDirs: string[],
@@ -136,7 +157,7 @@ export class ModuleLoader {
   }
 
   private async readLocalFile(raw: string): Promise<string> {
-    const candidates = this.resolveLocalCandidates(raw);
+    const candidates = resolveLocalModuleCandidates(raw, this.searchDirs);
     let lastError: unknown = null;
 
     for (const candidate of candidates) {
@@ -156,26 +177,5 @@ export class ModuleLoader {
     }
 
     throw new Error(`未找到本地文件: ${raw}`);
-  }
-
-  private resolveLocalCandidates(raw: string): string[] {
-    const sanitized = raw.startsWith('file://') ? raw.slice('file://'.length) : raw;
-    if (!sanitized) {
-      return this.searchDirs.map(dir => path.resolve(dir));
-    }
-
-    if (sanitized.startsWith('~/')) {
-      return [path.resolve(os.homedir(), sanitized.slice(2))];
-    }
-
-    if (path.isAbsolute(sanitized)) {
-      return [sanitized];
-    }
-
-    const unique = new Set<string>();
-    this.searchDirs.forEach(dir => {
-      unique.add(path.resolve(dir, sanitized));
-    });
-    return Array.from(unique);
   }
 }

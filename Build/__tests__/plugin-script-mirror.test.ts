@@ -26,13 +26,14 @@ describe('plugin script mirroring', () => {
     assert.match(validateScriptPreservation(source, '#!name=sample\n[MITM]\nhostname=one') ?? '', /dropped 2/);
     assert.match(validateScriptPreservation(source, `[Script]\nfirst=script-path=${firstUrl}`) ?? '', /dropped 1/);
     assert.equal(validateScriptPreservation(source, `[Script]\nfirst=script-path=${firstUrl}\nsecond=script-path=${secondUrl}`), undefined);
+    assert.match(validateScriptPreservation(source, `# response.body.mock(...) [Loon v2: unsupported]\n[Script]\nfirst=script-path=${firstUrl}\nsecond=script-path=${secondUrl}`) ?? '', /Unsupported Loon v2/);
   });
   it('rejects HTTP 200 challenge pages and preserves only a degraded warm mirror', async () => {
     const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-scripts-'));
     try {
       const options = { outputDirectory, metadataPath: path.join(outputDirectory, 'metadata.json') };
       const ready = await mirrorScripts([script(firstUrl)], 1, {
-        ...options, fetchFn: () => response('console.log("valid script");'),
+        ...options, fetchFn: () => response('console.log("<body> valid script");'),
       });
       const blocked = await mirrorScripts([script(firstUrl), script(secondUrl)], 1, {
         ...options, fetchFn: () => response('<!doctype html><title>Just a moment</title>'),
@@ -41,7 +42,7 @@ describe('plugin script mirroring', () => {
       assert.deepEqual(blocked.degradedUrls, [firstUrl]);
       assert.equal(blocked.urlMap[firstUrl], ready.urlMap[firstUrl]);
       assert.equal(blocked.urlMap[secondUrl], undefined);
-      assert.equal(fs.readFileSync(path.join(outputDirectory, path.basename(ready.urlMap[firstUrl])), 'utf8'), 'console.log("valid script");');
+      assert.equal(fs.readFileSync(path.join(outputDirectory, path.basename(ready.urlMap[firstUrl])), 'utf8'), 'console.log("<body> valid script");');
     } finally {
       fs.rmSync(outputDirectory, { recursive: true, force: true });
     }

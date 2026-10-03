@@ -206,10 +206,15 @@ jobs:
         run: |
           set -euo pipefail
           echo "127.0.0.1 script.hub" | sudo tee -a /etc/hosts
-          docker run --detach --rm \
+          docker create \
             --name mirrrule-script-hub \
             --network host \
             xream/script-hub@sha256:8880569ae0014260432b964792eed302335f503ed90380adfdda6d83f8f8f265
+          docker cp mirrrule-script-hub:/app/Rewrite-Parser.beta.js "$RUNNER_TEMP/script-hub-original.js"
+          pnpm run node Build/patch-script-hub.ts \
+            "$RUNNER_TEMP/script-hub-original.js" "$RUNNER_TEMP/script-hub-patched.js"
+          docker cp "$RUNNER_TEMP/script-hub-patched.js" mirrrule-script-hub:/app/Rewrite-Parser.beta.js
+          docker start mirrrule-script-hub
           echo "⏳ 等待 Script-Hub 服务启动..."
           for i in {1..30}; do
             if curl --fail --silent --max-time 2 http://script.hub:9101/ > /dev/null 2>&1; then
@@ -228,7 +233,8 @@ jobs:
           set -euo pipefail
           last_status=1
           for attempt in 1 2; do
-            if pnpm run convert-plugins --wait-service; then
+            if pnpm run convert-plugins --wait-service \
+              --required-config Build/lib/module-merger/configs/pro-merge-config.yaml; then
               exit 0
             else
               last_status=$?

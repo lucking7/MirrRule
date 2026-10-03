@@ -47,6 +47,13 @@ async function convertPluginLocally(
     }
 
     const loonContent = contentResult.content;
+    if (/^\s*(?:request|response|cron|event|generic)\s+(?:if\b[^\n]+\bthen\b|then\b)/m.test(loonContent)) {
+      return {
+        pluginName: plugin.name,
+        ...identity,
+        content: { error: 'Local fallback does not support Loon v2 syntax' },
+      };
+    }
 
     // 本地转换（使用 async 版本）
     const converter = new LocalPluginConverter();
