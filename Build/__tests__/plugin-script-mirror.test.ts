@@ -29,6 +29,43 @@ describe('plugin script mirroring', () => {
     assert.equal(validateScriptPreservation(source, `[Script]\nfirst=script-path=${firstUrl}\nsecond=script-path=${secondUrl}`), undefined);
     assert.match(validateScriptPreservation(source, `# response.body.mock(...) [Loon v2: unsupported]\n[Script]\nfirst=script-path=${firstUrl}\nsecond=script-path=${secondUrl}`) ?? '', /Unsupported Loon v2/);
   });
+
+  it('rejects metadata-only and empty converted modules', () => {
+    const dnsMetadataOnly = [
+      '#!name=DNS防泄露',
+      '#!desc=防止 DNS 泄露',
+      '#!author=KOP-XIAO',
+      '#!homepage=https://github.com/KOP-XIAO/QuantumultX',
+    ].join('\n');
+    assert.match(validateScriptPreservation('#!name=DNS防泄露', dnsMetadataOnly) ?? '', /no active supported functional entries/);
+    assert.match(validateScriptPreservation('#!name=empty', '#!name=empty\n[Script]\n# no converted entries\n; disabled') ?? '', /no active supported functional entries/);
+  });
+
+  it('accepts active entries in supported functional sections', () => {
+    const entries = new Map([
+      ['General', 'skip-proxy = 192.168.0.0/16'],
+      ['Rule', 'DOMAIN,example.com,DIRECT'],
+      ['URL Rewrite', '^https://example\\.com - reject'],
+      ['Map Local', '^https://example\\.com data="" status-code=404'],
+      ['Script', `example = type=http-response,pattern=^https://example\\.com,script-path=${firstUrl}`],
+      ['Panel', 'example = script-name=example,update-interval=60'],
+      ['MITM', 'hostname = example.com'],
+      ['Body Rewrite', 'http-response ^https://example\\.com response-body-replace-regex foo bar'],
+    ]);
+
+    for (const [section, entry] of entries) {
+      assert.equal(validateScriptPreservation('', `[${section}]\n${entry}`), undefined, section);
+    }
+    assert.equal(
+      validateScriptPreservation('', '[Header Rewrite]\nhttp-request ^https://example\\.com header-replace X-Test value\n[Rule]\nDOMAIN,example.com,DIRECT'),
+      undefined
+    );
+  });
+
+  it('accepts Header Rewrite as the only active section', () => {
+    const converted = '[Header Rewrite]\nhttp-request ^https://example\\.com header-replace X-Test value';
+    assert.equal(validateScriptPreservation('', converted), undefined);
+  });
   it('rejects HTTP 200 challenge pages and preserves only a degraded warm mirror', async () => {
     const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-scripts-'));
     try {

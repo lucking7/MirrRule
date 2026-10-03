@@ -43,6 +43,16 @@ test('local fallback rejects standalone body/header sections instead of dropping
   }
 });
 
+test('local fallback rejects Loon PROXY rules without a Surge policy binding', async t => {
+  t.after(() => setLocalConverterContentLoader(null));
+  setLocalConverterContentLoader(() => Promise.resolve({
+    success: true,
+    content: '#!name=DNS防泄露\n[Rule]\nDOMAIN-SUFFIX,dnsleaktest.com,PROXY\n',
+  }));
+  const [result] = await convertPluginsLocallyBatch([{ name: 'Prevent_DNS_Leaks', url: 'fixture://dns', extension: 'plugin' }]);
+  assert.deepEqual(result.content, { error: 'Loon PROXY rules require an explicit Surge policy binding' });
+});
+
 const fixtureRoot = path.join(process.cwd(), 'Build', '__tests__', 'fixtures');
 const fixtureNames = ['metadata-rules', 'rewrites', 'scripts', 'minimal'] as const;
 const plugins: PluginInfo[] = fixtureNames.map(name => ({

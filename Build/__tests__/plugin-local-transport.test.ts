@@ -96,7 +96,7 @@ test('Script-Hub reads freshly downloaded plugins from a closed loopback mirror'
           assert.equal(sourceResponse.status, 200);
           assert.equal(await sourceResponse.text(), pluginBody);
 
-          return new Response('#!name=Available\n[Script]\n');
+          return new Response('#!name=Available\n[Map Local]\n^https://example.test/ data="error: a valid response body", status-code=200\n');
         },
       }
     );
@@ -105,7 +105,7 @@ test('Script-Hub reads freshly downloaded plugins from a closed loopback mirror'
     assert.deepEqual(results[0], {
       pluginName: available.name,
       ...identifyPluginSource(available),
-      content: '#!name=Available\n[Script]\n',
+      content: '#!name=Available\n[Map Local]\n^https://example.test/ data="error: a valid response body", status-code=200\n',
     });
     assert.equal(results[1].pluginName, unavailable.name);
     assert.equal(results[1].failureStage, 'download');

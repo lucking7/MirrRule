@@ -6,6 +6,7 @@
 import picocolors from 'picocolors';
 import { getErrorMessage } from '../../lib/misc';
 import { LocalPluginConverter } from './loon-to-surge-converter';
+import { LoonPluginParser } from './loon-plugin-parser';
 import { getPluginContent } from './plugin-mirror';
 import { identifyPluginSource } from './plugin-identity';
 import { validateScriptPreservation } from './script-extractor';
@@ -59,6 +60,14 @@ async function convertPluginLocally(
         pluginName: plugin.name,
         ...identity,
         content: { error: 'Local fallback does not support Loon v2 syntax' },
+      };
+    }
+
+    if (LoonPluginParser.parse(loonContent).rules?.some(rule => /,\s*PROXY\s*(?:,|$)/i.test(rule))) {
+      return {
+        pluginName: plugin.name,
+        ...identity,
+        content: { error: 'Loon PROXY rules require an explicit Surge policy binding' },
       };
     }
 
