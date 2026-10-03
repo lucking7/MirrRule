@@ -210,7 +210,7 @@ async function convertStagedPluginsBatch(
               continue;
             }
 
-            if (content.includes('Error:') || content.includes('error:')) {
+            if (/^\s*error:/i.test(content)) {
               lastError = `Script-Hub error: ${content.slice(0, 200)}`;
               console.log(picocolors.red(`[Convert] Script-Hub returned error for ${plugin.name}`));
               continue;
