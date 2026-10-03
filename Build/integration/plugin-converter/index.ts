@@ -21,7 +21,6 @@ import { convertPluginsBatchFromLocalMirror, waitForScriptHub } from './script-h
 import type { LocalMirrorPluginConversionResult } from './script-hub-client';
 import {
   extractScriptUrls,
-  filterUnmirroredScripts,
   getScriptStats,
 } from './script-extractor';
 import { mirrorScripts, printMirrorSummary } from './script-mirror';
@@ -243,7 +242,11 @@ export async function convertAndMirrorPlugins(
 
       // 从内容中提取模块名称
       const moduleName = extractModuleName(content, pluginName);
-      const fileName = `${moduleName}.sgmodule`;
+      // The catalog has two distinct Wacai plugins with the same display name. Keep both;
+      // the newer Wacai source retains its existing Chinese subscription URL.
+      const fileName = pluginName === 'WaCaiJiZhang_remove_ads' && moduleName === '挖财记账去广告'
+        ? `${pluginName}.sgmodule`
+        : `${moduleName}.sgmodule`;
 
       const outputPath = path.join(OUTPUT_DIR, fileName);
       const result: PendingPluginArtifact['result'] = {
@@ -283,11 +286,10 @@ export async function convertAndMirrorPlugins(
   let degradedScriptUrls = new Set<string>();
   let mirroredScriptCount = 0;
 
-  if (scriptStats.needMirror > 0) {
+  if (scriptStats.total > 0) {
     console.log(picocolors.cyan('\n[Mirror] Mirroring JavaScript files...\n'));
 
-    const toMirror = filterUnmirroredScripts(uniqueScripts);
-    const mirrorResult = await mirrorScripts(toMirror);
+    const mirrorResult = await mirrorScripts(uniqueScripts);
 
     printMirrorSummary(mirrorResult);
     scriptUrlMap = mirrorResult.urlMap;

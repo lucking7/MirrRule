@@ -47,6 +47,13 @@ async function convertPluginLocally(
     }
 
     const loonContent = contentResult.content;
+    if (/^\s*\[(?:Header Rewrite|Body Rewrite)\]\s*$/im.test(loonContent)) {
+      return {
+        pluginName: plugin.name,
+        ...identity,
+        content: { error: 'Local fallback does not support standalone Header/Body Rewrite sections' },
+      };
+    }
     if (/^\s*(?:request|response|cron|event|generic)\s+(?:if\b[^\n]+\bthen\b|then\b)/m.test(loonContent)) {
       return {
         pluginName: plugin.name,

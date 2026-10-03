@@ -196,9 +196,13 @@ env -u CI PROXY_BASE='http://127.0.0.1:13193?url=' \
   pnpm run convert-plugins --wait-service
 ```
 
-等待容器就绪后再执行转换。转换器下载并校验本轮插件，再将允许的正文通过临时 loopback 服务交给 Script-Hub；服务在转换结束或异常时关闭。固定镜像支持原生 Loon v2，启动前对该版本应用受限补丁，将静态 `response.body.mock` 转为 Map Local 并保留状态、Content-Type 与 Base64 语义；补丁锚点不匹配会中止。Kelee `Resource/JQLang/*.jq` 依赖同样经网关读取，HTML challenge 和空响应会失败；转换后丢失源脚本依赖会被拒绝，本地 fallback 不能将未支持的 v2 脚本静默丢弃后标为成功。`--wait-service` / `-w` 是 CLI 支持的开关。`PLUGIN_CONVERSION_REPORT` 可将结果写到指定 JSON 文件，包含名称、sourceId、状态、产物名及错误，不包含源 URL。
+等待容器就绪后再执行转换。转换器下载并校验本轮插件，再将允许的正文通过临时 loopback 服务交给 Script-Hub；服务在转换结束或异常时关闭。固定镜像支持原生 Loon v2，启动前对该版本应用受限补丁，支持当前目录使用的正则字面量、Header Rewrite、URL 命名捕获替换，将静态 `response.body.mock` 和文本 `response.body.mock_file` 转为 Map Local 并保留状态、Content-Type 与 Base64 语义。Script 条件中的捕获绑定、动态或无法等价转换的 Action 会失败；补丁锚点不匹配会中止。Kelee `Resource/JQLang/*.jq` 和 mock_file 的 `Resource/JavaScript/*.js` 依赖同样经网关读取，HTML challenge 和空响应会失败；转换后丢失源脚本依赖会被拒绝，本地 fallback 不能将未支持的 v2 脚本静默丢弃后标为成功。`--wait-service` / `-w` 是 CLI 支持的开关。`PLUGIN_CONVERSION_REPORT` 可将结果写到指定 JSON 文件，包含名称、sourceId、状态、产物名及错误，不包含源 URL。
 
-转换器可能使用本地 fallback；只有依赖脚本具备可用镜像或缓存 URL 后才发布插件。默认 CLI 要求全部插件 `ready`，部分失败或使用旧缓存会返回非零，即使已有其他输出。CI 显式传入 `--required-config Build/lib/module-merger/configs/pro-merge-config.yaml`，要求默认启用的 47 项全部匹配本轮 `ready` 结果，且通过 dry-run 合并。任一必需项缺失、降级或参数无效仍阻断发布；非必需插件失败保留报告与 warning，不改成成功，也不生成空模块。检查转换统计、失败清单、脚本依赖与 provenance，不把“目录存在”视为完成。完成后 `docker rm --force mirrrule-script-hub`，并在 gateway 终端按 Ctrl-C。
+转换器可能使用本地 fallback；只有依赖脚本具备可用镜像或缓存 URL 后才发布插件。默认 CLI 要求全部插件 `ready`，部分失败或使用旧缓存会返回非零，即使已有其他输出。CI 显式传入 `--required-config Build/lib/module-merger/configs/pro-merge-config.yaml`，要求默认启用的 47 项全部匹配本轮 `ready` 结果，且通过 dry-run 合并。任一必需项缺失、降级或参数无效仍阻断发布；非必需插件失败保留报告与 warning，不改成成功，也不生成空模块。已引用本仓 `Scripts/` 的脚本也必须在本轮下载、校验并写入产物，不能仅因 URL 指向自己的域名便判定可发布。检查转换统计、失败清单、脚本依赖与 provenance，不把“目录存在”视为完成。完成后 `docker rm --force mirrrule-script-hub`，并在 gateway 终端按 Ctrl-C。
+
+本轮全部必需模块通过合并后，CI 才从原产物仓补回缺失的历史可选模块及脚本，保留现有订阅。该步骤不能覆盖本轮文件或补齐缺失的必需模块，也不改变 conversion report 的失败状态；无功能节的旧模块、失效脚本和缺失脚本依赖会跳过并记录 warning。接管时替换 workflow 中此步骤的 `lucking7/NRRule`。
+
+两个挖财插件的 `#!name` 相同但内容不同：`Wacai_remove_ads` 保留 `挖财记账去广告.sgmodule`，`WaCaiJiZhang_remove_ads` 发布为 `WaCaiJiZhang_remove_ads.sgmodule`。其他未知的同名内容冲突会阻断对应输出，不能按执行顺序覆盖。
 
 ### 5.3 模块合并
 
