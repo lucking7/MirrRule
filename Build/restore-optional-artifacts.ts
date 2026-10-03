@@ -106,9 +106,18 @@ export async function restorePreviousOptionalArtifacts(
     for (const script of extractScriptUrls(content).filter(
       (item) => item.isMirrored,
     )) {
-      const relative = decodeURIComponent(
-        new URL(script.originalUrl).pathname.slice('/Scripts/'.length),
-      );
+      let relative: string;
+      try {
+        relative = decodeURIComponent(
+          new URL(script.originalUrl).pathname.slice('/Scripts/'.length),
+        );
+      } catch {
+        console.warn(
+          `Skipped previous optional module with invalid script URL: ${path.basename(file)}`,
+        );
+        validDependencies = false;
+        break;
+      }
       const target = path.resolve(scriptsRoot, relative);
       if (
         !target.startsWith(`${scriptsRoot}${path.sep}`) ||

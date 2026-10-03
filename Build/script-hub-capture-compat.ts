@@ -1,4 +1,5 @@
 /* eslint-disable no-template-curly-in-string -- The patch intentionally emits literal Loon templates. */
+import { countOccurrences } from './script-hub-regex-compat';
 /*
  * Compatibility helpers adapted from Script-Hub-Org/Script-Hub
  * commit fa3681e26440f92cb084809d691b4e344428d665, GPL-3.0.
@@ -141,16 +142,6 @@ const URL_REPLACE_OUTPUT_REPLACEMENT = [
   '        if (replacement.reason) return { unsupported: true, reason: replacement.reason }',
   '        rwBox.push({ mark, noteK: \'\', rwptn: pattern, rwvalue: replacement.value, rwtype: \'header\' })',
 ].join('\n');
-
-function countOccurrences(source: string, anchor: string): number {
-  let count = 0;
-  let index = 0;
-  while ((index = source.indexOf(anchor, index)) !== -1) {
-    count++;
-    index += anchor.length;
-  }
-  return count;
-}
 
 function replaceExactlyOnce(
   source: string,

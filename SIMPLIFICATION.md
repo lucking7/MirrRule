@@ -141,3 +141,15 @@ previous-build 目录 1507 文件/111374853 bytes，mock 目录 41 文件/179570
 runner 37080295586（010bdaf）未通过：265 ready、11 failed，其中 9 个 Loon v2 插件因 unsupported actions 被明确拒绝，另有 2 个失效脚本。默认可莉广告过滤器、知识星球有漏项，required 检查阻断了合并、Build、Pages/NRRule；当前没有把该 runner 标为通过，main 尚未合入清理分支。后续须补齐正则字面量/捕获组/文件 mock 等实际语义后重验，不能绕过 required 筛选。
 
 N8 结论更新：后续插件修复正在让 script validator 供 warm-cache 和 optional artifact restoration 使用，新增调用方没有先行 byteLength gate，且需要拒绝过短/损坏旧文件。此前 sole-caller 删除证据不再适用于最终组合，已主动恢复长度判断，保留 MIME own-key 修复。原切法在当时前提成立，但不能跨新增消费者复用旧证明；该项进入有反证的保留状态，不计净实施候选。
+
+## 最终整合批次（cd4f89d）
+
+兼容修复补齐正则字面量、捕获组、mock_file、同名路径冲突和自有镜像脚本重新校验。required fresh 检查先于 optional 历史恢复，旧可选文件不构成本轮 ready。新缓存/恢复调用方需要脚本长度校验，因此 N8 保留，不计净简化。
+
+C6：三个 Script-Hub 补丁阶段的非重叠锚点计数完全相同，统一使用 regex-compat 的 countOccurrences；精确锚点、次数检查、错误文本和阶段顺序不变，没有循环依赖。两份 replaceExactlyOnce 分别使用字符串和回调替换，对 `$` 的处理不同，保留。真实 beta parser 的前后补丁结果 cmp 相同，SHA256 均为 `54f65aea1cc04fe31f1fae539bcc6274bc7ca120977f6323dd5b3d635d5a20ad`，文件位于 `/tmp/mirrrule-parser-count-before.js` 与 after.js。本项可单独 revert，净减少两份计数实现。
+
+质量复查补回归：旧 optional 模块的 `%ZZ` Script URL 原先抛 URIError 并中断整体恢复；现在仅隔离该坏模块，继续恢复健康模块。回归先失败后通过，required 输出保持原样，真实 I/O 错误仍传播。
+
+最终三路独立只读复查覆盖整合提交和上述改动，均无新增值得实施项。optional 脚本重复读取的实际引用规模未证明值得引入缓存状态；stat.isFile 与 readFile 对目录和错误的契约不同，保留。高置信可执行队列清零，净实施 9 项（R1/R2/R3/R4/N1/N2/N7/C1/C6），N8 的旧切法已恢复。
+
+隔离目录验收：222/222 Node tests、52 suites；validate/typecheck 退出 0，0 errors、132 warnings；Knip 退出 0；固定输入四平台 golden 未更新。日志 `/tmp/mirrrule-native-final-tests.log`、`/tmp/mirrrule-native-final-validate.log`。当前记录尚不代表清理分支已完成 main/生产验收。

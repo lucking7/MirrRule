@@ -12,7 +12,7 @@ const HEADER_END =
   'async function normalizeLoonV2RewriteLine(line, targetApp, sourceNum) {';
 const REWRITE_END = 'function splitTopLevel(str, sep = \',\') {';
 
-function countOccurrences(source: string, value: string): number {
+export function countOccurrences(source: string, value: string): number {
   let count = 0;
   let index = 0;
   while ((index = source.indexOf(value, index)) !== -1) {

@@ -2,7 +2,7 @@
 
 import fs from 'node:fs/promises';
 import process from 'node:process';
-import { patchScriptHubRegexCompatibility } from './script-hub-regex-compat';
+import { countOccurrences, patchScriptHubRegexCompatibility } from './script-hub-regex-compat';
 import { patchScriptHubCaptureCompatibility } from './script-hub-capture-compat';
 
 const BODY_MATCH_ANCHOR = String.raw`    const bodyMatch = name.match(/^(request|response)\.body\.(replace|mock)$/)`;
@@ -97,16 +97,6 @@ const MOCK_PREFLIGHT = [
   '  }',
   '',
 ].join('\n');
-
-function countOccurrences(source: string, value: string): number {
-  let count = 0;
-  let index = 0;
-  while ((index = source.indexOf(value, index)) !== -1) {
-    count++;
-    index += value.length;
-  }
-  return count;
-}
 
 export function patchScriptHubCoreParser(source: string): string {
   const bodyMatchCount = countOccurrences(source, BODY_MATCH_ANCHOR);

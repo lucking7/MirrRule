@@ -146,3 +146,22 @@ test('optional restoration skips broken previous artifacts without publishing th
     false,
   );
 });
+
+test('optional restoration skips malformed script URLs and keeps restoring healthy modules', async (t) => {
+  const data = fixture();
+  t.after(() => fs.rmSync(data.directory, { recursive: true, force: true }));
+  const fresh = '[Rule]\nDOMAIN,fresh.test,REJECT';
+  fs.writeFileSync(data.required, fresh);
+  const oldRoot = path.join(data.previous, 'Modules', 'Converted');
+  fs.writeFileSync(path.join(oldRoot, 'malformed.sgmodule'),
+    '[Script]\nrun=type=http-response, script-path=https://nrrule.pages.dev/Scripts/%ZZ.js');
+  const healthy = '[Rule]\nDOMAIN,healthy.test,REJECT';
+  fs.writeFileSync(path.join(oldRoot, 'healthy.sgmodule'), healthy);
+
+  assert.deepEqual(await restorePreviousOptionalArtifacts(data.config, data.previous, data.current),
+    { modules: 1, scripts: 0 });
+  const currentRoot = path.join(data.current, 'Modules', 'Converted');
+  assert.equal(fs.existsSync(path.join(currentRoot, 'malformed.sgmodule')), false);
+  assert.equal(fs.readFileSync(path.join(currentRoot, 'healthy.sgmodule'), 'utf8'), healthy);
+  assert.equal(fs.readFileSync(data.required, 'utf8'), fresh);
+});
