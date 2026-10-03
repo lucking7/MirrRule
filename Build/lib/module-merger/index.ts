@@ -18,7 +18,7 @@ import { cleanPolicy, cleanPolicyForModule } from '../policy-cleaner';
  * MITM 单独处理（需要聚合 hostname），不在此列表中
  */
 const SECTION_OUTPUT_ORDER: SectionType[] = [
-  'General', 'Rule', 'URL Rewrite', 'Map Local', 'Script', 'Panel', 'Task',
+  'General', 'Rule', 'URL Rewrite', 'Header Rewrite', 'Body Rewrite', 'Map Local', 'Script', 'Panel', 'Task',
 ];
 
 /**

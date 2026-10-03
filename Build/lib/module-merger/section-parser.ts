@@ -17,6 +17,8 @@ const SECTION_ALIASES: Record<string, SectionType> = {
   rules: 'Rule',
   'url rewrite': 'URL Rewrite',
   rewrite: 'URL Rewrite',
+  'header rewrite': 'Header Rewrite',
+  'body rewrite': 'Body Rewrite',
   'map local': 'Map Local',
   maplocal: 'Map Local',
   script: 'Script',
