@@ -28,6 +28,7 @@ import { convertPluginsLocallyBatch } from './local-converter';
 import { getPluginContent } from './plugin-mirror';
 import { publishPluginArtifacts } from './plugin-artifact';
 import { identifyPluginSource } from './plugin-identity';
+import { loadNativeSurgeModule } from './native-surge';
 import type { PendingPluginArtifact } from './plugin-artifact';
 import type { ConversionResult } from './types';
 
@@ -123,10 +124,12 @@ export async function convertAndMirrorPlugins(
   console.log(picocolors.green(`✓ Found ${stats.total} plugins`));
   console.log(picocolors.gray(`  - .plugin: ${stats.byExtension.plugin}`));
   console.log(picocolors.gray(`  - .lpx: ${stats.byExtension.lpx}`));
+  console.log(picocolors.gray(`  - native Surge: ${stats.byExtension.module}`));
 
   // 分离 useLocalOnly 插件
-  const localOnlyPlugins = plugins.filter(p => p.useLocalOnly);
-  const remotePlugins = plugins.filter(p => !p.useLocalOnly);
+  const nativePlugins = plugins.filter(p => p.useNativeSurge);
+  const localOnlyPlugins = plugins.filter(p => p.useLocalOnly && !p.useNativeSurge);
+  const remotePlugins = plugins.filter(p => !p.useLocalOnly && !p.useNativeSurge);
 
   if (localOnlyPlugins.length > 0) {
     console.log(
@@ -142,6 +145,10 @@ export async function convertAndMirrorPlugins(
   await ensureOutputDirectory();
 
   const conversionResults: LocalMirrorPluginConversionResult[] = [];
+
+  for (const plugin of nativePlugins) {
+    conversionResults.push(await loadNativeSurgeModule(plugin));
+  }
 
   // 2a. 本地转换 (useLocalOnly 插件)
   if (localOnlyPlugins.length > 0) {
