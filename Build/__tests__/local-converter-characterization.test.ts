@@ -14,7 +14,7 @@ import { LocalPluginConverter } from '../integration/plugin-converter/loon-to-su
 test('mixed Rewrite script entries retain body flags expressed as booleans', async () => {
   const source = '#!name=Mixed\n[Rewrite]\nhttp-response ^https://example.test/data script-path=https://example.test/a.js, requires-body=true, binary-body-mode=true\n';
   const converted = await new LocalPluginConverter().convert(source);
-  assert.match(converted, /\[Script\]/);
+  assert.match(converted, /\[Script]/);
   assert.match(converted, /script-path=https:\/\/example\.test\/a\.js/);
   assert.match(converted, /requires-body=1/);
   assert.match(converted, /binary-body-mode=1/);
@@ -29,6 +29,18 @@ test('local fallback rejects native Loon v2 actions instead of publishing empty 
   }));
   const [result] = await convertPluginsLocallyBatch([{ name: 'Native', url: 'fixture://native', extension: 'plugin' }]);
   assert.deepEqual(result.content, { error: 'Local fallback does not support Loon v2 syntax' });
+});
+
+test('local fallback rejects standalone body/header sections instead of dropping their actions', async t => {
+  t.after(() => setLocalConverterContentLoader(null));
+  for (const section of ['Header Rewrite', 'Body Rewrite']) {
+    setLocalConverterContentLoader(() => Promise.resolve({
+      success: true,
+      content: `#!name=Standalone\n[${section}]\nhttp-response ^https://test/ unchanged\n`,
+    }));
+    const [result] = await convertPluginsLocallyBatch([{ name: 'Standalone', url: 'fixture://standalone', extension: 'plugin' }]);
+    assert.deepEqual(result.content, { error: 'Local fallback does not support standalone Header/Body Rewrite sections' });
+  }
 });
 
 const fixtureRoot = path.join(process.cwd(), 'Build', '__tests__', 'fixtures');

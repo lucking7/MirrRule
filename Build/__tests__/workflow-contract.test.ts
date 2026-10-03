@@ -494,6 +494,17 @@ describe('GitHub Actions workflow contract', () => {
     assert.equal(hasStep(mergeJob, 'Upload module output'), true);
   });
 
+  it('preserves previous optional subscriptions only after fresh required modules have merged', () => {
+    const mergeJob = getJob('merge-modules');
+    const step = getStep(mergeJob, 'Preserve previous optional modules and scripts');
+    assert.match(String(step.if), /convert-plugins/);
+    assert.match(String(step.run), /restore-optional-artifacts\.ts/);
+    assert.match(String(step.run), /sparse-checkout set Modules\/Converted Scripts/);
+    const names = mergeJob.steps!.map(item => item.name);
+    assert.ok(names.indexOf('Merge modules') < names.indexOf(step.name));
+    assert.ok(names.indexOf(step.name) < names.indexOf('Upload module output'));
+  });
+
   it('builds mirror-sync output without implicitly deploying it', () => {
     const plan = evaluateTaskPlan({
       eventName: 'workflow_dispatch',

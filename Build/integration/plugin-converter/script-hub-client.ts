@@ -330,12 +330,13 @@ export async function convertPluginsBatchFromLocalMirror(
     return {
       plugin,
       // jq_file is fetched during conversion, so it needs the same validated gateway as plugins.
-      content: downloaded.get(`${identity.sourceId}\0${plugin.name}`)!.replace(
-        /(\b(?:request|response)\.json\.jq_file\(\s*)(["'])(https:\/\/[^"'\s]+)\2/g,
+      content: downloaded.get(`${identity.sourceId}\0${plugin.name}`)!.replaceAll(
+        /(\b(?:request|response)\.(?:json\.jq_file\(\s*|body\.mock_file\(\s*["'][^"']+["']\s*,\s*))(["'])(https:\/\/[^\s"']+)\2/g,
         (match, prefix: string, quote: string, dependency: string) => {
           const parsed = new URL(dependency);
-          if (parsed.hostname !== 'kelee.one' || !parsed.pathname.startsWith('/Resource/JQLang/')
-            || !parsed.pathname.endsWith('.jq')) return match;
+          const isJq = parsed.pathname.startsWith('/Resource/JQLang/') && parsed.pathname.endsWith('.jq');
+          const isScript = parsed.pathname.startsWith('/Resource/JavaScript/') && parsed.pathname.endsWith('.js');
+          if (parsed.hostname !== 'kelee.one' || (!isJq && !isScript)) return match;
           return `${prefix}${quote}${applyProxyIfNeeded(dependency)}${quote}`;
         }
       ),

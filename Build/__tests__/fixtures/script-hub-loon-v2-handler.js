@@ -2,6 +2,9 @@
 // Only the Loon v2 handler seam is retained for isolated patch behavior tests.
 let MapLocal = []
 let rwbodyBox = []
+const reqHeaders = {}
+let httpResult = { status: 404, body: '' }
+async function http() { return httpResult }
 
 function splitLoonV2TopLevel(str, sep = ',') {
   const arr = []
@@ -250,3 +253,4 @@ function fixtureFinish(value, diagnostics, parameters, keys) {
   return body
 }
 globalThis.fixtureApi.finish = fixtureFinish
+globalThis.fixtureApi.setHttpResult = result => { httpResult = result }

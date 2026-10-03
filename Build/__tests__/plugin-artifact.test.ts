@@ -20,6 +20,75 @@ function pluginIdentity(name: string) {
 }
 
 describe('plugin artifact lifecycle', () => {
+  it('fails every different artifact targeting the same output without overwriting last-known-good', async () => {
+    const directory = await fsp.mkdtemp(path.join(os.tmpdir(), 'mirrrule-plugin-artifact-'));
+    const outputPath = path.join(directory, '挖财记账去广告.sgmodule');
+
+    try {
+      await fsp.writeFile(outputPath, 'known-good');
+      const results = await publishPluginArtifacts([
+        {
+          result: {
+            pluginName: 'WaCaiJiZhang_remove_ads',
+            ...pluginIdentity('WaCaiJiZhang_remove_ads'),
+            outputPath,
+            scripts: [],
+          },
+          content: '#!name=挖财记账去广告\nfirst',
+        },
+        {
+          result: {
+            pluginName: 'Wacai_remove_ads',
+            ...pluginIdentity('Wacai_remove_ads'),
+            outputPath,
+            scripts: [],
+          },
+          content: '#!name=挖财记账去广告\nsecond',
+        },
+      ], {});
+
+      assert.deepEqual(results.map(result => result.status), ['failed', 'failed']);
+      assert.ok(results.every(result => result.error?.includes('Conflicting converted plugins')));
+      assert.equal(await fsp.readFile(outputPath, 'utf8'), 'known-good');
+    } finally {
+      await fsp.rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('allows different plugin sources to share an output when final content is identical', async () => {
+    const directory = await fsp.mkdtemp(path.join(os.tmpdir(), 'mirrrule-plugin-artifact-'));
+    const outputPath = path.join(directory, '挖财记账去广告.sgmodule');
+    const content = '#!name=挖财记账去广告\nshared';
+
+    try {
+      const results = await publishPluginArtifacts([
+        {
+          result: {
+            pluginName: 'WaCaiJiZhang_remove_ads',
+            ...pluginIdentity('WaCaiJiZhang_remove_ads'),
+            outputPath,
+            scripts: [],
+          },
+          content,
+        },
+        {
+          result: {
+            pluginName: 'Wacai_remove_ads',
+            ...pluginIdentity('Wacai_remove_ads'),
+            outputPath,
+            scripts: [],
+          },
+          content,
+        },
+      ], {});
+
+      assert.deepEqual(results.map(result => result.status), ['ready', 'ready']);
+      assert.equal(await fsp.readFile(outputPath, 'utf8'), content);
+    } finally {
+      await fsp.rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it('preserves last-known-good output when a required script is unavailable', async () => {
     const directory = await fsp.mkdtemp(path.join(os.tmpdir(), 'mirrrule-plugin-artifact-'));
     const outputPath = path.join(directory, 'example.sgmodule');
@@ -44,6 +113,31 @@ describe('plugin artifact lifecycle', () => {
       assert.match(result.error ?? '', /required script/i);
       assert.equal(await fsp.readFile(outputPath, 'utf8'), 'known-good');
       assert.deepEqual(await fsp.readdir(directory), ['example.sgmodule']);
+    } finally {
+      await fsp.rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('does not mark an owned mirror dependency ready without current validation', async () => {
+    const directory = await fsp.mkdtemp(path.join(os.tmpdir(), 'mirrrule-plugin-artifact-'));
+    const outputPath = path.join(directory, 'owned.sgmodule');
+    const ownedUrl = 'https://nrrule.pages.dev/Scripts/owned.js';
+
+    try {
+      await fsp.writeFile(outputPath, 'known-good');
+      const [result] = await publishPluginArtifacts([{
+        result: {
+          pluginName: 'owned',
+          ...pluginIdentity('owned'),
+          outputPath,
+          scripts: [{ originalUrl: ownedUrl, filename: 'owned.js', isMirrored: true }],
+        },
+        content: `script-path=${ownedUrl}`,
+      }], {});
+
+      assert.equal(result.status, 'degraded');
+      assert.match(result.error ?? '', /required script/i);
+      assert.equal(await fsp.readFile(outputPath, 'utf8'), 'known-good');
     } finally {
       await fsp.rm(directory, { recursive: true, force: true });
     }

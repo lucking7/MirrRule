@@ -11,6 +11,7 @@ import { mirrorScripts } from '../integration/plugin-converter/script-mirror';
 
 const firstUrl = 'https://one.example/assets/main.js';
 const secondUrl = 'https://two.example/main.js';
+const ownedMirrorUrl = 'https://nrrule.pages.dev/Scripts/owned-main.js';
 
 function script(url: string) {
   return { originalUrl: url, filename: 'main.js', isMirrored: false };
@@ -55,10 +56,99 @@ describe('plugin script mirroring', () => {
     }]);
   });
 
-  it('recognizes mirrored scripts with either HTTP scheme', () => {
-    for (const scheme of ['http', 'https']) {
-      const [script] = extractScriptUrls(`script-path=${scheme}://nrrule.pages.dev/Scripts/main.js`);
-      assert.equal(script.isMirrored, true);
+  it('recognizes only exact HTTPS owned mirror URLs', () => {
+    const [owned] = extractScriptUrls('script-path=https://nrrule.pages.dev/Scripts/main.js');
+    assert.equal(owned.isMirrored, true);
+
+    const externalUrls = [
+      'http://nrrule.pages.dev/Scripts/main.js',
+      'https://nrrule.pages.dev.evil.test/Scripts/main.js',
+      'https://example.test/main.js?next=https://nrrule.pages.dev/Scripts/main.js',
+      'https://nrrule.pages.dev/Other/main.js?path=/Scripts/main.js',
+    ];
+    for (const url of externalUrls) {
+      const [external] = extractScriptUrls(`script-path=${url}`);
+      assert.equal(external.isMirrored, false, url);
+    }
+  });
+
+  it('downloads and validates an owned mirror into the referenced Scripts path', async () => {
+    const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-scripts-'));
+    const calls: string[] = [];
+
+    try {
+      const result = await mirrorScripts([{
+        originalUrl: ownedMirrorUrl,
+        filename: 'owned-main.js',
+        isMirrored: true,
+      }], 1, {
+        outputDirectory,
+        metadataPath: path.join(outputDirectory, 'metadata.json'),
+        fetchFn(url) {
+          calls.push(url);
+          return response('console.log("owned mirror");');
+        },
+      });
+
+      assert.deepEqual(calls, [ownedMirrorUrl]);
+      assert.equal(result.mirrored, 1);
+      assert.equal(result.urlMap[ownedMirrorUrl], ownedMirrorUrl);
+      assert.equal(
+        fs.readFileSync(path.join(outputDirectory, 'owned-main.js'), 'utf8'),
+        'console.log("owned mirror");'
+      );
+    } finally {
+      fs.rmSync(outputDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('fails an unavailable owned mirror and marks a valid cached file degraded', async () => {
+    const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-scripts-'));
+    const options = {
+      outputDirectory,
+      metadataPath: path.join(outputDirectory, 'metadata.json'),
+      fetchFn: () => response('unavailable', 503),
+    };
+    const ownedScript = {
+      originalUrl: ownedMirrorUrl,
+      filename: 'owned-main.js',
+      isMirrored: true,
+    };
+
+    try {
+      const missing = await mirrorScripts([ownedScript], 1, options);
+      assert.equal(missing.failed, 1);
+      assert.equal(missing.urlMap[ownedMirrorUrl], undefined);
+
+      fs.writeFileSync(path.join(outputDirectory, 'owned-main.js'), 'console.log("cached mirror");');
+      const cached = await mirrorScripts([ownedScript], 1, options);
+      assert.equal(cached.failed, 1);
+      assert.equal(cached.urlMap[ownedMirrorUrl], ownedMirrorUrl);
+      assert.deepEqual(cached.degradedUrls, [ownedMirrorUrl]);
+    } finally {
+      fs.rmSync(outputDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects an HTML response for an owned mirror without publishing it', async () => {
+    const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-scripts-'));
+
+    try {
+      const result = await mirrorScripts([{
+        originalUrl: ownedMirrorUrl,
+        filename: 'owned-main.js',
+        isMirrored: true,
+      }], 1, {
+        outputDirectory,
+        metadataPath: path.join(outputDirectory, 'metadata.json'),
+        fetchFn: () => response('<!doctype html><title>Just a moment</title>'),
+      });
+
+      assert.equal(result.failed, 1);
+      assert.equal(result.urlMap[ownedMirrorUrl], undefined);
+      assert.equal(fs.existsSync(path.join(outputDirectory, 'owned-main.js')), false);
+    } finally {
+      fs.rmSync(outputDirectory, { recursive: true, force: true });
     }
   });
 

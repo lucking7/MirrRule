@@ -11,6 +11,19 @@ import { SCRIPT_MIRROR_LOCATION } from './script-location';
  * 正则表达式：匹配 script-path
  */
 const SCRIPT_PATH_REGEX = /script-path\s*=\s*(https?:\/\/[^\s",]+\.js[^\s",]*)/gi;
+const SCRIPT_MIRROR_BASE_URL = new URL(`https://${SCRIPT_MIRROR_LOCATION}/`);
+
+function isOwnedScriptMirrorUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:'
+      && url.host === SCRIPT_MIRROR_BASE_URL.host
+      && url.pathname.startsWith(SCRIPT_MIRROR_BASE_URL.pathname)
+      && url.pathname.length > SCRIPT_MIRROR_BASE_URL.pathname.length;
+  } catch {
+    return false;
+  }
+}
 
 /** Reject converters that silently remove source script dependencies. */
 export function validateScriptPreservation(source: string, converted: string): string | undefined {
@@ -50,7 +63,7 @@ export function extractScriptUrls(content: string): ScriptInfo[] {
     seen.add(url);
 
     // 检查是否已经是镜像 URL
-    const isMirrored = url.includes(SCRIPT_MIRROR_LOCATION);
+    const isMirrored = isOwnedScriptMirrorUrl(url);
 
     // 提取文件名
     const filename = extractFilename(url);
@@ -84,16 +97,6 @@ function extractFilename(url: string): string {
   }
 
   return filename;
-}
-
-/**
- * 过滤出需要镜像的脚本
- *
- * @param scripts - 脚本信息数组
- * @returns 需要镜像的脚本
- */
-export function filterUnmirroredScripts(scripts: ScriptInfo[]): ScriptInfo[] {
-  return scripts.filter(script => !script.isMirrored);
 }
 
 /** Apply resolved mirror URLs without mutating script metadata. */

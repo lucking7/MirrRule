@@ -30,8 +30,9 @@ const SCRIPT_OUTPUT_DIR = path.join(__dirname, '../../../public/Scripts');
  */
 const MIN_FILE_SIZE = 10;
 const MIRROR_BASE_URL = `https://${SCRIPT_MIRROR_LOCATION}`;
+const MIRROR_BASE = new URL(`${MIRROR_BASE_URL}/`);
 
-function isScriptContentValid(content: Buffer): boolean {
+export function validateScriptContent(content: Buffer): boolean {
   if (content.length < MIN_FILE_SIZE || !isUtf8(content)) return false;
   const prefix = content.toString('utf8').trimStart().slice(0, 8192).toLowerCase();
   return !/^(?:<!doctype\s+html\b|<(?:html|head|body|script)\b|just a moment\b|attention required\b|enable javascript and cookies to continue\b|window\.location\s*=\s*['"][^'"]*\/cdn-cgi\/challenge-platform\/)/.test(prefix);
@@ -105,6 +106,16 @@ function canonicalizeUrl(url: string): string {
 }
 
 function getMirrorFilename(script: ScriptInfo): string {
+  if (script.isMirrored) {
+    const source = new URL(script.originalUrl);
+    if (source.hostname === MIRROR_BASE.hostname && source.pathname.startsWith(MIRROR_BASE.pathname)) {
+      const relativePath = path.posix.normalize(source.pathname.slice(MIRROR_BASE.pathname.length));
+      if (relativePath && relativePath !== '.' && !relativePath.startsWith('../') && !path.posix.isAbsolute(relativePath)) {
+        return relativePath;
+      }
+    }
+  }
+
   const canonicalUrl = canonicalizeUrl(script.originalUrl);
   const hash = createHash('sha256').update(canonicalUrl).digest('hex').slice(0, 12);
   const basename = script.filename
@@ -157,7 +168,7 @@ async function downloadScript(
         continue;
       }
 
-      if (!isScriptContentValid(content)) {
+      if (!validateScriptContent(content)) {
         console.log(picocolors.red(`[Mirror] ✗ ${candidate.source}: Invalid JavaScript response`));
         continue;
       }
@@ -179,7 +190,7 @@ async function downloadScript(
       console.log(picocolors.red(`[Mirror] ✗ ${candidate.source}: ${errorMsg}`));
     }
   }
-  return { status: existing ? 'failed-cached' : 'failed' };
+  return { status: existing && validateScriptContent(existing) ? 'failed-cached' : 'failed' };
 }
 
 /**
@@ -211,16 +222,7 @@ export async function mirrorScripts(
 
   console.log(picocolors.cyan(`\n[Mirror] Processing ${scripts.length} scripts...\n`));
 
-  const toDownload: ScriptInfo[] = [];
-
-  for (const script of scripts) {
-    if (script.isMirrored) {
-      result.skipped++;
-      continue;
-    }
-
-    toDownload.push(script);
-  }
+  const toDownload = scripts;
 
   if (toDownload.length === 0) {
     console.log(picocolors.gray('[Mirror] No scripts to download\n'));
@@ -243,10 +245,14 @@ export async function mirrorScripts(
       if (download.provenance) result.provenance[script.originalUrl] = download.provenance;
       if (status === 'mirrored') {
         result.mirrored++;
-        result.urlMap[script.originalUrl] = `${MIRROR_BASE_URL}/${getMirrorFilename(script)}`;
+        result.urlMap[script.originalUrl] = script.isMirrored
+          ? script.originalUrl
+          : `${MIRROR_BASE_URL}/${getMirrorFilename(script)}`;
       } else if (status === 'unchanged') {
         result.skipped++;
-        result.urlMap[script.originalUrl] = `${MIRROR_BASE_URL}/${getMirrorFilename(script)}`;
+        result.urlMap[script.originalUrl] = script.isMirrored
+          ? script.originalUrl
+          : `${MIRROR_BASE_URL}/${getMirrorFilename(script)}`;
       } else {
         result.failed++;
         result.failedScripts.push({
@@ -256,7 +262,9 @@ export async function mirrorScripts(
         if (status === 'failed-cached' && await fileExists(
           path.join(outputDirectory, getMirrorFilename(script))
         )) {
-          result.urlMap[script.originalUrl] = `${MIRROR_BASE_URL}/${getMirrorFilename(script)}`;
+          result.urlMap[script.originalUrl] = script.isMirrored
+            ? script.originalUrl
+            : `${MIRROR_BASE_URL}/${getMirrorFilename(script)}`;
           result.degradedUrls.push(script.originalUrl);
         }
       }

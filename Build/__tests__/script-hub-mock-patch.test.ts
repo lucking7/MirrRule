@@ -8,7 +8,7 @@ import path from 'node:path';
 import process from 'node:process';
 import test from 'node:test';
 import vm from 'node:vm';
-import { patchScriptHubParser } from '../patch-script-hub';
+import { patchScriptHubCoreParser as patchScriptHubParser } from '../patch-script-hub';
 
 interface NormalizeResult {
   handled?: boolean;
@@ -22,6 +22,7 @@ interface FixtureApi {
   getMapLocal(): string[];
   getRwbodyBox(): unknown[];
   finish(body: string, diagnostics: string, parameters: Array<{ key: string }>, keys: string[]): string;
+  setHttpResult(result: { status: number; body: string }): void;
 }
 
 const fixturePath = path.join(process.cwd(), 'Build', '__tests__', 'fixtures', 'script-hub-loon-v2-handler.js');
@@ -29,7 +30,7 @@ const fixtureSource = fs.readFileSync(fixturePath, 'utf8');
 const bodyMatchAnchor = String.raw`    const bodyMatch = name.match(/^(request|response)\.body\.(replace|mock)$/)`;
 
 function evaluateFixture(source: string): FixtureApi {
-  const context = vm.createContext({}) as vm.Context & { fixtureApi?: FixtureApi };
+  const context = vm.createContext({ URL }) as vm.Context & { fixtureApi?: FixtureApi };
   vm.runInContext(source, context, { filename: fixturePath });
   assert.ok(context.fixtureApi);
   return context.fixtureApi;
@@ -236,7 +237,7 @@ test('patch rejects repeated, missing, and already-patched anchors', () => {
   assert.throws(() => patchScriptHubParser(patched), /found 0/);
 });
 
-test('CLI reads one parser source and writes the patched output', async t => {
+test('CLI rejects an incomplete parser instead of writing a partially patched output', async t => {
   const directory = await fsp.mkdtemp(path.join(os.tmpdir(), 'mirrrule-script-hub-patch-'));
   t.after(() => fsp.rm(directory, { recursive: true, force: true }));
   const input = path.join(directory, 'Rewrite-Parser.beta.js');
@@ -249,10 +250,9 @@ test('CLI reads one parser source and writes the patched output', async t => {
     { encoding: 'utf8' }
   );
 
-  assert.equal(result.status, 0, result.stderr);
-  const patched = await fsp.readFile(output, 'utf8');
-  const api = evaluateFixture(patched);
-  assert.equal((await api.normalizeLoonV2RewriteLine('response.body.mock("text", "cli")'))?.handled, true);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Unsupported Script-Hub parser/);
+  assert.equal(fs.existsSync(output), false);
 });
 
 test('unsupported native actions remain visible to the conversion consumer', () => {
@@ -265,4 +265,28 @@ test('known argument templates are not expanded a second time', () => {
   const api = patchedFixture();
   assert.equal(api.finish('{{{toggle}}} script', '', [{ key: 'toggle' }], ['toggle']), '{{{toggle}}} script');
   assert.equal(api.finish('{onlyNative} script', '', [], ['onlyNative']), '{{{onlyNative}}} script');
+});
+
+test('mock_file preserves fetched text including newlines and comments', async () => {
+  const api = patchedFixture();
+  const body = '// comment\nconst sample = "hello";\n';
+  api.setHttpResult({ status: 200, body });
+  const result = await api.normalizeLoonV2RewriteLine('response.body.mock_file("text", "https://kelee.one/example.js", 200)');
+  assert.equal(result?.handled, true);
+  assert.deepEqual(Array.from(api.getMapLocal()), [expectedMapLocal('text', body, 200, 'text/plain')]);
+});
+
+test('mock_file rejects failed, empty and HTML responses', async () => {
+  const api = patchedFixture();
+  for (const response of [
+    { status: 404, body: 'missing' },
+    { status: 200, body: ' ' },
+    { status: 200, body: '<html>challenge</html>' },
+  ]) {
+    api.reset();
+    api.setHttpResult(response);
+    const result = await api.normalizeLoonV2RewriteLine('response.body.mock_file("text", "https://kelee.one/example.js", 200)');
+    assert.equal(result?.unsupported, true);
+    assert.equal(api.getMapLocal().length, 0);
+  }
 });
