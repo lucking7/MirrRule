@@ -333,7 +333,7 @@ workflow 的实际命令是 `pages deploy public --project-name=nrrule --commit-
 
 `prepare` 在本次运行计算 `tasks` 任务计划；镜像步骤属于 Build job，因此手动镜像会执行构建但不会发布。手动部署先完成本次 Build 的测试、Knip、构建和成功标记检查，再交给选定发布 job。任务计划映射可由仓库测试验证，但新账号中的真实 Actions、Cloudflare 和 Git 发布仍须单独验证。
 
-定时规则采用 UTC：`0 5,17 * * *` 执行完整流程；`0 */4 * * *` 规则构建与发布；`0 6,14,22 * * *` 镜像、规则构建与发布；`30 7,19 * * *` 转换、合并、规则构建与发布。新仓还需确认 Actions 定时运行已启用。相同 workflow/ref 有并发取消策略，不要把被后一次运行取消误认为代码失败。
+定时规则采用 UTC：`0 5,17 * * *` 执行完整流程；`0 */4 * * *` 规则构建与发布；`0 6,14,22 * * *` 镜像、规则构建与发布；`30 7,19 * * *` 转换、合并、规则构建与发布。新仓还需确认 Actions 定时运行已启用。相同 workflow/ref 共用并发组，仅新 push 可以取消在途运行；schedule 和 workflow_dispatch 排队，不能抢占正在发布的完整构建。GitHub 默认只保留一个 pending run，后续排队事件可能替换尚未开始的 pending run，不应把取消状态误认为代码失败。
 
 job 顺序为 `prepare → convert-plugins → merge-modules → build → 两个 deploy job`，转换或合并可按条件跳过。Build 依次运行 `validate`、测试、Knip，再处理镜像、artifact、缺失目录补齐、主构建与成功标记检查。PR 通过不证明插件转换、模块合并或部署可用。
 

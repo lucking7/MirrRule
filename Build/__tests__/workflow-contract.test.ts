@@ -27,6 +27,7 @@ interface WorkflowJob {
 }
 
 interface Workflow {
+  concurrency?: { group?: string; 'cancel-in-progress'?: string | boolean };
   jobs?: Record<string, WorkflowJob>;
 }
 
@@ -123,6 +124,12 @@ function evaluateTaskPlan(scenario: WorkflowScenario) {
 }
 
 describe('GitHub Actions workflow contract', () => {
+  it('queues schedules and manual runs instead of interrupting an active deployment', () => {
+    // eslint-disable-next-line no-template-curly-in-string -- Literal GitHub Actions expressions.
+    assert.equal(workflow.concurrency?.group, '${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}');
+    // eslint-disable-next-line no-template-curly-in-string -- Literal GitHub Actions expression.
+    assert.equal(workflow.concurrency?.['cancel-in-progress'], '${{ github.event_name == \'push\' }}');
+  });
   it('publishes one task plan and preserves the deploy target separately', () => {
     const prepare = getJob('prepare');
     assert.deepEqual(Object.keys(prepare.outputs ?? {}).sort(), [
