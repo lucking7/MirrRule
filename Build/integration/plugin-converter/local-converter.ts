@@ -67,7 +67,7 @@ async function convertPluginLocally(
       return {
         pluginName: plugin.name,
         ...identity,
-        content: { error: 'Loon PROXY rules require an explicit Surge policy binding' },
+        content: { error: 'Loon PROXY policy is unsupported in Surge module Rule sections; use a separate rule set' },
       };
     }
 

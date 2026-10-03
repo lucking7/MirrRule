@@ -202,7 +202,7 @@ env -u CI PROXY_BASE='http://127.0.0.1:13193?url=' \
 
 本轮全部必需模块通过合并后，CI 才从原产物仓补回缺失的历史可选模块及脚本，保留现有订阅。该步骤不能覆盖本轮文件或补齐缺失的必需模块，也不改变 conversion report 的失败状态；无功能节的旧模块、失效脚本和缺失脚本依赖会跳过并记录 warning。接管时替换 workflow 中此步骤的 `lucking7/NRRule`。
 
-fmz200 广告拦截合集使用上游 `Surge/module/blockAds.module` 原生文件，保留原生 Header/Body Rewrite、脚本和参数，经过相同的下载、依赖镜像及发布校验后输出 `广告拦截&净化合集.sgmodule`；不再将 Loon 版本的 `PROXY` 规则复制到 Surge 模块。原生输入刷新失败也不算本轮成功。
+fmz200 广告拦截合集使用上游 `Surge/module/blockAds.module` 原生文件，保留原生 Header/Body Rewrite、脚本和参数，经过相同的下载、依赖镜像及发布校验后输出 `广告拦截&净化合集.sgmodule`；不再将 Loon 版本的 `PROXY` 规则复制到 Surge 模块。原生输入刷新失败也不算本轮成功。当前上游带有 `#!system=ios`，本项目保留该限制，未验证在 Surge Mac 上移除限制后的行为。
 
 两个挖财插件的 `#!name` 相同但内容不同：`Wacai_remove_ads` 保留 `挖财记账去广告.sgmodule`，`WaCaiJiZhang_remove_ads` 发布为 `WaCaiJiZhang_remove_ads.sgmodule`。其他未知的同名内容冲突会阻断对应输出，不能按执行顺序覆盖。
 
