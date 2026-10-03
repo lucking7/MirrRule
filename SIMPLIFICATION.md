@@ -1,6 +1,6 @@
 # 全项目简化与验收记录
 
-目标：在保留功能、四平台语义、订阅地址、CLI/env、校验、缓存、原子发布及回滚的前提下，减少重复状态、无消费者接口和重复流程。基线为 `e03e34f5`，先独立修复插件转换，再按职责边界实施候选。源码简化队列及最终三路复查已完成；发布验收进行中，未完成项不能视为已验收。
+目标：在保留功能、四平台语义、订阅地址、CLI/env、校验、缓存、原子发布及回滚的前提下，减少重复状态、无消费者接口和重复流程。基线为 `e03e34f5`，先独立修复插件转换，再按职责边界实施候选。源码简化队列及最终三路复查已完成；发布验收必须核对 main Actions 与线上相同 SHA，未验证项不能视为已验收。
 
 ## 覆盖与外部边界
 
@@ -182,4 +182,7 @@ C6：三个 Script-Hub 补丁阶段的非重叠锚点计数完全相同，统一
 
 剩余 3 项为 Prevent_DNS_Leaks 的策略绑定限制，以及 EasyBike/Tencent Video 的失效外部脚本。它们继续 failed，解除步骤见前述记录及 MIGRATION；本次没有声称这些功能或实体客户端已通过。
 
-DNS 解除步骤补充：Surge module Rule 不接受 Loon 的 PROXY，也不能靠 module argument 任意绑定策略组。应将对应域名规则放入独立 RULE-SET，并在自己的主配置中选择策略，再做客户端验收。main 的并发修复只明确了这条诊断与操作说明，清理分支会合入该提交后核对最终 Build。
+DNS 解除步骤补充：Surge module Rule 不接受 Loon 的 PROXY，也不能靠 module argument 任意绑定策略组。应将对应域名规则放入独立 RULE-SET，并在自己的主配置中选择策略，再做客户端验收。main 的并发修复只明确了这条诊断与操作说明，清理分支已合入该提交，并为整合提交再次核对 Build。
+
+
+最终 feature [37083987931](https://github.com/lucking7/MirrRule/actions/runs/37083987931) 整体 success，Convert Plugins、Merge Modules、Build 均 success；两部署 job 按 feature 限制 skipped。main 并发提交 `0b15b46` 已整合，其生产变动仅更明确的 DNS 错误文本及对应 assertion，定向 local-converter characterization 通过；新增的 mirror own-section 校验、MIME own-key、脚本长度和坏 optional URL 隔离均保留。整合提交的 Build 与 main 的全任务发布分别验收，不把 skipped 写成部署成功。
