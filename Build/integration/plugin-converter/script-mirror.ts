@@ -32,7 +32,7 @@ const MIN_FILE_SIZE = 10;
 const MIRROR_BASE_URL = `https://${SCRIPT_MIRROR_LOCATION}`;
 
 function isScriptContentValid(content: Buffer): boolean {
-  if (!isUtf8(content)) return false;
+  if (content.length < MIN_FILE_SIZE || !isUtf8(content)) return false;
   const prefix = content.toString('utf8').trimStart().slice(0, 8192).toLowerCase();
   return !/^(?:<!doctype\s+html\b|<(?:html|head|body|script)\b|just a moment\b|attention required\b|enable javascript and cookies to continue\b|window\.location\s*=\s*['"][^'"]*\/cdn-cgi\/challenge-platform\/)/.test(prefix);
 }

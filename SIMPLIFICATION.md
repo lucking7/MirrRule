@@ -40,7 +40,7 @@ ce-simplify-code 复查：复用 0 项直接应用；质量 4 项应用；效率
 | N2 | task 的 onCleanup 无任何 callback 消费，独立真实 cleanup 仍有效 | 去闲置生命周期抽象；中低风险；成功/失败入口 trace 验证 | 已实施 |
 | N3 | deprecated requestWithLog 仅 headStatus，后者供两个 tarball CLI | 可能少一套请求 API；实测 wire headers 和 ResponseError.res 不同 | 拒绝直接替换 |
 | N4 | TS issueAction 与 workflow deadStreak 判断重复 | 收敛三次失败决策；中风险；持久故障与当次 transition 不同 | 拒绝原切法 |
-| N8 | 脚本 validator 长度判断由唯一调用方 Buffer.byteLength gate 保证 | 少一份校验；低风险；short-body 专用日志及脚本测试保留 | 已实施 |
+| N8 | 脚本 validator 长度判断在 010bdaf 只有一个 gated 调用方 | 后续修复新增缓存/restore 消费者，没有前置 gate；不能继续删除 | 已恢复，保留校验 |
 | N7 | source inventory 与 health 的 URL 脱敏重复 | 去安全规则双维护；中低风险；source ID/报告值等价比较 | 已实施 |
 | N10 | IPValidator.isIpCidr 仅 tests 使用 | 小收益；内部 API shape 变化；完整 IPValidator 接口/测试仍可用 | 拒绝，小收益且切除可用 API |
 | C1 | previous-build/mock modules 重复 tarball transport，两个 CLI 均保留 | 去双份下载状态机；中低风险；HTTP/tar fixture；两入口 live 待验收 | 已实施 |
@@ -139,3 +139,5 @@ previous-build 目录 1507 文件/111374853 bytes，mock 目录 41 文件/179570
 终轮三路复核：上述两项应用后均无新增值得实施的复用、质量或效率候选。195/195 Node tests；validate 首次在新增 VM fixture string 发现 singlequote lint 错误，修正后 validate/typecheck 退出 0，仍有 122 warnings。Knip 成功，diff-check 成功。高置信简化队列已清零，功能修复不以降低门槛结束。
 
 runner 37080295586（010bdaf）未通过：265 ready、11 failed，其中 9 个 Loon v2 插件因 unsupported actions 被明确拒绝，另有 2 个失效脚本。默认可莉广告过滤器、知识星球有漏项，required 检查阻断了合并、Build、Pages/NRRule；当前没有把该 runner 标为通过，main 尚未合入清理分支。后续须补齐正则字面量/捕获组/文件 mock 等实际语义后重验，不能绕过 required 筛选。
+
+N8 结论更新：后续插件修复正在让 script validator 供 warm-cache 和 optional artifact restoration 使用，新增调用方没有先行 byteLength gate，且需要拒绝过短/损坏旧文件。此前 sole-caller 删除证据不再适用于最终组合，已主动恢复长度判断，保留 MIME own-key 修复。原切法在当时前提成立，但不能跨新增消费者复用旧证明；该项进入有反证的保留状态，不计净实施候选。
