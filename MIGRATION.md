@@ -362,6 +362,7 @@ job 顺序为 `prepare → convert-plugins → merge-modules → build → 两�
 | 有 index 但构建失败      | 检查退出码与 `.BUILD_FINISHED`，主构建可能继续产出部分文件。旧 `status.json` 也不能独立证明本次成功                                     |
 | 手动镜像/部署任务跳过    | 检查 `prepare.outputs.tasks`、Build job 的条件和结果、分支及 `deploy_target`；`deploy` 必须有本次 Build artifact                        |
 | Pages 成功、脚本仍404    | 检查 `SCRIPT_MIRROR_LOCATION`，核对 artifact 的 Scripts 与实际 script-path                                                              |
+| macOS 解压 artifact 报 `file exists` | fmz200 镜像同时包含 `WIFI万能钥匙.sgmodule` 和 `WiFi万能钥匙.sgmodule`。默认不区分大小写的文件系统无法完整保存两者；完整镜像使用 Linux 或区分大小写的卷，仅核验模块时可选择性解压 `Modules/`、`Scripts/` |
 | Git 发布被拒绝           | 检查产物仓是否初始化 main、是否归档、令牌跨仓权限及分支保护；不要为排错 force-push                                                      |
 
 上线前保存源码 commit、产物仓 commit、Pages deployment ID 和完整 artifact。失败时先停用自动发布，防止回滚后又被定时运行覆盖。
@@ -464,3 +465,11 @@ mise exec node@26 -- pnpm run build
 本机使用 `mise exec node@26 -- pnpm run validate`、`mise exec node@26 -- pnpm test`、`mise exec node@26 -- pnpm run knip` 和 `python -B Build/__tests__/browser-rule-gateway.test.py` 验收；完整上游 Parser 的 VM 检查共 34/34，包括真实失败插件及 Script 捕获绑定负例。本机没有 Docker，Docker 网络与完整转换的证据来自上述真实 GitHub runner，不能混写成本机容器验收。临时日志为 `/tmp/mirrrule-plugin-final-{validate6,tests6,knip6}.log`、`/tmp/mirrrule-plugin-final-python.log`、`/tmp/mirrrule-combined-native-strict-tests4.log`；下载及核对结果在 `/tmp/mirrrule-plugin-feature-native/`。这些路径不是迁移者的前置条件，重现时应按第 5、8 节保存自己的报告和产物。
 
 以上使用现有维护账号。新账号的 Secrets、仓库权限、Cloudflare Pages 和域名仍需重新验证；未进行真实客户端导入、广告行为或地区解锁实测。fmz200 原生输入的 iOS 限制保持上游设置。生产发布应另外核对对应 main run 与公开文件，不能用分支成功代替发布成功。
+
+### main 发布复核（2026-10-03）
+
+源码 `fcff1e654a7390158c493e6dfb1e8339b813c47d` 的 [main Actions 37084950772](https://github.com/lucking7/MirrRule/actions/runs/37084950772) 为 success，转换、合并、Build、GitHub 发布与 Cloudflare Pages 发布全部通过。集成后的 Node tests 为 230/230，Python gateway tests 为 14/14；转换仍为 273 ready、3 failed，默认合并的 47 项全部为本次新输入。定时任务此前会取消正在发布的 push run，本次已改为仅新 push 取消旧 run，定时和手动任务按同一 concurrency group 排队。
+
+产物仓固定提交为 [`9a62b995aec42e68751e68fed37b259dfa8caa34`](https://github.com/lucking7/NRRule/commit/9a62b995aec42e68751e68fed37b259dfa8caa34)，提交消息对应上述源码；Pages deployment 为 [`8558f669`](https://8558f669.nrrule.pages.dev)。通过 `gh run view 37084950772 --repo lucking7/MirrRule --log` 保存日志，下载报告、插件、合并和完整构建 artifacts 后核对产物。完整构建中的 `Modules/`、`Scripts/` 与合并 artifact 逐文件一致。公开访问核验覆盖其中全部 464 个文件（274 个模块、1 个规则附件、189 个脚本），内容与固定产物提交及本次构建逐字节一致；首轮 461 项通过，3 项网络超时经单独重试后通过。另有 55 项公开规则与页面核验通过，覆盖地域 stream、Netflix、Disney、测速、拦截规则、四平台格式、CloudMounter 和合并模块。
+
+本机完整解压构建包遇到上表所列的大小写文件名冲突，随后通过 Python `zipfile` 选择性提取 `Modules/`、`Scripts/` 完成核验，未将完整 macOS 解压记为通过。证据保存在交付机 `/tmp/mirrrule-plugin-main-release/` 及 `/tmp/mirrrule-plugin-main-release-all.log`，迁移者应在自己的账号重新保存上述 run、artifact、固定提交及公开访问结果。该记录只证明现有账号的生成与发布流程，仍不替代新账号部署或真实客户端功能验收。
