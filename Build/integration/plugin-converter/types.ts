@@ -12,9 +12,11 @@ export interface PluginInfo {
   /** 插件 URL */
   url: string,
   /** 文件扩展名 */
-  extension: 'plugin' | 'lpx',
+  extension: 'plugin' | 'lpx' | 'module',
   /** 是否仅使用本地转换器（跳过 Script-Hub） */
-  useLocalOnly?: boolean
+  useLocalOnly?: boolean,
+  /** 上游已经提供原生 Surge module，校验和镜像后直接发布。 */
+  useNativeSurge?: boolean
 }
 
 export interface PluginSourceIdentity {

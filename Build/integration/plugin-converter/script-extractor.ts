@@ -14,6 +14,7 @@ const SCRIPT_PATH_REGEX = /script-path\s*=\s*(https?:\/\/[^\s",]+\.js[^\s",]*)/g
 const SCRIPT_MIRROR_BASE_URL = new URL(`https://${SCRIPT_MIRROR_LOCATION}/`);
 const SUPPORTED_FUNCTIONAL_SECTIONS = new Set([
   'general',
+  'host',
   'rule',
   'url rewrite',
   'map local',

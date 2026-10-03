@@ -6,7 +6,7 @@ import { loadMergeConfig } from './lib/module-merger/config-loader';
 import { selectModuleSources } from './lib/module-merger';
 import { resolveLocalModuleCandidates } from './lib/module-merger/module-loader';
 import { writeFileAtomic } from './lib/atomic-file';
-import { extractScriptUrls } from './integration/plugin-converter/script-extractor';
+import { extractScriptUrls, validateScriptPreservation } from './integration/plugin-converter/script-extractor';
 import { validateScriptContent } from './integration/plugin-converter/script-mirror';
 
 async function exists(file: string): Promise<boolean> {
@@ -96,7 +96,7 @@ export async function restorePreviousOptionalArtifacts(
     );
     if (required.has(destination) || (await exists(destination))) continue;
     const content = await fs.readFile(file, 'utf8');
-    if (!content.trim() || !/^\s*\[[^\]]+]/m.test(content)) {
+    if (validateScriptPreservation('', content)) {
       console.warn(
         `Skipped invalid previous optional module: ${path.basename(file)}`,
       );

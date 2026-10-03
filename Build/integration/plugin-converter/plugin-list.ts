@@ -56,9 +56,9 @@ function resolvePluginListSources(): ProxyUrlCandidate[] {
 const EXTRA_PLUGINS: PluginInfo[] = [
   {
     name: 'blockAds',
-    url: 'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Loon/plugin/blockAds.plugin',
-    extension: 'plugin',
-    useLocalOnly: true, // 仅使用本地转换器
+    url: 'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/blockAds.module',
+    extension: 'module',
+    useNativeSurge: true,
   },
 ];
 
@@ -258,12 +258,14 @@ export interface PluginStats {
   byExtension: {
     plugin: number;
     lpx: number;
+    module: number;
   };
 }
 
 export function getPluginStats(plugins: PluginInfo[]): PluginStats {
   let pluginCount = 0;
   let lpxCount = 0;
+  let moduleCount = 0;
 
   for (const plugin of plugins) {
     switch (plugin.extension) {
@@ -272,6 +274,9 @@ export function getPluginStats(plugins: PluginInfo[]): PluginStats {
         break;
       case 'lpx':
         lpxCount++;
+        break;
+      case 'module':
+        moduleCount++;
         break;
       default:
         throw new TypeError(`Unsupported plugin extension: ${plugin.extension}`);
@@ -283,6 +288,7 @@ export function getPluginStats(plugins: PluginInfo[]): PluginStats {
     byExtension: {
       plugin: pluginCount,
       lpx: lpxCount,
+      module: moduleCount,
     },
   };
 }
