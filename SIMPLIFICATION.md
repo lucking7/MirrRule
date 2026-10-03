@@ -32,8 +32,8 @@ ce-simplify-code 复查：复用 0 项直接应用；质量 4 项应用；效率
 
 | ID | 精确切除/合并与消费者证据 | 收益、风险和反证检查 | 当前结论 |
 | --- | --- | --- | --- |
-| R1 | `Build/index.ts` 的 step.name 与固定 outputDir 参数仅写入，入口函数仅一个固定调用 | 少一层步骤元数据/参数；低风险；完整 build 和测试 | 已实施，本地完整 build 通过，main runner 待核对 |
-| R2 | `rule-source-processor.ts` processingTime 仅赋值，追踪已有耗时 | 去重复计时状态；内部返回 shape 变化；测试/manifest/构建核对 | 已实施，本地完整 build 通过，main runner 待核对 |
+| R1 | `Build/index.ts` 的 step.name 与固定 outputDir 参数仅写入，入口函数仅一个固定调用 | 少一层步骤元数据/参数；低风险；完整 build 和测试 | 已实施，本地及 feature 完整 build 通过 |
+| R2 | `rule-source-processor.ts` processingTime 仅赋值，追踪已有耗时 | 去重复计时状态；内部返回 shape 变化；测试/manifest/构建核对 | 已实施，本地及 feature 完整 build 通过 |
 | R3 | Clash/Loon writer 的 other-rule passthrough 同序逻辑 | 去双份转换步骤；中低风险；固定输入四平台 golden 比较 | 已实施，content/drop summary 等价 |
 | R4 | `RuleFormat.short` 仅复制，UI 使用 CLIENT_DIRS.short | 去无消费者数据字段；低风险；固定 public index HTML 比较 | 已实施，HTML 等价 |
 | N1 | Trace.tracePromise/traceChildPromise 仅 test fake 声明 | 去无消费者接口；低风险；typecheck/全部 tests | 已实施 |
@@ -43,7 +43,7 @@ ce-simplify-code 复查：复用 0 项直接应用；质量 4 项应用；效率
 | N8 | 脚本 validator 长度判断在 010bdaf 只有一个 gated 调用方 | 后续修复新增缓存/restore 消费者，没有前置 gate；不能继续删除 | 已恢复，保留校验 |
 | N7 | source inventory 与 health 的 URL 脱敏重复 | 去安全规则双维护；中低风险；source ID/报告值等价比较 | 已实施 |
 | N10 | IPValidator.isIpCidr 仅 tests 使用 | 小收益；内部 API shape 变化；完整 IPValidator 接口/测试仍可用 | 拒绝，小收益且切除可用 API |
-| C1 | previous-build/mock modules 重复 tarball transport，两个 CLI 均保留 | 去双份下载状态机；中低风险；HTTP/tar fixture；两入口 live 待验收 | 已实施 |
+| C1 | previous-build/mock modules 重复 tarball transport，两个 CLI 均保留 | 去双份下载状态机；中低风险；HTTP/tar fixture；两入口 live 待验收 | 已实施，两入口隔离实网验收通过 |
 
 ## 明确保留或拒绝
 
@@ -57,7 +57,7 @@ ce-simplify-code 复查：复用 0 项直接应用；质量 4 项应用；效率
 
 ## 完成判据
 
-候选逐项进入已实施/已拒绝/有明确缺失事实的未决状态；高置信可执行队列清零；最终三路复查及固定输入比较完成；Node/Python 检查、实际转换/合并/构建通过后推送 main，核对 Actions 与线上产物。当前未达到这一判据。
+候选逐项进入已实施/已拒绝/有明确缺失事实的未决状态；高置信可执行队列清零；最终三路复查及固定输入比较完成；Node/Python 检查、实际转换/合并/构建通过后推送 main，核对 Actions 与线上产物。各阶段证据按下文具体提交与 runner 核对；生产结果必须以最终 main Actions 和相同 SHA 的线上 status.json 为准。
 
 ## R1/R2 批次回执
 
@@ -174,3 +174,12 @@ C6：三个 Script-Hub 补丁阶段的非重叠锚点计数完全相同，统一
 最终验收命令均在隔离 worktree 使用 Node 26：`pnpm run validate`、`pnpm test`、`pnpm run knip`。Python 14 项测试已通过，完整规则 build 和固定输入比较见上文。回滚以逐批 revert 或 main 合并提交 revert 为入口，保留原 main 基线 `e03e34f5`、NRRule 基线 `7b4d094d`；生产产物需分别按 MIGRATION 的 Pages/产物仓步骤恢复，源码回滚不能还原动态上游字节。
 
 最终本地结果：229/229 Node tests、52 suites，validate/typecheck 退出 0（143 warnings、0 errors），Knip 退出 0；日志 `/tmp/mirrrule-native-validator-tests.log`、`/tmp/mirrrule-native-validator-validate.log`、`/tmp/mirrrule-native-validator-knip.log`。Native 下载校验红绿日志为 `/tmp/mirrrule-native-validator-red.log`、green.log。warnings 没有当成 errors 或静默忽略；未削弱校验/测试来降低数量。
+
+
+## 最终 feature 产物审查（e96f5f6）
+
+[37083987931](https://github.com/lucking7/MirrRule/actions/runs/37083987931) 的转换、合并已通过：276 total、273 ready、0 degraded、3 failed，47 required ready。blockAds 现已 ready，原生输出 `广告拦截&净化合集.sgmodule` 为 465763 bytes，保留 Rule、Header Rewrite、URL Rewrite、Body Rewrite、Map Local、Script、MITM 七个 section。哔哩哔哩仍保留 4 Script、11 Body Rewrite、1 Header Rewrite，可莉广告过滤器保留 24 Rule、2 Body Rewrite、80 Map Local。合并模块引用的 29 个不同脚本在 artifact 中全部存在。
+
+剩余 3 项为 Prevent_DNS_Leaks 的策略绑定限制，以及 EasyBike/Tencent Video 的失效外部脚本。它们继续 failed，解除步骤见前述记录及 MIGRATION；本次没有声称这些功能或实体客户端已通过。
+
+DNS 解除步骤补充：Surge module Rule 不接受 Loon 的 PROXY，也不能靠 module argument 任意绑定策略组。应将对应域名规则放入独立 RULE-SET，并在自己的主配置中选择策略，再做客户端验收。main 的并发修复只明确了这条诊断与操作说明，清理分支会合入该提交后核对最终 Build。
