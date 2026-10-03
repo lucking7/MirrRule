@@ -96,6 +96,10 @@ describe('module merger integration', () => {
         `[Rule]
 DOMAIN,example.com,PROXY
 DOMAIN-SUFFIX,ads.com,REJECT
+[Header Rewrite]
+http-response ^https://example.com/a header-add "grpc-status" "0"
+[Body Rewrite]
+http-response-jq ^https://example.com/a 'del(.ads)'
 [MITM]
 hostname = %APPEND% a.com, b.com`
       );
@@ -103,6 +107,10 @@ hostname = %APPEND% a.com, b.com`
         path.join(tempDir, 'module-b.sgmodule'),
         `[Rule]
 DOMAIN,other.com,DIRECT
+[header rewrite]
+http-response ^https://example.com/b header-add "X-Test" "1"
+[body rewrite]
+http-response-jq ^https://example.com/b '.enabled=true'
 [MITM]
 hostname = %APPEND% b.com, c.com`
       );
@@ -134,6 +142,14 @@ output:
       assert.equal(result.stats.modulesProcessed, 2);
       assert.equal(result.sgmodule.includes('[Rule]'), true);
       assert.equal(result.sgmodule.includes('[MITM]'), true);
+      assert.ok(result.sgmodule.includes('[Header Rewrite]'));
+      assert.ok(result.sgmodule.includes('[Body Rewrite]'));
+      for (const action of [
+        'http-response ^https://example.com/a header-add "grpc-status" "0"',
+        'http-response ^https://example.com/b header-add "X-Test" "1"',
+        'http-response-jq ^https://example.com/a \'del(.ads)\'',
+        'http-response-jq ^https://example.com/b \'.enabled=true\'',
+      ]) assert.ok(result.sgmodule.includes(action), action);
       assert.equal(result.rulelist.includes('DOMAIN,example.com'), true);
       assert.equal(result.rulelist.includes('DOMAIN-SUFFIX,ads.com'), true);
       assert.equal(result.rulelist.includes('DOMAIN,other.com'), true);
