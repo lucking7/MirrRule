@@ -475,3 +475,33 @@ mise exec node@26 -- pnpm run build
 产物仓固定提交为 [`9a62b995aec42e68751e68fed37b259dfa8caa34`](https://github.com/lucking7/NRRule/commit/9a62b995aec42e68751e68fed37b259dfa8caa34)，提交消息对应上述源码；Pages deployment 为 [`8558f669`](https://8558f669.nrrule.pages.dev)。通过 `gh run view 37084950772 --repo lucking7/MirrRule --log` 保存日志，下载报告、插件、合并和完整构建 artifacts 后核对产物。完整构建中的 `Modules/`、`Scripts/` 与合并 artifact 逐文件一致。公开访问核验覆盖其中全部 464 个文件（274 个模块、1 个规则附件、189 个脚本），内容与固定产物提交及本次构建逐字节一致；首轮 461 项通过，3 项网络超时经单独重试后通过。另有 55 项公开规则与页面核验通过，覆盖地域 stream、Netflix、Disney、测速、拦截规则、四平台格式、CloudMounter 和合并模块。
 
 本机完整解压构建包遇到上表所列的大小写文件名冲突，随后通过 Python `zipfile` 选择性提取 `Modules/`、`Scripts/` 完成核验，未将完整 macOS 解压记为通过。证据保存在交付机 `/tmp/mirrrule-plugin-main-release/` 及 `/tmp/mirrrule-plugin-main-release-all.log`，迁移者应在自己的账号重新保存上述 run、artifact、固定提交及公开访问结果。该记录只证明现有账号的生成与发布流程，仍不替代新账号部署或真实客户端功能验收。
+
+### 发布收尾复核（2026-10-04）
+
+[PR #399](https://github.com/lucking7/MirrRule/pull/399) 已合并到 main，发布源码为 `71f810afdb40de0b2759db278cc7920896a29ab9`。此前增量任务跳过 Convert/Merge 后，GitHub Actions 的默认状态条件会连带跳过后续发布。本次已为 PR diff 和两个 deploy job 显式设置 `!cancelled()`，同时保留 Build 成功、分支、任务和发布目标限制。以下三条路径均有真实 runner 结果：
+
+| 路径 | Actions | 实际结果 |
+|---|---|---|
+| PR 增量检查 | [37186920966](https://github.com/lucking7/MirrRule/actions/runs/37186920966) | Convert/Merge 按计划跳过；Build 和 Diff Build Output 成功；生产发布因非 main 跳过 |
+| main 完整发布 | [37187058705](https://github.com/lucking7/MirrRule/actions/runs/37187058705) | Convert、Merge、Build、GitHub 和 Cloudflare Pages 发布全部成功 |
+| main 手动增量发布 | [37187389125](https://github.com/lucking7/MirrRule/actions/runs/37187389125) | `task=deploy`、`target=all`；Convert/Merge 按计划跳过，Build 和两个发布目标全部成功 |
+
+完整发布的 Node tests 为 230/230，Python gateway tests 为 14/14，lint/typecheck 与 Knip 通过。转换报告为 276 项中的 273 ready、0 degraded、3 failed；默认合并所需 47 项全部为本轮新输入。合并 artifact 含 274 个模块、189 个脚本，自有脚本引用没有缺失。增量发布复用既有模块输入，不能记作再次完成全量转换。
+
+当前生产产物仓固定提交为 [`7897d04cb556d3349d880cce1527b12a39bea868`](https://github.com/lucking7/NRRule/commit/7897d04cb556d3349d880cce1527b12a39bea868)，Pages deployment 为 [`86cea544`](https://86cea544.nrrule.pages.dev)。2026-10-04 16:20 至 16:23（Asia/Shanghai）复核时，生产 `status.json` 对应源码 `71f810a`，构建时间为 `2026-10-04T07:59:54.325Z`，记录 58 个 ruleset。在线抽查 10 项全部返回 200，且与固定产物提交逐字节一致，覆盖 `status.json`、首页、All-in-One-Pro、一个自有脚本、`stream_hk` 四平台格式、Netflix 和 Disney。该抽查不代表本轮再次遍历所有公开文件，也不代表客户端广告行为或地区解锁实测。
+
+重新执行的 [来源健康检查 37188652141](https://github.com/lucking7/MirrRule/actions/runs/37188652141) 为 success，下载的 `source-health-report` 显示 116 ok、0 dead、0 unknown。手动运行只检查来源并上传报告，定时任务专用的 durable state 和 issue 管理步骤按配置跳过。此结果不包含所有插件脚本依赖的健康保证，不能覆盖上述三个可选插件的失败。
+
+复核命令为：
+
+```bash
+gh run view 37187058705 --repo lucking7/MirrRule --log
+gh run view 37187389125 --repo lucking7/MirrRule --log
+gh workflow run check-source-domain.yml --repo lucking7/MirrRule --ref main
+gh run view 37188652141 --repo lucking7/MirrRule --log
+gh run download 37188652141 --repo lucking7/MirrRule --name source-health-report
+```
+
+本次报告与公开抽查结果保存在交付机 `/tmp/mirrrule-closeout-20261004/`，完整发布和增量发布证据在 `/tmp/mirrrule-session-followup-20261004/`，均为临时证据。后续回滚应按第 9 节分别恢复源码、产物仓和 Pages，上述源码提交、产物提交与 deployment 可作为已验证基线。收尾仅补录文档，使用 `[skip ci]` 提交，不重新构建或发布；文档提交不应冒充已部署源码。
+
+当前没有新的生产发布阻塞。三个可选插件仍需上游恢复或经功能验收的替代方案；真实客户端导入、广告行为、地区解锁和新账号迁移尚未验证。现有 11 个 Dependabot PR 属于独立依赖维护，需基于最新 main 重新检查，不纳入本次收尾合并。
