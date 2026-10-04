@@ -337,6 +337,8 @@ workflow 的实际命令是 `pages deploy public --project-name=nrrule --commit-
 
 job 顺序为 `prepare → convert-plugins → merge-modules → build → 两个 deploy job`，转换或合并可按条件跳过。Build 依次运行 `validate`、测试、Knip，再处理镜像、artifact、缺失目录补齐、主构建与成功标记检查。PR 通过不证明插件转换、模块合并或部署可用。
 
+部署和 PR 差异比较条件必须显式包含 `!cancelled()`，同时要求本轮 Build 成功，并保留任务、分支和目标限制。快速更新、镜像更新、手动 `deploy` 和 PR 会按计划跳过转换或合并；缺少状态函数时，GitHub 隐式添加的 `success()` 会使下游 job 继续跳过，即使 Build 已成功。因此验收增量发布必须查看两个 deploy job，不能仅凭 workflow 整体 success 判断已更新线上。参见 [GitHub 状态条件](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions#status-check-functions)。
+
 需要特别区分：
 
 - 插件 job 最多重试两次，最终非零退出会使 job 失败；显式按合并配置校验本轮必需输入，非必需失败另存报告并发 warning。只上传非空转换产物，不再上传 marker 冒充转换成功。模块合并进一步严格检查默认选中的输入。

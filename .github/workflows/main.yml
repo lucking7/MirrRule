@@ -789,6 +789,7 @@ jobs:
     name: Diff Build Output
     needs: [prepare, build]
     if: |
+      !cancelled() &&
       github.event_name == 'pull_request' &&
       needs.build.result == 'success'
     runs-on: ubuntu-latest
@@ -827,6 +828,7 @@ jobs:
     name: Deploy to Cloudflare Pages
     needs: [prepare, build]
     if: |
+      !cancelled() &&
       contains(fromJSON(needs.prepare.outputs.tasks), 'deploy') &&
       (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'cloudflare') &&
       github.ref == 'refs/heads/main' &&
@@ -886,6 +888,7 @@ jobs:
     name: Deploy to GitHub Repository
     needs: [prepare, build]
     if: |
+      !cancelled() &&
       contains(fromJSON(needs.prepare.outputs.tasks), 'deploy') &&
       (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'github') &&
       github.ref == 'refs/heads/main' &&

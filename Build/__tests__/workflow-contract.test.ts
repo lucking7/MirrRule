@@ -527,7 +527,7 @@ describe('GitHub Actions workflow contract', () => {
     );
   });
 
-  it('builds a fresh artifact before a manual deploy and keeps deployment on main', () => {
+  it('builds fresh artifacts for main deployment and PR comparison after optional jobs skip', () => {
     const plan = evaluateTaskPlan({
       eventName: 'workflow_dispatch',
       task: 'deploy',
@@ -537,6 +537,11 @@ describe('GitHub Actions workflow contract', () => {
     for (const jobId of ['deploy-cloudflare', 'deploy-github']) {
       const deployJob = getJob(jobId);
       assert.ok(getNeeds(deployJob).includes('build'));
+      assert.match(
+        deployJob.if ?? '',
+        /!cancelled\(\)/,
+        `${jobId} must override implicit success() when optional ancestor jobs are skipped, while still honoring cancellation`,
+      );
       assert.match(deployJob.if ?? '', /'deploy'/);
       assert.match(deployJob.if ?? '', /github\.ref == 'refs\/heads\/main'/);
       assert.match(deployJob.if ?? '', /needs\.build\.result == 'success'/);
@@ -548,5 +553,11 @@ describe('GitHub Actions workflow contract', () => {
         ),
       );
     }
+
+    const diffJob = getJob('diff-deployment-on-pr');
+    assert.ok(getNeeds(diffJob).includes('build'));
+    assert.match(diffJob.if ?? '', /!cancelled\(\)/);
+    assert.match(diffJob.if ?? '', /github\.event_name == 'pull_request'/);
+    assert.match(diffJob.if ?? '', /needs\.build\.result == 'success'/);
   });
 });
