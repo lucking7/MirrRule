@@ -21,6 +21,7 @@ module.exports = sukka(
       'no-else-return': ['error', { allowElseIf: false }],
       'sukka/prefer-single-boolean-return': 'error',
       'vibe-proof/no-chain-array-higher-order-functions': 'error',
+      'vibe-proof/prefer-array-some': 'error',
       'sukka/unicorn/logical-assignment-operators': ['error', 'always'],
       'sukka/unicorn/filename-case': ['error', {
         cases: { kebabCase: true, snakeCase: true },
