@@ -65,6 +65,11 @@ updates:
       - dependency-name: "node"
         update-types: ["version-update:semver-major"]
 
+      # SWC and typed ESLint require the TypeScript 6 Compiler API.
+      # Native checker major updates are reviewed separately via typescript-compiler.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+
       # 暂时忽略的大版本更新 (如有)
       # - dependency-name: "某个包"
       #   versions: ["5.x", "6.x"]
