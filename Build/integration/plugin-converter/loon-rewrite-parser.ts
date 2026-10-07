@@ -87,7 +87,7 @@ export function parseLoonRewrite(line: string): RewriteRule | null {
         return {
           pattern: pattern.trim(),
           replacement: `${searchRegex} ${replacement}`,
-          type: 'body-regex' as any,
+          type: 'body-regex',
         };
       }
     }
@@ -111,14 +111,14 @@ export function parseLoonRewrite(line: string): RewriteRule | null {
             return {
               pattern: pattern.trim(),
               replacement: `delpaths([[${path}]])`,
-              type: 'jq' as any,
+              type: 'jq',
             };
           }
           // 简单字段：fieldName → delpaths([["fieldName"]])
           return {
             pattern: pattern.trim(),
             replacement: `delpaths([["${field}"]])`,
-            type: 'jq' as any,
+            type: 'jq',
           };
         }
         // 多个字段：field1 field2 → delpaths([["field1"], ["field2"]])
@@ -135,7 +135,7 @@ export function parseLoonRewrite(line: string): RewriteRule | null {
         return {
           pattern: pattern.trim(),
           replacement: `delpaths([${paths}])`,
-          type: 'jq' as any,
+          type: 'jq',
         };
       }
     }
@@ -148,7 +148,7 @@ export function parseLoonRewrite(line: string): RewriteRule | null {
         return {
           pattern: pattern.trim(),
           replacement: replaceExpr,
-          type: 'jq' as any,
+          type: 'jq',
         };
       }
     }
@@ -167,8 +167,8 @@ export function parseLoonRewrite(line: string): RewriteRule | null {
           return {
             pattern: pattern.trim(),
             replacement: `jq-path="${jqPathMatch[2]}"`,
-            type: 'jq' as any,
-            jqExternal: true as any,
+            type: 'jq',
+            jqExternal: true,
           };
         }
 

@@ -44,6 +44,7 @@ const sourceHealthWorkflow = parse(
     'utf8',
   ),
 ) as Workflow;
+const expectedSetupPythonAction = 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97';
 
 function getJob(id: string, targetWorkflow: Workflow = workflow) {
   const job = targetWorkflow.jobs?.[id];
@@ -254,7 +255,7 @@ describe('GitHub Actions workflow contract', () => {
     );
     assert.equal(
       pythonSetup?.uses,
-      'actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065',
+      expectedSetupPythonAction,
     );
     assert.equal(pythonSetup.with?.['python-version'], '3.11');
 
@@ -294,7 +295,7 @@ describe('GitHub Actions workflow contract', () => {
     );
     assert.equal(
       pythonSetup?.uses,
-      'actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065',
+      expectedSetupPythonAction,
     );
     assert.equal(pythonSetup.with?.['python-version'], '3.11');
     assert.match(
@@ -377,7 +378,7 @@ describe('GitHub Actions workflow contract', () => {
     );
     assert.equal(
       pythonSetup?.uses,
-      'actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065',
+      expectedSetupPythonAction,
     );
     assert.equal(pythonSetup.with?.['python-version'], '3.11');
     assert.match(

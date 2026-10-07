@@ -41,7 +41,7 @@ async function emitWarnings(warnings: string[], summaryPath = process.env.GITHUB
   for (const warning of warnings) {
     console.warn(picocolors.yellow(`⚠️ [Plugin provenance] ${warning}`));
   }
-  if (warnings.length > 0 && summaryPath) {
+  if (summaryPath && warnings.length > 0) {
     const lines = warnings.map(warning => `- ⚠️ ${warning}`).join('\n');
     try {
       await fs.appendFile(summaryPath, `\n### Plugin provenance warnings\n${lines}\n`);
