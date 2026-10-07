@@ -74,8 +74,8 @@ importers:
         specifier: ^8.9.3
         version: 8.9.3(@typescript-eslint/utils@8.60.0(eslint@9.39.1(jiti@2.7.0))(typescript@6.0.3))(eslint-import-resolver-node@0.3.9)(eslint@9.39.1(jiti@2.7.0))(typescript@6.0.3)
       eslint-formatter-sukka:
-        specifier: ^8.9.3
-        version: 8.9.3(eslint@9.39.1(jiti@2.7.0))
+        specifier: ^9.1.0
+        version: 9.1.0(eslint@9.39.1(jiti@2.7.0))
       knip:
         specifier: ^6.39.0
         version: 6.39.0
@@ -1015,8 +1015,8 @@ packages:
   eslint-config-sukka@8.9.3:
     resolution: {integrity: sha512-+SMu4PbYmyzxN1pZYsNOehBaZWoUgwd4xBB35RHK/qEPjyyB4q/wWxwvqGwMZV7a6kVMncCtJbF4U6GDQLbc9g==}
 
-  eslint-formatter-sukka@8.9.3:
-    resolution: {integrity: sha512-fxjp+z0cIIWoos2gkHXcflNqntP25JrIRMeVeRhZFaqLeyEcW2XWexAicvb/q01vkl1JPYHNhxcNX1aB/ZLiBQ==}
+  eslint-formatter-sukka@9.1.0:
+    resolution: {integrity: sha512-zYY28sAWYeFNlOy1e4id9zZNlUxDnFjZlPMl+pfun+fqMn1hi9eRAvVTPzX9RbThlMuznCp4uvdB5NEqm/mUAA==}
     peerDependencies:
       eslint: '*'
 
@@ -2447,7 +2447,7 @@ snapshots:
       - supports-color
       - typescript
 
-  eslint-formatter-sukka@8.9.3(eslint@9.39.1(jiti@2.7.0)):
+  eslint-formatter-sukka@9.1.0(eslint@9.39.1(jiti@2.7.0)):
     dependencies:
       ci-info: 4.4.0
       eslint: 9.39.1(jiti@2.7.0)
