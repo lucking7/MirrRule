@@ -84,9 +84,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           mkdir -p source-health-state-data
-          git fetch --no-tags origin source-health-state || true
-          git show origin/source-health-state:state.json > source-health-state-data/state.json 2>/dev/null || echo '{"sources":{}}' > source-health-state-data/state.json
+          if git ls-remote --exit-code --heads origin source-health-state >/dev/null; then
+            git fetch --no-tags origin source-health-state
+            git show FETCH_HEAD:state.json > source-health-state-data/state.json
+          else
+            status=$?
+            if [ "$status" -ne 2 ]; then
+              exit "$status"
+            fi
+            printf '{"sources":{}}\n' > source-health-state-data/state.json
+          fi
       - name: Apply three-strike state machine
         if: github.event_name == 'schedule'
         run: pnpm run node Build/update-source-health-state.ts source-health-report.json source-health-state-data/state.json source-health-state-data/actions.json
@@ -95,6 +104,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           label='source-health'
           title='Automated upstream source health'
           gh label create "$label" --color D93F0B --description 'Automated structured source health alert' --force
@@ -108,8 +118,8 @@ jobs:
             else
               gh issue create --label "$label" --title "$title" --body "$body"
             fi
-          elif [ -n "$issue" ] && jq -e 'any(.[]; .action == "close")' source-health-state-data/actions.json >/dev/null; then
-            gh issue comment "$issue" --body "All alerted sources recovered at $(date -u +'%Y-%m-%dT%H:%M:%SZ')."
+          elif [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "No currently configured sources remain above the alert threshold after reconciliation at $(date -u +'%Y-%m-%dT%H:%M:%SZ'); prior alerts have recovered or their sources were retired."
             gh issue close "$issue"
           fi
       - name: Persist durable state branch

@@ -38,6 +38,83 @@ export interface RuleEntry {
   formats: RuleFormat[],
 }
 
+interface RulePresentation {
+  category: string,
+  title: string,
+  description: string,
+  guidance: string,
+  help?: {
+    label: string,
+    href: string,
+  },
+}
+
+const RULE_PRESENTATIONS: Record<string, RulePresentation> = {
+  apple: {
+    category: 'Apple',
+    title: '兼容合集',
+    description: 'Apple 服务、中国大陆 CDN 与 iCloud Private Relay 的兼容合集。',
+    guidance: '需要分别选择策略时，使用 Apple 拆分订阅；Apple Intelligence 单独订阅。',
+  },
+  apple_cdn: {
+    category: 'Apple',
+    title: '中国大陆 CDN',
+    description: 'Apple 在中国大陆使用的 CDN 域名。',
+    guidance: '大陆用户通常可直连；放在 Apple 服务和 Download 等合集之前。',
+  },
+  apple_cn: {
+    category: 'Apple',
+    title: '中国大陆服务',
+    description: '云上贵州 iCloud、Apple 地图中国大陆服务等域名。',
+    guidance: '通常可直连；放在 Apple 服务合集之前。',
+  },
+  apple_services: {
+    category: 'Apple',
+    title: '服务规则',
+    description: 'Apple 服务规则，供用户与中国大陆 CDN、iCloud Private Relay 分别选择策略。',
+    guidance: '放在 CDN 和中国大陆服务订阅之后；Loon 和 sing-box 不包含进程匹配。',
+  },
+  apple_services_ip: {
+    category: 'Apple',
+    title: '服务 IP',
+    description: 'Apple 服务的 IP 地址段。',
+    guidance: '放在所有域名订阅之后；按需选择 Apple 服务策略。',
+  },
+  icloud_private_relay: {
+    category: 'Apple',
+    title: 'iCloud Private Relay',
+    description: 'iCloud Private Relay 域名，单独选择其连接策略。',
+    guidance: '放在 Apple 合集之前；与 Apple Intelligence 分开订阅。',
+  },
+  apple_intelligence: {
+    category: 'Apple',
+    title: 'Apple Intelligence',
+    description: 'Apple Intelligence 服务域名。',
+    guidance: '按服务可用性选择策略；与 iCloud Private Relay 分开订阅。',
+  },
+  microsoft_cdn: {
+    category: 'Microsoft',
+    title: '中国大陆 CDN',
+    description: 'Microsoft 在中国大陆使用的 CDN 和 HTTP 证书查询路径。',
+    guidance: '大陆用户通常可直连；放在 Microsoft 和 Download 合集之前。Clash、sing-box 仅包含域名部分。',
+  },
+  reject_url_regex: {
+    category: 'Reject',
+    title: '可选 URL 拦截 · Surge only',
+    description: 'URL 级广告与跟踪拦截，仅支持 Surge。HTTPS 匹配需要启用 MITM。',
+    guidance: '启用并信任 Surge MITM 证书，再加载配套模块；需要 URL 拦截时才订阅。',
+    help: {
+      label: '配套 MITM 模块',
+      href: '/Mirror/Sukka/sgmodule/sukka_mitm_hostnames.sgmodule',
+    },
+  },
+};
+
+/** Presentation does not change filenames or infer client availability. */
+export function getRulePresentation(name: string): RulePresentation | undefined {
+  return Object.hasOwn(RULE_PRESENTATIONS, name) ? RULE_PRESENTATIONS[name] : undefined;
+}
+
 export function shouldListFile(name: string): boolean {
   return !name.startsWith('_') && !name.endsWith('.html') && !SKIP_INDEX_FILES.has(name);
 }

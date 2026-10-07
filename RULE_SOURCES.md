@@ -1,6 +1,6 @@
 # 规则源迁移与验证
 
-核对日期：2026-10-01。本次调整针对规则下载与四平台格式转换，保留现有订阅文件名。功能分支的构建验收不代表生产发布或客户端实测，也不代表插件、模块转换恢复。
+来源配置更新至 2026-10-07，保留现有订阅文件名并补充独立分类。下方按日期保留的验收记录描述当时的样本和发布边界，不代表当前条数、生产版本或客户端实测。
 
 ## 服务规则
 
@@ -52,29 +52,42 @@ SukkaW/Surge 的源码生成 domainset、non_ip、ip 等类别，发布到 rules
 
 ## Sukka 补充分类
 
-在同一功能分支新增 13 个独立订阅，沿用现有 `specialRules` 下载、去重、格式转换与发布流程，不复制 Sukka 构建器。2026-10-02 补齐聚合归属：六个地域规则也纳入总 `stream`，钓鱼规则也纳入 `reject_extra`，独立订阅继续供客户端选择专用策略。目标文件和来源如下，来源基址是 `https://ruleset.skk.moe/List/`：
+沿用现有 `specialRules` 下载、去重、格式转换与发布流程，不复制 Sukka 构建器。2026-10-02 将六个地域规则纳入总 `stream`，将钓鱼规则纳入 `reject_extra`。2026-10-07 补充 Apple 分开订阅、Microsoft CDN 和可选 URL 拦截，并移除空来源。独立订阅供客户端选择专用策略，来源基址是 `https://ruleset.skk.moe/List/`：
 
 | 输出 basename        | 上游路径（省略 `.conf`）            | 输出平台 | 用途与限制                                                                 |
 | -------------------- | ----------------------------------- | -------- | -------------------------------------------------------------------------- |
+| `apple_cdn` | `domainset/apple_cdn` | 四平台 | Apple 下载 CDN；同时保留在 `apple` 中 |
+| `apple_cn` | `non_ip/apple_cn` | 四平台 | 中国可用的 Apple 服务；同时保留在 `apple` 中 |
+| `apple_services` | `non_ip/apple_services` | 四平台 | Apple 服务规则，含域名、进程和一个 IP 规则；同时保留在 `apple` 中 |
+| `apple_services_ip` | `ip/apple_services` | 四平台 | Apple 服务 IP 段；同时保留在 `apple` 中 |
+| `icloud_private_relay` | `domainset/icloud_private_relay` | 四平台 | iCloud Private Relay；同时保留在 `apple` 中 |
+| `microsoft_cdn` | `non_ip/microsoft_cdn` | 四平台 | Microsoft 下载 CDN；同时保留在 `microsoft` 中 |
+| `reject_url_regex` | `non_ip/reject-url-regex` | 仅 Surge | 可选 URL 拦截；HTTPS 匹配需要 MITM，不纳入基础拦截集合 |
 | `apple_intelligence` | `non_ip/apple_intelligence`         | 四平台   | Apple Intelligence / Apple Relay 单独出口；与现有 Apple 或 AI 集合可能重叠 |
 | `game_download`      | `domainset/game-download`           | 四平台   | Steam、Epic、暴雪、Xbox、PlayStation 等游戏下载 CDN，不含中国 CDN          |
-| `stream_us`          | `non_ip/stream_us` + `ip/stream_us` | 四平台   | 北美流媒体域名和 IP                                                        |
-| `stream_hk`          | `non_ip/stream_hk` + `ip/stream_hk` | 四平台   | 香港流媒体域名和 IP                                                        |
-| `stream_jp`          | `non_ip/stream_jp` + `ip/stream_jp` | 四平台   | 日本流媒体域名和 IP                                                        |
-| `stream_tw`          | `non_ip/stream_tw` + `ip/stream_tw` | 四平台   | 台湾流媒体域名和 IP                                                        |
-| `stream_kr`          | `non_ip/stream_kr` + `ip/stream_kr` | 四平台   | 韩国流媒体域名和 IP                                                        |
-| `stream_eu`          | `non_ip/stream_eu` + `ip/stream_eu` | 四平台   | 欧洲流媒体域名和 IP                                                        |
+| `stream_us`          | `non_ip/stream_us` | 四平台   | 北美流媒体域名和应用规则                                                        |
+| `stream_hk`          | `non_ip/stream_hk` | 四平台   | 香港流媒体域名和应用规则                                                        |
+| `stream_jp`          | `non_ip/stream_jp` | 四平台   | 日本流媒体域名和应用规则                                                        |
+| `stream_tw`          | `non_ip/stream_tw` | 四平台   | 台湾流媒体域名和应用规则                                                        |
+| `stream_kr`          | `non_ip/stream_kr` | 四平台   | 韩国流媒体域名和应用规则                                                        |
+| `stream_eu`          | `non_ip/stream_eu` | 四平台   | 欧洲流媒体域名和应用规则                                                        |
 | `reject_phishing`    | `domainset/reject_phishing`         | 四平台   | 独立钓鱼网站拦截，客户端通常绑定 REJECT；同时纳入扩展集合 reject_extra     |
 | `domestic_cdn`       | `non_ip/domestic_cdn`               | 四平台   | 境外回国场景，可在回国代理规则之前绑定 DIRECT；其内容也在 domestic 中      |
 | `gitlab`             | `non_ip/gitlab`                     | 四平台   | 单独指定 GitLab 出口；可能与 global 重叠                                   |
 | `sogouinput`         | `non_ip/sogouinput`                 | 四平台   | 输入法隐私拦截，通常绑定 REJECT，可能影响账号同步、词库更新和反馈          |
 | `cloudmounter`       | `non_ip/cloudmounter`               | 仅 Surge | CloudMounter/RaiDrive 云盘分流，保留完整 AND 条件                          |
 
-本次核对时，六个 `ip/stream_<region>.conf` 都只含注释与归属水印，暂无实际 CIDR。配置保留两类来源，未来上游补充 IP 时可经现有转换自动合并；本轮地域分流覆盖主要来自 non_ip，测试中的 IPv4/IPv6 样例只验证转换能力，不是实际新增地域 IP。
+2026-10-07 核对时，六个 `ip/stream_<region>.conf` 都只含注释与归属水印，没有实际 CIDR，现已从地域订阅和总 `stream` 移除。地域 non_ip 仍在维护，保留全部六个地域订阅。总 `ip/stream.conf` 有有效 IP 内容，继续接入；上游将来增加有效地域 IP 时应重新审核后接入。
 
-六个地域集合及总 `stream` 配置 `allowEmpty: true`，允许水印清理后为空的输入来源参与合并。所有来源仍须下载成功，合并后仍须至少有一条规则；如果全部来源都为空则报错，保留旧产物。其他新增集合不启用空来源许可。共享清理逻辑精确识别 Sukka 当前归属水印域名，同时保留合法数字开头域名与旧水印过滤。
+地域集合及总 `stream` 不再启用 `allowEmpty`。所有现役来源都须下载成功且清理后非空；下载、正文或空内容校验失败会停止该集合发布并保留旧产物。共享清理继续识别 Sukka 归属水印并保留合法数字开头域名。source-health 的完整报告与当前 source inventory 核对后才清理退役 ID，状态分支读取失败或无效、不完整报告不会触发清理；下次定时检查不再因退役来源维持告警。
 
-四平台输出为 `List/<basename>.list`、`Clash/<basename>.txt`、`Loon/<basename>.list`、`sing-box/<basename>.json`。所有新增集合清理上游策略字段，IP 规则添加 `no-resolve`；同一文件的域名和 IP 顺序由既有 writer 决定。这里的“接入”是生成可订阅产物，不会自动修改客户端配置或启用拦截。在发布到自己的服务后使用对应路径，并按需要选择出口、拦截策略及匹配顺序。此功能分支尚未发布到生产，不能假设现有 `nrrule.pages.dev` 已提供新增路径。
+四平台输出为 `List/<basename>.list`、`Clash/<basename>.txt`、`Loon/<basename>.list`、`sing-box/<basename>.json`；两个 Surge 专用集合除外。新增集合清理上游策略字段，IP 规则添加 `no-resolve`。这里的“接入”是生成可订阅产物，不会自动修改客户端配置或启用拦截；来源更新后的公开路径须以对应生产部署为准。
+
+`apple` 继续合并 CDN、中国服务、服务规则、服务 IP 和 iCloud Private Relay 五个来源，另提供对应的五个独立文件。`apple_intelligence` 单独保留，不加入 `apple`，需要专用出口时放在通用 Apple/AI 集合之前。其他 Apple 独立策略与 `microsoft_cdn` 也应放在各自聚合规则之前，IP 订阅放在域名规则之后。Microsoft CDN 样本含 URL-REGEX，Clash 与 sing-box 按现有矩阵丢弃该类型；Apple 服务的进程规则也不保证四平台等价。
+
+`reject_url_regex` 只生成 Surge 文件，客户端绑定 REJECT。HTTPS 匹配需要配置 MITM，可使用现有镜像的 [Sukka MITM hostname module](https://nrrule.pages.dev/Mirror/Sukka/sgmodule/sukka_mitm_hostnames.sgmodule)。本轮保留正则量词、字符类、分组和转义中的逗号，避免清理策略时截断表达式；其他平台未启用此可选订阅。
+
+`telegram` 合并 `non_ip/telegram.conf`、`ip/teleproto.conf` 和 `ip/telegram_asn.conf`。上游生成器已将 Telegram IP 输出更名为 Teleproto，旧 `ip/telegram.conf` 未继续更新，因此替换来源而不新增重复订阅。保留当前 CIDR 的 `no-resolve` 和 ASN 处理行为，sing-box 按既有支持矩阵省略 ASN。
 
 客户端按先匹配先执行安排订阅顺序：`game_download` 放在 `download` 前，地域 `stream_*` 放在总 `stream` 前，`apple_intelligence` 放在覆盖这些域名的 Apple/AI 规则前，`domestic_cdn` 放在 `domestic` 前。本次样本中 game-download 的 52 条都在 download 中，地域分类也与总 stream 大量重叠；若通用规则先匹配，独立策略不会生效。GitLab 样本仅有 `gitlab.com` 的 DOMAIN-SUFFIX，不能据此保证所有 GitLab 托管站点与 registry 都被覆盖。
 
@@ -82,13 +95,21 @@ CloudMounter 的规则包含 AND、`PROCESS-NAME,*CloudMounter`、`SRC-IP` 和�
 
 ### 同类规则的聚合归属
 
-总 `stream` 合并总 non_ip/ip 与六个地域的 non_ip/ip，共 14 个来源，统一去重并给 IP 添加 `no-resolve`。聚合直接复用独立地域订阅的 `sourceFiles`，`reject_extra` 同样复用独立钓鱼订阅的来源，避免两边换源不同步。2026-10-02 核对的样本中，地域并集比总 non_ip 多 7 条规则（Hulu Japan 三条后缀域名、LiTV 四条精确域名），补入后只订阅总列表也可覆盖这些规则。来源会滚动变化，此差集不是固定产物条数承诺。
+总 `stream` 合并总 non_ip/ip 与六个地域的 non_ip，共 8 个来源，统一去重并给 IP 添加 `no-resolve`。聚合直接复用独立地域订阅的 `sourceFiles`，`reject_extra` 同样复用独立钓鱼订阅的来源，避免两边换源不同步。2026-10-02 核对的样本中，地域并集比总 non_ip 多 7 条规则（Hulu Japan 三条后缀域名、LiTV 四条精确域名），补入后只订阅总列表也可覆盖这些规则。来源会滚动变化，此差集不是固定产物条数承诺。
 
 `reject_extra` 合并 Sukka 原扩展集合与 `reject_phishing`，继续沿用 REJECT 用途。基础 `reject` 不引入钓鱼或搜狗来源；使用扩展集合意味着启用其钓鱼覆盖，不能再把它描述为仅有原 Sukka reject_extra。独立 `reject_phishing` 仍可供只需钓鱼拦截的客户端使用。上轮样本中钓鱼集合为 141666 条，与原扩展集合有 106 条完全相同行、143 条含父域覆盖的重叠，最终输出仍以 Trie 去重结果为准。
 
 其余分类按用途与策略核对，不仅凭域名重复决定归并：game_download 的 52 条已在 download 中；domestic_cdn 的 19 条均被 domestic 完全相同行或父域后缀规则覆盖；Apple Intelligence 的 5 条已在 ai 中；GitLab 已在 global 中。因此不重复添加这些来源，保留独立出口订阅。sogouinput 可能拦截账号、词库与输入法进程，不自动纳入基础或扩展拦截；CloudMounter 保留带条件的 Surge 专用订阅，不并成通用无条件域名。
 
-`non_ip/global_plus.conf` 和 `non_ip/apple_cdn.conf` 已废弃，分别合并进 `non_ip/global.conf` 和 `domainset/apple_cdn.conf`，不重复接入。私有偏好的 `my_*`、`reject_sukka` 与未列入本次清单的模块、MITM URL 拦截、teleproto 也不在本次新增范围。
+`non_ip/global_plus.conf`、`non_ip/apple_cdn.conf` 和 `domainset/reject_sukka.conf` 已废弃或为空，不重复接入；前两者分别合并进 `non_ip/global.conf` 和 `domainset/apple_cdn.conf`。`ip/stream_biliintl.conf` 同样没有有效规则，不接入。私有偏好的 `my_*` 与未列入清单的模块继续排除。本轮核对 Sukka 源码提交 `6373d9aca136bf6b8f4ad091baebf50a8f088d4a`、发布仓提交 `0d96d2c5328d20bbbed3c6f7071511f50015ba60`；配置跟随上游 URL 更新，没有锁定这些提交。
+
+### 2026-10-07 本地验证
+
+在隔离 worktree `/tmp/MirrRule-sukka-update-20261007`，使用 Node `26.4.0`、pnpm `10.15.0` 和 frozen lockfile 安装依赖。`pnpm run validate`、`pnpm test`、`pnpm run knip`、`pnpm run build` 均退出 0；256/256 tests 通过，lint 0 errors、151 条既有 warnings。构建处理 19 个普通集合与 46 个特殊集合，无处理错误。
+
+产物为 Surge 65、Clash/Loon/sing-box 各 63 文件，共 254 个规则文件；status 为 65 个集合，全部 sing-box JSON 可解析，完成标记存在。Apple 五个新独立文件的 Surge 条数分别为 159、9、25、10、6，Microsoft CDN 为 53，URL 拦截为 176，Telegram 为 33；这些是本次生成样本。URL 拦截中两条含四个 `\d{1,3}` 的表达式完整保留，其他三个平台没有该文件，全部规则文件无 Sukka 归属水印。上述生成检查没有运行客户端分流或 HTTPS 解密。
+
+实网健康检查为 111/111 ok，0 dead、0 unknown。使用远端当前 132 条持久状态的本地副本执行真实 updater，得到 111 条现役状态，移除 23 个旧 ID、新建 2 个 ID，现役告警为 0。此验证没有写远端状态分支或操作 Issue；正式清理在合并后的下次完整定时检查执行。报告与构建日志保存在 `/tmp/mirrrule-sukka-*-20261007.*`。
 
 ## TutuBetterRules 的方法与本项目接入
 

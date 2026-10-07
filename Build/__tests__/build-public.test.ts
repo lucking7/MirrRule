@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { ruleCardsHtml, treeHtml } from '../build-public';
-import { collectRules } from '../lib/public-index-model';
+import { collectRules, getRulePresentation } from '../lib/public-index-model';
 import { prioritySorter } from '../lib/public-index-sort';
 import { TreeFileType } from '../lib/tree-dir';
 import type { TreeTypeArray } from '../lib/tree-dir';
@@ -174,5 +174,78 @@ describe('ruleCardsHtml escaping', () => {
     assert.ok(rendered.includes('href="/List/%3Cb%3E%22x&amp;&#39;.list"'));
     assert.equal(rendered.includes('<b>"x'), false);
     assert.equal(rendered.includes('%2522'), false);
+  });
+});
+
+describe('Sukka subscription guidance in the public catalog', () => {
+  it('keeps Apple basenames and actual formats while explaining the split subscriptions', () => {
+    const names = [
+      'apple', 'apple_cdn', 'apple_cn', 'apple_services', 'apple_services_ip',
+      'icloud_private_relay', 'apple_intelligence',
+    ];
+    const tree: TreeTypeArray = [
+      dir('List', names.map(name => file(`${name}.list`, `/List/${name}.list`))),
+      dir('Clash', [file('apple_cdn.txt', '/Clash/apple_cdn.txt')]),
+    ];
+
+    const { rules } = collectRules(tree);
+    assert.deepEqual(rules.map(rule => rule.name), [...names].sort());
+    for (const rule of rules) {
+      assert.equal(getRulePresentation(rule.name)?.category, 'Apple');
+      const rendered = ruleCardsHtml([rule]);
+      assert.ok(rendered.includes(`<span class="rule-name">${rule.name}</span>`));
+      assert.ok(rendered.includes(`data-name="${rule.name}"`));
+      assert.ok(rendered.includes('<strong>Apple · '));
+      assert.ok(rendered.includes(`href="/List/${rule.name}.list"`));
+      assert.equal((rendered.match(/class="fmt"/g) || []).length, rule.name === 'apple_cdn' ? 2 : 1);
+    }
+
+    const ipRule = rules.find(rule => rule.name === 'apple_services_ip')!;
+    assert.ok(ruleCardsHtml([ipRule]).includes('放在所有域名订阅之后'));
+    const relayRule = rules.find(rule => rule.name === 'icloud_private_relay')!;
+    assert.ok(ruleCardsHtml([relayRule]).includes('与 Apple Intelligence 分开订阅'));
+  });
+
+  it('explains Microsoft CDN priority without replacing its filenames', () => {
+    const { rules } = collectRules([
+      dir('List', [file('microsoft_cdn.list', '/List/microsoft_cdn.list')]),
+      dir('sing-box', [file('microsoft_cdn.json', '/sing-box/microsoft_cdn.json')]),
+    ]);
+    const rendered = ruleCardsHtml(rules);
+
+    assert.ok(rendered.includes('<strong>Microsoft · 中国大陆 CDN</strong>'));
+    assert.ok(rendered.includes('放在 Microsoft 和 Download 合集之前'));
+    assert.ok(rendered.includes('Clash、sing-box 仅包含域名部分'));
+    assert.ok(rendered.includes('href="/sing-box/microsoft_cdn.json"'));
+  });
+
+  it('shows optional MITM guidance and the existing module for the Surge-only URL ruleset', () => {
+    const { rules } = collectRules([
+      dir('List', [file('reject_url_regex.list', '/List/reject_url_regex.list')]),
+      dir('Clash', []),
+      dir('Loon', []),
+      dir('sing-box', []),
+    ]);
+    const rendered = ruleCardsHtml(rules);
+
+    assert.ok(rendered.includes('可选 URL 拦截 · Surge only'));
+    assert.ok(rendered.includes('HTTPS 匹配需要启用 MITM'));
+    assert.ok(rendered.includes('启用并信任 Surge MITM 证书'));
+    assert.ok(rendered.includes('href="/Mirror/Sukka/sgmodule/sukka_mitm_hostnames.sgmodule"'));
+    assert.ok(rendered.includes('data-clients="List"'));
+    assert.equal((rendered.match(/class="fmt"/g) || []).length, 1);
+    const letters = [...rendered.matchAll(/class="av (is-on|is-off)"[^>]*>([A-Z])</g)]
+      .map(match => `${match[2]}:${match[1]}`);
+    assert.deepEqual(letters, ['S:is-on', 'C:is-off', 'L:is-off', 'X:is-off']);
+  });
+
+  it('leaves unknown rules without unrelated presentation metadata', () => {
+    assert.equal(getRulePresentation('constructor'), undefined);
+    assert.equal(getRulePresentation('__proto__'), undefined);
+    assert.equal(getRulePresentation('unlisted_service'), undefined);
+    const { rules } = collectRules([
+      dir('List', [file('unlisted_service.list', '/List/unlisted_service.list')]),
+    ]);
+    assert.equal(ruleCardsHtml(rules).includes('class="rule-description"'), false);
   });
 });

@@ -27,12 +27,9 @@ describe('additional Sukka subscriptions', () => {
       assert.equal(rule.defaultPolicy, null, 'the client chooses a policy for each subscription');
       assert.deepEqual(rule.targets, id === 'cloudmounter' ? ['surge'] : ['surge', 'clash', 'singbox', 'loon']);
       assert.ok(rule.sourceFiles.every(url => url.startsWith('https://ruleset.skk.moe/List/')));
+      assert.notEqual(rule.allowEmpty, true);
       if (id.startsWith('stream_')) {
-        assert.equal(rule.allowEmpty, true);
-        assert.ok(rule.sourceFiles.some(url => url.includes(`/non_ip/${id}.conf`)));
-        assert.ok(rule.sourceFiles.some(url => url.includes(`/ip/${id}.conf`)));
-      } else {
-        assert.notEqual(rule.allowEmpty, true);
+        assert.deepEqual(rule.sourceFiles, [`https://ruleset.skk.moe/List/non_ip/${id}.conf`]);
       }
     }
     const sources = specialRules.flatMap(rule => rule.sourceFiles);
@@ -40,7 +37,7 @@ describe('additional Sukka subscriptions', () => {
     assert.equal(sources.some(url => url.endsWith('/non_ip/apple_cdn.conf')), false);
   });
 
-  it('converts domainsets and regional IPs while retaining CloudMounter conditions only for Surge', async () => {
+  it('converts domainsets and regional domains while retaining CloudMounter conditions only for Surge', async () => {
     const condition = 'AND,((DOMAIN-SUFFIX,sharepoint.com),(PROCESS-NAME,*CloudMounter))';
     const sourceIpCondition = 'AND,((DOMAIN,www.googleapis.com),(SRC-IP,10.0.0.0/8))';
     const wildcardCondition = 'AND,((DOMAIN-WILDCARD,*-medi*.svc.ms),(SRC-IP,192.168.0.0/16))';
@@ -48,9 +45,8 @@ describe('additional Sukka subscriptions', () => {
     const bodies = [
       `# game download\n${watermark}\n.steamcontent.com\n`,
       `# regional streaming\nDOMAIN,${watermark}\nDOMAIN-SUFFIX,netflix.com\n`,
-      `# streaming IP\nDOMAIN,${watermark}\nIP-CIDR,203.0.113.0/24\nIP-CIDR6,2001:db8::/32\n`,
       `# CloudMounter\nDOMAIN,${watermark}\n${condition}\n${sourceIpCondition}\n${wildcardCondition}\n`,
-      `# currently empty regional IP source\nDOMAIN,${watermark}\n`,
+      `# empty source\nDOMAIN,${watermark}\n`,
     ];
     const server = http.createServer((request, response) => {
       response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
@@ -63,7 +59,7 @@ describe('additional Sukka subscriptions', () => {
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-sukka-additions-'));
     try {
       const processor = new RuleSourceProcessor(createSpan('sukka-additions'), outputDir);
-      const inputs = [['game_download', [0]], ['stream_us', [1, 2]], ['cloudmounter', [3]]] as const;
+      const inputs = [['game_download', [0]], ['stream_us', [1]], ['cloudmounter', [2]]] as const;
       const configs = inputs.map(([id, indexes]) => {
         const config = specialRules.find(rule => rule.targetFile === `List/${id}.list`);
         assert.ok(config);
@@ -83,14 +79,13 @@ describe('additional Sukka subscriptions', () => {
         const stream = fs.readFileSync(path.join(outputDir, directory, `stream_us.${extension}`), 'utf8');
         assert.match(game, /DOMAIN-SUFFIX,steamcontent\.com/);
         assert.match(stream, /DOMAIN-SUFFIX,netflix\.com/);
-        assert.match(stream, /IP-CIDR,203\.0\.113\.0\/24,no-resolve/);
-        assert.match(stream, /IP-CIDR6,2001:db8::\/32,no-resolve/);
+        assert.equal(stream.includes('IP-CIDR'), false);
       }
       const gameJson = JSON.parse(fs.readFileSync(path.join(outputDir, 'sing-box/game_download.json'), 'utf8'));
       const streamJson = JSON.parse(fs.readFileSync(path.join(outputDir, 'sing-box/stream_us.json'), 'utf8'));
       assert.ok(gameJson.rules[0].domain_suffix.includes('steamcontent.com'));
       assert.ok(streamJson.rules[0].domain_suffix.includes('netflix.com'));
-      assert.deepEqual(new Set(streamJson.rules[0].ip_cidr), new Set(['203.0.113.0/24', '2001:db8::/32']));
+      assert.equal(streamJson.rules[0].ip_cidr, undefined);
       const cloud = fs.readFileSync(path.join(outputDir, 'List/cloudmounter.list'), 'utf8');
       for (const rule of [condition, sourceIpCondition, wildcardCondition]) assert.ok(cloud.includes(rule));
       assert.equal(cloud.split('\n').some(line => /^(?:DOMAIN|DOMAIN-SUFFIX|DOMAIN-WILDCARD),/.test(line)), false);
@@ -98,22 +93,24 @@ describe('additional Sukka subscriptions', () => {
         assert.equal(fs.readdirSync(path.join(outputDir, directory)).some(name => name.startsWith('cloudmounter.')), false);
       }
       const regional = configs[1];
-      const emptyIpStats = await processor.processSpecialRules([
-        { ...regional, sourceFiles: [`http://127.0.0.1:${port}/1`, `http://127.0.0.1:${port}/4`] },
-      ]);
-      assert.deepEqual(emptyIpStats.errors, []);
-      assert.equal(emptyIpStats.filesProcessed, 1);
       const regionalOutput = fs.readFileSync(path.join(outputDir, 'List/stream_us.list'), 'utf8');
       assert.match(regionalOutput, /DOMAIN-SUFFIX,netflix\.com/);
       assert.equal(regionalOutput.includes(watermark), false);
       assert.equal(regionalOutput.includes('IP-CIDR'), false);
 
+      const emptySourceStats = await processor.processSpecialRules([
+        { ...regional, sourceFiles: [`http://127.0.0.1:${port}/1`, `http://127.0.0.1:${port}/3`] },
+      ]);
+      assert.equal(emptySourceStats.filesProcessed, 0);
+      assert.equal(emptySourceStats.errors.length, 1);
+      assert.equal(fs.readFileSync(path.join(outputDir, 'List/stream_us.list'), 'utf8'), regionalOutput);
+
       const emptyAllStats = await processor.processSpecialRules([
-        { ...regional, sourceFiles: [`http://127.0.0.1:${port}/4`] },
+        { ...regional, sourceFiles: [`http://127.0.0.1:${port}/3`] },
       ]);
       assert.equal(emptyAllStats.filesProcessed, 0);
       assert.equal(emptyAllStats.errors.length, 1);
-      assert.match(emptyAllStats.errors[0].error, /No rules loaded/);
+      assert.match(emptyAllStats.errors[0].error, /empty response/);
       assert.equal(fs.readFileSync(path.join(outputDir, 'List/stream_us.list'), 'utf8'), regionalOutput);
     } finally {
       fs.rmSync(outputDir, { recursive: true, force: true });

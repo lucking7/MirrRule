@@ -14,6 +14,7 @@ import {
   CLIENT_DIRS,
   collectRules,
   countListedFiles,
+  getRulePresentation,
   shouldListFile,
 } from './lib/public-index-model';
 import type { RuleEntry } from './lib/public-index-model';
@@ -120,6 +121,22 @@ function availHtml(rule: RuleEntry): string {
   }).join('\n');
 }
 
+function ruleDescriptionHtml(name: string): string {
+  const presentation = getRulePresentation(name);
+  if (!presentation) return '';
+  const helpHtml = presentation.help
+    ? html`<a class="rule-help-link" href="${escapeHtml(presentation.help.href)}">${escapeHtml(presentation.help.label)}</a>`
+    : '';
+  return html`
+    <p class="rule-description">
+      <strong>${escapeHtml(presentation.category)} · ${escapeHtml(presentation.title)}</strong><br />
+      ${escapeHtml(presentation.description)}<br />
+      ${escapeHtml(presentation.guidance)}
+      ${helpHtml ? html`<br />${helpHtml}` : ''}
+    </p>
+  `;
+}
+
 /** Rule card: collapsed row = rule name + client availability; body = one row per client format. */
 export function ruleCardsHtml(rules: RuleEntry[]): string {
   let result = '';
@@ -172,6 +189,7 @@ export function ruleCardsHtml(rules: RuleEntry[]): string {
             <input class="copied-url" type="text" readonly aria-label="已复制的 URL" />
             <button type="button" class="strip-close" aria-label="关闭">✕</button>
           </div>
+          ${ruleDescriptionHtml(rule.name)}
           <ul class="fmt-list">
             ${rows}
           </ul>
@@ -850,6 +868,21 @@ function generateHtml(tree: TreeTypeArray) {
           .rule-body {
             border-top: 1px solid var(--color-line);
             background: color-mix(in oklch, var(--color-paper) 45%, var(--color-surface));
+          }
+
+          .rule-description {
+            margin: 0;
+            padding: 0.75rem 0.85rem 0.5rem 2.1rem;
+            font-family: var(--font-ui);
+            font-size: var(--text-sm);
+            line-height: 1.65;
+            color: var(--color-ink);
+          }
+
+          .rule-help-link {
+            display: inline-flex;
+            align-items: center;
+            min-height: 2.75rem;
           }
 
           .fmt-list {
