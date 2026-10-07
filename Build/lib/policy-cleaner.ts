@@ -37,6 +37,63 @@ const SURGE_BUILTIN_POLICIES = new Set([
 /** 模块规则中缺失策略时的默认策略 */
 const DEFAULT_MODULE_POLICY = 'REJECT';
 
+/** URL 正则中的转义逗号、字符类、分组和量词不属于策略分隔符。 */
+function splitRuleFields(rule: string): string[] {
+  const firstComma = rule.indexOf(',');
+  if (firstComma === -1 || rule.slice(0, firstComma).trim().toUpperCase() !== 'URL-REGEX') {
+    return rule.split(',').map(part => part.trim());
+  }
+
+  let escaped = false;
+  let inCharacterClass = false;
+  let groupDepth = 0;
+  let quantifierDepth = 0;
+  for (let i = firstComma + 1; i < rule.length; i++) {
+    const character = rule[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (inCharacterClass) {
+      if (character === ']') inCharacterClass = false;
+      continue;
+    }
+    switch (character) {
+      case '[':
+        inCharacterClass = true;
+        break;
+      case '(':
+        groupDepth++;
+        break;
+      case ')':
+        groupDepth = Math.max(0, groupDepth - 1);
+        break;
+      case '{':
+        quantifierDepth++;
+        break;
+      case '}':
+        quantifierDepth = Math.max(0, quantifierDepth - 1);
+        break;
+      case ',':
+        if (groupDepth === 0 && quantifierDepth === 0) {
+          return [
+            rule.slice(0, firstComma).trim(),
+            rule.slice(firstComma + 1, i).trim(),
+            ...rule.slice(i + 1).split(',').map(part => part.trim())
+          ];
+        }
+        break;
+      default:
+        break;
+    }
+  }
+  return [rule.slice(0, firstComma).trim(), rule.slice(firstComma + 1).trim()];
+}
+
 /**
  * 清理单条 Surge 规则的策略组
  *
@@ -110,7 +167,7 @@ export function cleanPolicy(rule: string): string {
   }
 
   // 常规规则处理
-  const parts = rule.split(',').map(p => p.trim());
+  const parts = splitRuleFields(rule);
 
   // 规则至少需要 2 部分：规则类型,值
   if (parts.length < 2) {
@@ -186,7 +243,7 @@ export function cleanPolicyForModule(rule: string): string {
   }
 
   // 常规规则处理
-  const parts = rule.split(',').map(p => p.trim());
+  const parts = splitRuleFields(rule);
   if (parts.length < 2) {
     return rule;
   }

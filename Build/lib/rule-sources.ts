@@ -167,14 +167,22 @@ const serviceRules: SpecialRuleConfig[] = [
 }));
 
 const sukkaAdditionalRules: SpecialRuleConfig[] = [
+  { name: 'Apple CDN', id: 'apple_cdn', sources: ['domainset/apple_cdn'] },
+  { name: 'Apple China', id: 'apple_cn', sources: ['non_ip/apple_cn'] },
+  { name: 'Apple Services', id: 'apple_services', sources: ['non_ip/apple_services'] },
+  { name: 'Apple Services IP', id: 'apple_services_ip', sources: ['ip/apple_services'] },
+  { name: 'iCloud Private Relay', id: 'icloud_private_relay', sources: ['domainset/icloud_private_relay'] },
   { name: 'Apple Intelligence', id: 'apple_intelligence', sources: ['non_ip/apple_intelligence'] },
+  { name: 'Microsoft CDN', id: 'microsoft_cdn', sources: ['non_ip/microsoft_cdn'] },
   { name: 'Game Download', id: 'game_download', sources: ['domainset/game-download'] },
   ...['us', 'hk', 'jp', 'tw', 'kr', 'eu'].map(region => ({
     name: `Streaming - ${region.toUpperCase()}`,
     id: `stream_${region}`,
-    sources: [`non_ip/stream_${region}`, `ip/stream_${region}`],
+    sources: [`non_ip/stream_${region}`],
   })),
   { name: 'Reject Phishing', id: 'reject_phishing', sources: ['domainset/reject_phishing'] },
+  // Publish this optional source with the Surge MITM module; other platforms are not verified.
+  { name: 'Reject URL Regex', id: 'reject_url_regex', sources: ['non_ip/reject-url-regex'], surgeOnly: true },
   { name: 'Domestic CDN', id: 'domestic_cdn', sources: ['non_ip/domestic_cdn'] },
   { name: 'GitLab', id: 'gitlab', sources: ['non_ip/gitlab'] },
   { name: 'Sogou Input', id: 'sogouinput', sources: ['non_ip/sogouinput'] },
@@ -187,8 +195,6 @@ const sukkaAdditionalRules: SpecialRuleConfig[] = [
   targets: surgeOnly ? ['surge'] : ['surge', 'clash', 'singbox', 'loon'],
   defaultPolicy: null,
   applyNoResolve: true,
-  // Regional IP sources currently contain only comments and a watermark.
-  allowEmpty: id.startsWith('stream_'),
 }));
 
 export const specialRules: SpecialRuleConfig[] = [
@@ -349,8 +355,6 @@ export const specialRules: SpecialRuleConfig[] = [
         .flatMap(rule => rule.sourceFiles),
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
-    // Empty IP sources are valid; all downloads and a nonempty union remain required.
-    allowEmpty: true,
     applyNoResolve: true,
   },
   {
@@ -368,7 +372,7 @@ export const specialRules: SpecialRuleConfig[] = [
     targetFile: 'List/telegram.list',
     sourceFiles: [
       'https://ruleset.skk.moe/List/non_ip/telegram.conf',
-      'https://ruleset.skk.moe/List/ip/telegram.conf',
+      'https://ruleset.skk.moe/List/ip/teleproto.conf',
       'https://ruleset.skk.moe/List/ip/telegram_asn.conf',
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],

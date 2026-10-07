@@ -19,9 +19,9 @@ describe('Sukka aggregate subscriptions', () => {
     assert.ok(stream);
     assert.ok(extra);
     assert.ok(phishing);
-    assert.equal(stream.sourceFiles.length, 14);
-    assert.equal(new Set(stream.sourceFiles).size, 14);
-    assert.equal(stream.allowEmpty, true);
+    assert.equal(stream.sourceFiles.length, 8);
+    assert.equal(new Set(stream.sourceFiles).size, 8);
+    assert.notEqual(stream.allowEmpty, true);
     for (const region of regions) {
       const regional = specialRules.find(rule => rule.targetFile === `List/stream_${region}.list`);
       assert.ok(regional);
@@ -36,18 +36,14 @@ describe('Sukka aggregate subscriptions', () => {
   });
 
   it('merges and deduplicates four-platform outputs and preserves old files on source failure', async () => {
-    const watermark = 'DOMAIN,7h15.ru1353t.1s.m4d3.by.5ukk4w.skk.moe\n';
     const bodies = new Map<string, string>([
       ['/non_ip/stream.conf', 'DOMAIN-SUFFIX,shared.test\nDOMAIN,child.shared.test\n'],
-      ['/ip/stream.conf', 'IP-CIDR,203.0.113.0/24\n'],
+      ['/ip/stream.conf', 'IP-CIDR,203.0.113.0/24\nIP-CIDR6,2001:db8::/32\n'],
       ['/domainset/reject_extra.conf', '.shared-reject.test\n.extra.test\n'],
       ['/domainset/reject_phishing.conf', '.shared-reject.test\n.phishing.test\n'],
     ]);
     for (const region of regions) {
       bodies.set(`/non_ip/stream_${region}.conf`, `DOMAIN-SUFFIX,shared.test\nDOMAIN-SUFFIX,${region}.test\n`);
-      bodies.set(`/ip/stream_${region}.conf`, region === 'us'
-        ? 'IP-CIDR,203.0.113.0/24\nIP-CIDR6,2001:db8::/32\n'
-        : `# empty regional IP\n${watermark}`);
     }
     const server = http.createServer((request, response) => {
       response.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
