@@ -214,7 +214,7 @@ export function treeHtml(
       // depth 1 sits under a visible root (Modules → Converted): no trail.
       // depth ≥ 2 needs path context (Mirror / DualSubs / sgmodule).
       const trailHtml =
-        level >= 2 && parentPath
+        parentPath && level >= 2
           ? html`<span class="folder-trail">${escapeHtml(parentPath.split('/').join(' / '))}</span>`
           : '';
       const countLabel = fileCount === 1 ? '1 file' : `${fileCount} files`;

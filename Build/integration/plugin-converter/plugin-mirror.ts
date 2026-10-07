@@ -148,7 +148,7 @@ export async function getPluginContent(
   }
 
   const refreshed = await mirrorPlugin(plugin, options);
-  if (refreshed.success || cachedContent === null) return refreshed;
+  if (cachedContent === null || refreshed.success) return refreshed;
 
   console.log(picocolors.yellow(`  [Mirror] Using last-known-good ${plugin.name} after refresh failure`));
   return {

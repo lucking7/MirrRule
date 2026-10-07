@@ -37,7 +37,7 @@ function hasActiveFunctionalEntry(content: string): boolean {
     }
 
     const trimmed = line.trim();
-    if (!section || !SUPPORTED_FUNCTIONAL_SECTIONS.has(section) || !trimmed || /^[#;]/.test(trimmed)) {
+    if (!section || !trimmed || !SUPPORTED_FUNCTIONAL_SECTIONS.has(section) || /^[#;]/.test(trimmed)) {
       continue;
     }
 
@@ -144,7 +144,7 @@ export function applyScriptMirrorMap(
 
   for (const script of scripts) {
     const mirrorUrl = urlMap[script.originalUrl];
-    if (script.isMirrored || !mirrorUrl) {
+    if (!mirrorUrl || script.isMirrored) {
       continue;
     }
 

@@ -199,7 +199,7 @@ export function cleanPolicyForModule(rule: string): string {
     const part = parts[i];
     const partLower = part.toLowerCase();
 
-    if (SURGE_BUILTIN_POLICIES.has(partLower) && !foundPolicy) {
+    if (!foundPolicy && SURGE_BUILTIN_POLICIES.has(partLower)) {
       // 保留 Surge 内置策略，规范大小写
       result.push(part.toUpperCase());
       foundPolicy = true;
@@ -250,7 +250,7 @@ function _cleanLogicalRuleForModule(rule: string): string {
 
   for (const part of remainingParts) {
     const partLower = part.toLowerCase();
-    if (SURGE_BUILTIN_POLICIES.has(partLower) && !foundPolicy) {
+    if (!foundPolicy && SURGE_BUILTIN_POLICIES.has(partLower)) {
       kept.push(part.toUpperCase());
       foundPolicy = true;
     } else if (ALLOWED_PARAMETERS.includes(partLower as any)) {

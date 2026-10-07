@@ -12,7 +12,7 @@ export function prepareModuleContent(module: LoadedModule, stripComments: boolea
     for (const entry of splitArguments(match[1])) {
       const colon = entry.indexOf(':');
       const name = entry.slice(0, colon).trim();
-      if (colon < 1 || !name || /[\n\r,{}]/.test(name) || names.has(name)) {
+      if (!name || colon < 1 || /[\n\r,{}]/.test(name) || names.has(name)) {
         throw new Error(`${module.header}: 无效或重复的参数 ${entry}`);
       }
       const importedName = `${namespace}_${name}`;
@@ -95,7 +95,7 @@ function renameScripts(sections: ParsedSection[], namespace: string, header: str
       const definition = trimmed.slice(equals + 1).trim();
       const toggles = /^(?:{{{[^{}]+}}})*/.exec(left)![0];
       const originalName = left.slice(toggles.length).trim();
-      if (equals < 1 || !originalName || !/^type\s*=/.test(definition)) {
+      if (!originalName || equals < 1 || !/^type\s*=/.test(definition)) {
         throw new Error(`${header}: 无效的 Script 行: ${line}`);
       }
       const renamed = `${namespace}_${++sequence.value}_${originalName}`;

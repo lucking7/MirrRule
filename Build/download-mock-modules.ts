@@ -42,7 +42,7 @@ function addCategoryTag(content: Buffer, filePath: string): Buffer {
 
   // 在文件开头添加 category 标签
   const newContent = '#!category=[Sukka]\n' + text;
-  return Buffer.from(newContent, 'utf-8') as Buffer;
+  return Buffer.from(newContent, 'utf-8');
 }
 
 /**
