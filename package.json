@@ -22,7 +22,7 @@
     "mirror:biliuniverse": "pnpm run node ./Build/sync-mirrors.ts BiliUniverse",
     "lint": "eslint --format=sukka .",
     "lint:fix": "eslint --format=sukka --fix .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node node_modules/typescript-compiler/bin/tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "pnpm run node --test --test-concurrency=1 Build/__tests__/*.test.ts",
@@ -61,6 +61,7 @@
     "knip": "^6.39.0",
     "prettier": "^3.9.9",
     "typescript": "^6.0.2",
+    "typescript-compiler": "npm:typescript@^7.0.2",
     "why-is-node-running": "^3.2.2"
   },
   "packageManager": "pnpm@10.15.0",
