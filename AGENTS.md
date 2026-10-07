@@ -26,7 +26,8 @@ MirrRule 是一个 **Node.js + TypeScript 的网络代理规则聚合、转换�
   - 证据：`package.json#packageManager`、`package.json#engines.pnpm`
 - 包类型：CommonJS
   - 证据：`package.json` 中 `"type": "commonjs"`
-- TypeScript 通过 `@swc-node/register` 运行 `.ts` 脚本，不产出 JS 编译文件。
+
+`.ts` 脚本通过 `@swc-node/register` 运行，不产出 JS 编译文件。`typescript` 保留 TypeScript 6 的 JavaScript Compiler API，供 SWC 注册器和 ESLint typed rules 使用；`typescript-compiler` alias 安装 TypeScript 7 native compiler，负责 `pnpm run typecheck`。该脚本显式调用 alias 包中的 `bin/tsc`，避免两个包的同名 `.bin/tsc` 造成编译器选择歧义。
 
 安装依赖：
 
