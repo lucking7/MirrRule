@@ -107,7 +107,7 @@ Build/
   integration/mirror-sync/         GitHub Release/镜像同步实现
   integration/plugin-converter/    插件下载、转换、镜像实现
   lib/                             规则处理、输出、解析、模块合并等核心逻辑
-  lib/public-index-model.ts        public 索引的规则实体、客户端元数据与可见文件语义
+  assets/ruleset-index.css         原生目录索引的参考站样式
   trace/                           构建追踪与耗时输出
   utils/                           网络、域名、数据结构、校验工具
 

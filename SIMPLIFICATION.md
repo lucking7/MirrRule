@@ -7,7 +7,7 @@
 | 范围 | 入口和责任 | 保留的可观察契约 |
 | --- | --- | --- |
 | 构建与规则 | `Build/index.ts`、`rule-sources`、`RuleSourceProcessor`、`EnhancedFileOutput` | 来源失败阻止发布；成功后写 manifest/标记；地区独立订阅和总聚合并存 |
-| 四平台与索引 | `writing-strategy`、support matrix、`public-index-model`、`build-public` | Surge/Clash/Loon/sing-box 差异、链接、顺序及可用性展示 |
+| 四平台与索引 | `writing-strategy`、support matrix、`public-index-sort`、`build-public` | Surge/Clash/Loon/sing-box 差异、真实文件路径、目录顺序及原生折叠行为 |
 | 网络和状态 | `utils/network`、Trace、Trie/validators、source-health/state | retry/cache/fallback 顺序、脱敏、三次失败和 unknown 不改 streak |
 | 镜像与模块 | mirror sync、插件、module-merger | last-known-good、canonical identity、47 个启用模块、参数与脚本隔离、双文件回滚 |
 | 入口与运维 | CLI、package/Knip、三个 workflow、README/MIGRATION/RULE_SOURCES | 公开命令、固定 runtime/image、失败传播、产物仓和 Pages 发布 |
@@ -35,7 +35,7 @@ ce-simplify-code 复查：复用 0 项直接应用；质量 4 项应用；效率
 | R1 | `Build/index.ts` 的 step.name 与固定 outputDir 参数仅写入，入口函数仅一个固定调用 | 少一层步骤元数据/参数；低风险；完整 build 和测试 | 已实施，本地及 feature 完整 build 通过 |
 | R2 | `rule-source-processor.ts` processingTime 仅赋值，追踪已有耗时 | 去重复计时状态；内部返回 shape 变化；测试/manifest/构建核对 | 已实施，本地及 feature 完整 build 通过 |
 | R3 | Clash/Loon writer 的 other-rule passthrough 同序逻辑 | 去双份转换步骤；中低风险；固定输入四平台 golden 比较 | 已实施，content/drop summary 等价 |
-| R4 | `RuleFormat.short` 仅复制，UI 使用 CLIENT_DIRS.short | 去无消费者数据字段；低风险；固定 public index HTML 比较 | 已实施，HTML 等价 |
+| R4 | `RuleFormat.short` 仅复制，旧卡片 UI 使用 CLIENT_DIRS.short | 去无消费者数据字段；低风险；固定 public index HTML 比较 | 当时已实施，HTML 等价；该模型后续随目录树重制移除 |
 | N1 | Trace.tracePromise/traceChildPromise 仅 test fake 声明 | 去无消费者接口；低风险；typecheck/全部 tests | 已实施 |
 | N2 | task 的 onCleanup 无任何 callback 消费，独立真实 cleanup 仍有效 | 去闲置生命周期抽象；中低风险；成功/失败入口 trace 验证 | 已实施 |
 | N3 | deprecated requestWithLog 仅 headStatus，后者供两个 tarball CLI | 可能少一套请求 API；实测 wire headers 和 ResponseError.res 不同 | 拒绝直接替换 |
@@ -72,6 +72,8 @@ N3 拒绝证据：本地 HTTP HEAD fixture 对照 /ok、/missing，状态与错�
 N4 拒绝证据：workflow 从全部持久 state 查 deadStreak>=3，包括当次 unknown 和未重新观察的来源；transition.issueAction 只描述当次变化。只序列化 transition 会漏持续故障并改变 close 条件。完整 action projection 需新增状态机而非删除重复，本轮保留三次失败和持续告警，不修改 state schema。
 
 ## R4 批次回执
+
+本段保留旧卡片索引的历史验收。当前源码已采用原生目录树并移除该聚合模型；以下字段与 HTML 对照属于当时的实现。
 
 Before/Cut/After：索引聚合模型自 cb70e14 起把 CLIENT_DIRS.short 复制到各 RuleFormat，但页面只读 CLIENT_DIRS；去掉该复制字段，保留页面字母、client/dir/filename/href 和格式顺序。没有新增映射状态。类型为内部模型，package 不发布；没有发现文档或仓内 field 消费者，仓外非约定源码 import 不在可证明范围。
 
