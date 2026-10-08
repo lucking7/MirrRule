@@ -17,8 +17,9 @@ Build/index.ts
   │               ├─ LoonRuleSet
   │               └─ SingboxSource
   └─ buildPublic()
-      ├─ public-index-model
-      └─ static HTML renderer
+      ├─ scanPublicTree() / treeDir()
+      ├─ directory sorting
+      └─ native directory HTML + inline CSS
 ```
 
 `EnhancedFileOutput` owns normalization, canonical rule state, finalization, and logical rule summaries. Its state is private; platform writers remain four adapters behind the existing writer seam. `RuleSourceProcessor` retains the same publication interface. Each output instance is finalized once, by either `compile()` or `write()`.
@@ -55,7 +56,9 @@ The workflow's `prepare` job emits one `tasks` plan. Downstream jobs run from me
 
 ## Public index
 
-`Build/lib/public-index-model.ts` owns rule aggregation, client metadata, visible-file semantics, and deterministic ordering. `Build/build-public.ts` owns HTML and browser behavior and does not mutate the model input.
+`Build/build-public.ts` scans visible files under `public/` and renders their actual paths as a native `details` / `summary` directory tree. Root ordering comes from `Build/lib/public-index-sort.ts`; nested directories also prioritize `domainset`, `non_ip`, and `ip`. Rendering sorts copied arrays, escapes labels, and URL-encodes path segments without mutating the input tree.
+
+The index uses inline CSS from `Build/assets/ruleset-index.css`, system fonts, and the system light/dark preference. Root directories start expanded except `Mock` and `Internal`; nested directories start collapsed. File links point to NRRule's own artifacts, including the separate Surge, Clash, Loon, and sing-box directories. The page needs no frontend application JavaScript. Product and visual requirements are documented in [PRODUCT.md](PRODUCT.md) and [DESIGN.md](DESIGN.md), with upstream styling attribution in [Build/assets/README.md](Build/assets/README.md).
 
 ## Current scope
 

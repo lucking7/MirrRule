@@ -16,11 +16,13 @@ MirrRule 是构建型规则聚合项目：下载上游成品规则，清洗、�
 | Sukka、fmz200 镜像      | [download-mock-modules.ts](Build/download-mock-modules.ts)、[download-fmz200-split.ts](Build/download-fmz200-split.ts)                                         | `public/Mirror/Sukka/{mock,sgmodule}`、`public/Mirror/fmz200/sgmodule`                                              |
 | Loon 插件转换与脚本镜像 | [convert-plugins.ts](Build/convert-plugins.ts)、[plugin-converter](Build/integration/plugin-converter)                                                         | `public/Modules/Converted`、`public/Scripts`；Script-Hub 转换、本地 fallback、依赖脚本发布检查                      |
 | Surge 模块合并          | [merge-modules.ts](Build/merge-modules.ts)、[module-merger](Build/lib/module-merger)                                                                           | `public/Modules/Merged/All-in-One-Pro.sgmodule`、`public/Modules/Rules/reject-pro.list`                             |
-| 静态索引                | [build-public.ts](Build/build-public.ts)、[public-index-model.ts](Build/lib/public-index-model.ts)                                                             | `public/index.html`、`_headers`、`404.html`、生成的 README；支持搜索、客户端筛选与链接操作                          |
+| 静态索引                | [build-public.ts](Build/build-public.ts)、[ruleset-index.css](Build/assets/ruleset-index.css)                                                                   | `public/index.html`、`_headers`、`404.html`、生成的 README；原生折叠目录树与实际文件链接                          |
 | 构建状态                | [status-manifest.ts](Build/lib/status-manifest.ts)                                                                                                             | 成功主构建生成 `public/status.json` 和根目录 `.BUILD_FINISHED`                                                      |
 | 上游健康检查            | [validate-domain-alive.ts](Build/validate-domain-alive.ts)、[check-source-domain.yml](.github/workflows/check-source-domain.yml)                               | JSON 报告、定时状态分支与 Issue 告警；不等于生产构建成功                                                            |
 
 源码仓库 `lucking7/MirrRule`、产物仓库 `lucking7/NRRule`、Pages 项目 `nrrule` 是三个独立对象。源码仓不跟踪 `public/`。产物仓存放展开后的公开文件，根目录直接是 `List/`、`Modules/` 等；Pages 上传的是整个 `public/`。
+
+索引按实际产物显示 `List`、`Clash`、`Loon`、`sing-box` 等目录。顶层默认展开，`Mock` 和 `Internal` 默认折叠，嵌套目录默认折叠；访问者打开文件或通过浏览器复制链接地址。页面使用系统字体和自动 light / dark 配色，不依赖应用 JavaScript。订阅用途、分流顺序和 MITM 配置见 [README](README.md)。
 
 ## 2. 技术栈、目录与数据流
 
@@ -254,7 +256,7 @@ pnpm run build-web
 | `cloudflare-proxy.lucking.workers.dev`                     | `main.yml` 的 gateway 上游、`check-source-domain.yml` 的 gateway 上游                                 | 换兼容的自有 Worker；直连已验证时可移除配置                                      |
 | `lucking7/NRRule` 的 GitHub/GitLab tarball、`NRRule-main/` | `Build/download-previous-build.ts`                                                                                      | 此独立 helper 未由当前主构建调用；若继续使用需同时改 URL、分支与压缩包根目录前缀 |
 | `lucking7/ASN-China`                                       | `Build/download-geoip.ts`                                                                                               | 这是外部 GeoIP 数据源，不能机械改用户名；选择继续依赖、维护镜像或替换有效 URL    |
-| `NRRule`、`@lucking7`、`Luck`、`MirrRule`                  | `Build/build-public.ts` 的标题/页脚/404/平台筛选 localStorage key；模块 YAML author/category；package author；产品说明  | 替换自己的展示身份，历史来源和许可证署名继续保留                                 |
+| `NRRule`、`@lucking7`、`Luck`、`MirrRule`                  | `Build/build-public.ts` 的标题/作者链接/元数据/404；模块 YAML author/category；package author；产品说明                 | 替换自己的展示身份，历史来源和许可证署名继续保留                                 |
 | `main`                                                     | workflow 部署条件、push 目标、Pages `--branch`、产物读取 URL                                                            | 最省改动的方式是两仓和 Pages 都用 `main`；改分支时逐一同步                       |
 
 修改后用搜索收口，逐个判定残留属于历史署名、主动保留的上游还是遗漏：
