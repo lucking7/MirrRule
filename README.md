@@ -131,11 +131,13 @@ pnpm run build
 
 Plugin conversion downloads and validates fresh inputs before serving them on loopback to Script-Hub. The CI container uses host networking and supports Loon v2; setup and local Linux instructions are in [MIGRATION.md](./MIGRATION.md#52-插件转换). The default CLI requires every conversion to be ready. CI explicitly verifies all enabled merge inputs against fresh ready results and dry-run merging; optional failures remain visible in its conversion report. Valid previous optional subscriptions and scripts are retained after fresh required modules pass merging.
 
+The designated `Prevent_DNS_Leaks` source is published as `DNS防泄露.sgmodule` with `#!arguments=policy:Proxy`. Change `policy` in the module parameter table to an existing policy group. It routes only the listed DNS/IP test sites; it does not guarantee that all DNS traffic avoids leaks. The adapter rejects unexpected source sections, policies, or actions instead of publishing a partial module.
+
 Module merging uses `Build/lib/module-merger/configs/pro-merge-config.yaml`. Every selected input must load and contain usable sections; missing inputs, undefined parameters, and unknown selection keys fail the command before publication. `--dry-run` performs the same validation without writing files. Outputs are staged in both destination directories, replaced by rename, and restored if a later replacement fails.
 
 Imported parameters retain their defaults and descriptions under per-source names. Script names are unique across sources and within each source; Panel references follow the renamed scripts. For the generated module script switches, leave the value **empty to enable** or enter **`#` to disable**. Use an empty value instead of `1` so a source module's own script switches can still disable individual scripts.
 
-The default configuration enables 47 of 48 entries. Tencent Video is explicitly disabled because its upstream is unmaintained and its required `CommonScript/replace-body.js` returns HTTP 404 (checked 2026-09-07). Restore its dependency and converted artifact before re-enabling it. DiDi retains its existing switch name and uses the current `滴滴去广告.sgmodule` filename.
+The default configuration enables all 47 entries. Tencent Video has been removed from conversion and merging because its upstream explicitly discontinued maintenance; historical converted artifacts are also excluded from restoration and publication. EasyBike remains tracked because its upstream has no retirement notice, but its required `mobileconfig-gateway.js` returns HTTP 404 (checked 2026-10-08), so fresh conversion still fails. DiDi retains its existing switch name and uses the current `滴滴去广告.sgmodule` filename.
 
 ## License
 
@@ -146,3 +148,5 @@ This project derives part of its build and rule-output code from [SukkaW/Surge](
 The directory index styling and tree layout are copied or adapted from the same project's [index generator](https://github.com/SukkaW/Surge/blob/6373d9aca136bf6b8f4ad091baebf50a8f088d4a/Build/build-public.ts). See [Build/assets/README.md](Build/assets/README.md) for the source revision and license reference.
 
 Upstream rule data also comes from [blackmatrix7/ios_rule_script](https://github.com/blackmatrix7/ios_rule_script) and [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat). Their repositories retain their own licenses and attribution.
+
+The pinned Script-Hub parser fixture in `Build/__tests__/fixtures/` comes from [Script-Hub-Org/Script-Hub](https://github.com/Script-Hub-Org/Script-Hub/tree/1ab8fd775a9028b70ede9009d0540818edd5882c), under GPL-3.0. Its license is included in [script-hub-LICENSE.txt](Build/__tests__/fixtures/script-hub-LICENSE.txt).

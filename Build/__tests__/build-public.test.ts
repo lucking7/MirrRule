@@ -11,6 +11,29 @@ import { prioritySorter } from '../lib/public-index-sort';
 import { TreeFileType } from '../lib/tree-dir';
 import type { TreeTypeArray } from '../lib/tree-dir';
 
+it('build-web removes retired subscriptions from historical artifacts before publishing the index', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-retired-index-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const converted = path.join(directory, 'Modules', 'Converted');
+  await fs.mkdir(converted, { recursive: true });
+  const retired = ['腾讯视频去广告.sgmodule', 'Tencent_Video_remove_ads.sgmodule'];
+  await Promise.all([...retired, '哈罗去广告.sgmodule'].map(name =>
+    fs.writeFile(path.join(converted, name), '[Rule]\nDOMAIN,example.test,REJECT')
+  ));
+  const result = spawnSync(process.execPath, ['-r', '@swc-node/register', 'Build/build-public.ts'], {
+    cwd: path.resolve(__dirname, '../..'),
+    env: { ...process.env, PUBLIC_DIR: directory, SWC_NODE_IGNORE_DYNAMIC: 'true' },
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const index = await fs.readFile(path.join(directory, 'index.html'), 'utf8');
+  await Promise.all(retired.map(async name => {
+    await assert.rejects(fs.access(path.join(converted, name)), { code: 'ENOENT' });
+    assert.equal(index.includes(name), false);
+  }));
+  assert.match(index, /哈罗去广告\.sgmodule/);
+});
+
 function file(name: string, entryPath: string) {
   return { type: TreeFileType.FILE, name, path: entryPath } as const;
 }

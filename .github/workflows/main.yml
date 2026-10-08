@@ -209,7 +209,7 @@ jobs:
           docker create \
             --name mirrrule-script-hub \
             --network host \
-            xream/script-hub@sha256:8880569ae0014260432b964792eed302335f503ed90380adfdda6d83f8f8f265
+            xream/script-hub@sha256:4e9e5055157d2d85f9c03abd045a0016fe594adc44d27410019cdb4818961f45
           docker cp mirrrule-script-hub:/app/Rewrite-Parser.beta.js "$RUNNER_TEMP/script-hub-original.js"
           pnpm run node Build/patch-script-hub.ts \
             "$RUNNER_TEMP/script-hub-original.js" "$RUNNER_TEMP/script-hub-patched.js"
