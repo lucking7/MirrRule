@@ -165,3 +165,20 @@ test('optional restoration skips malformed script URLs and keeps restoring healt
   assert.equal(fs.readFileSync(path.join(currentRoot, 'healthy.sgmodule'), 'utf8'), healthy);
   assert.equal(fs.readFileSync(data.required, 'utf8'), fresh);
 });
+
+test('optional restoration does not revive retired Tencent subscriptions', async (t) => {
+  const data = fixture();
+  t.after(() => fs.rmSync(data.directory, { recursive: true, force: true }));
+  fs.writeFileSync(data.required, '[Rule]\nDOMAIN,fresh.test,REJECT');
+  const names = ['腾讯视频去广告.sgmodule', 'Tencent_Video_remove_ads.sgmodule'];
+  const previous = path.join(data.previous, 'Modules', 'Converted');
+  for (const name of names) {
+    fs.writeFileSync(path.join(previous, name), '[Rule]\nDOMAIN,retired.test,REJECT');
+  }
+  fs.writeFileSync(path.join(previous, '哈罗去广告.sgmodule'), '[Rule]\nDOMAIN,optional.test,REJECT');
+  assert.deepEqual(await restorePreviousOptionalArtifacts(data.config, data.previous, data.current),
+    { modules: 1, scripts: 0 });
+  const current = path.join(data.current, 'Modules', 'Converted');
+  for (const name of names) assert.equal(fs.existsSync(path.join(current, name)), false);
+  assert.equal(fs.existsSync(path.join(current, '哈罗去广告.sgmodule')), true);
+});

@@ -13,6 +13,7 @@ import { buildClassifiedProxyUrlCandidates } from '../../utils/network/proxy';
 import type { ProxyUrlCandidate } from '../../utils/network/proxy';
 import { getErrorMessage } from '../../lib/misc';
 import { updatePluginMetadata } from './provenance';
+import { getPluginRetirementReason } from './plugin-policy';
 
 /**
  * 插件列表 URL（可通过环境变量覆盖）
@@ -237,7 +238,16 @@ export async function getPluginList(): Promise<PluginInfo[] | { error: string }>
   await updatePluginMetadata({ listCount: urls.length });
 
   // 转换为插件信息
-  const plugins = urls.map(url => urlToPluginInfo(url));
+  const plugins: PluginInfo[] = [];
+  for (const url of urls) {
+    const plugin = urlToPluginInfo(url);
+    const retirementReason = getPluginRetirementReason(plugin);
+    if (retirementReason) {
+      console.log(picocolors.gray(`[Plugin List] Retired ${plugin.name}: ${retirementReason}`));
+    } else {
+      plugins.push(plugin);
+    }
+  }
 
   // 添加额外插件
   if (EXTRA_PLUGINS.length > 0) {

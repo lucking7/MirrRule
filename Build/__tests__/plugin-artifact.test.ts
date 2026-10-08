@@ -20,6 +20,36 @@ function pluginIdentity(name: string) {
 }
 
 describe('plugin artifact lifecycle', () => {
+  it('rejects retired subscription names before reporting an active unrelated source ready', async (t) => {
+    const directory = await fsp.mkdtemp(path.join(os.tmpdir(), 'mirrrule-retired-artifact-'));
+    t.after(() => fsp.rm(directory, { recursive: true, force: true }));
+    const names = ['腾讯视频去广告.sgmodule', 'Tencent_Video_remove_ads.sgmodule'];
+    const results = await publishPluginArtifacts(names.map(name => ({
+      result: {
+        pluginName: 'Active alternative',
+        ...pluginIdentity('Tencent_Video_remove_ads'),
+        outputPath: path.join(directory, name),
+        scripts: [],
+      },
+      content: '#!name=腾讯视频去广告\n[Rule]\nDOMAIN,active.test,REJECT',
+    })), {});
+    assert.deepEqual(results.map(result => result.status), ['failed', 'failed']);
+    assert.ok(results.every(result => result.error?.includes('retired subscription filename')));
+    assert.deepEqual(await fsp.readdir(directory), []);
+    const [renamed] = await publishPluginArtifacts([{
+      result: {
+        pluginName: 'Active alternative',
+        ...pluginIdentity('Tencent_Video_remove_ads'),
+        outputPath: path.join(directory, 'Active alternative.sgmodule'),
+        scripts: [],
+      },
+      content: '#!name=Active alternative\n[Rule]\nDOMAIN,active.test,REJECT',
+    }], {});
+    assert.equal(renamed.status, 'ready');
+    assert.ok(renamed.outputPath);
+    assert.match(await fsp.readFile(renamed.outputPath, 'utf8'), /DOMAIN,active.test,REJECT/);
+  });
+
   it('fails every different artifact targeting the same output without overwriting last-known-good', async () => {
     const directory = await fsp.mkdtemp(path.join(os.tmpdir(), 'mirrrule-plugin-artifact-'));
     const outputPath = path.join(directory, '挖财记账去广告.sgmodule');

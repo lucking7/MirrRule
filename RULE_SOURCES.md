@@ -1,6 +1,6 @@
 # 规则源迁移与验证
 
-来源配置更新至 2026-10-07，保留现有订阅文件名并补充独立分类。下方按日期保留的验收记录描述当时的样本和发布边界，不代表当前条数、生产版本或客户端实测。
+来源配置更新至 2026-10-08，保留现有订阅文件名并补充独立分类。下方按日期保留的验收记录描述当时的样本和发布边界，不代表当前条数、生产版本或客户端实测。
 
 ## 服务规则
 
@@ -24,6 +24,14 @@ AI 保留 Sukka、ConnersHua、dler 来源，用 blackmatrix7 `OpenAI` 替换 Ke
 Surge 与 Loon 保留 `.list`，Clash 输出 classical `.txt`，sing-box 输出 `.json`。转换先处理 `DOMAIN`、`DOMAIN-SUFFIX` 等标准规则，再把裸域名、`+.`、`full:`、`domain:`、`keyword:` 与裸 IPv4/IPv6 CIDR 转成内部规则。数字开头的合法域名（如 `2mdn.net`）不再误删；CIDR 必须通过现有 IP validator。纯数字、无前缀 IP、超出范围的 CIDR 会被丢弃。服务规则移除上游 policy，IP 类添加 `no-resolve`。平台不支持的规则按既有 writer 行为丢弃，不能认为四个平台语义完全相同。
 
 不读取二进制 `.mrs`、`.srs`。这次绕开旧 sing-box JSON 输入路径，没有修复其所有字段解析能力，也没有改变既有平台支持矩阵。
+
+## Container、Discord 与 Scholar
+
+独立 `container`、`discord`、`scholar` 订阅读取 [surge-rules-dat release](https://github.com/lucking7/surge-rules-dat/tree/release/geo/geosite) 的 `category-container.list`、`discord.list`、`category-scholar-!cn.list`，通过现有流程生成四平台文件，不绑定策略。需要专用出口时，客户端应在更宽的 `global` 或 `direct` 规则之前引用这些独立订阅。
+
+2026-10-08 样本对应 release `7ecdbb109ae7e84e8e0c9518b71a1ca8d02ba6bb`，分别有 9、28、476 条文本规则。Container 上游另有一条未被文本 release 表达的 AWS ECR 正则；本项目不近似改写它，不能把该独立订阅称为完整覆盖。既有 `amazon` 的 `amazonaws.com` 后缀覆盖更宽的 AWS 域名范围。
+
+现有 `ai` 已覆盖当日 OpenAI 22、Anthropic 9、Google Gemini 46、Cursor 4 条样本，无需重复加入同一数据。规则覆盖比较不代表客户端的实际出口或地区解锁已经验证。
 
 ## CDN、Download 与 Speedtest
 

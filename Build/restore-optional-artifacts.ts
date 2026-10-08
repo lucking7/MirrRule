@@ -8,6 +8,7 @@ import { resolveLocalModuleCandidates } from './lib/module-merger/module-loader'
 import { writeFileAtomic } from './lib/atomic-file';
 import { extractScriptUrls, validateScriptPreservation } from './integration/plugin-converter/script-extractor';
 import { validateScriptContent } from './integration/plugin-converter/script-mirror';
+import { isRetiredPluginArtifact } from './integration/plugin-converter/plugin-policy';
 
 async function exists(file: string): Promise<boolean> {
   try {
@@ -90,6 +91,10 @@ export async function restorePreviousOptionalArtifacts(
   const previousConverted = path.join(previousRoot, 'Modules', 'Converted');
   for (const file of await filesUnder(previousConverted)) {
     if (!file.endsWith('.sgmodule')) continue;
+    if (isRetiredPluginArtifact(path.basename(file))) {
+      console.warn(`Skipped retired previous module: ${path.basename(file)}`);
+      continue;
+    }
     const destination = path.join(
       convertedRoot,
       path.relative(previousConverted, file),

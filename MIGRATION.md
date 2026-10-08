@@ -40,7 +40,7 @@ MirrRule 是构建型规则聚合项目：下载上游成品规则，清洗、�
 | 数据处理     | `yaml 2.9.0`、`fast-cidr-tools 0.3.2`、`foxts 5.8.0`、`tar-fs 3.1.3`                                   |
 | 质量检查     | Node 内置 `node:test`、ESLint `9.39.1`、Sukka config `8.9.3`、Knip `6.35.1`、Prettier `3.9.6`          |
 | 发布工具     | workflow 固定 Wrangler `4.114.0`；无需为本地规则构建安装 Wrangler                                      |
-| 插件转换服务 | Docker 镜像 `xream/script-hub@sha256:8880569ae0014260432b964792eed302335f503ed90380adfdda6d83f8f8f265` |
+| 插件转换服务 | Docker 镜像 `xream/script-hub@sha256:4e9e5055157d2d85f9c03abd045a0016fe594adc44d27410019cdb4818961f45` |
 
 本地需要 Git、Node、pnpm 和网络；复现 CI 的 Script-Hub 转换路径还需要可运行 Docker 的环境。源码包含本地转换 fallback，但不能据此保证缺少 Script-Hub 时所有插件都能转换。`better-sqlite3` 和 SWC 有原生二进制依赖，换 Node 大版本或 CPU 架构后不要复用旧 `node_modules`。预编译包不可用时，需要 Python 和系统 C/C++ 编译工具链。`pnpm test` 固定逐个运行测试文件，避免干净克隆首次创建共享 SQLite 缓存时多个测试进程争用锁。
 
@@ -186,7 +186,7 @@ pnpm run build-web
 ```bash
 docker create --name mirrrule-script-hub \
   --network host \
-  xream/script-hub@sha256:8880569ae0014260432b964792eed302335f503ed90380adfdda6d83f8f8f265
+  xream/script-hub@sha256:4e9e5055157d2d85f9c03abd045a0016fe594adc44d27410019cdb4818961f45
 docker cp mirrrule-script-hub:/app/Rewrite-Parser.beta.js /tmp/mirrrule-script-hub-original.js
 pnpm run node Build/patch-script-hub.ts \
   /tmp/mirrrule-script-hub-original.js /tmp/mirrrule-script-hub-patched.js
@@ -198,7 +198,13 @@ env -u CI PROXY_BASE='http://127.0.0.1:13193?url=' \
   pnpm run convert-plugins --wait-service
 ```
 
-等待容器就绪后再执行转换。转换器下载并校验本轮插件，再将允许的正文通过临时 loopback 服务交给 Script-Hub；服务在转换结束或异常时关闭。固定镜像支持原生 Loon v2，启动前对该版本应用受限补丁，支持当前目录使用的正则字面量、Header Rewrite、URL 命名捕获替换，将静态 `response.body.mock` 和文本 `response.body.mock_file` 转为 Map Local 并保留状态、Content-Type 与 Base64 语义。Script 条件中的捕获绑定、动态或无法等价转换的 Action 会失败；补丁锚点不匹配会中止。Kelee `Resource/JQLang/*.jq` 和 mock_file 的 `Resource/JavaScript/*.js` 依赖同样经网关读取，HTML challenge 和空响应会失败；转换后丢失源脚本依赖会被拒绝，本地 fallback 不能将未支持的 v2 脚本静默丢弃后标为成功。转换后只有元数据或空功能节会失败；Surge 模块的 Rule 只支持内置策略，Loon 原生 `PROXY` 不能通过参数绑定任意策略组。本地 fallback 会拒绝此类规则。DNS 防泄露目前因此不可自动转换；接管者可提取域名规则集，在主配置中通过 `RULE-SET` 指定自己的策略组，并单独验收，不能启用空模块。此限制见 [Surge module 文档](https://manual.nssurge.com/profile/module.html)。`--wait-service` / `-w` 是 CLI 支持的开关。`PLUGIN_CONVERSION_REPORT` 可将结果写到指定 JSON 文件，包含名称、sourceId、状态、产物名及错误，不包含源 URL。
+等待容器就绪后再执行转换。转换器下载并校验本轮插件，再将允许的正文通过临时 loopback 服务交给 Script-Hub；服务在转换结束或异常时关闭。镜像固定为 2026-10-08 核对的最新 digest，parser 对应上游 `1ab8fd775a9028b70ede9009d0540818edd5882c`。Body/Header Rewrite、静态 mock 和参数包装使用上游原生实现；受限补丁处理剩余正则与捕获兼容，以及文本 mock_file 的下载、校验和内嵌发布。测试使用该版本的完整 parser fixture，直接执行相关解析与转换函数，并覆盖 patch CLI；容器 HTTP 路径以 CI 验收为准。
+
+Script 条件中的捕获绑定、动态或无法等价转换的 Action 会失败；补丁锚点不匹配会中止。Kelee `Resource/JQLang/*.jq` 和 mock_file 的 `Resource/JavaScript/*.js` 依赖同样经网关读取，HTML challenge 和空响应会失败；转换后丢失源脚本依赖会被拒绝，本地 fallback 不能将未支持的 v2 脚本静默丢弃后标为成功。转换后只有元数据或空功能节会失败。
+
+通用 fallback 仍拒绝 Loon 原生 `PROXY` 规则。指定来源 `Prevent_DNS_Leaks` 使用独立的严格适配：必须是仅含 `DOMAIN` / `DOMAIN-SUFFIX`、全部绑定 `PROXY` 的非空正文；转换为 `#!arguments=policy:Proxy` 和 `{{{policy}}}`，生成 `DNS防泄露.sgmodule`。参数值必须是主配置中已有的策略或策略组。该模块只控制上游列出的 DNS/IP 检测站点，不等于解决所有 DNS 泄露。官方 module 文档仍写内置策略限制；本机 Surge 6.10 已启用的参数模块实际将 `{{{Policy}}}` 替换为 `Proxy`，对应规则也由 engine 匹配到了该策略组。新 DNS 模块本身尚未加载到该客户端，不能据此声称它的实际出口已验证。
+
+`--wait-service` / `-w` 是 CLI 支持的开关。`PLUGIN_CONVERSION_REPORT` 可将结果写到指定 JSON 文件，包含名称、sourceId、状态、产物名及错误，不包含源 URL。
 
 转换器可能使用本地 fallback；只有依赖脚本具备可用镜像或缓存 URL 后才发布插件。默认 CLI 要求全部插件 `ready`，部分失败或使用旧缓存会返回非零，即使已有其他输出。CI 显式传入 `--required-config Build/lib/module-merger/configs/pro-merge-config.yaml`，要求默认启用的 47 项全部匹配本轮 `ready` 结果，且通过 dry-run 合并。任一必需项缺失、降级或参数无效仍阻断发布；非必需插件失败保留报告与 warning，不改成成功，也不生成空模块。已引用本仓 `Scripts/` 的脚本也必须在本轮下载、校验并写入产物，不能仅因 URL 指向自己的域名便判定可发布。检查转换统计、失败清单、脚本依赖与 provenance，不把“目录存在”视为完成。完成后 `docker rm --force mirrrule-script-hub`，并在 gateway 终端按 Ctrl-C。
 
@@ -210,7 +216,7 @@ fmz200 广告拦截合集使用上游 `Surge/module/blockAds.module` 原生文�
 
 ### 5.3 模块合并
 
-默认配置有 48 项、启用 47 项。腾讯视频在配置中因上游停止维护及脚本失效被显式禁用，这是 2026-09-07 的记录，不代表本文再次验证了该 URL。重新启用前先恢复依赖和转换文件。
+默认配置有 47 项，全部启用。腾讯视频上游已明确停止维护，指定来源与合并配置项均已移除；已登记的历史文件也不会被恢复或重新发布。活跃替代来源若沿用这两个退休文件名，会在发布前明确失败；请使用不同的模块名称。哈罗没有明确废弃声明，依赖失败仍保留在转换报告中。
 
 ```bash
 pnpm run node Build/merge-modules.ts --dry-run

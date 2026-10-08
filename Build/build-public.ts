@@ -11,6 +11,7 @@ import { tagged as html } from 'foxts/tagged';
 import { compareAndWriteFile } from './lib/create-file';
 import { priorityOrder, prioritySorter } from './lib/public-index-sort.ts';
 import { escapeHtml } from './utils/escape-html';
+import { RETIRED_PLUGIN_ARTIFACTS } from './integration/plugin-converter/plugin-policy';
 
 const INDEX_CSS = fs.readFileSync(path.join(__dirname, 'assets', 'ruleset-index.css'), 'utf8');
 const HIDDEN_INDEX_FILES = new Set(['cname', 'favicon.ico', 'favicon.svg', 'favicon.png', 'robots.txt']);
@@ -41,6 +42,9 @@ export const buildPublic = task(
   __filename
 )(async span => {
   await fsp.mkdir(PUBLIC_DIR, { recursive: true });
+  await Promise.all(RETIRED_PLUGIN_ARTIFACTS.map(name =>
+    fsp.rm(path.join(PUBLIC_DIR, 'Modules', 'Converted', name), { force: true })
+  ));
   await span.traceChild('prepare public metadata').traceAsyncFn(() => Promise.all([
     fsp.copyFile(path.join(ROOT_DIR, 'LICENSE'), path.join(PUBLIC_DIR, 'LICENSE')),
     compareAndWriteFile(

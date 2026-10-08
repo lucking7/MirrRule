@@ -16,6 +16,7 @@ export * from './plugin-identity';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import picocolors from 'picocolors';
+import { PUBLIC_DIR } from '../../constants/dir';
 import { getPluginList, getPluginStats } from './plugin-list';
 import { convertPluginsBatchFromLocalMirror, waitForScriptHub } from './script-hub-client';
 import type { LocalMirrorPluginConversionResult } from './script-hub-client';
@@ -29,15 +30,16 @@ import { getPluginContent } from './plugin-mirror';
 import { publishPluginArtifacts } from './plugin-artifact';
 import { identifyPluginSource } from './plugin-identity';
 import { loadNativeSurgeModule } from './native-surge';
+import { DNS_POLICY_ARTIFACT, DNS_POLICY_SOURCE_URL, isDnsPolicyPlugin, loadDnsPolicyModule } from './dns-policy-module';
 import type { PendingPluginArtifact } from './plugin-artifact';
-import type { ConversionResult } from './types';
+import type { ConversionResult, PluginInfo } from './types';
 
 // CommonJS 中的 __dirname 直接可用
 
 /**
  * 输出目录
  */
-const OUTPUT_DIR = path.join(__dirname, '../../../public/Modules/Converted');
+const OUTPUT_DIR = path.join(PUBLIC_DIR, 'Modules', 'Converted');
 
 /**
  * 确保输出目录存在
@@ -126,10 +128,16 @@ export async function convertAndMirrorPlugins(
   console.log(picocolors.gray(`  - .lpx: ${stats.byExtension.lpx}`));
   console.log(picocolors.gray(`  - native Surge: ${stats.byExtension.module}`));
 
-  // 分离 useLocalOnly 插件
-  const nativePlugins = plugins.filter(p => p.useNativeSurge);
-  const localOnlyPlugins = plugins.filter(p => p.useLocalOnly && !p.useNativeSurge);
-  const remotePlugins = plugins.filter(p => !p.useLocalOnly && !p.useNativeSurge);
+  const dnsPlugins: PluginInfo[] = [];
+  const nativePlugins: PluginInfo[] = [];
+  const localOnlyPlugins: PluginInfo[] = [];
+  const remotePlugins: PluginInfo[] = [];
+  for (const plugin of plugins) {
+    if (isDnsPolicyPlugin(plugin)) dnsPlugins.push(plugin);
+    else if (plugin.useNativeSurge) nativePlugins.push(plugin);
+    else if (plugin.useLocalOnly) localOnlyPlugins.push(plugin);
+    else remotePlugins.push(plugin);
+  }
 
   if (localOnlyPlugins.length > 0) {
     console.log(
@@ -145,6 +153,10 @@ export async function convertAndMirrorPlugins(
   await ensureOutputDirectory();
 
   const conversionResults: LocalMirrorPluginConversionResult[] = [];
+
+  for (const plugin of dnsPlugins) {
+    conversionResults.push(await loadDnsPolicyModule(plugin));
+  }
 
   for (const plugin of nativePlugins) {
     conversionResults.push(await loadNativeSurgeModule(plugin));
@@ -251,9 +263,10 @@ export async function convertAndMirrorPlugins(
       const moduleName = extractModuleName(content, pluginName);
       // The catalog has two distinct Wacai plugins with the same display name. Keep both;
       // the newer Wacai source retains its existing Chinese subscription URL.
-      const fileName = pluginName === 'WaCaiJiZhang_remove_ads' && moduleName === '挖财记账去广告'
+      let fileName = pluginName === 'WaCaiJiZhang_remove_ads' && moduleName === '挖财记账去广告'
         ? `${pluginName}.sgmodule`
         : `${moduleName}.sgmodule`;
+      if (sourceUrl === DNS_POLICY_SOURCE_URL) fileName = DNS_POLICY_ARTIFACT;
 
       const outputPath = path.join(OUTPUT_DIR, fileName);
       const result: PendingPluginArtifact['result'] = {

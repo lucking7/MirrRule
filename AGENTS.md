@@ -273,6 +273,8 @@ CI 中会启动固定 digest 的 `xream/script-hub` image 用于插件转换。
 
 转换结果在依赖脚本具有镜像或缓存 URL 后才原子发布；插件缓存文件名包含 canonical source URL 的摘要，不能改回仅按插件名称缓存。
 
+`Prevent_DNS_Leaks` 的指定 canonical source 使用严格、只读取 fresh 正文的参数模块适配，不放宽通用 `PROXY` 规则拒绝。腾讯视频的指定上游已停止维护，转换目录与历史产物恢复均排除它；`build-public` 在索引前清除已登记的退休文件，避免 build-only 流程重新发布旧模块。哈罗依赖失败仍应留在报告中。
+
 ### 模块合并
 
 相关文件：

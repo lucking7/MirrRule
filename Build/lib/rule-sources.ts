@@ -139,6 +139,22 @@ export const ruleGroups: RuleGroup[] = [
 const BLACKMATRIX_SURGE = 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge';
 const META_RULES = 'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo';
 
+const geositeSubscriptions: SpecialRuleConfig[] = [
+  { name: 'Container Registries', id: 'container', category: 'category-container' },
+  { name: 'Discord', id: 'discord', category: 'discord' },
+  { name: 'Scholar', id: 'scholar', category: 'category-scholar-!cn' },
+].map(({ name, id, category }): SpecialRuleConfig => ({
+  name,
+  targetFile: `List/${id}.list`,
+  sourceFiles: [
+    `https://raw.githubusercontent.com/lucking7/surge-rules-dat/release/geo/geosite/${category}.list`,
+  ],
+  // Keep independent policies; the released text omits unsupported DOMAIN-REGEX entries.
+  description: 'Independent domain subscription from surge-rules-dat, without unsupported rule approximations.',
+  targets: ['surge', 'clash', 'singbox', 'loon'],
+  defaultPolicy: null,
+}));
+
 // Keep service subscriptions separate from the existing regional/aggregate rulesets.
 const serviceRules: SpecialRuleConfig[] = [
   { name: 'Netflix', id: 'netflix', blackmatrix: 'Netflix', geosite: 'netflix', geoip: 'netflix' },
@@ -198,6 +214,7 @@ const sukkaAdditionalRules: SpecialRuleConfig[] = [
 }));
 
 export const specialRules: SpecialRuleConfig[] = [
+  ...geositeSubscriptions,
   ...sukkaAdditionalRules,
   ...serviceRules,
   {

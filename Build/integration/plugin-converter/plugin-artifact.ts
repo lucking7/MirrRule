@@ -4,6 +4,7 @@ import path from 'node:path';
 import { writeFileAtomic } from '../../lib/atomic-file';
 import { getErrorMessage } from '../../lib/misc';
 import { applyScriptMirrorMap } from './script-extractor';
+import { isRetiredPluginArtifact } from './plugin-policy';
 import type { ConversionResult } from './types';
 
 export interface PendingPluginArtifact {
@@ -50,6 +51,14 @@ export async function publishPluginArtifacts(
   }
 
   for (const [index, artifact] of pending.entries()) {
+    if (artifact.result.outputPath && isRetiredPluginArtifact(path.basename(artifact.result.outputPath))) {
+      results.push({
+        ...artifact.result,
+        status: 'failed',
+        error: 'Converted plugin targets a retired subscription filename; choose a different module name',
+      });
+      continue;
+    }
     if (artifact.result.outputPath && conflictingPaths.has(path.resolve(artifact.result.outputPath))) {
       results.push({
         ...artifact.result,

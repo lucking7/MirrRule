@@ -346,7 +346,7 @@ describe('GitHub Actions workflow contract', () => {
     assert.match(configureScript, /--network host/);
     assert.match(
       configureScript,
-      /xream\/script-hub@sha256:8880569ae0014260432b964792eed302335f503ed90380adfdda6d83f8f8f265/,
+      /xream\/script-hub@sha256:4e9e5055157d2d85f9c03abd045a0016fe594adc44d27410019cdb4818961f45/,
     );
     assert.match(configureScript, /127\.0\.0\.1 script\.hub/);
     assert.match(
