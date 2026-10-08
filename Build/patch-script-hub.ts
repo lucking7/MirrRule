@@ -50,7 +50,11 @@ function replaceExactlyOnce(source: string, anchor: string, replacement: string)
 }
 
 function patchScriptHubCoreParser(source: string): string {
-  let patched = replaceExactlyOnce(source, MOCK_PREFLIGHT_ANCHOR, MOCK_PREFLIGHT + MOCK_PREFLIGHT_ANCHOR);
+  // Empty inline responses are valid; only resource paths must be nonempty.
+  let patched = replaceExactlyOnce(source,
+    '  if (typeof source.value !== \'string\' || !source.value) {',
+    '  if (typeof source.value !== \'string\' || (name.endsWith(\'_file\') && !source.value)) {');
+  patched = replaceExactlyOnce(patched, MOCK_PREFLIGHT_ANCHOR, MOCK_PREFLIGHT + MOCK_PREFLIGHT_ANCHOR);
   patched = replaceExactlyOnce(patched, MOCK_PARSE_ANCHOR, MOCK_PARSE_ANCHOR + MOCK_PUBLICATION);
   return replaceExactlyOnce(patched, DIAGNOSTICS_ANCHOR,
     `${DIAGNOSTICS_ANCHOR}\n  if (otherRule && otherRule.includes('[Loon v2:')) body += '\\n# [Loon v2: unsupported conversion]\\n'`);

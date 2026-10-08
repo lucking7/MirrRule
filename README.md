@@ -137,7 +137,7 @@ Module merging uses `Build/lib/module-merger/configs/pro-merge-config.yaml`. Eve
 
 Imported parameters retain their defaults and descriptions under per-source names. Script names are unique across sources and within each source; Panel references follow the renamed scripts. For the generated module script switches, leave the value **empty to enable** or enter **`#` to disable**. Use an empty value instead of `1` so a source module's own script switches can still disable individual scripts.
 
-The default configuration enables all 47 entries. Tencent Video has been removed from conversion and merging because its upstream explicitly discontinued maintenance; historical converted artifacts are also excluded from restoration and publication. EasyBike remains tracked because its upstream has no retirement notice, but its required `mobileconfig-gateway.js` returns HTTP 404 (checked 2026-10-08), so fresh conversion still fails. DiDi retains its existing switch name and uses the current `滴滴去广告.sgmodule` filename.
+The default configuration enables all 47 entries. Tencent Video has been removed from conversion and merging because its upstream explicitly discontinued maintenance; historical converted artifacts are also excluded from restoration and publication. The retired subscription filenames are reserved; an active replacement must use a different module name. EasyBike remains tracked because its upstream has no retirement notice, but its required `mobileconfig-gateway.js` returns HTTP 404 (checked 2026-10-08), so fresh conversion still fails. DiDi retains its existing switch name and uses the current `滴滴去广告.sgmodule` filename.
 
 ## License
 

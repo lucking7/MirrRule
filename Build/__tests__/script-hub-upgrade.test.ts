@@ -282,3 +282,22 @@ test('unbound URL redirects keep native output unchanged', async () => {
   assert.equal((await patched.line(line))?.handled, true);
   assert.equal(JSON.stringify(original.state()), JSON.stringify(patched.state()));
 });
+
+test('active NeteaseCloudMusic empty inline mocks preserve the exact blank response', async () => {
+  const lines = [
+    'response if ${url} ~= /^https?:\\/\\/interface\\d?\\.music\\.163\\.com\\/e?api\\/(ocpc\\/)?ad\\//i then response.body.mock("text", "")',
+    'response if ${url} ~= /^https?:\\/\\/interface\\d?\\.music\\.163.com\\/w?e?api\\/search\\/default/i then response.body.mock("text", "")',
+  ];
+  const api = fixture();
+  for (const line of lines) {
+    api.reset();
+    assert.equal((await fixture(false).line(line))?.unsupported, true);
+    assert.equal((await api.line(line))?.handled, true);
+    assert.equal(api.state().map.length, 1);
+    assert.ok(api.state().map[0].includes('data-type=text data="" status-code=200 header="Content-Type:text/plain"'));
+  }
+  api.reset();
+  assert.equal((await api.run('response.body.mock_file("text", "")'))?.unsupported, true);
+  assert.equal(api.state().map.length, 0);
+  assert.equal(api.requests().length, 0);
+});
