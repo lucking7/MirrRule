@@ -21,7 +21,9 @@ export interface RuleProcessingOptions {
   /** 是否启用格式转换 (.domain.com → DOMAIN-SUFFIX,domain.com) */
   formatConversion?: boolean,
   /** 是否校验规则格式，丢弃无法识别的行 */
-  validate?: boolean
+  validate?: boolean,
+  /** Accept only these source policies in the third comma field, ignoring case. */
+  sourcePolicies?: readonly string[]
 }
 
 /**

@@ -83,6 +83,7 @@ export class EnhancedFileOutput {
     formatConversion: boolean;
     applyNoResolve: boolean;
     validate: boolean;
+    sourcePolicies: readonly string[] | undefined;
   };
 
   constructor(
@@ -102,6 +103,7 @@ export class EnhancedFileOutput {
       formatConversion: config?.formatConversion ?? true,
       applyNoResolve: config?.applyNoResolve ?? false,
       validate: config?.validate ?? false,
+      sourcePolicies: config?.sourcePolicies?.map(policy => policy.trim().toLowerCase()),
     };
 
     this.targets = normalizeTargets(targets);
@@ -135,6 +137,13 @@ export class EnhancedFileOutput {
     let normalizedRule = trimmed;
     if (this.config.formatConversion) {
       normalizedRule = smartConvertRule(trimmed);
+    }
+
+    if (this.config.sourcePolicies !== undefined) {
+      const sourcePolicy = normalizedRule.split(',').at(2)?.trim().toLowerCase();
+      if (sourcePolicy === undefined || !this.config.sourcePolicies.includes(sourcePolicy)) {
+        return this;
+      }
     }
 
     if (this.config.validate && !RuleLineUtils.isValidRule(normalizedRule)) {
