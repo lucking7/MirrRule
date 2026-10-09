@@ -528,6 +528,12 @@ describe('GitHub Actions workflow contract', () => {
     );
   });
 
+  it('syncs coverage reports alongside rules in GitHub deployments', () => {
+    const deploy = getStep(getJob('deploy-github'), 'Deploy to NRRule Repository');
+    const syncDeclarations = (deploy.run ?? '').split('\n').filter(line => line.startsWith('SYNC_PATHS='));
+    assert.ok(syncDeclarations.some(line => /\bInternal\//.test(line)), 'Internal reports must reach the deployment repository');
+  });
+
   it('builds fresh artifacts for main deployment and PR comparison after optional jobs skip', () => {
     const plan = evaluateTaskPlan({
       eventName: 'workflow_dispatch',

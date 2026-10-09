@@ -923,7 +923,7 @@ jobs:
           SYNC_DESC=""
 
           # 规则构建（始终执行）- 包含所有规则格式
-          SYNC_PATHS="$SYNC_PATHS List/ Clash/ sing-box/ Loon/ GeoIP/"
+          SYNC_PATHS="$SYNC_PATHS List/ Clash/ sing-box/ Loon/ GeoIP/ Internal/"
           SYNC_DESC="rules"
 
           # 镜像同步
