@@ -228,4 +228,18 @@ describe('coverage CLI and profile input', () => {
     assert.equal(report.subscriptions[1].partlyOverlappingDomainRules, 1);
     assert.equal(report.subscriptions[1].fullyShadowedSubscription, false);
   });
+
+  it('keeps unrecognized outer options as gaps and honors case-insensitive matching modifiers', async () => {
+    const subscriptions = await readProfileSubscriptions('[Rule]\nDOMAIN-SUFFIX,example.com,A,unknown-condition\nDOMAIN,api.example.com,B,Extended-Matching\n', '/tmp', '/tmp');
+    assert.equal(subscriptions[0].skipped, 'unsupported-options');
+    assert.equal(subscriptions[1].extendedMatching, true);
+    const report = auditRuleCoverage(subscriptions);
+    assert.equal(report.summary.skippedSubscriptions, 1);
+    assert.equal(report.subscriptions[1].fullyShadowedSubscription, false);
+    const caseReport = auditRuleCoverage([
+      { id: 'first', policy: 'A', lines: ['domain-suffix,example.com,Extended-Matching'] },
+      { id: 'later', policy: 'B', extendedMatching: true, lines: ['DOMAIN,api.example.com'] }
+    ]);
+    assert.equal(caseReport.subscriptions[1].fullyShadowedSubscription, true);
+  });
 });

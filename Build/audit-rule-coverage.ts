@@ -71,8 +71,9 @@ export async function readProfileSubscriptions(
       const policyIndex = type === 'FINAL' ? 1 : 2;
       const policy = unquote(fields[policyIndex] ?? 'UNKNOWN');
       const condition = fields.slice(0, policyIndex).join(',');
-      const unsupportedOptions = fields.slice(policyIndex + 1).some(field => field === 'pre-matching');
-      subscriptions.push({ id: `inline:${lineIndex + 1}:${/^[A-Z0-9-]+$/.test(type) ? type : 'UNKNOWN'}`, policy, kind: 'inline', lines: [condition], extendedMatching: fields.slice(policyIndex + 1).includes('extended-matching'), ...(unsupportedOptions && { skipped: 'unsupported-options' as const }) });
+      const outerOptions = fields.slice(policyIndex + 1).map(field => field.toLowerCase());
+      const unsupportedOptions = outerOptions.some(field => !['extended-matching', 'no-resolve'].includes(field));
+      subscriptions.push({ id: `inline:${lineIndex + 1}:${/^[A-Z0-9-]+$/.test(type) ? type : 'UNKNOWN'}`, policy, kind: 'inline', lines: [condition], extendedMatching: outerOptions.includes('extended-matching'), ...(unsupportedOptions && { skipped: 'unsupported-options' as const }) });
       continue;
     }
     const reference = unquote(fields[1] ?? '');
@@ -96,13 +97,14 @@ export async function readProfileSubscriptions(
       id = `local/${path.basename(reference)}:${lineIndex + 1}`;
       filename = path.resolve(profileBase, reference);
     } else skipped = 'unsupported-reference';
-    if (fields.slice(3).some(field => field === 'pre-matching')) skipped = 'unsupported-options';
+    const outerOptions = fields.slice(3).map(field => field.toLowerCase());
+    if (outerOptions.some(field => !['extended-matching', 'no-resolve'].includes(field) && !/^update-interval=-?\d+$/.test(field))) skipped = 'unsupported-options';
     if (skipped || !filename) {
       subscriptions.push({ id, policy, lines: [], skipped: skipped ?? 'unsupported-reference' });
     } else {
       // eslint-disable-next-line no-await-in-loop -- preserve supplied subscription order
       const subscription = await readSubscription(id, policy, filename);
-      subscription.extendedMatching = fields.slice(3).includes('extended-matching');
+      subscription.extendedMatching = outerOptions.includes('extended-matching');
       subscriptions.push(subscription);
     }
   }
@@ -140,7 +142,7 @@ export async function auditRulesDirectory(rulesDir: string): Promise<CoverageAud
 
 export async function writeRuleCoverageReport(report: CoverageAuditReport, outputPath: string): Promise<void> {
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFileAtomic(outputPath, `${JSON.stringify(report, null, 2)}\n`);
+  await writeFileAtomic(outputPath, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
 }
 
 export async function runCoverageAuditCli(args: readonly string[]): Promise<number> {

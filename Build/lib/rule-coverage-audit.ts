@@ -194,7 +194,7 @@ export function cleanAuditRuleLine(line: string): string {
 function parseDomain(fields: string[], owner: CoverageOwner): DomainCondition | undefined {
   const type = fields[0]?.toUpperCase();
   if (type !== 'DOMAIN' && type !== 'DOMAIN-SUFFIX') return;
-  if (!fields[1] || fields.slice(2).some(field => field !== 'extended-matching' && field !== 'no-resolve')) return;
+  if (!fields[1] || fields.slice(2).some(field => !['extended-matching', 'no-resolve'].includes(field.toLowerCase()))) return;
   const domain = domainToASCII(fields[1].replace(/\.$/, '').toLowerCase());
   if (!domain || domain.length > 253 || isIP(domain) || !/^[a-z0-9_](?:[a-z0-9_.-]*[a-z0-9_])?$/.test(domain)) return;
   if (domain.split('.').some(label => !label || label.length > 63 || label.startsWith('-') || label.endsWith('-'))) return;
@@ -261,7 +261,7 @@ export function auditRuleCoverage(
     // Surge enables extended matching for the entire RULE-SET when any domain rule requests it.
     const extendedMatching = subscription.extendedMatching || subscription.lines.some(raw => {
       const fields = splitSurgeRuleFields(cleanAuditRuleLine(raw));
-      return ['DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN-WILDCARD'].includes(fields[0]) && fields.slice(2).includes('extended-matching');
+      return ['DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN-WILDCARD'].includes(fields[0].toUpperCase()) && fields.slice(2).some(field => field.toLowerCase() === 'extended-matching');
     });
     let conditionalExamples = 0;
     subscription.lines.forEach((raw, lineIndex) => {
