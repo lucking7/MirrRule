@@ -115,6 +115,13 @@ export class RuleSourceProcessor {
       .withTitle(publication.title)
       .withDescription(publication.description);
     output.addRules(rules);
+    if (
+      publication.options.sourcePolicies !== undefined &&
+      !publication.options.allowEmpty &&
+      output.getOutputSummary().ruleCount === 0
+    ) {
+      throw new Error(`No rules remain after source policy filtering: ${publication.path}`);
+    }
     await output.write();
     return output.getOutputSummary();
   }

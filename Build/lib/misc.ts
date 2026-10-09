@@ -108,7 +108,21 @@ const GEOSITE_PREFIXES: ReadonlyArray<{ prefix: string; type: string; strip?: st
  * - 其他规则原样返回
  */
 export function smartConvertRule(rule: string): string {
-  if (!rule || rule.includes(',')) return rule;
+  if (!rule) return rule;
+
+  const comma = rule.indexOf(',');
+  if (comma !== -1) {
+    // Normalize only known QX types; downstream processing owns policies and options.
+    const type = rule.slice(0, comma).trim().toLowerCase();
+    switch (type) {
+      case 'host': return 'DOMAIN' + rule.slice(comma);
+      case 'host-suffix': return 'DOMAIN-SUFFIX' + rule.slice(comma);
+      case 'host-keyword': return 'DOMAIN-KEYWORD' + rule.slice(comma);
+      case 'ip-cidr': return 'IP-CIDR' + rule.slice(comma);
+      case 'ip6-cidr': return 'IP-CIDR6' + rule.slice(comma);
+      default: return rule;
+    }
+  }
 
   if (rule.includes('/')) {
     const ipType = IPValidator.getIpType(rule);
