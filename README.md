@@ -51,8 +51,8 @@ Use `https://nrrule.pages.dev/List/wechat_no_ua.list` for WeChat-specific routin
 Every successful rules build publishes `Internal/rule-coverage.json`, an audit of the documented example subscription order. It reports earlier exact/suffix domain coverage, distinguishes different-policy conflicts from same-policy redundancy, and warns about broad User-Agent/process conditions. This report describes the example order, not the configuration loaded by every subscriber. Unavailable sources and unsupported predicates remain explicit gaps; a report does not prove complete routing correctness.
 
 ```bash
-pnpm run node Build/audit-rule-coverage.ts --rules-dir public/List --output /tmp/rule-coverage.json
-pnpm run node Build/audit-rule-coverage.ts --profile /path/to/effective-profile.conf --rules-dir public/List --output /tmp/profile-coverage.json
+pnpm run audit:coverage -- --rules-dir public/List --output /tmp/rule-coverage.json
+pnpm run audit:coverage -- --profile /path/to/effective-profile.conf --rules-dir public/List --output /tmp/profile-coverage.json
 ```
 
 For module-aware results, supply a Surge effective profile containing the enabled module rules. The audit reads only its `[Rule]` section, does not fetch remote sources, and maps NRRule subscription URLs to the supplied rules directory. Resolve relative local rule files from the supplied profile's directory. Keep effective profiles private; audit JSON contains rule evidence and policy names but excludes other profile sections. `--fail-on-full-shadow` fails when an entire subscription is proven unreachable, rather than treating every intentional overlap as an error.

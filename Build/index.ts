@@ -10,7 +10,7 @@ import { downloadGEOIP } from './download-geoip';
 import { buildPublic } from './build-public';
 import { RuleSourceProcessor } from './lib/rule-source-processor';
 import { ruleGroups, specialRules } from './lib/rule-sources';
-import { createRuleCoverageReport, writeRuleCoverageReport } from './audit-rule-coverage';
+import { auditRulesDirectory, writeRuleCoverageReport } from './audit-rule-coverage';
 import {
   buildStatusManifest,
   normalizeCommit,
@@ -73,7 +73,10 @@ async function executeWebBuildStep(): Promise<BuildStepResult> {
 
 async function executeCoverageAuditStep(): Promise<BuildStepResult> {
   try {
-    const report = await createRuleCoverageReport({ rulesDir: path.join(PUBLIC_DIR, 'List') });
+    const report = await auditRulesDirectory(path.join(PUBLIC_DIR, 'List'));
+    if (report.summary.missingLocalSubscriptions > 0) {
+      throw new Error('Coverage audit is missing required local subscriptions');
+    }
     await writeRuleCoverageReport(report, path.join(PUBLIC_DIR, 'Internal', 'rule-coverage.json'));
     return { success: true, errors: [] };
   } catch (error) {

@@ -15,6 +15,7 @@ interface CoverageOwner {
   policy: string,
   rule: string,
   line: number
+  matchMode?: 'destination' | 'extended'
 }
 
 interface CoverageExample {
@@ -42,7 +43,6 @@ interface SubscriptionCoverage {
   unsupportedRules: number,
   unsupportedTypes: Record<string, number>,
   conditionalRules: number,
-  extendedMatching: boolean,
   fullyCoveredDomainRules: number,
   partlyOverlappingDomainRules: number,
   samePolicyRedundancies: number,
@@ -104,7 +104,7 @@ class DomainCoverageIndex {
 
   constructor(private readonly order: Map<string, number>) {}
 
-  find(condition: DomainCondition): { full: boolean, owners: CoverageOwner[] } {
+  find(condition: DomainCondition): { full: boolean, coverer?: CoverageOwner, owners: CoverageOwner[] } {
     let node: DomainNode | undefined = this.root;
     let coverer: CoverageOwner | undefined;
     const labels = condition.domain.split('.');
@@ -115,7 +115,7 @@ class DomainCoverageIndex {
     }
     if (!condition.suffix) {
       coverer = earlier(coverer, node?.exact, this.order);
-      return { full: Boolean(coverer), owners: coverer ? [coverer] : [] };
+      return { full: Boolean(coverer), coverer, owners: coverer ? [coverer] : [] };
     }
     const owners = new Map<string, CoverageOwner>();
     if (coverer) owners.set(coverer.policy, coverer);
@@ -126,7 +126,7 @@ class DomainCoverageIndex {
         }
       }
     }
-    return { full: Boolean(coverer), owners: [...owners.values()] };
+    return { full: Boolean(coverer), coverer, owners: [...owners.values()] };
   }
 
   add(condition: DomainCondition) {
@@ -218,19 +218,19 @@ export function auditRuleCoverage(
     if (order.has(subscription.id)) throw new Error('Subscription ids must be unique');
     order.set(subscription.id, index);
   });
-  const index = new DomainCoverageIndex(order);
+  const destinationIndex = new DomainCoverageIndex(order);
+  const extendedIndex = new DomainCoverageIndex(order);
   const report: CoverageAuditReport = {
     schemaVersion: 1,
     basis: options.basis ?? 'example-order',
     scope: [
-      'Proves destination-hostname DOMAIN and DOMAIN-SUFFIX coverage in the supplied outer order, including earlier narrower exceptions.',
+      'Proves DOMAIN and DOMAIN-SUFFIX condition containment in the supplied outer order, including earlier narrower exceptions. Earlier extended-matching covers plain conditions; plain matching only partially covers extended conditions.',
       'Policy differences are review candidates; intentional service exceptions are not automatically configuration errors.',
       'IP, keyword, wildcard, logical, URL and other unsupported conditions are counted but do not prove unconditional domain shadow.',
       'USER-AGENT and PROCESS-NAME warnings are conditional on request metadata; they never count as unconditional domain coverage.',
       'Profile input audits only its [Rule] section. Supply a sanitized effective profile to include enabled module rules.',
       'Remote subscriptions are not fetched. Missing or unsupported subscriptions are explicit gaps, and earlier gaps may change the actual winner.',
-      'Known extended-matching and no-resolve domain modifiers permit hostname analysis only. Extended Host/SNI/CNAME paths are not proven; extended subscriptions cannot be called fully shadowed.',
-      'Does not simulate DNS, pre-matching, extended-matching, client runtime indexes, connections or policy group selections.'
+      'Does not simulate observed TLS SNI or HTTP Host, DNS lookup, pre-matching, client runtime indexes, connections or policy group selections.'
     ],
     summary: {
       subscriptions: 0, auditedSubscriptions: 0, skippedSubscriptions: 0, missingLocalSubscriptions: 0,
@@ -245,7 +245,7 @@ export function auditRuleCoverage(
     const result: SubscriptionCoverage = {
       id: subscription.id, policy: subscription.policy, kind: subscription.kind ?? 'subscription',
       status: subscription.skipped ? 'skipped' : 'audited', ...(subscription.skipped && { skipped: subscription.skipped }),
-      totalRules: 0, domainRules: 0, unsupportedRules: 0, unsupportedTypes: {}, conditionalRules: 0, extendedMatching: Boolean(subscription.extendedMatching),
+      totalRules: 0, domainRules: 0, unsupportedRules: 0, unsupportedTypes: {}, conditionalRules: 0,
       fullyCoveredDomainRules: 0, partlyOverlappingDomainRules: 0, samePolicyRedundancies: 0,
       differentPolicyConflicts: 0, fullyShadowedDomains: false, fullyShadowedSubscription: false, examples: []
     };
@@ -258,17 +258,32 @@ export function auditRuleCoverage(
     }
     if (result.kind === 'subscription') report.summary.auditedSubscriptions++;
     const additions: DomainCondition[] = [];
+    // Surge enables extended matching for the entire RULE-SET when any domain rule requests it.
+    const extendedMatching = subscription.extendedMatching || subscription.lines.some(raw => {
+      const fields = splitSurgeRuleFields(cleanAuditRuleLine(raw));
+      return ['DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN-WILDCARD'].includes(fields[0].toUpperCase()) && fields.slice(2).some(field => field.toLowerCase() === 'extended-matching');
+    });
+    let conditionalExamples = 0;
     subscription.lines.forEach((raw, lineIndex) => {
       const line = cleanAuditRuleLine(raw);
       if (!line || line.startsWith('#') || line.startsWith('//') || line.startsWith(';')) return;
       result.totalRules++;
       const fields = splitSurgeRuleFields(line);
-      if (fields.slice(2).some(field => field.toLowerCase() === 'extended-matching')) result.extendedMatching = true;
-      const owner = { subscription: subscription.id, policy: subscription.policy, line: lineIndex + 1, rule: '' };
+      const owner: CoverageOwner = { subscription: subscription.id, policy: subscription.policy, line: lineIndex + 1, rule: '', matchMode: extendedMatching ? 'extended' : 'destination' };
       const condition = parseDomain(fields, owner);
       if (condition) {
         result.domainRules++;
-        const coverage = index.find(condition);
+        const destination = destinationIndex.find(condition);
+        const extended = extendedIndex.find(condition);
+        const coverer = extendedMatching ? extended.coverer : earlier(destination.coverer, extended.coverer, order);
+        const coverage = { full: Boolean(coverer), owners: [] as CoverageOwner[] };
+        const ownerPolicies = new Map<string, CoverageOwner>();
+        for (const prior of [...destination.owners, ...extended.owners]) {
+          if (!coverer || prior === coverer || order.get(prior.subscription)! < order.get(coverer.subscription)!) {
+            ownerPolicies.set(prior.policy, earlier(ownerPolicies.get(prior.policy), prior, order)!);
+          }
+        }
+        coverage.owners = [...ownerPolicies.values()];
         if (coverage.full) result.fullyCoveredDomainRules++;
         else if (coverage.owners.length) result.partlyOverlappingDomainRules++;
         if (coverage.owners.length) {
@@ -290,7 +305,7 @@ export function auditRuleCoverage(
       if (conditionalMatches.length) result.conditionalRules++;
       for (const match of conditionalMatches) {
         report.summary.conditionalWarnings++;
-        if (report.conditionalWarnings.length < exampleLimit * subscriptions.length) {
+        if (conditionalExamples++ < exampleLimit) {
           report.conditionalWarnings.push({
             ...owner, rule: `${match[1]},${match[2].trim()}`, condition: match[1] as ConditionalCoverageWarning['condition'],
             compound: fields[0] !== match[1],
@@ -299,9 +314,9 @@ export function auditRuleCoverage(
         }
       }
     });
-    additions.forEach(condition => index.add(condition));
+    additions.forEach(condition => (extendedMatching ? extendedIndex : destinationIndex).add(condition));
     result.fullyShadowedDomains = result.domainRules > 0 && result.domainRules === result.fullyCoveredDomainRules;
-    result.fullyShadowedSubscription = result.fullyShadowedDomains && result.unsupportedRules === 0 && !result.extendedMatching;
+    result.fullyShadowedSubscription = result.fullyShadowedDomains && result.unsupportedRules === 0;
     report.summary.domainRules += result.domainRules;
     report.summary.unsupportedRules += result.unsupportedRules;
     report.summary.fullyCoveredDomainRules += result.fullyCoveredDomainRules;

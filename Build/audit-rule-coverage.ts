@@ -11,6 +11,7 @@ export const exampleRoutingOrder: ReadonlyArray<readonly [string, string]> = [
   ['wechat_no_ua.list', 'DIRECT'],
   ['apple_intelligence.list', 'AppleIntelligence'],
   ['ai.list', 'AI'],
+  ['emby.list', 'Emby'],
   ['stream.list', 'Streaming'],
   ['telegram.list', 'Telegram'],
   ['apple_cdn.list', 'DIRECT'],
@@ -52,12 +53,14 @@ export async function readProfileSubscriptions(
 ): Promise<CoverageSubscription[]> {
   const subscriptions: CoverageSubscription[] = [];
   let inRules = false;
+  let hasRules = false;
   const lines = text.split(/\r?\n/);
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
     const line = cleanAuditRuleLine(lines[lineIndex]);
     const header = /^\[([^\]]+)\]$/.exec(line);
     if (header) {
       inRules = header[1].toLowerCase() === 'rule';
+      hasRules ||= inRules;
       continue;
     }
     if (!inRules || !line || line.startsWith('#') || line.startsWith(';') || line.startsWith('//')) continue;
@@ -70,8 +73,7 @@ export async function readProfileSubscriptions(
       const condition = fields.slice(0, policyIndex).join(',');
       const outerOptions = fields.slice(policyIndex + 1).map(field => field.toLowerCase());
       const unsupportedOptions = outerOptions.some(field => !['extended-matching', 'no-resolve'].includes(field));
-      const extendedMatching = outerOptions.includes('extended-matching');
-      subscriptions.push({ id: `inline:${lineIndex + 1}:${/^[A-Z0-9-]+$/.test(type) ? type : 'UNKNOWN'}`, policy, kind: 'inline', extendedMatching, lines: [condition], ...(unsupportedOptions && { skipped: 'unsupported-options' as const }) });
+      subscriptions.push({ id: `inline:${lineIndex + 1}:${/^[A-Z0-9-]+$/.test(type) ? type : 'UNKNOWN'}`, policy, kind: 'inline', lines: [condition], extendedMatching: outerOptions.includes('extended-matching'), ...(unsupportedOptions && { skipped: 'unsupported-options' as const }) });
       continue;
     }
     const reference = unquote(fields[1] ?? '');
@@ -83,8 +85,9 @@ export async function readProfileSubscriptions(
       try {
         const url = new URL(reference);
         const basename = path.posix.basename(url.pathname);
-        id = `${url.hostname}/${basename || 'rules'}:${lineIndex + 1}`;
+        id = `remote/${url.hostname}:${lineIndex + 1}`;
         if (url.hostname === 'nrrule.pages.dev' && /^\/List\/[^/]+\.list$/.test(url.pathname)) {
+          id = `${url.hostname}/${basename}:${lineIndex + 1}`;
           filename = path.join(rulesDir, basename);
         } else skipped = 'unavailable-remote';
       } catch {
@@ -95,15 +98,17 @@ export async function readProfileSubscriptions(
       filename = path.resolve(profileBase, reference);
     } else skipped = 'unsupported-reference';
     const outerOptions = fields.slice(3).map(field => field.toLowerCase());
-    const extendedMatching = outerOptions.includes('extended-matching');
-    if (outerOptions.some(field => !['extended-matching', 'no-resolve'].includes(field) && !/^update-interval=\d+$/.test(field))) skipped = 'unsupported-options';
+    if (outerOptions.some(field => !['extended-matching', 'no-resolve'].includes(field) && !/^update-interval=-?\d+$/.test(field))) skipped = 'unsupported-options';
     if (skipped || !filename) {
-      subscriptions.push({ id, policy, extendedMatching, lines: [], skipped: skipped ?? 'unsupported-reference' });
+      subscriptions.push({ id, policy, lines: [], skipped: skipped ?? 'unsupported-reference' });
     } else {
       // eslint-disable-next-line no-await-in-loop -- preserve supplied subscription order
-      subscriptions.push({ ...await readSubscription(id, policy, filename), extendedMatching });
+      const subscription = await readSubscription(id, policy, filename);
+      subscription.extendedMatching = outerOptions.includes('extended-matching');
+      subscriptions.push(subscription);
     }
   }
+  if (!hasRules) throw new Error('Profile input has no [Rule] section');
   return subscriptions;
 }
 
@@ -131,12 +136,17 @@ export async function createRuleCoverageReport(options: {
   });
 }
 
+export async function auditRulesDirectory(rulesDir: string): Promise<CoverageAuditReport> {
+  return createRuleCoverageReport({ rulesDir });
+}
+
 export async function writeRuleCoverageReport(report: CoverageAuditReport, outputPath: string): Promise<void> {
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
   await writeFileAtomic(outputPath, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
 }
 
-async function runCoverageAuditCli(args: readonly string[]): Promise<number> {
+export async function runCoverageAuditCli(args: readonly string[]): Promise<number> {
+  if (args[0] === '--') args = args.slice(1);
   if (args.includes('--help') || args.includes('-h')) {
     console.log('Usage: pnpm run node Build/audit-rule-coverage.ts --rules-dir public/List --output report.json [--profile profile.conf] [--profile-base directory] [--fail-on-full-shadow]');
     console.log('Without --profile, audits an illustrative ordering template, not your active configuration. No remote downloads. Missing local subscriptions exit 1; --fail-on-full-shadow exits 2 for proven full subscription shadow.');
