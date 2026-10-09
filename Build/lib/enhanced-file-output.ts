@@ -86,6 +86,7 @@ export class EnhancedFileOutput {
     applyNoResolve: boolean;
     validate: boolean;
     sourcePolicies: readonly string[] | undefined;
+    excludedRuleTypes: ReadonlySet<string>;
   };
 
   constructor(
@@ -106,6 +107,7 @@ export class EnhancedFileOutput {
       applyNoResolve: config?.applyNoResolve ?? false,
       validate: config?.validate ?? false,
       sourcePolicies: config?.sourcePolicies?.map(policy => policy.trim().toLowerCase()),
+      excludedRuleTypes: new Set(config?.excludedRuleTypes?.map(type => type.trim().toUpperCase())),
     };
 
     this.targets = normalizeTargets(targets);
@@ -140,6 +142,8 @@ export class EnhancedFileOutput {
     if (this.config.formatConversion) {
       normalizedRule = smartConvertRule(trimmed);
     }
+
+    if (this.hasExcludedRuleType(normalizedRule)) return this;
 
     if (this.config.sourcePolicies !== undefined) {
       const sourcePolicy = normalizedRule.split(',').at(2)?.trim().toLowerCase();
@@ -317,6 +321,19 @@ export class EnhancedFileOutput {
     }
 
     return this;
+  }
+
+  private hasExcludedRuleType(rule: string): boolean {
+    if (this.config.excludedRuleTypes.size === 0) return false;
+    const type = rule.split(',', 1)[0].trim().toUpperCase();
+    if (this.config.excludedRuleTypes.has(type)) return true;
+    if (type !== 'AND' && type !== 'OR' && type !== 'NOT') return false;
+
+    // Drop the whole expression: removing a child could broaden AND or invert NOT.
+    for (const child of rule.matchAll(/\(\s*([A-Z][A-Z0-9-]*)\s*,/gi)) {
+      if (this.config.excludedRuleTypes.has(child[1].toUpperCase())) return true;
+    }
+    return false;
   }
 
   /**

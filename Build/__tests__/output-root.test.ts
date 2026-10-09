@@ -59,6 +59,10 @@ replace('Build/lib/rule-sources.ts', {
   }
   const manifest = JSON.parse(await fs.readFile(path.join(destination, 'status.json'), 'utf8'));
   assert.deepEqual(manifest.rulesets.map((entry: { id: string }) => entry.id), ['group', 'special']);
+  const coverage = JSON.parse(await fs.readFile(path.join(destination, 'Internal', 'rule-coverage.json'), 'utf8'));
+  assert.equal(coverage.schemaVersion, 1);
+  assert.ok(coverage.summary.skippedSubscriptions > 0);
+  await assert.rejects(fs.access(path.join(root, 'public', 'Internal', 'rule-coverage.json')), { code: 'ENOENT' });
   const index = await fs.readFile(path.join(destination, 'index.html'), 'utf8');
   assert.match(index, /group\.list/);
   assert.match(index, /special\.json/);

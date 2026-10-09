@@ -228,6 +228,15 @@ export const specialRules: SpecialRuleConfig[] = [
   ...sukkaAdditionalRules,
   ...serviceRules,
   {
+    name: 'WeChat without User-Agent bypass',
+    targetFile: 'List/wechat_no_ua.list',
+    sourceFiles: ['https://raw.githubusercontent.com/NobyDa/Script/master/Surge/WeChat.list'],
+    description: 'WeChat domain and IP rules from NobyDa, excluding broad User-Agent bypass conditions.',
+    targets: ['surge', 'clash', 'singbox', 'loon'],
+    defaultPolicy: null,
+    excludedRuleTypes: ['USER-AGENT'],
+  },
+  {
     name: 'Download',
     targetFile: 'List/download.list',
     sourceFiles: [
