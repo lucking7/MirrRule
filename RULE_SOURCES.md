@@ -25,13 +25,7 @@ Surge 与 Loon 保留 `.list`，Clash 输出 classical `.txt`，sing-box 输出 
 
 不读取二进制 `.mrs`、`.srs`。这次绕开旧 sing-box JSON 输入路径，没有修复其所有字段解析能力，也没有改变既有平台支持矩阵。
 
-## Container、Discord 与 Scholar
-
-独立 `container`、`discord`、`scholar` 订阅读取 [surge-rules-dat release](https://github.com/lucking7/surge-rules-dat/tree/release/geo/geosite) 的 `category-container.list`、`discord.list`、`category-scholar-!cn.list`，通过现有流程生成四平台文件，不绑定策略。需要专用出口时，客户端应在更宽的 `global` 或 `direct` 规则之前引用这些独立订阅。
-
-2026-10-08 样本对应 release `7ecdbb109ae7e84e8e0c9518b71a1ca8d02ba6bb`，分别有 9、28、476 条文本规则。Container 上游另有一条未被文本 release 表达的 AWS ECR 正则；本项目不近似改写它，不能把该独立订阅称为完整覆盖。既有 `amazon` 的 `amazonaws.com` 后缀覆盖更宽的 AWS 域名范围。
-
-现有 `ai` 已覆盖当日 OpenAI 22、Anthropic 9、Google Gemini 46、Cursor 4 条样本，无需重复加入同一数据。规则覆盖比较不代表客户端的实际出口或地区解锁已经验证。
+现有 `ai` 已覆盖 2026-10-08 的 OpenAI 22、Anthropic 9、Google Gemini 46、Cursor 4 条样本，无需重复加入同一数据。规则覆盖比较不代表客户端的实际出口或地区解锁已经验证。
 
 ## CDN、Download 与 Speedtest
 
