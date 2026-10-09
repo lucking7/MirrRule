@@ -57,6 +57,7 @@ Service subscriptions merge [blackmatrix7 Surge rules](https://github.com/blackm
 | Rule Set | Description |
 |---|---|
 | `reject` | Ad blocking and privacy protection |
+| `my_reject` | Optional Sukka personal blocking rules; review before enabling |
 | `reject-no-drop` | Ad blocking (no connection drop) |
 | `reject-drop` | Ad blocking (drop connection) |
 | `direct` | Direct connection without proxy |
@@ -92,6 +93,8 @@ Service subscriptions merge [blackmatrix7 Surge rules](https://github.com/blackm
 Additional Sukka categories retain separate subscriptions so clients can assign their own policies. The aggregate `stream` also includes all six regional collections, and `reject_extra` includes phishing rules. `cloudmounter` is available only as a Surge ruleset; its AND/process/source-IP conditions are retained. See [规则来源与迁移记录](RULE_SOURCES.md#sukka-补充分类) for source paths, routing guidance, and compatibility.
 
 Apple subscriptions are available both separately and in `apple`. Keep `apple_intelligence` separate and place it before broader Apple or AI rules when assigning a dedicated exit. Put other specific Apple or Microsoft CDN subscriptions before their aggregate rules, and service IP subscriptions after domain rules. Telegram combines domain, active Teleproto IP, and ASN sources; sing-box omits ASN rules under the existing conversion matrix.
+
+`reject` merges Sukka's base domain, non-IP, and IP blocking sources. `my_reject` is a separate optional subscription containing Sukka's personal choices, including finance, video, push, software validation, process, and port rules. Review it before enabling; Surge users should bind it to REJECT-DROP as indicated upstream. Other platforms retain only supported rule types and do not guarantee equivalent connection handling.
 
 `reject_url_regex` remains separate from general blocking rules. Subscribe only when URL-level blocking is needed and bind it to REJECT in Surge. For HTTPS matching, enable and trust the Surge MITM certificate, then load the mirrored [Sukka MITM hostname module](https://nrrule.pages.dev/Mirror/Sukka/sgmodule/sukka_mitm_hostnames.sgmodule). This source does not generate Clash, Loon, or sing-box files. Empty regional streaming IP sources and deprecated Sukka aliases are excluded.
 

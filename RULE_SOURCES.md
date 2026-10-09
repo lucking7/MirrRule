@@ -2,6 +2,10 @@
 
 来源配置更新至 2026-10-08，保留现有订阅文件名并补充独立分类。下方按日期保留的验收记录描述当时的样本和发布边界，不代表当前条数、生产版本或客户端实测。
 
+## Reject 订阅边界
+
+基础 `reject` 仅合并 Sukka 的 `domainset/reject`、`non_ip/reject` 与 `ip/reject`，覆盖域名、通配规则和恶意 IP。`non_ip/my_reject` 移至独立可选订阅 `my_reject`，不再进入基础集合。其个人选择包含金融、视频、推送、软件验证、进程与端口拦截，启用前应核对使用需求。Surge 按上游说明绑定 REJECT-DROP；其他平台仅输出支持的类型，不保证连接处理方式等价。`ads`、`reject_extra`、fmz、drop/no-drop 与 URL 正则订阅保持独立。
+
 ## 服务规则
 
 配置在 [rule-sources.ts](Build/lib/rule-sources.ts)。blackmatrix7 使用 `master/rule/Surge/<分类>/<分类>.list`；MetaCubeX 使用 `meta/geo/geosite/<分类>.list`。这些是互补来源，合并后去重，任一必需来源下载失败会阻止该 ruleset 发布，不是互相替代的 fallback。

@@ -201,6 +201,7 @@ const sukkaAdditionalRules: SpecialRuleConfig[] = [
     sources: [`non_ip/stream_${region}`],
   })),
   { name: 'Reject Phishing', id: 'reject_phishing', sources: ['domainset/reject_phishing'] },
+  { name: 'Sukka Personal Reject (Optional)', id: 'my_reject', sources: ['non_ip/my_reject'] },
   // Publish this optional source with the Surge MITM module; other platforms are not verified.
   { name: 'Reject URL Regex', id: 'reject_url_regex', sources: ['non_ip/reject-url-regex'], surgeOnly: true },
   { name: 'Domestic CDN', id: 'domestic_cdn', sources: ['non_ip/domestic_cdn'] },
@@ -316,7 +317,6 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/domainset/reject.conf',
       'https://ruleset.skk.moe/List/non_ip/reject.conf',
       'https://ruleset.skk.moe/List/ip/reject.conf',
-      'https://ruleset.skk.moe/List/non_ip/my_reject.conf',
     ],
     defaultPolicy: 'REJECT', // 明确指定拒绝策略
     targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持
