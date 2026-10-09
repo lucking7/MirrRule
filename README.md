@@ -44,6 +44,19 @@ https://nrrule.pages.dev/sing-box/direct.json
 
 Full file listing available at: https://nrrule.pages.dev
 
+Use `https://nrrule.pages.dev/List/wechat_no_ua.list` for WeChat-specific routing without letting every request with a WeChat User-Agent bypass earlier service or blocking policies. This variant follows NobyDa's maintained source during normal builds, retains supported domain/IP conditions, and excludes entire logical expressions containing `USER-AGENT`. The original `wechat` subscription is unchanged. Clash, Loon, and sing-box variants use the same basename and their usual directory/extension; supported rule types still differ by client.
+
+## Routing Coverage Audit
+
+Every successful rules build publishes `Internal/rule-coverage.json`, an audit of the documented example subscription order. It reports earlier exact/suffix domain coverage, distinguishes different-policy conflicts from same-policy redundancy, and warns about broad User-Agent/process conditions. This report describes the example order, not the configuration loaded by every subscriber. Unavailable sources and unsupported predicates remain explicit gaps; a report does not prove complete routing correctness.
+
+```bash
+pnpm run audit:coverage -- --rules-dir public/List --output /tmp/rule-coverage.json
+pnpm run audit:coverage -- --profile /path/to/effective-profile.conf --rules-dir public/List --output /tmp/profile-coverage.json
+```
+
+For module-aware results, supply a Surge effective profile containing the enabled module rules. The audit reads only its `[Rule]` section, does not fetch remote sources, and maps NRRule subscription URLs to the supplied rules directory. Resolve relative local rule files from the supplied profile's directory. Keep effective profiles private; audit JSON contains rule evidence and policy names but excludes other profile sections. `--fail-on-full-shadow` fails when an entire subscription is proven unreachable, rather than treating every intentional overlap as an error.
+
 ## File Index
 
 The homepage is a native directory tree following the layout and styling of [Sukka Ruleset Server](https://ruleset.skk.moe/), with NRRule / Luck branding and MirrRule's own files and URLs. Open the appropriate client directory, then open a file or use the browser's copy-link action to obtain its subscription URL. Root directories start expanded, except `Mock` and `Internal`; nested directories start collapsed.
@@ -69,6 +82,7 @@ Service subscriptions merge [blackmatrix7 Surge rules](https://github.com/blackm
 | `spotify` | Spotify |
 | `tiktok` | TikTok |
 | `wechat` | WeChat |
+| `wechat_no_ua` | Automatically updated NobyDa WeChat rules without broad User-Agent bypass |
 | `apple` | Combined Apple CDN, China, services, services IP ranges, and iCloud Private Relay |
 | `apple_cdn` | Apple download CDN |
 | `apple_cn` | Apple services available in China |

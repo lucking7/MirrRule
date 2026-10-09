@@ -38,6 +38,8 @@ replace('Build/lib/rule-sources.ts', {
   ruleGroups: [{ name: 'Fixture', targets, files: [{ path: 'List/group.list', url: 'https://fixture.test/group' }] }],
   specialRules: [{ name: 'Merged fixture', targets, targetFile: 'List/special.list', sourceFiles: ['https://fixture.test/special'] }]
 });
+const coverage = require(path.join(repository, 'Build/audit-rule-coverage.ts'));
+coverage.exampleRoutingOrder.splice(0, coverage.exampleRoutingOrder.length, ['group.list', 'Proxy'], ['special.list', 'DIRECT']);
 `);
   const result = spawnSync(process.execPath, [
     '-r', require.resolve('@swc-node/register'), '-r', preload,
@@ -59,6 +61,12 @@ replace('Build/lib/rule-sources.ts', {
   }
   const manifest = JSON.parse(await fs.readFile(path.join(destination, 'status.json'), 'utf8'));
   assert.deepEqual(manifest.rulesets.map((entry: { id: string }) => entry.id), ['group', 'special']);
+  const coverage = JSON.parse(await fs.readFile(path.join(destination, 'Internal', 'rule-coverage.json'), 'utf8'));
+  assert.equal(coverage.schemaVersion, 1);
+  assert.equal(coverage.basis, 'example-order');
+  assert.equal(coverage.summary.auditedSubscriptions, 2);
+  assert.equal(coverage.summary.missingLocalSubscriptions, 0);
+  await assert.rejects(fs.access(path.join(root, 'public', 'Internal', 'rule-coverage.json')), { code: 'ENOENT' });
   const index = await fs.readFile(path.join(destination, 'index.html'), 'utf8');
   assert.match(index, /group\.list/);
   assert.match(index, /special\.json/);
