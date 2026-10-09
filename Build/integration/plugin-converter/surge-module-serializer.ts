@@ -112,18 +112,19 @@ export function generateSurgeOutput(surge: SurgeModule): string {
     for (const bodyRewrite of surge.bodyRewrites) {
       if (bodyRewrite.comment) lines.push(`# ${bodyRewrite.comment}`);
 
+      const jqAction = bodyRewrite.type === 'request-jq' ? 'http-request-jq' : 'http-response-jq';
       if (bodyRewrite.type === 'body-regex') {
         // 正则替换
         lines.push(`http-response ${bodyRewrite.pattern} ${bodyRewrite.replacement}`);
       } else if (bodyRewrite.jqExternal) {
         // 外部 jq 文件
-        lines.push(`http-response-jq ${bodyRewrite.pattern} ${bodyRewrite.replacement}`);
+        lines.push(`${jqAction} ${bodyRewrite.pattern} ${bodyRewrite.replacement}`);
       } else {
         // 内联 jq 表达式 - 用单引号包裹
         const jqExpr = bodyRewrite.replacement.startsWith('\u0027')
           ? bodyRewrite.replacement
           : `'${bodyRewrite.replacement}'`;
-        lines.push(`http-response-jq ${bodyRewrite.pattern} ${jqExpr}`);
+        lines.push(`${jqAction} ${bodyRewrite.pattern} ${jqExpr}`);
       }
     }
     lines.push('');

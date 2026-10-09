@@ -199,6 +199,7 @@ export class LocalPluginConverter {
 
           break;
         }
+        case 'request-jq':
         case 'jq':
         case 'body-regex': {
           surge.bodyRewrites.push(rewrite);
@@ -206,7 +207,7 @@ export class LocalPluginConverter {
           break;
         }
         default:
-          break;
+          throw new Error(`Unsupported local rewrite type: ${rewrite.type}`);
       }
     }
 

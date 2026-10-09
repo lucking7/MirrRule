@@ -161,13 +161,15 @@ export function parseLoonRewrite(line: string): RewriteRule | null {
       if (match) {
         const [, pattern, keyword, rest] = match;
 
+        const type = /^(?:http-)?request/i.test(keyword) ? 'request-jq' : 'jq';
+
         // 检查是否是外部 jq 文件
         const jqPathMatch = /jq-path=(["'])(.+?)\1/.exec(rest);
         if (jqPathMatch) {
           return {
             pattern: pattern.trim(),
             replacement: `jq-path="${jqPathMatch[2]}"`,
-            type: 'jq',
+            type,
             jqExternal: true,
           };
         }
@@ -178,7 +180,7 @@ export function parseLoonRewrite(line: string): RewriteRule | null {
         return {
           pattern: pattern.trim(),
           replacement: jqExpression,
-          type: (keyword.toLowerCase().startsWith('request') ? 'request-jq' : 'jq') as any,
+          type,
         };
       }
     }

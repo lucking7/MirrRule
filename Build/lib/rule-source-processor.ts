@@ -1,5 +1,6 @@
 import type { Span } from '../trace';
 import { boundedMap } from '../utils/concurrency';
+import { PUBLIC_DIR } from '../constants/dir';
 import { fetchAssets } from '../utils/network/fetch-assets';
 import { loadRules } from '../utils/rule-loader';
 import { EnhancedFileOutput } from './enhanced-file-output';
@@ -63,7 +64,7 @@ function appendRuleBatch(target: string[], source: readonly string[]): void {
 }
 
 export class RuleSourceProcessor {
-  constructor(private readonly span: Span, private readonly outputDir = 'public') {}
+  constructor(private readonly span: Span, private readonly outputDir = PUBLIC_DIR) {}
 
   private static recordError(
     this: void,

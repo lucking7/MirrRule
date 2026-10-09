@@ -88,6 +88,8 @@ export class LoonPluginParser {
                   LoonPluginParser.lastComment = '';
                 }
                 plugin.rewrites.push(rewrite);
+              } else {
+                throw new Error(`Unsupported local rewrite: ${trimmedLine}`);
               }
             }
           }

@@ -12,6 +12,8 @@ export interface PendingPluginArtifact {
   content: string
 }
 
+export type PluginPublicationWork = PendingPluginArtifact | ConversionResult;
+
 async function fileExists(filePath: string | undefined): Promise<boolean> {
   if (!filePath) return false;
   try {
@@ -23,34 +25,35 @@ async function fileExists(filePath: string | undefined): Promise<boolean> {
 }
 
 export async function publishPluginArtifacts(
-  pending: PendingPluginArtifact[],
+  work: PluginPublicationWork[],
   urlMap: Readonly<Record<string, string>>,
   degradedUrls: ReadonlySet<string> = new Set()
 ): Promise<ConversionResult[]> {
   const results: ConversionResult[] = [];
-  const rendered = pending.map(artifact => applyScriptMirrorMap(
-    artifact.content,
-    artifact.result.scripts,
-    urlMap
-  ));
-  const artifactsByPath = new Map<string, number[]>();
+  const rendered = new Map<PendingPluginArtifact, string>();
+  const contentsByPath = new Map<string, Set<string>>();
 
-  for (const [index, artifact] of pending.entries()) {
-    if (!artifact.result.outputPath) continue;
-    const outputPath = path.resolve(artifact.result.outputPath);
-    const indexes = artifactsByPath.get(outputPath) ?? [];
-    indexes.push(index);
-    artifactsByPath.set(outputPath, indexes);
+  for (const item of work) {
+    if (!('content' in item)) continue;
+    const content = applyScriptMirrorMap(item.content, item.result.scripts, urlMap);
+    rendered.set(item, content);
+    if (!item.result.outputPath) continue;
+    const outputPath = path.resolve(item.result.outputPath);
+    const contents = contentsByPath.get(outputPath) ?? new Set<string>();
+    contents.add(content);
+    contentsByPath.set(outputPath, contents);
   }
 
   const conflictingPaths = new Set<string>();
-  for (const [outputPath, indexes] of artifactsByPath) {
-    if (new Set(indexes.map(index => rendered[index])).size > 1) {
-      conflictingPaths.add(outputPath);
-    }
+  for (const [outputPath, contents] of contentsByPath) {
+    if (contents.size > 1) conflictingPaths.add(outputPath);
   }
 
-  for (const [index, artifact] of pending.entries()) {
+  for (const artifact of work) {
+    if (!('content' in artifact)) {
+      results.push(artifact);
+      continue;
+    }
     if (artifact.result.outputPath && isRetiredPluginArtifact(path.basename(artifact.result.outputPath))) {
       results.push({
         ...artifact.result,
@@ -93,7 +96,7 @@ export async function publishPluginArtifacts(
     try {
       await writeFileAtomic(
         artifact.result.outputPath,
-        rendered[index]
+        rendered.get(artifact)!
       );
       const degradedDependencies = artifact.result.scripts.filter(
         script => degradedUrls.has(script.originalUrl)

@@ -166,6 +166,7 @@ eslint.config.js                   ESLint 配置
 - `url` / `fallbackUrls`：主下载地址与备用地址。
 - `targets`：目标平台，当前有效平台见 `Build/lib/platform-config.ts`：`surge`、`clash`、`singbox`、`loon`。
 - `defaultPolicy`：默认策略；设为 `null` 时会清理规则中的策略字段，输出纯规则格式。
+- `allowEmpty`：允许空来源或策略筛选后为空的文本规则；不能绕过 sing-box 的有效匹配条件发布检查。
 - `keepComments`：是否保留行首注释，默认 `false`。
 - `keepInlineComments`：是否保留行内注释，默认 `false`。
 - `keepEmptyLines`：是否保留空行，默认 `false`。
