@@ -117,11 +117,12 @@ export class RuleSourceProcessor {
       .withDescription(publication.description);
     output.addRules(rules);
     if (
-      publication.options.sourcePolicies !== undefined &&
+      (publication.options.sourcePolicies !== undefined || publication.options.excludedRuleTypes !== undefined) &&
       !publication.options.allowEmpty &&
       output.getOutputSummary().ruleCount === 0
     ) {
-      throw new Error(`No rules remain after source policy filtering: ${publication.path}`);
+      const filter = publication.options.sourcePolicies === undefined ? 'rule type' : 'source policy';
+      throw new Error(`No rules remain after ${filter} filtering: ${publication.path}`);
     }
     await output.write();
     return output.getOutputSummary();

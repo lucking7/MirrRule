@@ -10,6 +10,7 @@ import { downloadGEOIP } from './download-geoip';
 import { buildPublic } from './build-public';
 import { RuleSourceProcessor } from './lib/rule-source-processor';
 import { ruleGroups, specialRules } from './lib/rule-sources';
+import { createRuleCoverageReport, writeRuleCoverageReport } from './audit-rule-coverage';
 import {
   buildStatusManifest,
   normalizeCommit,
@@ -70,6 +71,16 @@ async function executeWebBuildStep(): Promise<BuildStepResult> {
   }
 }
 
+async function executeCoverageAuditStep(): Promise<BuildStepResult> {
+  try {
+    const report = await createRuleCoverageReport({ rulesDir: path.join(PUBLIC_DIR, 'List') });
+    await writeRuleCoverageReport(report, path.join(PUBLIC_DIR, 'Internal', 'rule-coverage.json'));
+    return { success: true, errors: [] };
+  } catch (error) {
+    return { success: false, errors: [`[rule-coverage] ${getErrorMessage(error)}`] };
+  }
+}
+
 export const buildRuleset = task(
   require.main === module,
   __filename
@@ -82,13 +93,14 @@ export const buildRuleset = task(
   }
 
   console.log('Starting ruleset build...');
-  const steps = [
-    await span.traceChildAsync('download GEOIP', stepSpan => executeGeoIpBuildStep(stepSpan)),
-    await span.traceChildAsync('unified rule processing system', stepSpan =>
-      executeRuleProcessingBuildStep(stepSpan)
-    ),
-    await span.traceChildAsync('build web page', () => executeWebBuildStep()),
-  ];
+  const geoIpStep = await span.traceChildAsync('download GEOIP', stepSpan => executeGeoIpBuildStep(stepSpan));
+  const ruleStep = await span.traceChildAsync('unified rule processing system', stepSpan =>
+    executeRuleProcessingBuildStep(stepSpan)
+  );
+  const coverageStep = ruleStep.success
+    ? await span.traceChildAsync('cross-subscription coverage audit', () => executeCoverageAuditStep())
+    : { success: false, errors: ['[rule-coverage] Skipped because rule processing failed'] };
+  const steps = [geoIpStep, ruleStep, coverageStep, await span.traceChildAsync('build web page', () => executeWebBuildStep())];
 
   const allErrors = steps.flatMap(step => step.errors);
   const allSuccess = steps.every(step => step.success);

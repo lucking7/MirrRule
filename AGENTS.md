@@ -174,6 +174,7 @@ eslint.config.js                   ESLint 配置
 - `applyNoResolve`：是否为 IP 类规则添加 `no-resolve`。
 - `validate`：是否启用规则合法性校验，默认 `false`。
 - `sourcePolicies`：可选的上游策略白名单，在移除策略前按第三个逗号字段匹配（忽略大小写）。用于从混合 QX 规则源中提取 `direct` 或 `reject`，不把上游 `proxy` 例外误转为直连。筛选后为空会终止该订阅发布，除非显式设置 `allowEmpty: true`。
+- `excludedRuleTypes`：可选的规则类型排除列表，忽略大小写；在转换后筛选，包含被排除类型的复合规则整体丢弃，避免删减子条件扩大匹配。筛选后为空同样受 `allowEmpty` 发布边界约束。
 - `deleteSourceFiles`：特殊规则完成后，按来源 URL 的 basename 尝试删除输出根目录中的同名文件。当前下载器只把来源保存在内存中，不会自行创建这些根目录文件；外部预置的同名文件仍可能被删除。
 
 规则输出始终按 `EnhancedFileOutput` 的 Trie/Set 与平台 writer 处理去重和顺序，规则源配置没有单独的 `dedup` 或 `sort` 开关。
