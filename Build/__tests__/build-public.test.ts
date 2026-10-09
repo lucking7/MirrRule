@@ -49,6 +49,32 @@ it('removes withdrawn Container, Discord and Scholar artifacts on all clients wh
   }));
 });
 
+it('retires only the unsupported sing-box ASN artifact and retains other client subscriptions', async (t) => {
+  const group = ruleGroups.find(candidate => candidate.files.some(file => file.path === 'List/china_asn.list'));
+  assert.ok(group);
+  assert.deepEqual(group.targets, ['surge', 'clash', 'loon']);
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-asn-retirement-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const entries = ['List/china_asn.list', 'Clash/china_asn.txt', 'Loon/china_asn.list', 'sing-box/china_asn.json'];
+  await Promise.all(entries.map(async entry => {
+    await fs.mkdir(path.dirname(path.join(directory, entry)), { recursive: true });
+    await fs.writeFile(path.join(directory, entry), `Fixture: ${entry}\n`);
+  }));
+  const result = spawnSync(process.execPath, ['-r', '@swc-node/register', 'Build/build-public.ts'], {
+    cwd: path.resolve(__dirname, '../..'),
+    env: { ...process.env, PUBLIC_DIR: directory, SWC_NODE_IGNORE_DYNAMIC: 'true' },
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const index = await fs.readFile(path.join(directory, 'index.html'), 'utf8');
+  await assert.rejects(fs.access(path.join(directory, 'sing-box/china_asn.json')), { code: 'ENOENT' });
+  assert.equal(index.includes('sing-box/china_asn.json'), false);
+  for (const entry of entries.slice(0, 3)) {
+    assert.equal(await fs.readFile(path.join(directory, entry), 'utf8'), `Fixture: ${entry}\n`);
+    assert.ok(index.includes(entry));
+  }
+});
+
 it('build-web removes retired subscriptions from historical artifacts before publishing the index', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-retired-index-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));

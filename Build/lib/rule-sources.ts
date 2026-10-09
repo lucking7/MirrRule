@@ -90,6 +90,12 @@ export const ruleGroups: RuleGroup[] = [
         path: 'List/china_ip_ipv6.list',
         url: 'https://ruleset.skk.moe/List/ip/china_ip_ipv6.conf',
       },
+    ],
+  },
+  {
+    name: 'CN-ASN',
+    targets: ['surge', 'clash', 'loon'],
+    files: [
       {
         path: 'List/china_asn.list',
         url: 'https://raw.githubusercontent.com/missuo/ASN-China/main/ASN.China.list',

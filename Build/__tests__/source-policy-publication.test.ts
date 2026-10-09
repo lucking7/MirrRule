@@ -7,6 +7,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { RuleSourceProcessor } from '../lib/rule-source-processor';
 import { createSpan } from '../trace';
+import type { RuleTarget } from '../lib/rule-source-types';
 
 const outputs = [
   ['List', 'list'], ['Clash', 'txt'], ['Loon', 'list'], ['sing-box', 'json'],
@@ -41,11 +42,11 @@ async function withProxyOnlySource(verify: (url: string, outputDir: string, path
   }
 }
 
-async function publishDirect(url: string, outputDir: string, allowEmpty = false) {
+async function publishDirect(url: string, outputDir: string, allowEmpty = false, targets: RuleTarget[] = ['surge', 'clash', 'singbox', 'loon']) {
   return new RuleSourceProcessor(createSpan('source-policy-publication'), outputDir).processRuleGroups([{
     name: 'Direct',
     defaultPolicy: null,
-    targets: ['surge', 'clash', 'singbox', 'loon'],
+    targets,
     files: [{
       path: 'List/direct-fmz.list',
       url,
@@ -69,20 +70,31 @@ describe('source-policy publication boundary', () => {
     });
   });
 
-  it('publishes empty files only when allowEmpty is explicitly enabled', async () => {
+  it('allowEmpty cannot publish a conditionless sing-box ruleset or overwrite sibling outputs', async () => {
     await withProxyOnlySource(async (url, outputDir, paths) => {
       const stats = await publishDirect(url, outputDir, true);
+      assert.equal(stats.filesProcessed, 0);
+      assert.equal(stats.errors.length, 1);
+      assert.match(stats.errors[0].error, /without matching conditions/);
+      assert.deepEqual(stats.rulesets, []);
+      for (const file of paths) assert.equal(fs.readFileSync(file, 'utf8'), 'last-known-good');
+    });
+  });
+
+  it('retains explicit allowEmpty for the text platforms', async () => {
+    await withProxyOnlySource(async (url, outputDir, paths) => {
+      const stats = await publishDirect(url, outputDir, true, ['surge', 'clash', 'loon']);
       assert.equal(stats.filesProcessed, 1);
       assert.deepEqual(stats.errors, []);
       assert.equal(stats.rulesets[0].ruleCount, 0);
       for (const file of paths) {
         const content = fs.readFileSync(file, 'utf8');
-        assert.notEqual(content, 'last-known-good');
-        assert.equal(content.includes('amp-api.podcasts.apple.com'), false);
         if (file.endsWith('.json')) {
-          const rules = JSON.parse(content).rules as Array<Record<string, string[]>>;
-          assert.equal(rules.flatMap(rule => Object.values(rule).flat()).length, 0);
-        } else assert.equal(content.split('\n').filter(line => line && !line.startsWith('#')).length, 0);
+          assert.equal(content, 'last-known-good');
+        } else {
+          assert.notEqual(content, 'last-known-good');
+          assert.equal(content.split('\n').filter(line => line && !line.startsWith('#')).length, 0);
+        }
       }
     });
   });

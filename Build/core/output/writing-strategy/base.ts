@@ -103,6 +103,13 @@ export abstract class BaseWriteStrategy {
 
   protected abstract result: string[];
 
+  // eslint-disable-next-line @typescript-eslint/class-methods-use-this -- platform hook, overridden by writers that require validation
+  validateForPublication(): void { return undefined; }
+
+  // Other platforms have no equivalent of Surge RULE-SET extended domain matching.
+  // eslint-disable-next-line @typescript-eslint/class-methods-use-this -- platform hook, only Surge changes domain matcher behavior
+  setExtendedDomainMatching(_enabled: boolean): void { return undefined; }
+
   abstract writeDomain(domain: string): void;
   abstract writeDomainSuffix(domain: string): void;
   abstract writeDomainKeywords(keyword: Set<string>): void;
@@ -165,6 +172,7 @@ export abstract class BaseWriteStrategy {
     date: Date,
     filePath: string
   ): Promise<void> {
+    this.validateForPublication();
     for (const message of this.getRuleDropMessages()) console.warn(message);
 
     return compareAndWriteFile(

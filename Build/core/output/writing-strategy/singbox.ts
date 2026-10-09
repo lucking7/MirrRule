@@ -10,15 +10,7 @@ interface SingboxHeadlessRule {
   domain_suffix: string[];
   domain_keyword?: string[];
   domain_regex?: string[];
-  source_ip_cidr?: string[];
   ip_cidr?: string[];
-  source_port?: number[];
-  source_port_range?: string[];
-  port?: number[];
-  port_range?: string[];
-  process_name?: string[];
-  process_path?: string[];
-  network?: string[];
 }
 
 export class SingboxSource extends BaseWriteStrategy {
@@ -51,15 +43,19 @@ export class SingboxSource extends BaseWriteStrategy {
 
   withPadding = withIdentityContent;
 
-  writeDomain(domain: string): void {
+  validateForPublication(): void {
+    if (!Object.values(this.singbox).some(values => values.length > 0)) {
+      throw new Error('singbox: refusing to publish a ruleset without matching conditions');
+    }
+  }
 
+  writeDomain(domain: string): void {
     if (!RuleLineUtils.isSukkaWatermark(domain)) {
       this.singbox.domain.push(domain);
     }
   }
 
   writeDomainSuffix(domain: string): void {
-
     if (!RuleLineUtils.isSukkaWatermark(domain)) {
       this.singbox.domain_suffix.push(domain);
     }
@@ -81,22 +77,10 @@ export class SingboxSource extends BaseWriteStrategy {
   writeProcessNames(processName: Set<string>): void {
     this.accepts('PROCESS-NAME', processName.size);
   }
-  // writeProcessNames(processName: Set<string>): void {
-  //   appendArrayInPlace(
-  //     this.singbox.process_name ??= [],
-  //     Array.from(processName)
-  //   );
-  // }
 
   writeProcessPaths(processPath: Set<string>): void {
     this.accepts('PROCESS-PATH', processPath.size);
   }
-  // writeProcessPaths(processPath: Set<string>): void {
-  //   appendArrayInPlace(
-  //     this.singbox.process_path ??= [],
-  //     Array.from(processPath)
-  //   );
-  // }
 
   writeUrlRegexes(urlRegex: Set<string>): void {
     this.accepts('URL-REGEX', urlRegex.size);
@@ -133,16 +117,6 @@ export class SingboxSource extends BaseWriteStrategy {
   writeProtocols(protocol: Set<string>): void {
     this.accepts('PROTOCOL', protocol.size);
   }
-  // writeProtocols(protocol: Set<string>): void {
-  //   this.singbox.network ??= [];
-  //   // protocol has already be normalized and will only be uppercase
-  //   if (protocol.has('UDP')) {
-  //     this.singbox.network.push('udp');
-  //   }
-  //   if (protocol.has('TCP')) {
-  //     this.singbox.network.push('tcp');
-  //   }
-  // }
 
   writeOtherRules(rule: string[]): void {
     // sing-box智能处理混合规则

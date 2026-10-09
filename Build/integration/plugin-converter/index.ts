@@ -31,7 +31,7 @@ import { publishPluginArtifacts } from './plugin-artifact';
 import { identifyPluginSource } from './plugin-identity';
 import { loadNativeSurgeModule } from './native-surge';
 import { DNS_POLICY_ARTIFACT, DNS_POLICY_SOURCE_URL, isDnsPolicyPlugin, loadDnsPolicyModule } from './dns-policy-module';
-import type { PendingPluginArtifact } from './plugin-artifact';
+import type { PendingPluginArtifact, PluginPublicationWork } from './plugin-artifact';
 import type { ConversionResult, PluginInfo } from './types';
 
 // CommonJS 中的 __dirname 直接可用
@@ -250,9 +250,7 @@ export async function convertAndMirrorPlugins(
   // 3. 处理转换结果
   console.log(picocolors.cyan('\n[Step 3/4] Processing conversion results...\n'));
 
-  const results: Array<ConversionResult | undefined> = [];
-  const pendingArtifacts: PendingPluginArtifact[] = [];
-  const pendingResultIndexes: number[] = [];
+  const work: PluginPublicationWork[] = [];
 
   for (const { pluginName, sourceId, sourceUrl, content } of conversionResults) {
     if (typeof content === 'string') {
@@ -276,11 +274,9 @@ export async function convertAndMirrorPlugins(
         outputPath,
         scripts,
       };
-      pendingResultIndexes.push(results.length);
-      pendingArtifacts.push({ result, content });
-      results.push(undefined);
+      work.push({ result, content });
     } else {
-      results.push({
+      work.push({
         pluginName,
         sourceId,
         sourceUrl,
@@ -294,7 +290,7 @@ export async function convertAndMirrorPlugins(
   // 4. 提取所有脚本
   console.log(picocolors.cyan('\n[Step 4/4] Extracting JavaScript URLs...\n'));
 
-  const allScriptInfos = pendingArtifacts.flatMap(artifact => artifact.result.scripts);
+  const allScriptInfos = work.flatMap(item => ('content' in item ? item.result.scripts : []));
   const uniqueScripts = Array.from(new Map(allScriptInfos.map(s => [s.originalUrl, s])).values());
 
   const scriptStats = getScriptStats(uniqueScripts);
@@ -320,25 +316,17 @@ export async function convertAndMirrorPlugins(
     console.log(picocolors.gray('\n[Mirror] No scripts to mirror - skipping\n'));
   }
 
-  const publishedResults = await publishPluginArtifacts(
-    pendingArtifacts,
+  const finalizedResults = await publishPluginArtifacts(
+    work,
     scriptUrlMap,
     degradedScriptUrls
   );
-  for (const [index, published] of publishedResults.entries()) {
-    results[pendingResultIndexes[index]] = published;
+  for (const published of finalizedResults) {
     if (published.status === 'ready' && published.outputPath) {
       console.log(picocolors.gray(
         `  ✓ ${published.pluginName} → ${path.basename(published.outputPath)}`
       ));
     }
-  }
-
-  const finalizedResults = results.filter(
-    (result): result is ConversionResult => result !== undefined
-  );
-  if (finalizedResults.length !== results.length) {
-    throw new Error('Plugin artifact publication did not finalize every conversion result');
   }
 
   const successCount = finalizedResults.filter(result => result.status === 'ready').length;

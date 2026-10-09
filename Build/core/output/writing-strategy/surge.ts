@@ -2,9 +2,8 @@ import { appendSetElementsToArray } from 'foxts/append-set-elements-to-array';
 import { BaseWriteStrategy } from './base';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { OUTPUT_SURGE_DIR } from '../../../constants/dir';
-import { withBannerArray } from '../../../lib/misc';
+import { withBannerArray, smartConvertRule } from '../../../lib/misc';
 import { RuleLineUtils } from '../../../utils/validation/validators';
-import { smartConvertRule } from '../../../lib/misc';
 import { cleanPolicy } from '../../../lib/policy-cleaner';
 
 export class SurgeRuleSet extends BaseWriteStrategy {
@@ -19,33 +18,39 @@ export class SurgeRuleSet extends BaseWriteStrategy {
   constructor(
     public readonly type: '' | 'ip' | 'non_ip' | (string & {}),
     public readonly outputDir = OUTPUT_SURGE_DIR,
-    private readonly stripPolicy: boolean = false
+    private readonly stripPolicy = false
   ) {
     super(outputDir);
   }
 
   withPadding = withBannerArray;
 
+  private domainParameter = '';
+
+  setExtendedDomainMatching(enabled: boolean): void {
+    this.domainParameter = enabled ? ',extended-matching' : '';
+  }
+
   writeDomain(domain: string): void {
     if (!RuleLineUtils.isSukkaWatermark(domain)) {
       // 生成无策略的纯RULE-SET格式
-      this.result.push(BaseWriteStrategy.normalizeSurgeRule(`DOMAIN,${domain}`));
+      this.result.push(BaseWriteStrategy.normalizeSurgeRule(`DOMAIN,${domain}${this.domainParameter}`));
     }
   }
 
   writeDomainSuffix(domain: string): void {
     if (!RuleLineUtils.isSukkaWatermark(domain)) {
       // 生成无策略的纯RULE-SET格式
-      this.result.push(BaseWriteStrategy.normalizeSurgeRule(`DOMAIN-SUFFIX,${domain}`));
+      this.result.push(BaseWriteStrategy.normalizeSurgeRule(`DOMAIN-SUFFIX,${domain}${this.domainParameter}`));
     }
   }
 
   writeDomainKeywords(keyword: Set<string>): void {
-    appendSetElementsToArray(this.result, keyword, i => `DOMAIN-KEYWORD,${i}`);
+    appendSetElementsToArray(this.result, keyword, i => `DOMAIN-KEYWORD,${i}${this.domainParameter}`);
   }
 
   writeDomainWildcard(wildcard: string): void {
-    this.result.push(`DOMAIN-WILDCARD,${wildcard}`);
+    this.result.push(`DOMAIN-WILDCARD,${wildcard}${this.domainParameter}`);
   }
 
   writeUserAgents(userAgent: Set<string>): void {
@@ -134,10 +139,10 @@ export class SurgeRuleSet extends BaseWriteStrategy {
     // 智能处理各种规则类型（不使用noop）
     switch (ruleType) {
       case 'DOMAIN':
-        this.result.push(`DOMAIN,${value}`);
+        this.result.push(`DOMAIN,${value}${parts.slice(2).some(part => part.toLowerCase() === 'extended-matching') ? ',extended-matching' : this.domainParameter}`);
         break;
       case 'DOMAIN-SUFFIX':
-        this.result.push(`DOMAIN-SUFFIX,${value}`);
+        this.result.push(`DOMAIN-SUFFIX,${value}${parts.slice(2).some(part => part.toLowerCase() === 'extended-matching') ? ',extended-matching' : this.domainParameter}`);
         break;
       case 'DOMAIN-KEYWORD':
         this.result.push(`DOMAIN-KEYWORD,${value}`);
@@ -148,6 +153,7 @@ export class SurgeRuleSet extends BaseWriteStrategy {
       case 'USER-AGENT':
         this.result.push(`USER-AGENT,${value}`);
         break;
+      case 'PROCESS-PATH':
       case 'PROCESS-NAME':
         this.result.push(`PROCESS-NAME,${value}`);
         break;
@@ -180,5 +186,4 @@ export class SurgeRuleSet extends BaseWriteStrategy {
         // accountOtherRule exhaustively handles unknown types above.
     }
   }
-
 }

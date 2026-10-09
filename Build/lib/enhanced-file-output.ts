@@ -24,6 +24,7 @@ const RULE_TYPE_MAP: Record<string, string> = {
   'IP-ASN': 'ip-asn',
   'USER-AGENT': 'user-agent',
   'PROCESS-NAME': 'process-name',
+  'PROCESS-PATH': 'process-path',
   'URL-REGEX': 'url-regex',
   GEOIP: 'geoip',
   'SRC-IP': 'source-ip-cidr',
@@ -69,6 +70,7 @@ export class EnhancedFileOutput {
   private description: string[] | null = null;
   private readonly date = new Date();
   private strategiesWritten = false;
+  private extendedDomainMatching = false;
 
   private readonly stats = {
     inputDomains: 0,
@@ -159,6 +161,11 @@ export class EnhancedFileOutput {
 
     const ruleType = this.detectRuleType(processedRule);
 
+    // Surge applies this parameter to every domain rule in the external RULE-SET.
+    if (ruleType.startsWith('domain') && processedRule.split(',').slice(2).some(
+      parameter => parameter.trim().toLowerCase() === 'extended-matching'
+    )) this.extendedDomainMatching = true;
+
     switch (ruleType) {
       case 'domain': {
         const domain = this.extractDomain(processedRule);
@@ -205,7 +212,7 @@ export class EnhancedFileOutput {
       case 'ip-cidr': {
         const cidr = processedRule.split(',')[1]?.trim();
         if (cidr) {
-          const noResolve = processedRule.includes('no-resolve');
+          const noResolve = processedRule.toLowerCase().includes('no-resolve');
           (noResolve ? this.ipcidrNoResolve : this.ipcidr).add(cidr);
           if (process.env.DEBUG) this.stats.inputCIDRs++;
         }
@@ -215,7 +222,7 @@ export class EnhancedFileOutput {
       case 'ip-cidr6': {
         const cidr6 = processedRule.split(',')[1]?.trim();
         if (cidr6) {
-          const noResolve = processedRule.includes('no-resolve');
+          const noResolve = processedRule.toLowerCase().includes('no-resolve');
           (noResolve ? this.ipcidr6NoResolve : this.ipcidr6).add(cidr6);
           if (process.env.DEBUG) this.stats.inputCIDRs++;
         }
@@ -225,7 +232,7 @@ export class EnhancedFileOutput {
       case 'ip-asn': {
         const asn = processedRule.split(',')[1]?.trim();
         if (asn) {
-          const noResolve = processedRule.includes('no-resolve');
+          const noResolve = processedRule.toLowerCase().includes('no-resolve');
           (noResolve ? this.ipasnNoResolve : this.ipasn).add(asn);
         }
         break;
@@ -236,6 +243,12 @@ export class EnhancedFileOutput {
         if (ua) {
           this.userAgent.add(ua);
         }
+        break;
+      }
+
+      case 'process-path': {
+        const proc = processedRule.split(',')[1]?.trim();
+        if (proc) this.processPath.add(proc);
         break;
       }
 
@@ -457,6 +470,9 @@ export class EnhancedFileOutput {
     const kwfilter = createKeywordFilter(Array.from(this.domainKeywords));
 
     const strategiesLen = this.strategies.length;
+    for (const strategy of this.strategies) {
+      strategy.setExtendedDomainMatching(this.extendedDomainMatching);
+    }
 
     this.domainTrie.dumpWithoutDot((domain, includeAllSubdomain) => {
       if (kwfilter(domain)) {
@@ -590,6 +606,8 @@ export class EnhancedFileOutput {
       await childSpan.traceChildAsync('done', () => this.done());
 
       childSpan.traceChildSync('write to strategies', () => this.writeToStrategies());
+
+      for (const strategy of this.strategies) strategy.validateForPublication();
 
       return childSpan.traceChildAsync('output to disk', async childSpan => {
         const descriptions = nullthrow(this.description, 'Missing description');

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { printTraceResult, task, whyIsNodeRunning } from './trace';
-import { ROOT_DIR } from './constants/dir';
+import { PUBLIC_DIR, ROOT_DIR } from './constants/dir';
 import { getErrorMessage } from './lib/misc';
 import { downloadGEOIP } from './download-geoip';
 import { buildPublic } from './build-public';
@@ -104,7 +104,7 @@ export const buildRuleset = task(
         // Mirror synchronization is a separate workflow and is not run by this build.
         mirrors: [],
       });
-      await writeStatusManifestAtomic(path.join(ROOT_DIR, 'public', 'status.json'), manifest);
+      await writeStatusManifestAtomic(path.join(PUBLIC_DIR, 'status.json'), manifest);
       fs.writeFileSync(buildFinishedLock, 'BUILD_FINISHED\n');
     } catch (error) {
       console.error(`[status-manifest] ${getErrorMessage(error)}`);

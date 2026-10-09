@@ -60,7 +60,8 @@ export interface RewriteRule {
     | 'header'
     | 'header-rewrite'
     | 'body-regex'
-    | 'jq';
+    | 'jq'
+    | 'request-jq';
   comment?: string;
   mockData?: {
     dataType?: string;

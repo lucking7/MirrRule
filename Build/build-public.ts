@@ -22,7 +22,7 @@ const RETIRED_RULESET_ARTIFACTS = ['container', 'discord', 'scholar'].flatMap(id
   `Clash/${id}.txt`,
   `Loon/${id}.list`,
   `sing-box/${id}.json`,
-]);
+]).concat('sing-box/china_asn.json');
 
 export function isVisiblePublicFile(name: string): boolean {
   return !name.startsWith('.') && !name.startsWith('_') && !/\.html?$/i.test(name) && !HIDDEN_INDEX_FILES.has(name.toLowerCase());
