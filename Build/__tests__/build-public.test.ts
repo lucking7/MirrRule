@@ -10,6 +10,44 @@ import { generateHtml, isVisiblePublicFile, scanPublicTree, treeHtml } from '../
 import { prioritySorter } from '../lib/public-index-sort';
 import { TreeFileType } from '../lib/tree-dir';
 import type { TreeTypeArray } from '../lib/tree-dir';
+import { ruleGroups, specialRules } from '../lib/rule-sources';
+
+it('removes withdrawn Container, Discord and Scholar artifacts on all clients while retaining active subscriptions', async (t) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-withdrawn-rules-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const ids = ['container', 'discord', 'scholar'];
+  const paths = new Set([
+    ...ruleGroups.flatMap(group => group.files.map(file => file.path)),
+    ...specialRules.map(rule => rule.targetFile),
+  ]);
+  for (const id of ids) assert.equal(paths.has(`List/${id}.list`), false);
+  const retired: string[] = [];
+  const active: string[] = [];
+  const outputs = [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list'], ['sing-box', 'json']];
+  await Promise.all(outputs.map(([root]) => fs.mkdir(path.join(directory, root), { recursive: true })));
+  for (const [root, extension] of outputs) {
+    for (const id of ids) retired.push(`${root}/${id}.${extension}`);
+    for (const id of ['ai', 'direct-fmz', 'reject-fmz']) active.push(`${root}/${id}.${extension}`);
+  }
+  await Promise.all([...retired, ...active].map(relative =>
+    fs.writeFile(path.join(directory, relative), `Fixture: ${relative}\n`)
+  ));
+  const result = spawnSync(process.execPath, ['-r', '@swc-node/register', 'Build/build-public.ts'], {
+    cwd: path.resolve(__dirname, '../..'),
+    env: { ...process.env, PUBLIC_DIR: directory, SWC_NODE_IGNORE_DYNAMIC: 'true' },
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const index = await fs.readFile(path.join(directory, 'index.html'), 'utf8');
+  await Promise.all(retired.map(async relative => {
+    await assert.rejects(fs.access(path.join(directory, relative)), { code: 'ENOENT' });
+    assert.equal(index.includes(relative), false);
+  }));
+  await Promise.all(active.map(async relative => {
+    assert.equal(await fs.readFile(path.join(directory, relative), 'utf8'), `Fixture: ${relative}\n`);
+    assert.equal(index.includes(relative), true);
+  }));
+});
 
 it('build-web removes retired subscriptions from historical artifacts before publishing the index', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-retired-index-'));

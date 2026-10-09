@@ -17,6 +17,12 @@ const INDEX_CSS = fs.readFileSync(path.join(__dirname, 'assets', 'ruleset-index.
 const HIDDEN_INDEX_FILES = new Set(['cname', 'favicon.ico', 'favicon.svg', 'favicon.png', 'robots.txt']);
 const CLOSED_ROOT_FOLDERS = new Set(['Mock', 'Internal']);
 const NESTED_FOLDER_PRIORITY = new Map([['domainset', 10], ['non_ip', 20], ['ip', 30]]);
+const RETIRED_RULESET_ARTIFACTS = ['container', 'discord', 'scholar'].flatMap(id => [
+  `List/${id}.list`,
+  `Clash/${id}.txt`,
+  `Loon/${id}.list`,
+  `sing-box/${id}.json`,
+]);
 
 export function isVisiblePublicFile(name: string): boolean {
   return !name.startsWith('.') && !name.startsWith('_') && !/\.html?$/i.test(name) && !HIDDEN_INDEX_FILES.has(name.toLowerCase());
@@ -44,6 +50,9 @@ export const buildPublic = task(
   await fsp.mkdir(PUBLIC_DIR, { recursive: true });
   await Promise.all(RETIRED_PLUGIN_ARTIFACTS.map(name =>
     fsp.rm(path.join(PUBLIC_DIR, 'Modules', 'Converted', name), { force: true })
+  ));
+  await Promise.all(RETIRED_RULESET_ARTIFACTS.map(relative =>
+    fsp.rm(path.join(PUBLIC_DIR, relative), { force: true })
   ));
   await span.traceChild('prepare public metadata').traceAsyncFn(() => Promise.all([
     fsp.copyFile(path.join(ROOT_DIR, 'LICENSE'), path.join(PUBLIC_DIR, 'LICENSE')),
