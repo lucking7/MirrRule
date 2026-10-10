@@ -9,6 +9,7 @@ import { describe, it } from 'node:test';
 import { RuleSourceProcessor } from '../lib/rule-source-processor';
 import type { RuleGroup, SpecialRuleConfig } from '../lib/rule-source-types';
 import { fetchAssets } from '../utils/network/fetch-assets';
+import { writeRuleOutputReports } from '../lib/output-audit';
 
 interface FakeSpan {
   traceChild: () => FakeSpan;
@@ -85,7 +86,126 @@ describe('fetchAssets empty responses', () => {
   });
 });
 
+describe('RuleSourceProcessor raw input audit', () => {
+  it('digests raw bodies and counts pre-cleaning lines from the same download for groups and special rules', async () => {
+    let banner = '# Updated: 2026-01-01';
+    const server = http.createServer((_request, response) => {
+      // no-store keeps the shared undici HTTP cache from replaying the first body.
+      response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+      response.end(`${banner}\n\nDOMAIN,a.example\n// note\nIP-CIDR,192.0.2.0/24,no-resolve\n`);
+    });
+    await new Promise<void>(resolve => {
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const { port } = server.address() as AddressInfo;
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-raw-input-'));
+    const run = async (directory: string) => {
+      const processor = new RuleSourceProcessor(fakeSpan as any, directory);
+      const groupStats = await processor.processRuleGroups([{
+        name: 'Raw', files: [{ path: 'List/raw_group.list', url: `http://127.0.0.1:${port}/group` }], targets: ['surge'], defaultPolicy: null,
+      }]);
+      const specialStats = await processor.processSpecialRules([{
+        name: 'Raw special', targetFile: 'List/raw_special.list', sourceFiles: [`http://127.0.0.1:${port}/special`], targets: ['surge'],
+      }]);
+      assert.deepEqual([...groupStats.errors, ...specialStats.errors], []);
+      return [...groupStats.audits, ...specialStats.audits];
+    };
+    try {
+      const baselineDir = path.join(root, 'baseline');
+      const first = await run(baselineDir);
+      for (const audit of first) {
+        assert.deepEqual(audit.stages, {
+          inputLines: 5,
+          filtered: { emptyLines: 1, commentsOrMarkers: 2, excludedRuleType: 0, sourcePolicy: 0, invalid: 0 },
+          canonicalCount: 2,
+        });
+        assert.equal(audit.sources[0].rawLineCount, 5);
+        assert.match(audit.sources[0].rawContentSha256 ?? '', /^[\da-f]{64}$/);
+      }
+      await writeRuleOutputReports({ outputRoot: baselineDir, records: first, generatedAt: 'a', baselineDir: null, baselineReceiptId: null });
+
+      banner = '# Updated: 2026-01-02';
+      const candidateDir = path.join(root, 'candidate');
+      const second = await run(candidateDir);
+      assert.notEqual(second[0].rawInputSha256, first[0].rawInputSha256);
+      assert.equal(second[0].semanticSha256, first[0].semanticSha256);
+      await writeRuleOutputReports({ outputRoot: candidateDir, records: second, generatedAt: 'b', baselineDir, baselineReceiptId: null });
+      const delta = JSON.parse(fs.readFileSync(path.join(candidateDir, 'Internal/source-delta.json'), 'utf8')) as {
+        sources: Array<{ status: string; rawInputChanged: boolean; semanticChanged: boolean }>;
+      };
+      assert.deepEqual(delta.sources.map(entry => [entry.status, entry.rawInputChanged, entry.semanticChanged]), [
+        ['compared', true, false], ['compared', true, false],
+      ]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+      await new Promise<void>((resolve, reject) => {
+        server.close(error => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+    }
+  });
+});
+
 describe('RuleSourceProcessor ordinary rules', () => {
+  it('records which configured fallback served the download without extra requests', async () => {
+    const requests: string[] = [];
+    const server = http.createServer((request, response) => {
+      requests.push(request.url ?? '');
+      if (request.url === '/fallback') {
+        response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', age: '42' });
+        response.end('DOMAIN,fallback.example\nIP-CIDR,192.0.2.0/24\n');
+        return;
+      }
+      response.writeHead(404);
+      response.end();
+    });
+    await new Promise<void>(resolve => {
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const { port } = server.address() as AddressInfo;
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-provenance-'));
+    try {
+      const baseUrl = `http://127.0.0.1:${port}`;
+      const processor = new RuleSourceProcessor(fakeSpan as any, tempDir);
+      const stats = await processor.processRuleGroups([{
+        name: 'Provenance',
+        files: [{ path: 'List/Provenance.list', url: `${baseUrl}/primary?token=secret`, fallbackUrls: [`${baseUrl}/fallback`] }],
+        targets: ['surge', 'clash'],
+        defaultPolicy: null,
+      }]);
+      assert.deepEqual(stats.errors, []);
+      assert.deepEqual(requests.sort(), ['/fallback', '/primary?token=secret']);
+      const [audit] = stats.audits;
+      assert.equal(audit.id, 'provenance');
+      assert.deepEqual(audit.sources, [{
+        configuredUrl: `${baseUrl}/primary?[REDACTED]`,
+        fallbackUrls: [`${baseUrl}/fallback`],
+        selectedUrl: `${baseUrl}/fallback`,
+        selection: 'fallback',
+        fallbackIndex: 0,
+        viaProxy: false,
+        responseAgeSeconds: 42,
+        rawContentSha256: 'cecb2612ae0d5f28968a3039bc316920effd0c2218b6fcb2c2999063e803c8bf',
+        rawLineCount: 2,
+      }]);
+      assert.equal(audit.stages.canonicalCount, stats.rulesets[0].ruleCount);
+      assert.deepEqual(
+        audit.outputs.flatMap(entry => (entry.status === 'published' ? [entry.path] : [])).sort(),
+        ['Clash/domainset/provenance.txt', 'Clash/ip/provenance.txt', 'Clash/provenance.txt', 'List/domainset/provenance.list', 'List/ip/provenance.list', 'List/provenance.list']
+      );
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+      await new Promise<void>((resolve, reject) => {
+        server.close(error => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+    }
+  });
+
   it('downloads concurrently but applies success and error stats in configuration order', async () => {
     let activeRequests = 0;
     let maximumActiveRequests = 0;

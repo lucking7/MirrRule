@@ -14,6 +14,13 @@ export interface BuildStatusManifest {
     id: string;
     status: 'included' | 'not-run';
   }>;
+  /** Output-root relative paths of the machine-readable reports written by this build. */
+  reports?: BuildStatusReports;
+}
+
+interface BuildStatusReports {
+  ruleOutputAudit: string;
+  sourceDelta: string;
 }
 
 export interface BuildStatusInput {
@@ -21,6 +28,7 @@ export interface BuildStatusInput {
   commit: string | null;
   rulesets: Array<{ id: string; platforms: SupportedPlatform[]; ruleCount: number }>;
   mirrors: Array<{ id: string; status: 'included' | 'not-run' }>;
+  reports?: BuildStatusReports;
 }
 
 const PLATFORM_ORDER: SupportedPlatform[] = ['surge', 'clash', 'singbox', 'loon'];
@@ -47,6 +55,7 @@ export function buildStatusManifest(input: BuildStatusInput): BuildStatusManifes
     mirrors: input.mirrors
       .map(mirror => ({ id: mirror.id, status: mirror.status }))
       .sort((a, b) => a.id.localeCompare(b.id)),
+    ...(input.reports && { reports: { ...input.reports } }),
   };
 }
 

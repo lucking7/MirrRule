@@ -7,7 +7,10 @@ import { SurgeRuleSet } from '../core/output/writing-strategy/surge';
 import { ClashClassicRuleSet } from '../core/output/writing-strategy/clash';
 import { SingboxSource } from '../core/output/writing-strategy/singbox';
 import { LoonRuleSet } from '../core/output/writing-strategy/loon';
+import { SurgeDomainSet } from '../core/output/writing-strategy/surge-domainset';
 import type { BaseWriteStrategy } from '../core/output/writing-strategy/base';
+import { PLATFORM_OUTPUT_LAYOUT } from './rule-output-variants';
+import type { RuleOutputVariant } from './rule-output-variants';
 
 export type SupportedPlatform = 'surge' | 'clash' | 'singbox' | 'loon';
 
@@ -32,13 +35,6 @@ export function normalizeTargets(
   return rawTargets as SupportedPlatform[];
 }
 
-const PLATFORM_OUTPUT_DIRS: Record<SupportedPlatform, string> = {
-  surge: 'List',
-  clash: 'Clash',
-  singbox: 'sing-box',
-  loon: 'Loon',
-};
-
 export function createStrategiesForTargets(
   targets: SupportedPlatform[],
   outputBaseDir = 'public'
@@ -47,7 +43,7 @@ export function createStrategiesForTargets(
 
   // 使用静态导入避免动态加载问题
   for (const target of targets) {
-    const platformDir = PLATFORM_OUTPUT_DIRS[target];
+    const platformDir = PLATFORM_OUTPUT_LAYOUT[target].directory;
     const fullOutputDir = path.join(outputBaseDir, platformDir);
 
     switch (target) {
@@ -73,4 +69,27 @@ export function createStrategiesForTargets(
   }
 
   return strategies;
+}
+
+/** Create the writer for one variant; its `type` places output under `<PlatformDir>/<variant>/`. */
+export function createVariantStrategy(
+  target: SupportedPlatform,
+  variant: RuleOutputVariant,
+  outputBaseDir = 'public'
+): BaseWriteStrategy {
+  const fullOutputDir = path.join(outputBaseDir, PLATFORM_OUTPUT_LAYOUT[target].directory);
+  switch (target) {
+    case 'surge':
+      return variant === 'domainset'
+        ? new SurgeDomainSet(fullOutputDir)
+        : new SurgeRuleSet(variant, fullOutputDir);
+    case 'clash':
+      return new ClashClassicRuleSet(variant, fullOutputDir);
+    case 'singbox':
+      return new SingboxSource(variant, fullOutputDir);
+    case 'loon':
+      return new LoonRuleSet(variant, fullOutputDir);
+    default:
+      throw new Error(`Unknown platform target: ${target as string}`);
+  }
 }

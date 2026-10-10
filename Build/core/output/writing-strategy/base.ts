@@ -12,6 +12,14 @@ export interface RuleDropSummary {
   unknown: Record<string, number>;
 }
 
+/** Conversion losses that the drop summary does not cover: dropped values and ignored modifiers. */
+export interface RuleConversionLosses {
+  /** Keyed by `TYPE:value`, for values of a supported type that the platform cannot express. */
+  droppedValues: Record<string, number>;
+  /** Modifiers such as no-resolve that the platform output cannot carry. */
+  ignoredModifiers: Record<string, number>;
+}
+
 /**
  * The class is not about holding rule data, instead it determines how the
  * date is written to a file.
@@ -57,6 +65,23 @@ export abstract class BaseWriteStrategy {
   constructor(public readonly outputDir: string) {}
 
   private readonly dropSummary: RuleDropSummary = { unsupported: {}, malformed: 0, unknown: {} };
+  private readonly losses: RuleConversionLosses = { droppedValues: {}, ignoredModifiers: {} };
+
+  protected recordDroppedValue(type: string, value: string, count = 1): void {
+    const key = `${type}:${value}`;
+    this.losses.droppedValues[key] = (this.losses.droppedValues[key] ?? 0) + count;
+  }
+
+  protected recordIgnoredModifier(modifier: string, count = 1): void {
+    if (count > 0) this.losses.ignoredModifiers[modifier] = (this.losses.ignoredModifiers[modifier] ?? 0) + count;
+  }
+
+  public get conversionLosses(): RuleConversionLosses {
+    return {
+      droppedValues: { ...this.losses.droppedValues },
+      ignoredModifiers: { ...this.losses.ignoredModifiers },
+    };
+  }
 
   protected accepts(type: CanonicalRuleType, count = 1): boolean {
     const support = RULE_SUPPORT_MATRIX[this.platform][type];
@@ -177,9 +202,14 @@ export abstract class BaseWriteStrategy {
 
     return compareAndWriteFile(
       span,
-      this.withPadding(title, description, date, this.result),
+      this.render(title, description, date),
       filePath
     );
+  }
+
+  /** Final file lines, including the platform banner, without writing them. */
+  public render(title: string, description: string[] | readonly string[], date: Date): string[] {
+    return this.withPadding(title, description, date, this.result);
   }
 
   public get content() {

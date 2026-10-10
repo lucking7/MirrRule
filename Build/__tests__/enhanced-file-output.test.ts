@@ -188,7 +188,47 @@ describe('EnhancedFileOutput', () => {
     await assert.rejects(published.compile(), /Strategies already written/);
     await assert.rejects(published.write(), /Strategies already written/);
     assert.equal(await fs.readFile(outputPath, 'utf8'), content);
-    assert.deepEqual(await fs.readdir(path.join(directory, 'List')), ['published.list']);
+    assert.deepEqual(await fs.readdir(path.join(directory, 'List')), ['domainset', 'published.list']);
+    assert.deepEqual(await fs.readdir(path.join(directory, 'List', 'domainset')), ['published.list']);
+    const domainset = await fs.readFile(path.join(directory, 'List/domainset/published.list'), 'utf8');
+    assert.ok(domainset.split('\n').includes('published.example'));
+    assert.match(domainset, /^# Variant: domainset\./m);
+  });
+
+  it('records stage counts and reads the publication audit without recounting drops', async t => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-output-audit-'));
+    t.after(() => fs.rm(directory, { recursive: true, force: true }));
+    const output = new EnhancedFileOutput(
+      createSpan('test'), 'stages', ['surge', 'clash', 'singbox', 'loon'], null,
+      { excludedRuleTypes: ['PROCESS-NAME'], validate: true }, directory
+    ).withTitle('Stages').withDescription([]);
+    output.addRules([
+      '',
+      '# comment',
+      'PROCESS-NAME,Example',
+      'NOT-A-RULE,value',
+      'DOMAIN,a.example',
+      'DOMAIN,a.example',
+      'USER-AGENT,Example*',
+      'IP-CIDR,10.0.0.0/25',
+      'IP-CIDR,10.0.0.128/25',
+    ]);
+    const audit = await output.write();
+    assert.deepEqual(audit.stages, {
+      inputLines: 9,
+      filtered: { emptyLines: 1, commentsOrMarkers: 1, excludedRuleType: 1, sourcePolicy: 0, invalid: 1 },
+      canonicalCount: 3,
+    });
+    assert.equal(audit.stages.canonicalCount, output.getOutputSummary().ruleCount);
+    assert.deepEqual(audit.conditions, ['DOMAIN,a.example', 'IP-CIDR,10.0.0.0/24', 'USER-AGENT,Example*']);
+    const clashMerged = audit.outputs.find(entry => entry.platform === 'clash' && entry.variant === 'merged');
+    assert.deepEqual(clashMerged?.drops.unsupported, { 'USER-AGENT': 1 });
+    assert.equal(clashMerged?.effectiveConditionCount, 2);
+    const clashNonIp = audit.outputs.find(entry => entry.platform === 'clash' && entry.variant === 'non_ip');
+    assert.equal(clashNonIp?.status, 'absent-unsupported');
+    assert.deepEqual(output.getPublicationAudit(), audit);
+    assert.deepEqual(output.getRuleDropSummaries().clash?.unsupported, { 'USER-AGENT': 1 });
+    assert.deepEqual(output.getPublicationAudit().outputs, audit.outputs);
   });
 
   it('keeps explicit policies when a default policy is configured', async () => {

@@ -16,6 +16,8 @@ import {
   normalizeCommit,
   writeStatusManifestAtomic,
 } from './lib/status-manifest';
+import { RULE_OUTPUT_AUDIT_PATH, SOURCE_DELTA_PATH, writeRuleOutputReports } from './lib/output-audit';
+import type { RulesetAuditRecord } from './lib/output-audit';
 import type { RulesetSummary } from './lib/rule-source-processor';
 import type { Span } from './trace';
 
@@ -23,6 +25,7 @@ interface BuildStepResult {
   success: boolean;
   errors: string[];
   rulesets?: RulesetSummary[];
+  audits?: RulesetAuditRecord[];
 }
 
 async function executeGeoIpBuildStep(span: Span): Promise<BuildStepResult> {
@@ -56,9 +59,34 @@ async function executeRuleProcessingBuildStep(span: Span): Promise<BuildStepResu
       success: errors.length === 0,
       errors,
       rulesets: [...groupStats.rulesets, ...ruleStats.rulesets],
+      audits: [...groupStats.audits, ...ruleStats.audits],
     };
   } catch (error) {
     return { success: false, errors: [getErrorMessage(error)] };
+  }
+}
+
+/**
+ * PUBLICATION_BASELINE_DIR is the absolute root of an accepted published tree whose
+ * Internal/source-snapshots are compared; PUBLICATION_BASELINE_RECEIPT_ID names its receipt.
+ */
+async function executeRuleOutputReportStep(records: RulesetAuditRecord[]): Promise<BuildStepResult> {
+  try {
+    const baselineDir = process.env.PUBLICATION_BASELINE_DIR?.trim() || null;
+    if (baselineDir !== null && !path.isAbsolute(baselineDir)) {
+      throw new Error('PUBLICATION_BASELINE_DIR must be an absolute path');
+    }
+    const { warnings } = await writeRuleOutputReports({
+      outputRoot: PUBLIC_DIR,
+      records,
+      generatedAt: new Date().toISOString(),
+      baselineDir,
+      baselineReceiptId: process.env.PUBLICATION_BASELINE_RECEIPT_ID?.trim() || null,
+    });
+    for (const warning of warnings) console.warn(`[source-delta] ${warning}`);
+    return { success: true, errors: [] };
+  } catch (error) {
+    return { success: false, errors: [`[rule-output-audit] ${getErrorMessage(error)}`] };
   }
 }
 
@@ -100,10 +128,19 @@ export const buildRuleset = task(
   const ruleStep = await span.traceChildAsync('unified rule processing system', stepSpan =>
     executeRuleProcessingBuildStep(stepSpan)
   );
+  const reportStep = ruleStep.success
+    ? await span.traceChildAsync('rule output audit', () => executeRuleOutputReportStep(ruleStep.audits ?? []))
+    : { success: false, errors: ['[rule-output-audit] Skipped because rule processing failed'] };
   const coverageStep = ruleStep.success
     ? await span.traceChildAsync('cross-subscription coverage audit', () => executeCoverageAuditStep())
     : { success: false, errors: ['[rule-coverage] Skipped because rule processing failed'] };
-  const steps = [geoIpStep, ruleStep, coverageStep, await span.traceChildAsync('build web page', () => executeWebBuildStep())];
+  const steps = [
+    geoIpStep,
+    ruleStep,
+    reportStep,
+    coverageStep,
+    await span.traceChildAsync('build web page', () => executeWebBuildStep()),
+  ];
 
   const allErrors = steps.flatMap(step => step.errors);
   const allSuccess = steps.every(step => step.success);
@@ -116,6 +153,7 @@ export const buildRuleset = task(
         buildTime,
         commit: normalizeCommit(process.env.GITHUB_SHA),
         rulesets,
+        reports: { ruleOutputAudit: RULE_OUTPUT_AUDIT_PATH, sourceDelta: SOURCE_DELTA_PATH },
         // Mirror synchronization is a separate workflow and is not run by this build.
         mirrors: [],
       });

@@ -14,7 +14,7 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
   protected result: string[] = [];
 
   constructor(
-    public readonly type: '' | 'ip' | 'non_ip',
+    public readonly type: '' | 'domainset' | 'ip' | 'non_ip',
     public readonly outputDir = OUTPUT_CLASH_DIR
   ) {
     super(outputDir);
@@ -94,6 +94,7 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
         this.result.push(`SRC-IP-CIDR6,${value}/128`);
         continue;
       }
+      this.recordDroppedValue('SRC-IP-CIDR', value);
     }
   }
 
@@ -181,6 +182,9 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
     }
     if (protocol.has('TCP')) {
       this.result.push('NETWORK,TCP');
+    }
+    for (const value of protocol) {
+      if (value !== 'UDP' && value !== 'TCP') this.recordDroppedValue('PROTOCOL', value);
     }
   }
 }

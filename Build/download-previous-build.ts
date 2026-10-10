@@ -11,10 +11,16 @@ import type { Headers as TarEntryHeaders } from 'tar-fs';
 import { extract as tarExtract } from 'tar-fs';
 import { isCI } from 'ci-info';
 import { chooseTarballUrl, getTarballBody } from './lib/tarball-utils.ts';
+import { purgeRetiredArtifacts } from './lib/artifact-lifecycle';
 
 const GITHUB_CODELOAD_URL = 'https://codeload.github.com/lucking7/NRRule/tar.gz/main';
 const GITLAB_CODELOAD_URL =
   'https://gitlab.com/lucking7/NRRule/-/archive/main/NRRule-main.tar.gz';
+
+async function purgeRetiredPreviousBuild(): Promise<void> {
+  const removed = await purgeRetiredArtifacts(PUBLIC_DIR);
+  if (removed.length) console.log(picocolors.yellow(`Removed retired artifacts from previous build: ${removed.join(', ')}`));
+}
 
 export const downloadPreviousBuild = task(
   require.main === module,
@@ -22,6 +28,7 @@ export const downloadPreviousBuild = task(
 )(async span => {
   if (fs.existsSync(PUBLIC_DIR) && !isDirectoryEmptySync(PUBLIC_DIR)) {
     console.log(picocolors.blue('Public directory exists, skip downloading previous build'));
+    await span.traceChildAsync('purge retired artifacts', purgeRetiredPreviousBuild);
     return;
   }
 
@@ -37,7 +44,7 @@ export const downloadPreviousBuild = task(
     })
   );
 
-  return span.traceChildAsync('download & extract previous build', () => {
+  await span.traceChildAsync('download & extract previous build', () => {
     const respBody = getTarballBody(tarGzUrl, 'curl/8.12.1', statusCode => {
       console.warn('Download previous build failed! Status:', statusCode);
       if (statusCode === 404) {
@@ -69,4 +76,6 @@ export const downloadPreviousBuild = task(
       })
     );
   });
+
+  await span.traceChildAsync('purge retired artifacts', purgeRetiredPreviousBuild);
 });
