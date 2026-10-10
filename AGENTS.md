@@ -156,7 +156,7 @@ eslint.config.js                   ESLint 配置
 4. 逐个下载上游规则源。
 5. 通过 `EnhancedFileOutput` 清洗、转换、去重、排序、分类规则。
 6. 按目标平台创建输出策略，写入 flat 合并版 `public/List`、`public/Clash`、`public/Loon`、`public/sing-box`，并在同一次 canonical 处理结果上分类写入 `<平台目录>/{domainset,non_ip,ip}/` 分版（不重新下载）。
-7. 生成 `Internal/rule-output-audit.json`（每个 ruleset×分版×平台的格式、路径、状态、有效条数、字节数、SHA256）、`Internal/source-snapshots/<sourceId>.json` 与 `Internal/source-delta.json`（相对 `PUBLICATION_BASELINE_DIR` 中已验收 tree 的来源条件增删，并记录基线 receiptId；无基线为 baseline-unavailable，版本或处理选项变化为 not-comparable，基线中有、本次不再构建的规则集为 removed）。
+7. 生成 `Internal/rule-output-audit.json`（每个 ruleset×分版×平台的格式、路径、状态、有效条数、字节数、SHA256）、`Internal/source-snapshots/<sourceId>.json.gz` 与 `Internal/source-delta.json`（相对 `PUBLICATION_BASELINE_DIR` 中已验收 tree 的来源条件增删，并记录基线 receiptId；无基线为 baseline-unavailable，版本或处理选项变化为 not-comparable，基线中有、本次不再构建的规则集为 removed）。
 8. 执行跨订阅覆盖审查，写入 `Internal/rule-coverage.json`；缺失示例订阅时该步骤失败。
 9. 执行 `buildPublic` 生成 `index.html`、`_headers`、`404.html`、`README.md` 等 public 辅助文件，并按退休登记清除 retired 文件。
 10. 如果全部成功，写入 `.BUILD_FINISHED`；否则设置非 0 退出码。报告写入失败同样阻止完成标记。
@@ -172,6 +172,8 @@ eslint.config.js                   ESLint 配置
 - `Build/lib/output-audit.ts`
 - `Build/core/output/writing-strategy/*.ts`
 - `Build/build-public.ts`
+
+来源比较快照写为 `Internal/source-snapshots/*.json.gz`，读取兼容历史 `.json`；相同 source id 的两种编码不能同时存在。发布暂存检查单文件 25 MiB 上限，超限在 Git 推送前失败。
 
 `status.json` 的 `ruleCount` 保持 canonical 逻辑数量的旧含义，不等于各平台实际输出数量；平台实际数量以 `Internal/rule-output-audit.json` 为准。`semanticScope: normalized-source` 与 `effectiveOutputs` 分别比较标准化来源和平台实际输出；`optimizations` 记录 canonical 到 writer 路由间的 keyword/domain coverage，不代表早期 Trie/CIDR 归一化的逐条原因。旧 converter 或缺少有效输出快照时，相关比较标为不可比。
 

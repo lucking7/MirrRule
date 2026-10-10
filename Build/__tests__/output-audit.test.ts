@@ -8,6 +8,7 @@ import { createSpan } from '../trace';
 import { EnhancedFileOutput } from '../lib/enhanced-file-output';
 import {
   countEffectiveConditions,
+  readSourceSnapshotFile,
   RULE_OUTPUT_CONVERTER_VERSION,
   SOURCE_DELTA_ALERT_POLICY,
   toPublicSourceUrl,
@@ -37,7 +38,7 @@ async function publish(directory: string, id: string, rules: string[], date = '2
 }
 
 async function readJson<T>(file: string): Promise<T> {
-  return JSON.parse(await fs.readFile(file, 'utf8')) as T;
+  return (file.endsWith('.json.gz') ? await readSourceSnapshotFile(file) : JSON.parse(await fs.readFile(file, 'utf8'))) as T;
 }
 
 interface DeltaReport {
@@ -112,7 +113,7 @@ describe('output audit', () => {
       assert.equal(entry.bytes, data.length);
       assert.match(entry.sha256 ?? '', /^[\da-f]{64}$/);
     }
-    const snapshot = await readJson<{ conditions: string[]; schemaVersion: number }>(path.join(directory, 'Internal/source-snapshots/mixed.json'));
+    const snapshot = await readJson<{ conditions: string[]; schemaVersion: number }>(path.join(directory, 'Internal/source-snapshots/mixed.json.gz'));
     assert.deepEqual(snapshot.conditions, ['DOMAIN,a.example', 'IP-ASN,1', 'IP-CIDR,10.0.0.0/24', 'USER-AGENT,App*']);
     const delta = await readJson<DeltaReport>(path.join(directory, 'Internal/source-delta.json'));
     assert.equal(delta.sources[0].status, 'baseline-unavailable');
@@ -174,11 +175,11 @@ describe('output audit', () => {
     assert.equal(delta.sources.at(-1)?.rulesetId, 'stale');
     assert.equal(byId.fresh.status, 'baseline-unavailable');
     assert.equal(byId.fresh.reason, 'snapshot-missing');
-    assert.deepEqual((await fs.readdir(path.join(candidate, 'Internal/source-snapshots'))).sort(), ['banner.json', 'fresh.json', 'modifiers.json']);
+    assert.deepEqual((await fs.readdir(path.join(candidate, 'Internal/source-snapshots'))).sort(), ['banner.json.gz', 'fresh.json.gz', 'modifiers.json.gz']);
 
     // Rebuilding the candidate from the old snapshot plus the delta recovers the new condition set.
-    const oldSnapshot = await readJson<{ conditions: string[] }>(path.join(baseline, 'Internal/source-snapshots/modifiers.json'));
-    const newSnapshot = await readJson<{ conditions: string[] }>(path.join(candidate, 'Internal/source-snapshots/modifiers.json'));
+    const oldSnapshot = await readJson<{ conditions: string[] }>(path.join(baseline, 'Internal/source-snapshots/modifiers.json.gz'));
+    const newSnapshot = await readJson<{ conditions: string[] }>(path.join(candidate, 'Internal/source-snapshots/modifiers.json.gz'));
     const rebuilt = oldSnapshot.conditions
       .filter(condition => !byId.modifiers.samples.removed.includes(condition))
       .concat(byId.modifiers.samples.added)
@@ -230,7 +231,7 @@ describe('output audit', () => {
       records: [await publish(directory, 'inplace', ['DOMAIN,a.example']), await publish(directory, 'gone', ['DOMAIN,gone.example'])],
     });
     await writeRuleOutputReports({ ...options, records: [await publish(directory, 'inplace', ['DOMAIN,b.example'])] });
-    assert.deepEqual(await fs.readdir(path.join(directory, 'Internal/source-snapshots')), ['inplace.json']);
+    assert.deepEqual(await fs.readdir(path.join(directory, 'Internal/source-snapshots')), ['inplace.json.gz']);
     const delta = await readJson<DeltaReport>(path.join(directory, 'Internal/source-delta.json'));
     assert.equal(delta.sources[0].added, 1);
     assert.equal(delta.sources[0].removed, 1);

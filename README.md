@@ -225,7 +225,7 @@ Each published build includes machine-readable reports under `Internal/`. Public
 | `Internal/publication-manifest.json` | Every published file with its path, bytes and SHA-256, plus the source revision |
 | `Internal/rule-output-audit.json` | Format, path, status, effective count, bytes and SHA-256 for each output; optimization reasons and effective platform digests |
 | `Internal/source-delta.json` | Added and removed upstream conditions compared with the last accepted publication; rulesets that existed in the baseline but are no longer built are listed as `removed`; `baseline-unavailable` on the first build, `not-comparable` when schema, converter or processing options changed |
-| `Internal/source-snapshots/<sourceId>.json` | Normalized source conditions and actual merged platform conditions, used for separate source and output comparisons |
+| `Internal/source-snapshots/<sourceId>.json.gz` | Normalized source conditions and actual merged platform conditions, used for separate source and output comparisons |
 | `Internal/artifact-lifecycle.json` | Deprecated and retired subscriptions with reason and replacement |
 | `Internal/rule-coverage.json` | Cross-subscription coverage audit of the example order |
 | `Internal/preserved-artifacts.json` | Optional modules and scripts restored from the accepted baseline; these files are marked `preserved` in the manifest |
@@ -246,6 +246,8 @@ First rollout:
 4. The next run publishes normally.
 
 The bootstrap evidence artifact is kept for 90 days. If it expires before a normal publication replaces it, run `bootstrap-baseline` again; this creates a new receipt that replaces the old one. Retrying with the same evidence reuses the existing receipt.
+
+Source comparison snapshots are stored losslessly as compact gzip JSON (`Internal/source-snapshots/*.json.gz`); readers also accept historical plain `.json` snapshots. Publication checks every asset against the Cloudflare Pages 25 MiB file limit before pushing.
 
 To roll back, run the workflow with task `rollback` and `rollback_receipt_id` set to an accepted publication receipt (bootstrap receipts cannot be rolled back to). The workflow starts from that accepted tree, applies the current retirement registry, and publishes the result as a new NRRule commit through the same check and acceptance steps. Historical output audits and source snapshots are projected to the remaining subscriptions before validation; removed output metadata is retained separately in `retiredOutputs`, not counted as current published outputs. A rollback never restores retired files.
 
