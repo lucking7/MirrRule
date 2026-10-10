@@ -5,6 +5,7 @@ import { ClashClassicRuleSet } from '../core/output/writing-strategy/clash';
 import { LoonRuleSet } from '../core/output/writing-strategy/loon';
 import { SingboxSource } from '../core/output/writing-strategy/singbox';
 import { SurgeRuleSet } from '../core/output/writing-strategy/surge';
+import { SurgeDomainSet } from '../core/output/writing-strategy/surge-domainset';
 import { CANONICAL_RULE_TYPES, RULE_SUPPORT_MATRIX } from '../core/output/rule-support-matrix';
 
 function parseSingbox(strategy: SingboxSource) {
@@ -26,6 +27,21 @@ describe('writing strategies', () => {
     for (const platform of ['surge', 'clash', 'loon', 'singbox'] as const) {
       assert.deepEqual(Object.keys(RULE_SUPPORT_MATRIX[platform]).sort(), [...CANONICAL_RULE_TYPES].sort());
     }
+  });
+
+  it('writes native Surge DOMAIN-SET lines and rejects conditions it cannot express', () => {
+    const strategy = new SurgeDomainSet('out');
+    strategy.writeDomain('exact.example');
+    strategy.writeDomainSuffix('suffix.example');
+    assert.deepEqual(strategy.content, ['exact.example', '.suffix.example']);
+    assert.equal(strategy.type, 'domainset');
+    assert.equal(strategy.fileExtension, 'list');
+    assert.throws(() => strategy.writeDomainKeywords(), /DOMAIN-KEYWORD cannot be expressed in DOMAIN-SET/);
+    assert.throws(() => strategy.writeIpCidrs(), /IP-CIDR cannot be expressed/);
+    assert.throws(() => strategy.writeOtherRules(['DOMAIN-KEYWORD,x']), /classical rule/);
+    strategy.writeOtherRules(['# comment', '']);
+    const rendered = strategy.render('Title', ['Description'], new Date('2026-01-01T00:00:00.000Z'));
+    assert.equal(rendered.filter(line => line && !line.startsWith('#')).join('\n'), 'exact.example\n.suffix.example');
   });
 
   it('writes Surge rules in normalized ruleset form', () => {

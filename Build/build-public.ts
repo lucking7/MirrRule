@@ -11,18 +11,23 @@ import { tagged as html } from 'foxts/tagged';
 import { compareAndWriteFile } from './lib/create-file';
 import { priorityOrder, prioritySorter } from './lib/public-index-sort.ts';
 import { escapeHtml } from './utils/escape-html';
-import { RETIRED_PLUGIN_ARTIFACTS } from './integration/plugin-converter/plugin-policy';
+import { purgeRetiredArtifacts, writeLifecycleReport } from './lib/artifact-lifecycle';
 
 const INDEX_CSS = fs.readFileSync(path.join(__dirname, 'assets', 'ruleset-index.css'), 'utf8');
 const HIDDEN_INDEX_FILES = new Set(['cname', 'favicon.ico', 'favicon.svg', 'favicon.png', 'robots.txt']);
 const CLOSED_ROOT_FOLDERS = new Set(['Mock', 'Internal']);
 const NESTED_FOLDER_PRIORITY = new Map([['domainset', 10], ['non_ip', 20], ['ip', 30]]);
-const RETIRED_RULESET_ARTIFACTS = ['container', 'discord', 'scholar'].flatMap(id => [
-  `List/${id}.list`,
-  `Clash/${id}.txt`,
-  `Loon/${id}.list`,
-  `sing-box/${id}.json`,
-]).concat('sing-box/china_asn.json');
+/** Consumer format of split subscription folders, keyed by `<platform root>/<variant>`. */
+const VARIANT_FORMAT_LABELS = new Map([
+  ['List/domainset', 'Surge DOMAIN-SET'],
+  ['List/non_ip', 'Surge RULE-SET'],
+  ['List/ip', 'Surge RULE-SET'],
+  ...['domainset', 'non_ip', 'ip'].flatMap(variant => [
+    [`Clash/${variant}`, 'Clash classical'],
+    [`Loon/${variant}`, 'Loon RULE-SET'],
+    [`sing-box/${variant}`, 'sing-box rule-set JSON v2'],
+  ] as Array<[string, string]>),
+]);
 
 export function isVisiblePublicFile(name: string): boolean {
   return !name.startsWith('.') && !name.startsWith('_') && !/\.html?$/i.test(name) && !HIDDEN_INDEX_FILES.has(name.toLowerCase());
@@ -48,12 +53,9 @@ export const buildPublic = task(
   __filename
 )(async span => {
   await fsp.mkdir(PUBLIC_DIR, { recursive: true });
-  await Promise.all(RETIRED_PLUGIN_ARTIFACTS.map(name =>
-    fsp.rm(path.join(PUBLIC_DIR, 'Modules', 'Converted', name), { force: true })
-  ));
-  await Promise.all(RETIRED_RULESET_ARTIFACTS.map(relative =>
-    fsp.rm(path.join(PUBLIC_DIR, relative), { force: true })
-  ));
+  const removed = await purgeRetiredArtifacts(PUBLIC_DIR);
+  if (removed.length) console.log(`Removed retired artifacts: ${removed.join(', ')}`);
+  await writeLifecycleReport(PUBLIC_DIR, removed);
   await span.traceChild('prepare public metadata').traceAsyncFn(() => Promise.all([
     fsp.copyFile(path.join(ROOT_DIR, 'LICENSE'), path.join(PUBLIC_DIR, 'LICENSE')),
     compareAndWriteFile(
@@ -112,18 +114,20 @@ function nestedFolderSorter(a: TreeType, b: TreeType): number {
 }
 
 /** Native directory markup follows SukkaW/Surge's AGPL-3.0 ruleset index. */
-export function treeHtml(tree: TreeTypeArray, level = 0): string {
+export function treeHtml(tree: TreeTypeArray, level = 0, parent = ''): string {
   let result = '';
   const sortedTree = [...tree].sort(level === 0 ? prioritySorter : nestedFolderSorter);
   for (const entry of sortedTree) {
     if (!isVisiblePublicFile(entry.name)) continue;
     if (entry.type === TreeFileType.DIRECTORY) {
       const open = level === 0 && !CLOSED_ROOT_FOLDERS.has(entry.name) ? 'open' : '';
+      const format = level === 1 ? VARIANT_FORMAT_LABELS.get(`${parent}/${entry.name}`) : undefined;
+      const summary = format ? `${entry.name} (${format})` : entry.name;
       result += html`
         <li class="folder">
           <details ${open}>
-            <summary>${escapeHtml(entry.name)}</summary>
-            <ul>${treeHtml(entry.children, level + 1)}</ul>
+            <summary>${escapeHtml(summary)}</summary>
+            <ul>${treeHtml(entry.children, level + 1, entry.name)}</ul>
           </details>
         </li>
       `;

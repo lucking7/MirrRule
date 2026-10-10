@@ -5,8 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
-import { auditRuleCoverage } from '../lib/rule-coverage-audit';
-import { createRuleCoverageReport, exampleRoutingOrder, readProfileSubscriptions } from '../audit-rule-coverage';
+import { auditRuleCoverage, domainSetLineToRule } from '../lib/rule-coverage-audit';
+import { createRuleCoverageReport, exampleRoutingOrder, loadVariantAvailability, readProfileSubscriptions, resolveNrruleSurgeReference } from '../audit-rule-coverage';
 
 describe('cross-subscription domain coverage', () => {
   it('detects AppleAI fully shadowed by a previous aggregate AI subscription', () => {
@@ -227,6 +227,136 @@ describe('coverage CLI and profile input', () => {
     assert.equal(report.subscriptions[1].fullyCoveredDomainRules, 0);
     assert.equal(report.subscriptions[1].partlyOverlappingDomainRules, 1);
     assert.equal(report.subscriptions[1].fullyShadowedSubscription, false);
+  });
+
+  it('maps flat and nested NRRule Surge paths to the matching local files and formats', () => {
+    const rulesDir = '/tmp/public/List';
+    assert.deepEqual(resolveNrruleSurgeReference('/List/apple_cdn.list', 'rule-set', rulesDir), { label: 'apple_cdn.list', variant: 'merged', filename: path.join(rulesDir, 'apple_cdn.list') });
+    assert.equal(resolveNrruleSurgeReference('/List/domainset/apple_cdn.list', 'domain-set', rulesDir).filename, path.join(rulesDir, 'domainset', 'apple_cdn.list'));
+    assert.equal(resolveNrruleSurgeReference('/List/non_ip/microsoft_cdn.list', 'rule-set', rulesDir).filename, path.join(rulesDir, 'non_ip', 'microsoft_cdn.list'));
+    assert.equal(resolveNrruleSurgeReference('/List/ip/telegram.list', 'rule-set', rulesDir).variant, 'ip');
+    assert.equal(resolveNrruleSurgeReference('/List/domainset/apple_cdn.list', 'rule-set', rulesDir).skipped, 'format-mismatch');
+    assert.equal(resolveNrruleSurgeReference('/List/apple_cdn.list', 'domain-set', rulesDir).skipped, 'format-mismatch');
+    for (const unresolved of ['/List/other/apple_cdn.list', '/List/a/b/c.list', '/Clash/apple_cdn.txt']) {
+      const resolved = resolveNrruleSurgeReference(unresolved, 'rule-set', rulesDir);
+      assert.equal(resolved.skipped, 'unavailable-remote');
+      assert.equal(resolved.filename, undefined);
+    }
+  });
+
+  it('parses native DOMAIN-SET lines with apex, subdomain and look-alike boundaries', () => {
+    assert.equal(domainSetLineToRule('example.com'), 'DOMAIN,example.com');
+    assert.equal(domainSetLineToRule('.example.com'), 'DOMAIN-SUFFIX,example.com');
+    assert.equal(domainSetLineToRule('DOMAIN,example.com'), 'DOMAIN-SET-INVALID,DOMAIN,example.com');
+    assert.equal(domainSetLineToRule('# comment'), '# comment');
+    const report = auditRuleCoverage([
+      { id: 'cdn', policy: 'DIRECT', format: 'domain-set', variant: 'domainset', lines: ['.mzstatic.com', 'exact.apple.com', 'DOMAIN-SUFFIX,bad.example'] },
+      { id: 'later', policy: 'Proxy', lines: ['DOMAIN,mzstatic.com', 'DOMAIN,a.b.mzstatic.com', 'DOMAIN,badmzstatic.com', 'DOMAIN,exact.apple.com', 'DOMAIN,sub.exact.apple.com'] }
+    ]);
+    assert.equal(report.subscriptions[0].format, 'domain-set');
+    assert.equal(report.subscriptions[0].variant, 'domainset');
+    assert.equal(report.subscriptions[0].reviewStatus, 'reviewed');
+    assert.equal(report.subscriptions[0].domainRules, 2);
+    assert.equal(report.subscriptions[0].unsupportedTypes['DOMAIN-SET-INVALID'], 1);
+    assert.equal(report.subscriptions[1].format, 'rule-set');
+    // Apex and subdomain covered by the suffix; look-alike and exact-only boundaries are not.
+    assert.equal(report.subscriptions[1].fullyCoveredDomainRules, 3);
+    assert.equal(report.subscriptions[1].differentPolicyConflicts, 3);
+  });
+
+  it('resolves DOMAIN-SET and nested RULE-SET variant references to local files', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'coverage-variants-'));
+    try {
+      const rulesDir = path.join(directory, 'List');
+      await fs.mkdir(path.join(rulesDir, 'domainset'), { recursive: true });
+      await fs.mkdir(path.join(rulesDir, 'non_ip'), { recursive: true });
+      await fs.writeFile(path.join(rulesDir, 'domainset', 'apple_cdn.list'), '.mzstatic.com\nupdate.apple.com\n');
+      await fs.writeFile(path.join(rulesDir, 'non_ip', 'microsoft_cdn.list'), 'URL-REGEX,^http://example\\.com/\nDOMAIN,mzstatic.com\n');
+      const profile = [
+        '[Rule]',
+        'DOMAIN-SET,https://nrrule.pages.dev/List/domainset/apple_cdn.list,DIRECT',
+        'RULE-SET,https://nrrule.pages.dev/List/non_ip/microsoft_cdn.list,DIRECT',
+        'DOMAIN,a.mzstatic.com,Proxy'
+      ].join('\n');
+      const subscriptions = await readProfileSubscriptions(profile, directory, rulesDir);
+      assert.equal(subscriptions[0].id, 'nrrule.pages.dev/domainset/apple_cdn.list:2');
+      assert.equal(subscriptions[0].format, 'domain-set');
+      assert.equal(subscriptions[1].id, 'nrrule.pages.dev/non_ip/microsoft_cdn.list:3');
+      assert.equal(subscriptions[1].format, 'rule-set');
+      const report = auditRuleCoverage(subscriptions, { basis: 'profile-rule-section' });
+      assert.equal(report.summary.notCoveredSubscriptions, 0);
+      assert.equal(report.subscriptions[0].domainRules, 2);
+      assert.equal(report.subscriptions[1].fullyCoveredDomainRules, 1);
+      assert.equal(report.subscriptions[1].unsupportedTypes['URL-REGEX'], 1);
+      assert.equal(report.subscriptions[2].fullyCoveredDomainRules, 1);
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('reports absent variants, format mismatches and unresolved references as not covered', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'coverage-absent-'));
+    try {
+      const rulesDir = path.join(directory, 'List');
+      await fs.mkdir(path.join(rulesDir, 'domainset'), { recursive: true });
+      await fs.mkdir(path.join(directory, 'Internal'), { recursive: true });
+      await fs.writeFile(path.join(rulesDir, 'domainset', 'apple_cdn.list'), '.mzstatic.com\n');
+      await fs.writeFile(path.join(directory, 'Internal', 'rule-output-audit.json'), JSON.stringify({
+        rulesets: [{ id: 'apple_cdn', outputs: [
+          { platform: 'surge', variant: 'ip', status: 'absent-empty', reason: 'no-conditions', path: 'List/ip/apple_cdn.list' },
+          { platform: 'clash', variant: 'non_ip', status: 'absent-empty', path: 'Clash/non_ip/apple_cdn.txt' }
+        ] }]
+      }));
+      const profile = [
+        '[Rule]',
+        'RULE-SET,https://nrrule.pages.dev/List/ip/apple_cdn.list,DIRECT',
+        'RULE-SET,https://nrrule.pages.dev/List/non_ip/apple_cdn.list,DIRECT',
+        'RULE-SET,https://nrrule.pages.dev/List/domainset/apple_cdn.list,DIRECT',
+        'DOMAIN-SET,https://nrrule.pages.dev/List/unknown/apple_cdn.list,DIRECT',
+        'DOMAIN-SET,https://example.com/set.txt,DIRECT'
+      ].join('\n');
+      const report = auditRuleCoverage(await readProfileSubscriptions(profile, directory, rulesDir), { basis: 'profile-rule-section' });
+      const [absent, missing, mismatch, unknown, remote] = report.subscriptions;
+      assert.equal(absent.skipped, 'absent-variant');
+      assert.equal(absent.reviewStatus, 'not-covered');
+      assert.match(absent.notCoveredReason ?? '', /absent-empty/);
+      assert.equal(missing.skipped, 'missing-local-file');
+      // Only the Surge output status applies; an absent Clash variant does not explain a missing Surge file.
+      assert.match(missing.notCoveredReason ?? '', /no absent status/);
+      assert.equal(mismatch.skipped, 'format-mismatch');
+      assert.match(mismatch.notCoveredReason ?? '', /DOMAIN-SET/);
+      assert.equal(unknown.skipped, 'unavailable-remote');
+      assert.equal(unknown.format, 'domain-set');
+      assert.equal(remote.skipped, 'unavailable-remote');
+      assert.ok(report.subscriptions.every(item => item.reviewStatus === 'not-covered' && item.notCoveredReason));
+      assert.equal(report.summary.auditedSubscriptions, 0);
+      assert.equal(report.summary.notCoveredSubscriptions, 5);
+      assert.equal(report.summary.absentVariantSubscriptions, 1);
+      assert.equal(report.summary.formatMismatchSubscriptions, 1);
+      assert.equal(report.summary.missingLocalSubscriptions, 1);
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('ignores non-Surge absent statuses and rejects an unreadable output audit', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'coverage-availability-'));
+    try {
+      const auditPath = path.join(directory, 'audit.json');
+      await fs.writeFile(auditPath, JSON.stringify({ rulesets: [
+        { id: 'a', outputs: [{ platform: 'singbox', variant: 'ip', status: 'absent-unsupported' }] },
+        { id: 'b', outputs: [{ platform: 'surge', variant: 'non_ip', status: 'absent-unsupported', reason: 'platform-unsupported' }] },
+        { id: 'c', outputs: [{ platform: 'surge', variant: 'domainset', status: 'published' }] }
+      ] }));
+      assert.deepEqual([...await loadVariantAvailability(auditPath)], [['b/non_ip', 'absent-unsupported (platform-unsupported)']]);
+      assert.equal((await loadVariantAvailability(path.join(directory, 'missing.json'))).size, 0);
+      await fs.writeFile(auditPath, '{');
+      await assert.rejects(loadVariantAvailability(auditPath), /Unable to read rule output audit/);
+      await fs.writeFile(auditPath, '{}');
+      await assert.rejects(loadVariantAvailability(auditPath), /no rulesets list/);
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true });
+    }
   });
 
   it('keeps unrecognized outer options as gaps and honors case-insensitive matching modifiers', async () => {

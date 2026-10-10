@@ -86,11 +86,14 @@ export class SingboxSource extends BaseWriteStrategy {
     this.accepts('URL-REGEX', urlRegex.size);
   }
 
-  writeIpCidrs(ipCidr: string[]): void {
+  // sing-box headless rules have no no-resolve equivalent; the modifier is recorded as ignored.
+  writeIpCidrs(ipCidr: string[], noResolve: boolean): void {
+    if (noResolve) this.recordIgnoredModifier('no-resolve', ipCidr.length);
     appendArrayInPlace((this.singbox.ip_cidr ??= []), ipCidr);
   }
 
-  writeIpCidr6s(ipCidr6: string[]): void {
+  writeIpCidr6s(ipCidr6: string[], noResolve: boolean): void {
+    if (noResolve) this.recordIgnoredModifier('no-resolve', ipCidr6.length);
     appendArrayInPlace((this.singbox.ip_cidr ??= []), ipCidr6);
   }
 
@@ -159,6 +162,7 @@ export class SingboxSource extends BaseWriteStrategy {
         break;
       case 'IP-CIDR':
       case 'IP-CIDR6':
+        if (parts.slice(2).some(part => part.trim().toLowerCase() === 'no-resolve')) this.recordIgnoredModifier('no-resolve');
         (this.singbox.ip_cidr ??= []).push(value);
         break;
       default:

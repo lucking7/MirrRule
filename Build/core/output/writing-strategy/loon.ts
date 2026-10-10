@@ -17,7 +17,7 @@ export class LoonRuleSet extends BaseWriteStrategy {
   protected result: string[] = [];
 
   constructor(
-    public readonly type: '' | 'ip' | 'non_ip',
+    public readonly type: '' | 'domainset' | 'ip' | 'non_ip',
     public readonly outputDir = OUTPUT_LOON_DIR
   ) {
     super(outputDir);

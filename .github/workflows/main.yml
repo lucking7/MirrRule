@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: '执行任务 (all/build/convert-plugins/merge-modules/mirror-sync/deploy)'
+        description: '执行任务 (all/build/convert-plugins/merge-modules/mirror-sync/deploy/bootstrap-baseline/rollback)'
         required: false
         default: 'all'
         type: choice
@@ -36,19 +36,41 @@ on:
           - merge-modules
           - mirror-sync
           - deploy
+          - bootstrap-baseline
+          - rollback
       deploy_target:
-        description: '部署目标 (all/github/cloudflare)'
+        description: '发布目标；唯一生产入口是 NRRule Git integration。all/github/cloudflare 为兼容旧值，均按 production 处理'
         required: false
-        default: 'all'
+        default: 'production'
         type: choice
         options:
+          - production
           - all
           - github
           - cloudflare
+      bootstrap_revision:
+        description: 'bootstrap-baseline：固定的 NRRule commit（40 位 SHA）'
+        required: false
+        default: ''
+        type: string
+      bootstrap_immutable_url:
+        description: 'bootstrap-baseline：该 commit 的 Cloudflare immutable URL（https://<hex>.nrrule.pages.dev）'
+        required: false
+        default: ''
+        type: string
+      rollback_receipt_id:
+        description: 'rollback：要恢复的已验收 receipt（MirrRule deployment id）'
+        required: false
+        default: ''
+        type: string
 
+permissions:
+  contents: read
+
+# 只有 pull request 取消旧 run；生产相关 run 排队，不中断已 push 的验收。
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # ============================================
@@ -73,9 +95,19 @@ jobs:
           CRON="${{ github.event.schedule }}"
 
           DEPLOY_TARGET="${{ github.event.inputs.deploy_target }}"
-          if [ -z "$DEPLOY_TARGET" ]; then
-            DEPLOY_TARGET="all"
-          fi
+          case "$DEPLOY_TARGET" in
+            ""|production)
+              DEPLOY_TARGET="production"
+              ;;
+            all|github|cloudflare)
+              echo "::notice::deploy_target=$DEPLOY_TARGET is a legacy selector and is normalized to production. Production is published only through the NRRule Git integration and accepted after Cloudflare and production content verification; 'github' no longer means repository-only."
+              DEPLOY_TARGET="production"
+              ;;
+            *)
+              echo "::error::Unknown deploy_target: $DEPLOY_TARGET" >&2
+              exit 1
+              ;;
+          esac
 
           FULL_TASKS='["convert-plugins","merge-modules","mirror-sync","build","deploy"]'
           TASKS='[]'
@@ -101,6 +133,14 @@ jobs:
                 deploy)
                   # 部署 job 只接受本次 run 的已验收 artifact，先构建再部署。
                   TASKS='["build","deploy"]'
+                  ;;
+                bootstrap-baseline)
+                  # 只核验固定的旧版 NRRule revision 并写入 legacy-bootstrap receipt，不发布。
+                  TASKS='["bootstrap-baseline"]'
+                  ;;
+                rollback)
+                  # 以已验收 receipt 的 tree 为候选，应用当前退休登记后经同一链路发布。
+                  TASKS='["rollback"]'
                   ;;
               esac
               ;;
@@ -138,6 +178,45 @@ jobs:
           echo ""
           echo "📋 Tasks to run: $TASKS"
           echo "  Deploy target: $DEPLOY_TARGET"
+
+  # ============================================
+  # 已验收基线：最近一个 success receipt，不使用 NRRule HEAD
+  # ============================================
+  baseline:
+    name: Resolve Accepted Baseline
+    needs: prepare
+    if: |
+      needs.prepare.outputs.tasks != '[]' &&
+      !contains(fromJSON(needs.prepare.outputs.tasks), 'bootstrap-baseline')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: read
+    outputs:
+      available: ${{ steps.select.outputs.available }}
+      receipt_id: ${{ steps.select.outputs.receipt_id }}
+      deploy_commit: ${{ steps.select.outputs.deploy_commit }}
+      kind: ${{ steps.select.outputs.kind }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".node-version"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Select accepted receipt
+        id: select
+        run: pnpm run node Build/prepare-publication.ts select-baseline --allow-missing
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ============================================
   # 插件转换任务 - 只有需要插件转换时才启动 Script-Hub
@@ -313,12 +392,17 @@ jobs:
   # ============================================
   merge-modules:
     name: Merge Modules
-    needs: [prepare, convert-plugins]
+    needs: [prepare, baseline, convert-plugins]
     if: |
       always() &&
       contains(fromJSON(needs.prepare.outputs.tasks), 'merge-modules') &&
+      needs.baseline.result == 'success' &&
       (needs.convert-plugins.result == 'success' || needs.convert-plugins.result == 'skipped')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: read
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -336,6 +420,17 @@ jobs:
 
       - name: Setup module output directories
         run: mkdir -p public/Modules/Converted public/Modules/Merged public/Modules/Rules public/Scripts
+
+      - name: Check out accepted baseline tree
+        if: needs.baseline.outputs.available == 'true'
+        run: |
+          pnpm run node Build/prepare-publication.ts resolve-baseline \
+            --receipt-id "$RECEIPT_ID" \
+            --tree "$RUNNER_TEMP/publication-baseline" \
+            --evidence "$RUNNER_TEMP/publication-baseline.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RECEIPT_ID: ${{ needs.baseline.outputs.receipt_id }}
 
       - name: Download plugin conversion output
         if: contains(fromJSON(needs.prepare.outputs.tasks), 'convert-plugins')
@@ -365,28 +460,24 @@ jobs:
             exit 1
           fi
 
-          echo "📥 No conversion was requested; downloading existing converted modules..."
-          git clone --depth=1 --filter=blob:none --sparse \
-            https://github.com/lucking7/NRRule.git ./temp-converted 2>/dev/null || {
-            echo "❌ Unable to download existing converted modules" >&2
+          echo "📥 No conversion was requested; copying existing converted modules from the accepted baseline..."
+          BASELINE_CONVERTED="$RUNNER_TEMP/publication-baseline/Modules/Converted"
+          if [ "$BASELINE_AVAILABLE" != "true" ] || [ ! -d "$BASELINE_CONVERTED" ]; then
+            echo "❌ Existing converted modules are unavailable: no accepted baseline tree (run bootstrap-baseline first)" >&2
             exit 1
-          }
-          cd ./temp-converted
-          git sparse-checkout set Modules/Converted
-          cd ..
-
-          mkdir -p "$CONVERTED_DIR"
-          if [ -d "temp-converted/Modules/Converted" ]; then
-            cp -r temp-converted/Modules/Converted/* "$CONVERTED_DIR/" 2>/dev/null || true
           fi
-          rm -rf ./temp-converted
+          mkdir -p "$CONVERTED_DIR"
+          cp -R "$BASELINE_CONVERTED/." "$CONVERTED_DIR/"
+          pnpm run node Build/prepare-publication.ts purge --root public
 
           FILE_COUNT=$(find "$CONVERTED_DIR" -type f -name '*.sgmodule' 2>/dev/null | wc -l)
           if [ "$FILE_COUNT" -eq 0 ]; then
             echo "❌ Existing converted modules are unavailable" >&2
             exit 1
           fi
-          echo "✅ Downloaded $FILE_COUNT existing converted modules"
+          echo "✅ Copied $FILE_COUNT existing converted modules from accepted ${{ needs.baseline.outputs.deploy_commit }}"
+        env:
+          BASELINE_AVAILABLE: ${{ needs.baseline.outputs.available }}
 
       - name: Merge modules
         run: |
@@ -396,17 +487,30 @@ jobs:
           CI: true
 
       - name: Preserve previous optional modules and scripts
-        if: contains(fromJSON(needs.prepare.outputs.tasks), 'convert-plugins')
+        if: |
+          contains(fromJSON(needs.prepare.outputs.tasks), 'convert-plugins') &&
+          needs.baseline.outputs.available == 'true'
         run: |
           set -euo pipefail
-          previous_root="$RUNNER_TEMP/previous-plugin-artifacts"
-          git clone --depth=1 --filter=blob:none --sparse \
-            https://github.com/lucking7/NRRule.git "$previous_root"
-          git -C "$previous_root" sparse-checkout set Modules/Converted Scripts
-          echo "Previous artifact commit: $(git -C "$previous_root" rev-parse HEAD)"
+          previous_root="$RUNNER_TEMP/publication-baseline"
+          from_commit=$(git -C "$previous_root" rev-parse HEAD)
+          if [ "$from_commit" != "$DEPLOY_COMMIT" ]; then
+            echo "❌ Baseline tree is at $from_commit, expected accepted $DEPLOY_COMMIT" >&2
+            exit 1
+          fi
+          echo "Previous artifact commit (accepted receipt $RECEIPT_ID): $from_commit"
           pnpm run node Build/restore-optional-artifacts.ts \
-            Build/lib/module-merger/configs/pro-merge-config.yaml "$previous_root"
-          rm -rf "$previous_root"
+            Build/lib/module-merger/configs/pro-merge-config.yaml "$previous_root" \
+            --from-commit "$from_commit"
+        env:
+          DEPLOY_COMMIT: ${{ needs.baseline.outputs.deploy_commit }}
+          RECEIPT_ID: ${{ needs.baseline.outputs.receipt_id }}
+
+      - name: Report skipped optional restoration
+        if: |
+          contains(fromJSON(needs.prepare.outputs.tasks), 'convert-plugins') &&
+          needs.baseline.outputs.available != 'true'
+        run: echo "::notice::No accepted baseline receipt; previous optional modules and scripts are not restored. This build cannot be published until the bootstrap-baseline task has run."
 
       - name: Upload module output
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -415,6 +519,7 @@ jobs:
           path: |
             public/Modules
             public/Scripts
+            public/Internal/preserved-artifacts.json
           retention-days: 1
           compression-level: 4
           if-no-files-found: warn
@@ -424,13 +529,18 @@ jobs:
   # ============================================
   build:
     name: Build
-    needs: [prepare, convert-plugins, merge-modules]
+    needs: [prepare, baseline, convert-plugins, merge-modules]
     if: |
       always() &&
       contains(fromJSON(needs.prepare.outputs.tasks), 'build') &&
+      needs.baseline.result == 'success' &&
       (needs.convert-plugins.result == 'success' || needs.convert-plugins.result == 'skipped') &&
       (needs.merge-modules.result == 'success' || needs.merge-modules.result == 'skipped')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: read
+      actions: read
     steps:
       # 🚀 网络性能优化
       - uses: smorimoto/tune-github-hosted-runner-network@bb252dcb5c8609a31087e7993daa086f5a1c0069 # v1.0.0
@@ -577,101 +687,42 @@ jobs:
           # 确保新目录结构存在
           mkdir -p public/Modules/Converted public/Modules/Merged public/Modules/Rules
 
-      # 🔧 步骤 4.5: 下载缺失的目录用于生成完整的 index.html
-      - name: Download missing directories for index.html
+      # 🔧 步骤 4.5: 未在本次刷新的 Mirror/Modules/Scripts 取自已验收基线，而非 NRRule HEAD
+      - name: Check out accepted baseline tree
+        id: baseline-tree
+        if: needs.baseline.outputs.available == 'true'
         run: |
-          echo "📥 检查并下载缺失的目录..."
-          echo "📁 当前 public 目录内容："
-          ls -la public/ || echo "public 目录不存在"
-
-          # 检查哪些目录缺失或为空（包含所有可能的规则目录）
-          # 🔧 修复：不仅检查目录是否存在，还检查是否有内容
-          MISSING_DIRS=""
-          for dir in Mirror Modules Scripts List Clash sing-box Loon GeoIP; do
-            if [ ! -d "public/$dir" ]; then
-              MISSING_DIRS="$MISSING_DIRS $dir"
-              echo "  ❌ $dir/ 缺失"
-            else
-              FILE_COUNT=$(find "public/$dir" -type f 2>/dev/null | wc -l)
-              if [ "$FILE_COUNT" -eq 0 ]; then
-                # 🔧 目录存在但为空，也需要从生产环境下载
-                MISSING_DIRS="$MISSING_DIRS $dir"
-                echo "  ⚠️  $dir/ 存在但为空，将从生产环境下载"
-              else
-                echo "  ✅ $dir/ 存在 ($FILE_COUNT 个文件)"
-              fi
-            fi
-          done
-
-          if [ -z "$MISSING_DIRS" ]; then
-            echo "✅ 所有目录都已存在且有内容,无需下载"
-            exit 0
-          fi
-
-          echo ""
-          echo "📋 需要下载的目录:$MISSING_DIRS"
-
-          # 克隆生产仓库（浅克隆,只获取最新版本）
-          echo "⏬ 克隆生产仓库..."
-          git clone --depth=1 --filter=blob:none --sparse \
-            https://github.com/lucking7/NRRule.git \
-            ./prod-temp 2>/dev/null || {
-            echo "⚠️  无法克隆生产仓库,可能是首次构建"
-            echo "📁 为缺失的目录创建空目录..."
-            for dir in $MISSING_DIRS; do
-              mkdir -p "public/$dir"
-              echo "  ✅ 创建空目录: public/$dir"
-            done
-            exit 0
-          }
-
-          cd ./prod-temp
-          # 设置要下载的所有目录
-          git sparse-checkout set $MISSING_DIRS 2>/dev/null || true
-          cd ..
-
-          # 复制缺失的目录到 public
-          echo ""
-          echo "📂 从生产环境复制缺失的目录..."
-          for dir in $MISSING_DIRS; do
-            if [ -d "prod-temp/$dir" ]; then
-              FILE_COUNT=$(find "prod-temp/$dir" -type f 2>/dev/null | wc -l)
-              # 🔧 修复：先删除可能存在的空目录，再复制
-              if [ -d "public/$dir" ]; then
-                echo "  🗑️  删除已存在的空目录: public/$dir"
-                rm -rf "public/$dir"
-              fi
-              echo "  ✅ 复制 $dir/ ($FILE_COUNT 个文件)"
-              cp -r "prod-temp/$dir" "public/$dir"
-            else
-              echo "  ⚠️  $dir/ 在生产环境也不存在,创建空目录"
-              mkdir -p "public/$dir"
-            fi
-          done
-
-          # 清理临时目录
-          rm -rf ./prod-temp
-
-          echo ""
-          echo "📊 最终目录状态："
-          for dir in Mirror Modules Scripts List Clash sing-box Loon GeoIP; do
-            if [ -d "public/$dir" ]; then
-              FILE_COUNT=$(find "public/$dir" -type f 2>/dev/null | wc -l)
-              echo "  ✅ $dir/: $FILE_COUNT 个文件"
-            else
-              echo "  ⚠️  $dir/: 不存在"
-            fi
-          done
-
-          echo "✅ 目录准备完成"
+          pnpm run node Build/prepare-publication.ts resolve-baseline \
+            --receipt-id "$RECEIPT_ID" \
+            --tree "$RUNNER_TEMP/publication-baseline" \
+            --evidence "$RUNNER_TEMP/publication-baseline.json"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RECEIPT_ID: ${{ needs.baseline.outputs.receipt_id }}
+
+      - name: Restore preserved directories from accepted baseline
+        run: |
+          set -euo pipefail
+          if [ "$BASELINE_AVAILABLE" != "true" ]; then
+            echo "::warning::No accepted baseline receipt; directories not refreshed by this run are absent from this build artifact. Production publication requires an accepted baseline (run bootstrap-baseline)."
+            exit 0
+          fi
+          pnpm run node Build/prepare-publication.ts restore-preserved \
+            --public public \
+            --tasks "$TASKS" \
+            --tree "$RUNNER_TEMP/publication-baseline" \
+            --evidence "$RUNNER_TEMP/publication-baseline.json"
+        env:
+          BASELINE_AVAILABLE: ${{ needs.baseline.outputs.available }}
+          TASKS: ${{ needs.prepare.outputs.tasks }}
 
       # 🔧 步骤 5: 规则构建（始终执行）
       - run: pnpm run build
         env:
           PUBLIC_DIR: ${{ steps.build-dir.outputs.dir }}
           PROXY_BASE: http://127.0.0.1:13193?url=
+          PUBLICATION_BASELINE_DIR: ${{ steps.baseline-tree.outcome == 'success' && format('{0}/publication-baseline', runner.temp) || '' }}
+          PUBLICATION_BASELINE_RECEIPT_ID: ${{ needs.baseline.outputs.receipt_id }}
 
       - name: Verify build output
         run: |
@@ -822,219 +873,324 @@ jobs:
           echo "✅ Diff complete"
 
   # ============================================
-  # 部署到 Cloudflare Pages
+  # 唯一生产入口：完整 staging tree -> NRRule commit -> 该 commit 的 Cloudflare check
+  # -> immutable URL -> 正式域名内容验收 -> acceptance receipt
   # ============================================
-  deploy-cloudflare:
-    name: Deploy to Cloudflare Pages
-    needs: [prepare, build]
+  publish:
+    name: Publish to Production
+    needs: [prepare, baseline, build]
     if: |
       !cancelled() &&
-      contains(fromJSON(needs.prepare.outputs.tasks), 'deploy') &&
-      (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'cloudflare') &&
       github.ref == 'refs/heads/main' &&
-      needs.build.result == 'success'
+      github.event_name != 'pull_request' &&
+      needs.prepare.outputs.deploy_target == 'production' &&
+      needs.baseline.result == 'success' &&
+      (
+        (contains(fromJSON(needs.prepare.outputs.tasks), 'deploy') && needs.build.result == 'success') ||
+        (contains(fromJSON(needs.prepare.outputs.tasks), 'rollback') && needs.build.result == 'skipped')
+      )
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    # 生产锁：排队而不取消，已 push 的 commit 一定完成验收。
+    concurrency:
+      group: nrrule-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      deployments: write
+      actions: read
+    outputs:
+      deploy_commit: ${{ steps.push.outputs.deploy_commit }}
+      outcome: ${{ steps.verify.outputs.outcome }}
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
-          path: public
-
-      # 验证构建产物
-      - name: Verify build artifact
+      # 没有已验收基线时：自动 run 明确跳过发布；手动 dispatch 直接失败。不回退到 NRRule HEAD。
+      - name: Check publication prerequisites
+        id: gate
         run: |
-          echo "📁 检查 Cloudflare Pages 部署内容："
-          if [ ! -d "public" ]; then
-            echo "❌ public 目录不存在"
-            exit 1
-          fi
-          ls -la public/
-          echo ""
-          echo "📊 文件统计："
-          find public -type f | wc -l
-          echo "✅ 构建产物验证通过"
-
-      # 部署到 Cloudflare Pages
-      - name: Deploy to Cloudflare Pages
-        id: cloudflare-deploy
-        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy public --project-name=nrrule --commit-dirty=true --branch=main
-          wranglerVersion: '4.114.0'
-        continue-on-error: false
-
-      # 输出部署结果
-      - name: Deploy summary
-        if: always()
-        run: |
-          if [ "${{ steps.cloudflare-deploy.outcome }}" == "success" ]; then
-            echo "✅ Cloudflare Pages 部署成功"
-            echo "🔗 访问地址: https://nrrule.pages.dev"
-          else
-            echo "❌ Cloudflare Pages 部署失败"
-            echo "请检查："
-            echo "  1. CLOUDFLARE_API_TOKEN 是否正确配置"
-            echo "  2. CLOUDFLARE_ACCOUNT_ID 是否正确配置"
-            echo "  3. 项目名称 'nrrule' 是否正确"
-            exit 1
-          fi
-
-  # ============================================
-  # 部署到 GitHub Repository
-  # ============================================
-  deploy-github:
-    name: Deploy to GitHub Repository
-    needs: [prepare, build]
-    if: |
-      !cancelled() &&
-      contains(fromJSON(needs.prepare.outputs.tasks), 'deploy') &&
-      (needs.prepare.outputs.deploy_target == 'all' || needs.prepare.outputs.deploy_target == 'github') &&
-      github.ref == 'refs/heads/main' &&
-      needs.build.result == 'success'
-    runs-on: ubuntu-latest
-    steps:
-      # 🔧 下载 build artifact 而不是 checkout 源代码
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
-          path: public
-
-      # 验证 public 目录内容
-      - name: Verify public directory
-        run: |
-          echo "📁 Public 目录内容："
-          ls -la public/ || echo "⚠️ public 目录不存在"
-          echo ""
-          echo "📊 文件统计："
-          echo "  Modules (全部): $(find public/Modules -type f -name '*.sgmodule' 2>/dev/null | wc -l) 个文件"
-          echo "  Modules/Converted: $(find public/Modules/Converted -type f -name '*.sgmodule' 2>/dev/null | wc -l) 个文件"
-          echo "  Modules/Merged: $(find public/Modules/Merged -type f -name '*.sgmodule' 2>/dev/null | wc -l) 个文件"
-          echo "  Scripts: $(find public/Scripts -type f 2>/dev/null | wc -l) 个文件"
-          echo "  List: $(find public/List -type f 2>/dev/null | wc -l) 个文件"
-          echo "  Mirror: $(find public/Mirror -type f 2>/dev/null | wc -l) 个文件"
-          echo "  GeoIP: $(find public/GeoIP -type f 2>/dev/null | wc -l) 个文件"
-
-      - name: Deploy to NRRule Repository
-        run: |
-          # 🔧 根据执行的任务决定要更新的目录（智能增量部署）
-          SYNC_PATHS=""
-          SYNC_DESC=""
-
-          # 规则构建（始终执行）- 包含所有规则格式
-          SYNC_PATHS="$SYNC_PATHS List/ Clash/ sing-box/ Loon/ GeoIP/ Internal/"
-          SYNC_DESC="rules"
-
-          # 镜像同步
-          if [ "${{ contains(fromJSON(needs.prepare.outputs.tasks), 'mirror-sync') }}" = "true" ]; then
-            SYNC_PATHS="$SYNC_PATHS Mirror/"
-            SYNC_DESC="$SYNC_DESC+mirrors"
-          fi
-
-          # 插件转换 / 模块合并 - 统一处理 Modules
-          if [ "${{ contains(fromJSON(needs.prepare.outputs.tasks), 'convert-plugins') }}" = "true" ] || \
-             [ "${{ contains(fromJSON(needs.prepare.outputs.tasks), 'merge-modules') }}" = "true" ]; then
-            SYNC_PATHS="$SYNC_PATHS Modules/"
-            SYNC_DESC="$SYNC_DESC+modules"
-          fi
-
-          # Scripts 目录（如果存在）
-          if [ -d "public/Scripts" ]; then
-            SYNC_PATHS="$SYNC_PATHS Scripts/"
-            SYNC_DESC="$SYNC_DESC+scripts"
-          fi
-
-          # 去重目录列表
-          SYNC_PATHS=$(echo "$SYNC_PATHS" | tr ' ' '\n' | sort -u | tr '\n' ' ')
-
-          echo "📦 将要同步的目录（去重后）: $SYNC_PATHS"
-          echo "📝 更新描述: $SYNC_DESC"
-
-          gh repo unarchive lucking7/NRRule --yes || true
-
-          git clone --filter=tree:0 --no-tags \
-            https://${GH_USER}:${GH_TOKEN}@github.com/lucking7/NRRule.git \
-            ./deploy-git
-
-          cd ./deploy-git
-          git config user.email "${GH_EMAIL}"
-          git config user.name "${GH_USER}"
-
-          # 🔧 智能增量同步：只更新有内容的目录，避免清空生产环境
-          for path in $SYNC_PATHS; do
-            # 检查源目录是否存在且有内容
-            if [ -d "../public/$path" ]; then
-              SOURCE_COUNT=$(find "../public/$path" -type f 2>/dev/null | wc -l)
-              if [ "$SOURCE_COUNT" -gt 0 ]; then
-                # 源目录有内容，执行同步
-                if [ -d "./$path" ]; then
-                  echo "🗑️  删除旧目录: $path"
-                  rm -rf "./$path"
-                fi
-                mkdir -p "./$path"
-                echo "📥 复制新内容: $path ($SOURCE_COUNT 个文件)"
-                cp -rf "../public/$path"* "./$path" 2>/dev/null || true
-              else
-                # 源目录为空，保留生产环境现有内容
-                echo "⏭️  跳过空目录: $path (保留生产环境现有内容)"
-              fi
-            else
-              # 源目录不存在，保留生产环境现有内容
-              echo "⏭️  跳过不存在的目录: $path (保留生产环境现有内容)"
-            fi
-          done
-          
-          # 复制根目录文件（如 README.md, index.html 等）
-          echo ""
-          echo "📄 复制根目录文件..."
-          find ../public/ -maxdepth 1 -type f -exec cp {} ./ \; 2>/dev/null || true
-
-          # 清理当前发布结构之外的顶层目录，避免增量部署保留废弃目录
-          echo ""
-          echo "🧹 清理当前发布结构之外的顶层目录..."
-          # 有效发布根目录可能在增量构建 artifact 中缺失；同时追加当前 artifact 中的新目录。
-          PUBLISHED_TOP_LEVEL_DIRS=$({
-            printf '%s\n' List Clash sing-box Loon GeoIP Mirror Modules Scripts
-            find ../public -mindepth 1 -maxdepth 1 -type d -exec basename {} \;
-          } | sort -u | tr '\n' ' ')
-          echo "  ✅ 保留目录: $PUBLISHED_TOP_LEVEL_DIRS"
-          find . -mindepth 1 -maxdepth 1 -type d ! -name .git -print | while IFS= read -r dir_path; do
-            dir="${dir_path#./}"
-            case " $PUBLISHED_TOP_LEVEL_DIRS " in
-              *" $dir "*)
-                ;;
-              *)
-                echo "  🗑️  删除过期目录: $dir"
-                rm -rf "./$dir"
-                ;;
-            esac
-          done
-
-          echo "📊 部署后的文件统计："
-          echo "  List: $(find ./List -type f 2>/dev/null | wc -l) 个文件"
-          echo "  Clash: $(find ./Clash -type f 2>/dev/null | wc -l) 个文件"
-          echo "  sing-box: $(find ./sing-box -type f 2>/dev/null | wc -l) 个文件"
-          echo "  Loon: $(find ./Loon -type f 2>/dev/null | wc -l) 个文件"
-          echo "  Modules: $(find ./Modules -type f 2>/dev/null | wc -l) 个文件"
-          echo "  Scripts: $(find ./Scripts -type f 2>/dev/null | wc -l) 个文件"
-          echo "  Mirror: $(find ./Mirror -type f 2>/dev/null | wc -l) 个文件"
-          echo "  GeoIP: $(find ./GeoIP -type f 2>/dev/null | wc -l) 个文件"
-
-          git add --all .
-          if git diff --cached --quiet; then
-            echo "✅ 没有变更需要提交"
+          set -euo pipefail
+          if [ "$BASELINE_AVAILABLE" = "true" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          
-          git commit -m "deploy: ${{ github.repository }}@${{ github.sha }} [$SYNC_DESC]"
-          git push --quiet origin HEAD:main
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "::error::No accepted baseline receipt; run the bootstrap-baseline task before deploy or rollback" >&2
+            exit 1
+          fi
+          echo "::warning::publication skipped: bootstrap required (no accepted baseline receipt; run the bootstrap-baseline task)"
+          echo "proceed=false" >> "$GITHUB_OUTPUT"
+        env:
+          BASELINE_AVAILABLE: ${{ needs.baseline.outputs.available }}
+          EVENT_NAME: ${{ github.event_name }}
 
-          cd ..
-          rm -rf ./deploy-git
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.gate.outputs.proceed == 'true'
+        with:
+          persist-credentials: false
+          fetch-depth: 1
 
-          gh repo archive lucking7/NRRule --yes || true
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        if: steps.gate.outputs.proceed == 'true'
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: steps.gate.outputs.proceed == 'true'
+        with:
+          node-version-file: ".node-version"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+        if: steps.gate.outputs.proceed == 'true'
+
+      - name: Download build artifact
+        if: |
+          steps.gate.outputs.proceed == 'true' &&
+          contains(fromJSON(needs.prepare.outputs.tasks), 'deploy')
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
+          path: ${{ runner.temp }}/candidate
+
+      - name: Resolve accepted baseline inside the production lock
+        id: baseline
+        if: steps.gate.outputs.proceed == 'true'
+        run: |
+          pnpm run node Build/prepare-publication.ts resolve-baseline \
+            --tree "$RUNNER_TEMP/publication-baseline" \
+            --evidence "$RUNNER_TEMP/publication-baseline.json" \
+            --expected-receipt-id "$EXPECTED_RECEIPT_ID"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPECTED_RECEIPT_ID: ${{ needs.baseline.outputs.receipt_id }}
+
+      - name: Resolve rollback candidate
+        if: |
+          steps.gate.outputs.proceed == 'true' &&
+          contains(fromJSON(needs.prepare.outputs.tasks), 'rollback')
+        run: |
+          set -euo pipefail
+          if ! [[ "$ROLLBACK_RECEIPT_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::rollback requires rollback_receipt_id (an accepted MirrRule deployment id)" >&2
+            exit 1
+          fi
+          pnpm run node Build/prepare-publication.ts resolve-baseline \
+            --receipt-id "$ROLLBACK_RECEIPT_ID" \
+            --tree "$RUNNER_TEMP/candidate" \
+            --evidence "$RUNNER_TEMP/rollback-evidence.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ROLLBACK_RECEIPT_ID: ${{ github.event.inputs.rollback_receipt_id }}
+
+      - name: Stage complete publication tree
+        id: stage
+        if: steps.gate.outputs.proceed == 'true'
+        run: |
+          set -euo pipefail
+          args=(stage
+            --candidate "$RUNNER_TEMP/candidate"
+            --out "$RUNNER_TEMP/staging"
+            --tasks "$TASKS"
+            --source-commit "$GITHUB_SHA"
+            --tree "$RUNNER_TEMP/publication-baseline"
+            --evidence "$RUNNER_TEMP/publication-baseline.json"
+            --check-superseded)
+          if [ "$IS_ROLLBACK" = "true" ]; then
+            args+=(--rollback-evidence "$RUNNER_TEMP/rollback-evidence.json")
+          fi
+          pnpm run node Build/prepare-publication.ts "${args[@]}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TASKS: ${{ needs.prepare.outputs.tasks }}
+          IS_ROLLBACK: ${{ contains(fromJSON(needs.prepare.outputs.tasks), 'rollback') }}
+
+      - name: Unarchive NRRule
+        if: steps.stage.outputs.superseded == 'false'
+        run: |
+          set -euo pipefail
+          if [ "$(gh repo view lucking7/NRRule --json isArchived --jq .isArchived)" = "true" ]; then
+            gh repo unarchive lucking7/NRRule --yes
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GIT_TOKEN }}
+
+      - name: Clone NRRule and record remote HEAD
+        id: clone
+        if: steps.stage.outputs.superseded == 'false'
+        run: |
+          set -euo pipefail
+          git clone --depth=1 --filter=blob:none --no-checkout --no-tags \
+            "https://${GH_USER}:${GH_TOKEN}@github.com/lucking7/NRRule.git" \
+            "$RUNNER_TEMP/deploy-git"
+          git -C "$RUNNER_TEMP/deploy-git" config user.email "${GH_EMAIL}"
+          git -C "$RUNNER_TEMP/deploy-git" config user.name "${GH_USER}"
+          remote_head=$(git -C "$RUNNER_TEMP/deploy-git" rev-parse HEAD)
+          echo "Accepted baseline deployCommit: ${{ steps.baseline.outputs.deploy_commit }} (receipt ${{ steps.baseline.outputs.receipt_id }})"
+          echo "NRRule remote HEAD (may include an unaccepted candidate): $remote_head"
+          echo "expected_head=$remote_head" >> "$GITHUB_OUTPUT"
         env:
           GH_EMAIL: ${{ secrets.GIT_EMAIL }}
           GH_USER: ${{ secrets.GIT_USER }}
           GH_TOKEN: ${{ secrets.GIT_TOKEN }}
+
+      - name: Commit and push NRRule
+        id: push
+        if: steps.stage.outputs.superseded == 'false'
+        run: |
+          pnpm run node Build/prepare-publication.ts push \
+            --repo "$RUNNER_TEMP/deploy-git" \
+            --staging "$RUNNER_TEMP/staging" \
+            --branch main \
+            --expected-head "$EXPECTED_HEAD" \
+            --message "deploy: ${{ github.repository }}@${{ github.sha }} [$SCOPES]"
+        env:
+          EXPECTED_HEAD: ${{ steps.clone.outputs.expected_head }}
+          SCOPES: ${{ steps.stage.outputs.scopes }}
+
+      - name: Verify Cloudflare deployment and production content
+        id: verify
+        if: steps.push.outputs.deploy_commit != ''
+        run: |
+          pnpm run node Build/verify-publication.ts verify \
+            --deploy-commit "$DEPLOY_COMMIT" \
+            --staging "$RUNNER_TEMP/staging" \
+            --timeout-minutes 15 \
+            --report "$RUNNER_TEMP/publication-evidence/verification.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_COMMIT: ${{ steps.push.outputs.deploy_commit }}
+
+      - name: Record acceptance receipt
+        if: steps.verify.outputs.outcome == 'accepted'
+        run: |
+          pnpm run node Build/verify-publication.ts record-receipt \
+            --kind manifest \
+            --staging "$RUNNER_TEMP/staging" \
+            --deploy-commit "$DEPLOY_COMMIT" \
+            --immutable-url "$IMMUTABLE_URL" \
+            --ref "$GITHUB_SHA" \
+            --log-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_COMMIT: ${{ steps.push.outputs.deploy_commit }}
+          IMMUTABLE_URL: ${{ steps.verify.outputs.immutable_url }}
+
+      - name: Collect publication evidence
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/publication-evidence"
+          if [ -f "$RUNNER_TEMP/staging/Internal/publication-manifest.json" ]; then
+            cp "$RUNNER_TEMP/staging/Internal/publication-manifest.json" "$RUNNER_TEMP/publication-evidence/"
+          fi
+          if [ -f "$RUNNER_TEMP/publication-baseline.json" ]; then
+            cp "$RUNNER_TEMP/publication-baseline.json" "$RUNNER_TEMP/publication-evidence/"
+          fi
+          echo "NRRule deployCommit: ${DEPLOY_COMMIT:-none}; verification outcome: ${OUTCOME:-not run}"
+        env:
+          DEPLOY_COMMIT: ${{ steps.push.outputs.deploy_commit }}
+          OUTCOME: ${{ steps.verify.outputs.outcome }}
+
+      - name: Upload publication evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: publication-evidence-${{ github.sha }}-${{ github.run_number }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/publication-evidence
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Archive NRRule
+        if: always() && steps.stage.outputs.superseded == 'false'
+        run: |
+          rm -rf "$RUNNER_TEMP/deploy-git"
+          if ! gh repo archive lucking7/NRRule --yes; then
+            echo "::warning::NRRule could not be re-archived; archive it manually"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GIT_TOKEN }}
+
+  # ============================================
+  # 首次迁移：核验固定的旧版 NRRule revision，写入 legacy-bootstrap receipt（不发布）
+  # ============================================
+  bootstrap-baseline:
+    name: Bootstrap Legacy Baseline
+    needs: prepare
+    if: |
+      contains(fromJSON(needs.prepare.outputs.tasks), 'bootstrap-baseline') &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: nrrule-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      deployments: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".node-version"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Verify pinned legacy revision
+        id: verify
+        run: |
+          set -euo pipefail
+          if ! [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::bootstrap_revision must be a full 40-character NRRule commit SHA" >&2
+            exit 1
+          fi
+          pnpm run node Build/prepare-publication.ts bootstrap \
+            --tree "$RUNNER_TEMP/legacy-tree" \
+            --revision "$REVISION" \
+            --immutable-url "$IMMUTABLE_URL" \
+            --out "$RUNNER_TEMP/bootstrap"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REVISION: ${{ github.event.inputs.bootstrap_revision }}
+          IMMUTABLE_URL: ${{ github.event.inputs.bootstrap_immutable_url }}
+
+      - name: Upload legacy inventory
+        id: upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: publication-bootstrap-${{ github.event.inputs.bootstrap_revision }}-${{ github.run_number }}
+          path: ${{ runner.temp }}/bootstrap
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Record legacy-bootstrap receipt
+        run: |
+          pnpm run node Build/verify-publication.ts record-receipt \
+            --kind legacy-bootstrap \
+            --inventory "$RUNNER_TEMP/bootstrap/legacy-inventory.json" \
+            --deploy-commit "$REVISION" \
+            --immutable-url "$IMMUTABLE_URL" \
+            --source-commit "$GITHUB_SHA" \
+            --artifact-id "$ARTIFACT_ID" \
+            --artifact-digest "$ARTIFACT_DIGEST" \
+            --run-id "$GITHUB_RUN_ID" \
+            --ref "$GITHUB_SHA" \
+            --log-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REVISION: ${{ github.event.inputs.bootstrap_revision }}
+          IMMUTABLE_URL: ${{ steps.verify.outputs.immutable_url }}
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+
+      - name: Upload failed bootstrap evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: publication-bootstrap-failure-${{ github.run_number }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/bootstrap
+          retention-days: 30
+          if-no-files-found: ignore

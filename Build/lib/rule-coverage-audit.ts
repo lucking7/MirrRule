@@ -1,13 +1,24 @@
 import { domainToASCII } from 'node:url';
 import { isIP } from 'node:net';
 
+/** Consumer format used to parse subscription lines; never inferred from a directory name alone. */
+type CoverageSubscriptionFormat = 'rule-set' | 'domain-set' | 'inline';
+
+/** `merged` is the flat legacy subscription; the others are NRRule split variants. */
+export type CoverageVariant = 'merged' | 'domainset' | 'non_ip' | 'ip';
+
 export interface CoverageSubscription {
   id: string,
   policy: string,
   lines: readonly string[],
   kind?: 'subscription' | 'inline',
+  /** Defaults to `inline` for inline rules and `rule-set` otherwise. */
+  format?: CoverageSubscriptionFormat,
+  variant?: CoverageVariant,
   extendedMatching?: boolean,
-  skipped?: 'missing-local-file' | 'unavailable-remote' | 'unsupported-reference' | 'unsupported-options'
+  skipped?: 'missing-local-file' | 'unavailable-remote' | 'unsupported-reference' | 'unsupported-options' | 'absent-variant' | 'format-mismatch',
+  /** Human-readable explanation recorded for skipped (not-covered) references. */
+  notCoveredReason?: string
 }
 
 interface CoverageOwner {
@@ -38,6 +49,11 @@ interface SubscriptionCoverage {
   kind: 'subscription' | 'inline',
   status: 'audited' | 'skipped',
   skipped?: CoverageSubscription['skipped'],
+  format: CoverageSubscriptionFormat,
+  variant?: CoverageVariant,
+  /** Skipped entries are never reviewed; they remain explicit coverage gaps. */
+  reviewStatus: 'reviewed' | 'not-covered',
+  notCoveredReason?: string,
   totalRules: number,
   domainRules: number,
   unsupportedRules: number,
@@ -69,7 +85,11 @@ export interface CoverageAuditReport {
     differentPolicyConflicts: number,
     fullyShadowedSubscriptions: number,
     fullyShadowedDomainSubscriptions: number,
-    conditionalWarnings: number
+    conditionalWarnings: number,
+    /** Every skipped entry, including inline rules; equal to skippedSubscriptions by construction. */
+    notCoveredSubscriptions: number,
+    absentVariantSubscriptions: number,
+    formatMismatchSubscriptions: number
   },
   subscriptions: SubscriptionCoverage[],
   conditionalWarnings: ConditionalCoverageWarning[]
@@ -191,6 +211,19 @@ export function cleanAuditRuleLine(line: string): string {
   return line.replace(/\s+#.*$/, '').trim();
 }
 
+/**
+ * Translate one Surge DOMAIN-SET line into the equivalent classical condition, keeping line numbers 1:1.
+ * `example.com` is an exact DOMAIN; `.example.com` is a DOMAIN-SUFFIX (apex plus subdomains).
+ * Lines that are not bare domains (for example classical rules placed in a DOMAIN-SET) are kept as an
+ * explicit unsupported `DOMAIN-SET-INVALID` entry instead of being parsed as classical rules.
+ */
+export function domainSetLineToRule(raw: string): string {
+  const line = cleanAuditRuleLine(raw);
+  if (!line || line.startsWith('#') || line.startsWith('//') || line.startsWith(';')) return line;
+  if (/[\s,]/.test(line)) return `DOMAIN-SET-INVALID,${line}`;
+  return line.startsWith('.') ? `DOMAIN-SUFFIX,${line.slice(1)}` : `DOMAIN,${line}`;
+}
+
 function parseDomain(fields: string[], owner: CoverageOwner): DomainCondition | undefined {
   const type = fields[0]?.toUpperCase();
   if (type !== 'DOMAIN' && type !== 'DOMAIN-SUFFIX') return;
@@ -230,21 +263,28 @@ export function auditRuleCoverage(
       'USER-AGENT and PROCESS-NAME warnings are conditional on request metadata; they never count as unconditional domain coverage.',
       'Profile input audits only its [Rule] section. Supply a sanitized effective profile to include enabled module rules.',
       'Remote subscriptions are not fetched. Missing or unsupported subscriptions are explicit gaps, and earlier gaps may change the actual winner.',
-      'Does not simulate observed TLS SNI or HTTP Host, DNS lookup, pre-matching, client runtime indexes, connections or policy group selections.'
+      'Does not simulate observed TLS SNI or HTTP Host, DNS lookup, pre-matching, client runtime indexes, connections or policy group selections.',
+      'DOMAIN-SET files are parsed as native domain sets (bare domain = DOMAIN, leading dot = DOMAIN-SUFFIX); RULE-SET files as classical rules. Split variants are audited only when the reference resolves to a local file with the matching format; absent variants, format mismatches and unresolved references are reported as not-covered.'
     ],
     summary: {
       subscriptions: 0, auditedSubscriptions: 0, skippedSubscriptions: 0, missingLocalSubscriptions: 0,
       domainRules: 0, unsupportedRules: 0, fullyCoveredDomainRules: 0, partlyOverlappingDomainRules: 0,
       samePolicyRedundancies: 0, differentPolicyConflicts: 0, fullyShadowedSubscriptions: 0,
-      fullyShadowedDomainSubscriptions: 0, conditionalWarnings: 0
+      fullyShadowedDomainSubscriptions: 0, conditionalWarnings: 0,
+      notCoveredSubscriptions: 0, absentVariantSubscriptions: 0, formatMismatchSubscriptions: 0
     },
     subscriptions: [],
     conditionalWarnings: []
   };
   subscriptions.forEach((subscription, position) => {
+    const kind = subscription.kind ?? 'subscription';
+    const format = subscription.format ?? (kind === 'inline' ? 'inline' : 'rule-set');
     const result: SubscriptionCoverage = {
-      id: subscription.id, policy: subscription.policy, kind: subscription.kind ?? 'subscription',
+      id: subscription.id, policy: subscription.policy, kind,
       status: subscription.skipped ? 'skipped' : 'audited', ...(subscription.skipped && { skipped: subscription.skipped }),
+      format, ...(subscription.variant && { variant: subscription.variant }),
+      reviewStatus: subscription.skipped ? 'not-covered' : 'reviewed',
+      ...(subscription.skipped && { notCoveredReason: subscription.notCoveredReason ?? subscription.skipped }),
       totalRules: 0, domainRules: 0, unsupportedRules: 0, unsupportedTypes: {}, conditionalRules: 0,
       fullyCoveredDomainRules: 0, partlyOverlappingDomainRules: 0, samePolicyRedundancies: 0,
       differentPolicyConflicts: 0, fullyShadowedDomains: false, fullyShadowedSubscription: false, examples: []
@@ -253,18 +293,22 @@ export function auditRuleCoverage(
     if (result.kind === 'subscription') report.summary.subscriptions++;
     if (subscription.skipped) {
       report.summary.skippedSubscriptions++;
+      report.summary.notCoveredSubscriptions++;
       if (subscription.skipped === 'missing-local-file') report.summary.missingLocalSubscriptions++;
+      if (subscription.skipped === 'absent-variant') report.summary.absentVariantSubscriptions++;
+      if (subscription.skipped === 'format-mismatch') report.summary.formatMismatchSubscriptions++;
       return;
     }
     if (result.kind === 'subscription') report.summary.auditedSubscriptions++;
     const additions: DomainCondition[] = [];
+    const lines = format === 'domain-set' ? subscription.lines.map(domainSetLineToRule) : subscription.lines;
     // Surge enables extended matching for the entire RULE-SET when any domain rule requests it.
-    const extendedMatching = subscription.extendedMatching || subscription.lines.some(raw => {
+    const extendedMatching = subscription.extendedMatching || lines.some(raw => {
       const fields = splitSurgeRuleFields(cleanAuditRuleLine(raw));
       return ['DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN-WILDCARD'].includes(fields[0].toUpperCase()) && fields.slice(2).some(field => field.toLowerCase() === 'extended-matching');
     });
     let conditionalExamples = 0;
-    subscription.lines.forEach((raw, lineIndex) => {
+    lines.forEach((raw, lineIndex) => {
       const line = cleanAuditRuleLine(raw);
       if (!line || line.startsWith('#') || line.startsWith('//') || line.startsWith(';')) return;
       result.totalRules++;

@@ -75,15 +75,23 @@ it('retires only the unsupported sing-box ASN artifact and retains other client 
   }
 });
 
+function script(name: string): string {
+  return `[Script]\nrun=type=http-response, script-path=https://nrrule.pages.dev/Scripts/${name}`;
+}
+
 it('build-web removes retired subscriptions from historical artifacts before publishing the index', async (t) => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-retired-index-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const converted = path.join(directory, 'Modules', 'Converted');
   await fs.mkdir(converted, { recursive: true });
   const retired = ['腾讯视频去广告.sgmodule', 'Tencent_Video_remove_ads.sgmodule'];
-  await Promise.all([...retired, '哈罗去广告.sgmodule'].map(name =>
-    fs.writeFile(path.join(converted, name), '[Rule]\nDOMAIN,example.test,REJECT')
-  ));
+  await fs.mkdir(path.join(directory, 'Scripts'), { recursive: true });
+  await Promise.all([
+    ...retired.map(name => fs.writeFile(path.join(converted, name), `${script('tencent.js')}\n${script('shared.js')}`)),
+    fs.writeFile(path.join(converted, '哈罗去广告.sgmodule'), script('shared.js')),
+    fs.writeFile(path.join(directory, 'Scripts', 'tencent.js'), 'const tencent = true;'),
+    fs.writeFile(path.join(directory, 'Scripts', 'shared.js'), 'const shared = true;'),
+  ]);
   const result = spawnSync(process.execPath, ['-r', '@swc-node/register', 'Build/build-public.ts'], {
     cwd: path.resolve(__dirname, '../..'),
     env: { ...process.env, PUBLIC_DIR: directory, SWC_NODE_IGNORE_DYNAMIC: 'true' },
@@ -95,7 +103,14 @@ it('build-web removes retired subscriptions from historical artifacts before pub
     await assert.rejects(fs.access(path.join(converted, name)), { code: 'ENOENT' });
     assert.equal(index.includes(name), false);
   }));
+  await assert.rejects(fs.access(path.join(directory, 'Scripts', 'tencent.js')), { code: 'ENOENT' });
+  assert.equal(await fs.readFile(path.join(directory, 'Scripts', 'shared.js'), 'utf8'), 'const shared = true;');
   assert.match(index, /哈罗去广告\.sgmodule/);
+  const report = JSON.parse(await fs.readFile(path.join(directory, 'Internal', 'artifact-lifecycle.json'), 'utf8'));
+  assert.deepEqual(report.removed, [...retired.map(name => `Modules/Converted/${name}`), 'Scripts/tencent.js']);
+  assert.equal(report.automaticRedirects, false);
+  assert.ok(report.records.some((record: { id: string, state: string }) => record.id === 'plugin:tencent-video-remove-ads' && record.state === 'retired'));
+  assert.match(index, /artifact-lifecycle\.json/);
 });
 
 function file(name: string, entryPath: string) {
@@ -194,9 +209,34 @@ describe('native public directory tree', () => {
     const states = [...treeHtml(tree).matchAll(/<details\b([^>]*)>\s*<summary>([^<]*)<\/summary>/g)]
       .map(match => [match[2], /\bopen\b/.test(match[1])]);
     assert.deepEqual(states, [
-      ['List', true], ['non_ip', false], ['Mock', false],
+      ['List', true], ['non_ip (Surge RULE-SET)', false], ['Mock', false],
       ['Mirror', true], ['Sukka', false], ['Internal', false],
     ]);
+  });
+
+  it('labels split variant folders with their consumer format and leaves merged files and other folders unlabeled', () => {
+    const variants = (root: string, extension: string) => dir(root, [
+      file(`apple.${extension}`, `/${root}/apple.${extension}`),
+      ...['ip', 'domainset', 'non_ip'].map(variant => dir(variant, [
+        file(`apple.${extension}`, `/${root}/${variant}/apple.${extension}`),
+      ], `/${root}/${variant}`)),
+    ]);
+    const tree: TreeTypeArray = [
+      variants('List', 'list'), variants('Clash', 'txt'), variants('Loon', 'list'), variants('sing-box', 'json'),
+      dir('Mirror', [dir('domainset', [file('a.sgmodule', '/Mirror/domainset/a.sgmodule')], '/Mirror/domainset')]),
+      dir('List2', [dir('non_ip', [dir('ip', [file('x.list', '/List2/non_ip/ip/x.list')], '/List2/non_ip/ip')], '/List2/non_ip')]),
+    ];
+    const rendered = treeHtml(tree);
+    assert.deepEqual([...rendered.matchAll(/<summary>([^<]*)<\/summary>/g)].map(match => match[1]), [
+      'List', 'domainset (Surge DOMAIN-SET)', 'non_ip (Surge RULE-SET)', 'ip (Surge RULE-SET)',
+      'Loon', 'domainset (Loon RULE-SET)', 'non_ip (Loon RULE-SET)', 'ip (Loon RULE-SET)',
+      'Clash', 'domainset (Clash classical)', 'non_ip (Clash classical)', 'ip (Clash classical)',
+      'sing-box', 'domainset (sing-box rule-set JSON v2)', 'non_ip (sing-box rule-set JSON v2)', 'ip (sing-box rule-set JSON v2)',
+      'Mirror', 'domainset', 'List2', 'non_ip', 'ip',
+    ]);
+    const links = fileLinks(rendered).map(link => link.href);
+    assert.deepEqual(links.slice(0, 4), ['/List/domainset/apple.list', '/List/non_ip/apple.list', '/List/ip/apple.list', '/List/apple.list']);
+    assert.ok(links.includes('/sing-box/domainset/apple.json'));
   });
 
   it('preserves category order and sorts files without mutating the input at any depth', () => {
@@ -337,7 +377,7 @@ describe('standalone ruleset index generation', () => {
       const html = await fs.readFile(path.join(directory, 'index.html'), 'utf8');
       assert.deepEqual(fileLinks(html).map(link => link.href).sort(), [
         '/README.md', '/LICENSE', '/List/reject_url_regex.list', '/Clash/apple.txt',
-        '/Loon/apple.list', '/sing-box/apple.json', '/GeoIP/country.mmdb',
+        '/Loon/apple.list', '/sing-box/apple.json', '/GeoIP/country.mmdb', '/Internal/artifact-lifecycle.json',
       ].sort());
       assert.equal(await fs.readFile(path.join(directory, 'LICENSE'), 'utf8'),
         await fs.readFile(path.join(__dirname, '../../LICENSE'), 'utf8'));

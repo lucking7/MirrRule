@@ -1,14 +1,22 @@
 import process from 'node:process';
 import path from 'node:path';
+import fs from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import type { Hash } from 'node:crypto';
 import type { Span } from '../trace';
 import { HostnameSmolTrie } from '../utils/data-structures/trie';
 import { nullthrow } from 'foxts/guard';
 import { createRetrieKeywordFilter as createKeywordFilter } from 'foxts/retrie';
-import type { BaseWriteStrategy, RuleDropSummary } from '../core/output/writing-strategy/base';
+import type { BaseWriteStrategy, RuleConversionLosses, RuleDropSummary } from '../core/output/writing-strategy/base';
 import type { RulePlatform } from '../core/output/rule-support-matrix';
-import { createStrategiesForTargets, normalizeTargets } from './platform-config';
+import { compareAndWriteFile } from './create-file';
+import { createStrategiesForTargets, createVariantStrategy, normalizeTargets } from './platform-config';
 import type { SupportedPlatform } from './platform-config';
 import type { RuleProcessingOptions } from './rule-source-types';
+import { classifyRuleLine, hasDomainMatcherSubRule, resolveRuleOutputTarget, RULE_OUTPUT_VARIANTS } from './rule-output-variants';
+import type { RuleOutputSlot, RuleOutputVariant } from './rule-output-variants';
+import { countEffectiveConditions, sha256Hex } from './output-audit';
+import type { RuleOutputFileAudit, RulesetOutputAudit, RulesetStageCounts } from './output-audit';
 import { cleanPolicy } from './policy-cleaner';
 import { smartConvertRule } from './misc';
 import { RuleLineUtils } from '../utils/validation/validators';
@@ -37,12 +45,39 @@ const RULE_TYPE_MAP: Record<string, string> = {
   NETWORK: 'protocol',
 };
 
+/** One platform's merged writer plus the three mutually exclusive variant writers. */
+interface PlatformOutputs {
+  platform: SupportedPlatform;
+  merged: BaseWriteStrategy;
+  variants: Record<RuleOutputVariant, BaseWriteStrategy>;
+  routed: Record<RuleOutputVariant, number>;
+  /** Surge RULE-SET extended matching cannot be expressed by DOMAIN-SET. */
+  domainVariant: RuleOutputVariant;
+  /** Logical rules kept in non_ip instead of ip to preserve Surge extended matching. */
+  reroutedFromIp: number;
+}
+
+const EXTENDED_MATCHER_TYPES: ReadonlySet<string> = new Set([
+  'DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN-WILDCARD', 'URL-REGEX',
+]);
+
+function getDomainVariant(outputs: PlatformOutputs): RuleOutputVariant {
+  return outputs.domainVariant;
+}
+
+interface StagedOutput {
+  audit: RuleOutputFileAudit;
+  filePath: string;
+  lines: string[] | null;
+}
+
 /**
  * Normalizes rules, owns canonical state, and delegates platform output to writing strategies.
  */
 export class EnhancedFileOutput {
   private readonly targets: SupportedPlatform[];
   private readonly strategies: BaseWriteStrategy[];
+  private readonly platformOutputs: PlatformOutputs[];
   private readonly span: Span;
 
   private readonly domainTrie = new HostnameSmolTrie(null);
@@ -78,6 +113,14 @@ export class EnhancedFileOutput {
     inputOthers: 0,
   };
 
+  private readonly stageCounts: Omit<RulesetStageCounts, 'canonicalCount'> = {
+    inputLines: 0,
+    filtered: { emptyLines: 0, commentsOrMarkers: 0, excludedRuleType: 0, sourcePolicy: 0, invalid: 0 },
+  };
+
+  private readonly rawInputHash: Hash = createHash('sha256');
+  private publicationAudit: RulesetOutputAudit | null = null;
+
   private readonly config: {
     keepComments: boolean;
     keepEmptyLines: boolean;
@@ -95,7 +138,7 @@ export class EnhancedFileOutput {
     targets: SupportedPlatform[] = ['surge'],
     private readonly defaultPolicy: string | null = null,
     config?: RuleProcessingOptions,
-    outputBaseDir = 'public'
+    private readonly outputBaseDir = 'public'
   ) {
     this.span = span.traceChild('RuleOutput#' + id);
 
@@ -112,15 +155,30 @@ export class EnhancedFileOutput {
 
     this.targets = normalizeTargets(targets);
     this.strategies = createStrategiesForTargets(this.targets, outputBaseDir);
+    this.platformOutputs = this.targets.map((platform, index) => ({
+      platform,
+      merged: this.strategies[index],
+      variants: {
+        domainset: createVariantStrategy(platform, 'domainset', outputBaseDir),
+        non_ip: createVariantStrategy(platform, 'non_ip', outputBaseDir),
+        ip: createVariantStrategy(platform, 'ip', outputBaseDir),
+      },
+      routed: { domainset: 0, non_ip: 0, ip: 0 },
+      domainVariant: 'domainset',
+      reroutedFromIp: 0,
+    }));
   }
 
   /**
    * 智能添加规则 - 自动分发到 Trie/Set（自动去重+懒惰合并）
    */
   public addRawRule(rule: string): this {
+    this.stageCounts.inputLines++;
+    this.rawInputHash.update(rule).update('\n');
     let trimmed = RuleLineUtils.stripYamlListPrefix(rule.trim());
 
     if (!trimmed) {
+      this.stageCounts.filtered.emptyLines++;
       if (this.config.keepEmptyLines) {
         this.otherRules.push('');
       }
@@ -128,6 +186,7 @@ export class EnhancedFileOutput {
     }
 
     if (RuleLineUtils.shouldSkipLine(trimmed)) {
+      this.stageCounts.filtered.commentsOrMarkers++;
       if (this.config.keepComments && RuleLineUtils.isComment(trimmed)) {
         this.otherRules.push(trimmed);
       }
@@ -143,16 +202,21 @@ export class EnhancedFileOutput {
       normalizedRule = smartConvertRule(trimmed);
     }
 
-    if (this.hasExcludedRuleType(normalizedRule)) return this;
+    if (this.hasExcludedRuleType(normalizedRule)) {
+      this.stageCounts.filtered.excludedRuleType++;
+      return this;
+    }
 
     if (this.config.sourcePolicies !== undefined) {
       const sourcePolicy = normalizedRule.split(',').at(2)?.trim().toLowerCase();
       if (sourcePolicy === undefined || !this.config.sourcePolicies.includes(sourcePolicy)) {
+        this.stageCounts.filtered.sourcePolicy++;
         return this;
       }
     }
 
     if (this.config.validate && !RuleLineUtils.isValidRule(normalizedRule)) {
+      this.stageCounts.filtered.invalid++;
       return this;
     }
 
@@ -476,6 +540,20 @@ export class EnhancedFileOutput {
     return this;
   }
 
+  /** Write to the merged writer and to the one variant writer that owns this condition class. */
+  private route(
+    variantFor: RuleOutputVariant | ((outputs: PlatformOutputs) => RuleOutputVariant),
+    count: number,
+    write: (strategy: BaseWriteStrategy) => void
+  ) {
+    for (const outputs of this.platformOutputs) {
+      const variant = typeof variantFor === 'function' ? variantFor(outputs) : variantFor;
+      write(outputs.merged);
+      write(outputs.variants[variant]);
+      outputs.routed[variant] += count;
+    }
+  }
+
   private writeToStrategies() {
     if (this.strategiesWritten) {
       throw new Error('Strategies already written');
@@ -486,9 +564,13 @@ export class EnhancedFileOutput {
     // DOMAIN-KEYWORD covers matching DOMAIN, DOMAIN-SUFFIX, and DOMAIN-WILDCARD rules.
     const kwfilter = createKeywordFilter(Array.from(this.domainKeywords));
 
-    const strategiesLen = this.strategies.length;
-    for (const strategy of this.strategies) {
-      strategy.setExtendedDomainMatching(this.extendedDomainMatching);
+    for (const outputs of this.platformOutputs) {
+      // Surge DOMAIN-SET cannot carry RULE-SET extended matching, so those domains stay in non_ip.
+      outputs.domainVariant = outputs.platform === 'surge' && this.extendedDomainMatching ? 'non_ip' : 'domainset';
+      outputs.merged.setExtendedDomainMatching(this.extendedDomainMatching);
+      for (const variant of RULE_OUTPUT_VARIANTS) {
+        outputs.variants[variant].setExtendedDomainMatching(this.extendedDomainMatching);
+      }
     }
 
     this.domainTrie.dumpWithoutDot((domain, includeAllSubdomain) => {
@@ -502,26 +584,21 @@ export class EnhancedFileOutput {
 
       this.wildcardTrie.whitelist(domain, includeAllSubdomain);
 
-      for (let i = 0; i < strategiesLen; i++) {
-        const strategy = this.strategies[i];
-        if (includeAllSubdomain) {
-          strategy.writeDomainSuffix(domain);
-        } else {
-          strategy.writeDomain(domain);
-        }
-      }
+      this.route(
+        getDomainVariant,
+        1,
+        includeAllSubdomain
+          ? strategy => strategy.writeDomainSuffix(domain)
+          : strategy => strategy.writeDomain(domain)
+      );
     }, true);
 
     // Write the keywords that cover the filtered domain rules.
-    for (let i = 0; i < strategiesLen; i++) {
-      const strategy = this.strategies[i];
-      if (this.domainKeywords.size) {
-        strategy.writeDomainKeywords(this.domainKeywords);
-      }
-
-      if (this.protocol.size) {
-        strategy.writeProtocols(this.protocol);
-      }
+    if (this.domainKeywords.size) {
+      this.route('non_ip', this.domainKeywords.size, strategy => strategy.writeDomainKeywords(this.domainKeywords));
+    }
+    if (this.protocol.size) {
+      this.route('non_ip', this.protocol.size, strategy => strategy.writeProtocols(this.protocol));
     }
 
     this.wildcardTrie.dumpWithoutDot(wildcard => {
@@ -529,46 +606,67 @@ export class EnhancedFileOutput {
         return;
       }
 
-      for (let i = 0; i < strategiesLen; i++) {
-        const strategy = this.strategies[i];
-        strategy.writeDomainWildcard(wildcard);
-      }
+      this.route('non_ip', 1, strategy => strategy.writeDomainWildcard(wildcard));
     }, true);
 
     const sourceIpOrCidr = Array.from(this.sourceIpOrCidr);
 
-    for (let i = 0; i < strategiesLen; i++) {
-      const strategy = this.strategies[i];
-
-      if (this.userAgent.size) {
-        strategy.writeUserAgents(this.userAgent);
+    if (this.userAgent.size) {
+      this.route('non_ip', this.userAgent.size, strategy => strategy.writeUserAgents(this.userAgent));
+    }
+    if (this.processName.size) {
+      this.route('non_ip', this.processName.size, strategy => strategy.writeProcessNames(this.processName));
+    }
+    if (this.processPath.size) {
+      this.route('non_ip', this.processPath.size, strategy => strategy.writeProcessPaths(this.processPath));
+    }
+    // SRC-IP matches the client source address and never requires destination resolution.
+    if (this.sourceIpOrCidr.size) {
+      this.route('non_ip', sourceIpOrCidr.length, strategy => strategy.writeSourceIpCidrs(sourceIpOrCidr));
+    }
+    if (this.sourcePort.size) {
+      this.route('non_ip', this.sourcePort.size, strategy => strategy.writeSourcePorts(this.sourcePort));
+    }
+    if (this.destPort.size) {
+      this.route('non_ip', this.destPort.size, strategy => strategy.writeDestinationPorts(this.destPort));
+    }
+    if (this.otherRules.length) {
+      // Logical expressions are classified whole; a destination-IP child sends the expression to ip.
+      const otherRulesByVariant: Record<RuleOutputVariant, string[]> = { domainset: [], non_ip: [], ip: [] };
+      // Surge applies the RULE-SET-wide extended matching to domain sub-rules as well. The
+      // Surge non_ip file keeps that context through its flagged domain rules, while the ip
+      // file has no top-level domain rule to carry it, so such logical rules stay in non_ip.
+      const surgeOtherRulesByVariant: Record<RuleOutputVariant, string[]> = { domainset: [], non_ip: [], ip: [] };
+      let surgeRerouted = 0;
+      for (const rule of this.otherRules) {
+        const variant = classifyRuleLine(rule);
+        if (!variant) continue;
+        otherRulesByVariant[variant].push(rule);
+        if (variant === 'ip' && this.extendedDomainMatching && hasDomainMatcherSubRule(rule)) {
+          surgeOtherRulesByVariant.non_ip.push(rule);
+          surgeRerouted++;
+        } else {
+          surgeOtherRulesByVariant[variant].push(rule);
+        }
       }
-      if (this.processName.size) {
-        strategy.writeProcessNames(this.processName);
+      for (const outputs of this.platformOutputs) {
+        const isSurge = outputs.platform === 'surge';
+        if (isSurge) outputs.reroutedFromIp = surgeRerouted;
+        const byVariant = isSurge ? surgeOtherRulesByVariant : otherRulesByVariant;
+        outputs.merged.writeOtherRules(this.otherRules);
+        for (const variant of RULE_OUTPUT_VARIANTS) {
+          const rules = byVariant[variant];
+          if (rules.length === 0) continue;
+          outputs.variants[variant].writeOtherRules(rules);
+          outputs.routed[variant] += rules.length;
+        }
       }
-      if (this.processPath.size) {
-        strategy.writeProcessPaths(this.processPath);
-      }
-
-      if (this.sourceIpOrCidr.size) {
-        strategy.writeSourceIpCidrs(sourceIpOrCidr);
-      }
-
-      if (this.sourcePort.size) {
-        strategy.writeSourcePorts(this.sourcePort);
-      }
-      if (this.destPort.size) {
-        strategy.writeDestinationPorts(this.destPort);
-      }
-      if (this.otherRules.length) {
-        strategy.writeOtherRules(this.otherRules);
-      }
-      if (this.geoip.size) {
-        strategy.writeGeoip(this.geoip, false);
-      }
-      if (this.urlRegex.size) {
-        strategy.writeUrlRegexes(this.urlRegex);
-      }
+    }
+    if (this.geoip.size) {
+      this.route('ip', this.geoip.size, strategy => strategy.writeGeoip(this.geoip, false));
+    }
+    if (this.urlRegex.size) {
+      this.route('non_ip', this.urlRegex.size, strategy => strategy.writeUrlRegexes(this.urlRegex));
     }
 
     let ipcidr: string[] | null = null;
@@ -589,62 +687,175 @@ export class EnhancedFileOutput {
       ipcidr6NoResolve = Array.from(this.ipcidr6NoResolve);
     }
 
-    for (let i = 0; i < strategiesLen; i++) {
-      const strategy = this.strategies[i];
-      // no-resolve
-      if (ipcidrNoResolve) {
-        strategy.writeIpCidrs(ipcidrNoResolve, true);
-      }
-      if (ipcidr6NoResolve) {
-        strategy.writeIpCidr6s(ipcidr6NoResolve, true);
-      }
-      if (this.ipasnNoResolve.size) {
-        strategy.writeIpAsns(this.ipasnNoResolve, true);
-      }
-      if (this.groipNoResolve.size) {
-        strategy.writeGeoip(this.groipNoResolve, true);
-      }
+    // no-resolve
+    if (ipcidrNoResolve) {
+      const values = ipcidrNoResolve;
+      this.route('ip', values.length, strategy => strategy.writeIpCidrs(values, true));
+    }
+    if (ipcidr6NoResolve) {
+      const values = ipcidr6NoResolve;
+      this.route('ip', values.length, strategy => strategy.writeIpCidr6s(values, true));
+    }
+    if (this.ipasnNoResolve.size) {
+      this.route('ip', this.ipasnNoResolve.size, strategy => strategy.writeIpAsns(this.ipasnNoResolve, true));
+    }
+    if (this.groipNoResolve.size) {
+      this.route('ip', this.groipNoResolve.size, strategy => strategy.writeGeoip(this.groipNoResolve, true));
+    }
 
-      // triggers DNS resolution
-      if (ipcidr?.length) {
-        strategy.writeIpCidrs(ipcidr, false);
-      }
-      if (ipcidr6?.length) {
-        strategy.writeIpCidr6s(ipcidr6, false);
-      }
-      if (this.ipasn.size) {
-        strategy.writeIpAsns(this.ipasn, false);
-      }
+    // triggers DNS resolution
+    if (ipcidr?.length) {
+      const values = ipcidr;
+      this.route('ip', values.length, strategy => strategy.writeIpCidrs(values, false));
+    }
+    if (ipcidr6?.length) {
+      const values = ipcidr6;
+      this.route('ip', values.length, strategy => strategy.writeIpCidr6s(values, false));
+    }
+    if (this.ipasn.size) {
+      this.route('ip', this.ipasn.size, strategy => strategy.writeIpAsns(this.ipasn, false));
     }
   }
 
-  write(): Promise<unknown> {
+  /**
+   * Render every merged and variant file and decide variant presence before any
+   * write, so a validation failure leaves the previous files untouched.
+   */
+  private stageOutputs(): StagedOutput[] {
+    const title = nullthrow(this.title, 'Missing title');
+    const descriptions = nullthrow(this.description, 'Missing description');
+    const staged: StagedOutput[] = [];
+
+    for (const outputs of this.platformOutputs) {
+      outputs.merged.validateForPublication();
+      for (const message of outputs.merged.getRuleDropMessages()) console.warn(message);
+      staged.push(this.stageOutput(outputs, 'merged', outputs.merged, title, descriptions));
+      for (const variant of RULE_OUTPUT_VARIANTS) {
+        staged.push(this.stageOutput(outputs, variant, outputs.variants[variant], title, [
+          ...descriptions,
+          `Variant: ${variant}. Combine domainset, non_ip and ip for the conditions of the merged ruleset.`,
+        ]));
+      }
+    }
+    return staged;
+  }
+
+  private stageOutput(
+    outputs: PlatformOutputs,
+    slot: RuleOutputSlot,
+    strategy: BaseWriteStrategy,
+    title: string,
+    descriptions: readonly string[]
+  ): StagedOutput {
+    const target = resolveRuleOutputTarget(outputs.platform, slot, this.id);
+    const counts = countEffectiveConditions(target.format, strategy.content);
+    const routedConditionCount = slot === 'merged'
+      ? outputs.routed.domainset + outputs.routed.non_ip + outputs.routed.ip
+      : outputs.routed[slot];
+
+    let status: RuleOutputFileAudit['status'] = 'published';
+    let reason: RuleOutputFileAudit['reason'];
+    if (slot !== 'merged') {
+      if (routedConditionCount === 0) {
+        status = 'absent-empty';
+        reason = slot === 'domainset' && outputs.domainVariant !== 'domainset' && outputs.routed.non_ip > 0
+          ? 'extended-matching'
+          : 'no-conditions';
+      } else if (counts.effectiveConditionCount === 0) {
+        status = 'absent-unsupported';
+        reason = 'platform-unsupported';
+      } else {
+        strategy.validateForPublication();
+      }
+    }
+
+    return {
+      audit: {
+        platform: outputs.platform,
+        variant: slot,
+        format: target.format,
+        path: target.relativePath,
+        status,
+        ...(reason && { reason }),
+        routedConditionCount,
+        ...counts,
+        bytes: null,
+        sha256: null,
+        drops: strategy.ruleDropSummary,
+        losses: this.getConversionLosses(outputs.platform, target.format, strategy),
+        ...(outputs.platform === 'surge' && slot === 'non_ip' && outputs.reroutedFromIp > 0 && {
+          reroutedFromIp: { reason: 'extended-matching' as const, count: outputs.reroutedFromIp },
+        }),
+      },
+      filePath: path.join(this.outputBaseDir, ...target.relativePath.split('/')),
+      lines: status === 'published' ? strategy.render(title, descriptions, this.date) : null,
+    };
+  }
+
+  /**
+   * Writer losses plus the RULE-SET-wide extended matching that only Surge can carry:
+   * other platforms ignore it for every domain matcher they publish.
+   */
+  private getConversionLosses(
+    platform: SupportedPlatform,
+    format: RuleOutputFileAudit['format'],
+    strategy: BaseWriteStrategy
+  ): RuleConversionLosses {
+    const losses = strategy.conversionLosses;
+    if (platform === 'surge' || !this.extendedDomainMatching) return losses;
+    let ignored = 0;
+    if (format === 'singbox-json-v2') {
+      const parsed = JSON.parse(strategy.content.join('\n')) as { rules?: Array<Record<string, unknown>> };
+      for (const rule of parsed.rules ?? []) {
+        for (const key of ['domain', 'domain_suffix', 'domain_keyword', 'domain_regex']) {
+          const values = rule[key];
+          if (Array.isArray(values)) ignored += values.length;
+        }
+      }
+    } else {
+      for (const line of strategy.content) {
+        const type = line.slice(0, line.indexOf(',')).trim().toUpperCase();
+        if (EXTENDED_MATCHER_TYPES.has(type) || ((type === 'AND' || type === 'OR' || type === 'NOT') && hasDomainMatcherSubRule(line))) {
+          ignored++;
+        }
+      }
+    }
+    if (ignored > 0) {
+      losses.ignoredModifiers['extended-matching'] = (losses.ignoredModifiers['extended-matching'] ?? 0) + ignored;
+    }
+    return losses;
+  }
+
+  write(): Promise<RulesetOutputAudit> {
     return this.span.traceChildAsync('write all', async childSpan => {
       await childSpan.traceChildAsync('done', () => this.done());
 
       childSpan.traceChildSync('write to strategies', () => this.writeToStrategies());
 
-      for (const strategy of this.strategies) strategy.validateForPublication();
+      const staged = childSpan.traceChildSync('stage outputs', () => this.stageOutputs());
 
-      return childSpan.traceChildAsync('output to disk', async childSpan => {
-        const descriptions = nullthrow(this.description, 'Missing description');
-        await Promise.all(this.strategies.map(strategy => {
-          const basename = this.id + '.' + strategy.fileExtension;
-
-          return childSpan.traceChildAsync('write ' + strategy.name, childSpan =>
-            strategy.output(
-              childSpan,
-              nullthrow(this.title, 'Missing title'),
-              descriptions,
-              this.date,
-              path.join(
-                strategy.outputDir,
-                strategy.type ? path.join(strategy.type, basename) : basename
-              )
-            )
-          );
+      await childSpan.traceChildAsync('output to disk', async childSpan => {
+        const published: Array<StagedOutput & { lines: string[] }> = [];
+        const absent: StagedOutput[] = [];
+        for (const output of staged) {
+          if (output.lines === null) absent.push(output);
+          else published.push({ ...output, lines: output.lines });
+        }
+        await Promise.all(published.map(output => childSpan.traceChildAsync(
+          'write ' + output.audit.path,
+          writeSpan => compareAndWriteFile(writeSpan, output.lines, output.filePath)
+        )));
+        // A successful ruleset removes variants that are now legitimately absent.
+        await Promise.all(absent.map(output => fs.rm(output.filePath, { force: true })));
+        await Promise.all(published.map(async output => {
+          const data = await fs.readFile(output.filePath);
+          output.audit.bytes = data.length;
+          output.audit.sha256 = sha256Hex(data);
         }));
       });
+
+      this.publicationAudit = this.buildPublicationAudit(staged.map(output => output.audit));
+      return this.publicationAudit;
     });
   }
 
@@ -655,11 +866,96 @@ export class EnhancedFileOutput {
     return this.strategies.map(strategy => strategy.content);
   }
 
+  /** Writer content of one variant after compile() or write(). */
+  public getVariantContent(platform: SupportedPlatform, variant: RuleOutputVariant): string[] {
+    const outputs = nullthrow(
+      this.platformOutputs.find(candidate => candidate.platform === platform),
+      `Platform is not a target: ${platform}`
+    );
+    return outputs.variants[variant].content;
+  }
+
   public getRuleDropSummaries(): Partial<Record<RulePlatform, RuleDropSummary>> {
     const summaries: Partial<Record<RulePlatform, RuleDropSummary>> = {};
     for (const strategy of [...this.strategies].sort((a, b) => a.platform.localeCompare(b.platform))) {
       summaries[strategy.platform] = strategy.ruleDropSummary;
     }
     return summaries;
+  }
+
+  /** Audit of the last successful write(); reading it does not recompile or recount drops. */
+  public getPublicationAudit(): RulesetOutputAudit {
+    return nullthrow(this.publicationAudit, `Ruleset has not been published: ${this.id}`);
+  }
+
+  private buildPublicationAudit(outputs: RuleOutputFileAudit[]): RulesetOutputAudit {
+    const conditions = this.getCanonicalConditions();
+    return {
+      id: this.id,
+      platforms: [...this.targets],
+      stages: {
+        inputLines: this.stageCounts.inputLines,
+        filtered: { ...this.stageCounts.filtered },
+        canonicalCount: this.getOutputSummary().ruleCount,
+      },
+      outputs,
+      rawInputSha256: this.rawInputHash.copy().digest('hex'),
+      semanticSha256: sha256Hex(conditions.join('\n')),
+      conditions,
+      contextSha256: sha256Hex(JSON.stringify({
+        defaultPolicy: this.defaultPolicy,
+        keepComments: this.config.keepComments,
+        keepEmptyLines: this.config.keepEmptyLines,
+        keepInlineComments: this.config.keepInlineComments,
+        formatConversion: this.config.formatConversion,
+        applyNoResolve: this.config.applyNoResolve,
+        validate: this.config.validate,
+        sourcePolicies: this.config.sourcePolicies ? [...this.config.sourcePolicies].sort() : null,
+        excludedRuleTypes: [...this.config.excludedRuleTypes].sort(),
+      })),
+    };
+  }
+
+  /**
+   * Platform-independent canonical conditions with their modifiers, sorted. These
+   * are the entries counted by getOutputSummary().ruleCount.
+   */
+  public getCanonicalConditions(): string[] {
+    const conditions = new Set<string>();
+    const domainModifier = this.extendedDomainMatching ? ',extended-matching' : '';
+    const add = (type: string, values: Iterable<string>, modifier = '') => {
+      for (const value of values) conditions.add(`${type},${value}${modifier}`);
+    };
+    const merged = (values: Set<string>) => (values.size ? mergeCidr(Array.from(values), true) : []);
+
+    this.domainTrie.dumpWithoutDot((domain, includeAllSubdomain) => {
+      conditions.add(`${includeAllSubdomain ? 'DOMAIN-SUFFIX' : 'DOMAIN'},${domain}${domainModifier}`);
+    });
+    this.wildcardTrie.dumpWithoutDot(wildcard => {
+      conditions.add(`DOMAIN-WILDCARD,${wildcard}${domainModifier}`);
+    });
+    add('DOMAIN-KEYWORD', this.domainKeywords, domainModifier);
+    add('USER-AGENT', this.userAgent);
+    add('PROCESS-NAME', this.processName);
+    add('PROCESS-PATH', this.processPath);
+    add('URL-REGEX', this.urlRegex);
+    add('IP-CIDR', merged(this.ipcidr));
+    add('IP-CIDR', merged(this.ipcidrNoResolve), ',no-resolve');
+    add('IP-CIDR6', this.ipcidr6);
+    add('IP-CIDR6', this.ipcidr6NoResolve, ',no-resolve');
+    add('IP-ASN', this.ipasn);
+    add('IP-ASN', this.ipasnNoResolve, ',no-resolve');
+    add('GEOIP', this.geoip);
+    add('GEOIP', this.groipNoResolve, ',no-resolve');
+    add('SRC-IP-CIDR', this.sourceIpOrCidr);
+    add('SRC-PORT', this.sourcePort);
+    add('DEST-PORT', this.destPort);
+    add('PROTOCOL', this.protocol);
+    for (const rule of this.otherRules) {
+      const trimmed = rule.trim();
+      if (!trimmed || RuleLineUtils.isComment(trimmed)) continue;
+      conditions.add(trimmed.split(',').map(part => part.trim()).join(','));
+    }
+    return [...conditions].sort();
   }
 }

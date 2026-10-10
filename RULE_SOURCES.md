@@ -12,9 +12,21 @@ Surge 可引用 `https://nrrule.pages.dev/List/wechat_no_ua.list`，无需维护
 
 ## 平台转换与产物目录
 
-`PUBLIC_DIR` 控制规则、GEOIP、网页与 status manifest 的统一输出目录；`.BUILD_FINISHED` 保留在仓库根目录作为 workflow 成功标记。中国 ASN 仅发布 Surge、Clash、Loon，索引构建会移除旧 sing-box ASN 文件。sing-box 发布前必须存在有效匹配条件，不能用空 JSON 表示已完成转换。
+`PUBLIC_DIR` 控制规则、GEOIP、网页与 status manifest 的统一输出目录；`.BUILD_FINISHED` 保留在仓库根目录作为 workflow 成功标记。中国 ASN 仅发布 Surge、Clash、Loon；旧 `sing-box/china_asn.json` 已在退休登记中记为 retired，替代为 `sing-box/china_ip.json` 与 `sing-box/china_ip_ipv6.json`，两者的 IP 覆盖不等同于 ASN 匹配。sing-box 发布前必须存在有效匹配条件，不能用空 JSON 表示已完成转换。
 
 Surge 保留 domain ruleset 的 extended-matching 语义；PROCESS-PATH 按平台矩阵转换为 PROCESS-NAME。Clash 对逻辑规则递归适配子条件；存在无法支持的子条件时拒绝整条逻辑规则，避免移除子条件后扩大匹配范围。本地插件 fallback 区分请求与响应 jq 操作，不得把请求操作改为响应操作或只输出 MITM。
+
+## 分版订阅
+
+每个启用的规则集保留原 flat 合并版，并在其原有 targets 上追加 `domainset`、`non_ip`、`ip` 三类分版，路径为 `List|Clash|Loon|sing-box/<分版>/<basename>.<原扩展名>`。三类互斥，同一平台三者并集等于该平台合并版，需组合使用：`domainset` 只含可无损表达的独立 DOMAIN／DOMAIN-SUFFIX；`non_ip` 是其余不依赖目标 IP 的条件（含 keyword、wildcard、URL-REGEX、UA、进程、源地址 SRC-IP、端口和不含目标 IP 子条件的 logical 规则）；`ip` 是 IP-CIDR／IP-CIDR6／IP-ASN／GEOIP 及含这些条件的完整 logical 规则，平台能表达时保留 `no-resolve`。Surge `List/domainset/` 为 native DOMAIN-SET，须用 `DOMAIN-SET` 引用；Clash 与 Loon 的 domainset 仍是 classical 编码，sing-box 为 JSON v2。
+
+含 `extended-matching` 的规则集在 Surge 上例外：DOMAIN-SET 无法携带该标志，域名条件留在 `non_ip`，Surge `domainset` 记为 absent，reason 为 `extended-matching`；同时含域名子条件与目标 IP 条件的 logical 规则也留在 Surge `non_ip`，审计以 `reroutedFromIp` 记录条数，其他平台仍归入 `ip`。转换损失记录在审计的 `outputs[].losses`：sing-box 不能表达 `no-resolve`，Surge 以外的平台忽略 `extended-matching`，Clash 丢弃 TCP、UDP 以外的 `PROTOCOL` 值。
+
+上游来源目录名（如 Sukka 的 `domainset/apple_cdn`、`non_ip/microsoft_cdn`）只说明来源，不决定本项目分版：分类按处理后的条件语义进行。例如 Apple CDN 的纯后缀条件进入 `domainset`，Microsoft CDN 的 URL-REGEX 留在 `non_ip`。为空或平台全部不支持的分版不发布文件，状态（`absent-empty`／`absent-unsupported`）、格式、有效条数、字节数与 SHA-256 记录在 `Internal/rule-output-audit.json`；上游条件增删相对上一份已验收发布记录在 `Internal/source-delta.json`，首次构建标为 baseline-unavailable，基线中存在但本次不再构建的规则集标为 `removed`。下文各表的输出 basename 同时是分版文件名。
+
+## 退休与替代
+
+退休和废弃订阅统一登记在 [artifact-lifecycle.ts](Build/lib/artifact-lifecycle.ts)，发布为 `Internal/artifact-lifecycle.json`，包含原因、依据与替代。缓存恢复、历史产物下载、网页索引、发布候选和回滚都使用同一登记，retired 文件不会被重新发布；replacement 只是迁移说明，不做跨格式重定向。当前 retired：腾讯视频去广告插件模块（上游停止维护，无替代）；`container`、`discord`、`scholar` 四平台规则（已从规则源移除，无替代）；`sing-box/china_asn.json`（替代见上文）。
 
 ## Reject 订阅边界
 
@@ -101,7 +113,7 @@ SukkaW/Surge 的源码生成 domainset、non_ip、ip 等类别，发布到 rules
 
 地域集合及总 `stream` 不再启用 `allowEmpty`。所有现役来源都须下载成功且清理后非空；下载、正文或空内容校验失败会停止该集合发布并保留旧产物。共享清理继续识别 Sukka 归属水印并保留合法数字开头域名。source-health 的完整报告与当前 source inventory 核对后才清理退役 ID，状态分支读取失败或无效、不完整报告不会触发清理；下次定时检查不再因退役来源维持告警。
 
-四平台输出为 `List/<basename>.list`、`Clash/<basename>.txt`、`Loon/<basename>.list`、`sing-box/<basename>.json`；两个 Surge 专用集合除外。新增集合清理上游策略字段，IP 规则添加 `no-resolve`。这里的“接入”是生成可订阅产物，不会自动修改客户端配置或启用拦截；来源更新后的公开路径须以对应生产部署为准。
+四平台合并版输出为 `List/<basename>.list`、`Clash/<basename>.txt`、`Loon/<basename>.list`、`sing-box/<basename>.json`，分版见[分版订阅](#分版订阅)；两个 Surge 专用集合除外。新增集合清理上游策略字段，IP 规则添加 `no-resolve`。这里的“接入”是生成可订阅产物，不会自动修改客户端配置或启用拦截；来源更新后的公开路径须以对应生产部署为准。
 
 `apple` 继续合并 CDN、中国服务、服务规则、服务 IP 和 iCloud Private Relay 五个来源，另提供对应的五个独立文件。`apple_intelligence` 单独保留，不加入 `apple`，需要专用出口时放在通用 Apple/AI 集合之前。其他 Apple 独立策略与 `microsoft_cdn` 也应放在各自聚合规则之前，IP 订阅放在域名规则之后。Microsoft CDN 样本含 URL-REGEX，Clash 与 sing-box 按现有矩阵丢弃该类型；Apple 服务的进程规则也不保证四平台等价。
 

@@ -7,6 +7,8 @@ import process from 'node:process';
 import { describe, it } from 'node:test';
 import { parse } from 'yaml';
 
+import { freshDirsForTasks } from '../lib/publication-stage';
+
 interface WorkflowStep {
   name?: string;
   uses?: string;
@@ -24,9 +26,13 @@ interface WorkflowJob {
   services?: Record<string, { image?: string }>;
   steps?: WorkflowStep[];
   outputs?: Record<string, string>;
+  permissions?: Record<string, string>;
+  concurrency?: { group?: string; 'cancel-in-progress'?: string | boolean };
 }
 
 interface Workflow {
+  on?: { workflow_dispatch?: { inputs?: Record<string, { options?: string[]; default?: string }> } };
+  permissions?: Record<string, string>;
   concurrency?: { group?: string; 'cancel-in-progress'?: string | boolean };
   jobs?: Record<string, WorkflowJob>;
 }
@@ -37,7 +43,8 @@ const workflowPath = path.join(
   'workflows',
   'main.yml',
 );
-const workflow = parse(fs.readFileSync(workflowPath, 'utf8')) as Workflow;
+const workflowText = fs.readFileSync(workflowPath, 'utf8');
+const workflow = parse(workflowText) as Workflow;
 const sourceHealthWorkflow = parse(
   fs.readFileSync(
     path.join(process.cwd(), '.github', 'workflows', 'check-source-domain.yml'),
@@ -125,13 +132,15 @@ function evaluateTaskPlan(scenario: WorkflowScenario) {
 }
 
 describe('GitHub Actions workflow contract', () => {
-  it('queues schedules and manual runs instead of interrupting an active deployment', () => {
+  it('queues schedules, pushes and manual runs instead of interrupting an active deployment', () => {
     // eslint-disable-next-line no-template-curly-in-string -- Literal GitHub Actions expressions.
     assert.equal(workflow.concurrency?.group, '${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}');
+    // Only pull request runs may be cancelled; production runs queue so an in-flight push and verification finish.
     // eslint-disable-next-line no-template-curly-in-string -- Literal GitHub Actions expression.
-    assert.equal(workflow.concurrency?.['cancel-in-progress'], '${{ github.event_name == \'push\' }}');
+    assert.equal(workflow.concurrency?.['cancel-in-progress'], '${{ github.event_name == \'pull_request\' }}');
+    assert.deepEqual(workflow.permissions, { contents: 'read' });
   });
-  it('publishes one task plan and preserves the deploy target separately', () => {
+  it('publishes one task plan and normalizes the deploy target separately', () => {
     const prepare = getJob('prepare');
     assert.deepEqual(Object.keys(prepare.outputs ?? {}).sort(), [
       'deploy_target',
@@ -145,8 +154,25 @@ describe('GitHub Actions workflow contract', () => {
     });
     assert.deepEqual(plan, {
       tasks: ['build', 'deploy'],
-      deployTarget: 'github',
+      deployTarget: 'production',
     });
+  });
+
+  it('normalizes legacy deploy selectors to the single production chain with a migration notice', () => {
+    const inputs = workflow.on?.workflow_dispatch?.inputs ?? {};
+    assert.deepEqual(inputs.deploy_target?.options, ['production', 'all', 'github', 'cloudflare']);
+    assert.equal(inputs.deploy_target?.default, 'production');
+    for (const deployTarget of ['', 'production', 'all', 'github', 'cloudflare']) {
+      assert.equal(
+        evaluateTaskPlan({ eventName: 'workflow_dispatch', task: 'deploy', deployTarget }).deployTarget,
+        'production',
+        deployTarget || 'default'
+      );
+    }
+    const decide = String(getStep(getJob('prepare'), 'Decide tasks to run').run);
+    assert.match(decide, /::notice::deploy_target=\$DEPLOY_TARGET is a legacy selector/);
+    assert.match(decide, /'github' no longer means repository-only/);
+    assert.throws(() => evaluateTaskPlan({ eventName: 'workflow_dispatch', task: 'deploy', deployTarget: 'surge' }));
   });
 
   it('keeps the event and manual task behavior matrix explicit', () => {
@@ -206,6 +232,16 @@ describe('GitHub Actions workflow contract', () => {
         'manual deploy',
         { eventName: 'workflow_dispatch', task: 'deploy' },
         ['build', 'deploy'],
+      ],
+      [
+        'manual bootstrap',
+        { eventName: 'workflow_dispatch', task: 'bootstrap-baseline' },
+        ['bootstrap-baseline'],
+      ],
+      [
+        'manual rollback',
+        { eventName: 'workflow_dispatch', task: 'rollback' },
+        ['rollback'],
       ],
     ];
 
@@ -502,13 +538,29 @@ describe('GitHub Actions workflow contract', () => {
     assert.equal(hasStep(mergeJob, 'Upload module output'), true);
   });
 
-  it('preserves previous optional subscriptions only after fresh required modules have merged', () => {
+  it('preserves previous optional subscriptions from the accepted baseline only after fresh required modules have merged', () => {
     const mergeJob = getJob('merge-modules');
+    assert.ok(getNeeds(mergeJob).includes('baseline'));
     const step = getStep(mergeJob, 'Preserve previous optional modules and scripts');
     assert.match(String(step.if), /convert-plugins/);
+    assert.match(String(step.if), /needs\.baseline\.outputs\.available == 'true'/);
     assert.match(String(step.run), /restore-optional-artifacts\.ts/);
-    assert.match(String(step.run), /sparse-checkout set Modules\/Converted Scripts/);
+    assert.match(String(step.run), /publication-baseline/);
+    assert.match(String(step.run), /--from-commit "\$from_commit"/);
+    assert.equal(step.env?.DEPLOY_COMMIT, githubExpression('needs.baseline.outputs.deploy_commit'));
+    const skipped = getStep(mergeJob, 'Report skipped optional restoration');
+    assert.match(String(skipped.if), /needs\.baseline\.outputs\.available != 'true'/);
+    assert.match(String(skipped.run), /::notice::/);
+    assert.match(String(getStep(mergeJob, 'Upload module output').with?.path), /public\/Internal\/preserved-artifacts\.json/);
+    assert.doesNotMatch(String(step.run), /git clone/, 'optional artifacts must not come from the unverified NRRule HEAD');
+    const checkout = getStep(mergeJob, 'Check out accepted baseline tree');
+    assert.match(String(checkout.run), /resolve-baseline/);
+    assert.match(String(checkout.run), /--receipt-id "\$RECEIPT_ID"/);
+    const ensure = String(getStep(mergeJob, 'Ensure converted modules exist').run);
+    assert.doesNotMatch(ensure, /git clone|\|\| true/);
+    assert.ok(ensure.indexOf('prepare-publication.ts purge --root public') > ensure.indexOf('cp -R "$BASELINE_CONVERTED/."'), 'retired modules copied from the baseline must be purged');
     const names = mergeJob.steps!.map(item => item.name);
+    assert.ok(names.indexOf(checkout.name) < names.indexOf('Ensure converted modules exist'));
     assert.ok(names.indexOf('Merge modules') < names.indexOf(step.name));
     assert.ok(names.indexOf(step.name) < names.indexOf('Upload module output'));
   });
@@ -528,10 +580,172 @@ describe('GitHub Actions workflow contract', () => {
     );
   });
 
-  it('syncs coverage reports alongside rules in GitHub deployments', () => {
-    const deploy = getStep(getJob('deploy-github'), 'Deploy to NRRule Repository');
-    const syncDeclarations = (deploy.run ?? '').split('\n').filter(line => line.startsWith('SYNC_PATHS='));
-    assert.ok(syncDeclarations.some(line => /\bInternal\//.test(line)), 'Internal reports must reach the deployment repository');
+  it('publishes coverage and audit reports as a required fresh directory', () => {
+    for (const tasks of [['build', 'deploy'], ['mirror-sync', 'build', 'deploy'], ['convert-plugins', 'merge-modules', 'build', 'deploy']]) {
+      assert.ok(freshDirsForTasks(tasks).includes('Internal'), tasks.join(','));
+    }
+    assert.match(String(getStep(getJob('publish'), 'Stage complete publication tree').run), /--tasks "\$TASKS"/);
+  });
+
+  it('has exactly one production write path and no direct Cloudflare upload', () => {
+    assert.equal(workflow.jobs?.['deploy-cloudflare'], undefined);
+    assert.equal(workflow.jobs?.['deploy-github'], undefined);
+    assert.doesNotMatch(workflowText, /wrangler|CLOUDFLARE_API_TOKEN|CLOUDFLARE_ACCOUNT_ID/);
+    const writers: string[] = [];
+    const deploymentWriters: string[] = [];
+    const jobs = workflow.jobs ?? {};
+    for (const [id, job] of Object.entries(jobs)) {
+      if ((job.steps ?? []).some(step => /git push|prepare-publication\.ts push|secrets\.GIT_TOKEN/.test(`${step.run ?? ''}\n${JSON.stringify(step.env ?? {})}`))) writers.push(id);
+      if (job.permissions?.deployments === 'write') deploymentWriters.push(id);
+    }
+    assert.deepEqual(writers, ['publish']);
+    deploymentWriters.sort();
+    assert.deepEqual(deploymentWriters, ['bootstrap-baseline', 'publish']);
+    for (const id of deploymentWriters) {
+      const job = getJob(id);
+      assert.equal(job.permissions?.contents, 'read');
+      assert.equal(job.concurrency?.group, 'nrrule-production');
+      assert.equal(job.concurrency?.['cancel-in-progress'], false);
+    }
+  });
+
+  it('does not publish build-only, mirror-only, plugin-only or pull request runs', () => {
+    const publish = getJob('publish');
+    const condition = publish.if ?? '';
+    assert.match(condition, /contains\(fromJSON\(needs\.prepare\.outputs\.tasks\), 'deploy'\) && needs\.build\.result == 'success'/);
+    assert.match(condition, /contains\(fromJSON\(needs\.prepare\.outputs\.tasks\), 'rollback'\) && needs\.build\.result == 'skipped'/);
+    assert.match(condition, /github\.event_name != 'pull_request'/);
+    assert.match(condition, /needs\.prepare\.outputs\.deploy_target == 'production'/);
+    const nonPublishing: WorkflowScenario[] = [
+      { eventName: 'pull_request' },
+      { eventName: 'workflow_dispatch', task: 'build' },
+      { eventName: 'workflow_dispatch', task: 'mirror-sync' },
+      { eventName: 'workflow_dispatch', task: 'convert-plugins' },
+      { eventName: 'workflow_dispatch', task: 'merge-modules' },
+      { eventName: 'workflow_dispatch', task: 'bootstrap-baseline' },
+    ];
+    for (const scenario of nonPublishing) {
+      const { tasks } = evaluateTaskPlan(scenario);
+      assert.ok(!tasks.includes('deploy') && !tasks.includes('rollback'), JSON.stringify(scenario));
+    }
+  });
+
+  it('stages, pushes, verifies and records the receipt in order, with archive cleanup always', () => {
+    const publish = getJob('publish');
+    const names = (publish.steps ?? []).map(step => step.name);
+    const order = [
+      'Resolve accepted baseline inside the production lock',
+      'Stage complete publication tree',
+      'Unarchive NRRule',
+      'Clone NRRule and record remote HEAD',
+      'Commit and push NRRule',
+      'Verify Cloudflare deployment and production content',
+      'Record acceptance receipt',
+      'Archive NRRule',
+    ];
+    for (let index = 1; index < order.length; index++) {
+      assert.ok(names.includes(order[index - 1]) && names.indexOf(order[index - 1]) < names.indexOf(order[index]), order[index]);
+    }
+    const lock = getStep(publish, 'Resolve accepted baseline inside the production lock');
+    assert.match(String(lock.run), /--expected-receipt-id "\$EXPECTED_RECEIPT_ID"/);
+    assert.doesNotMatch(String(lock.run), /--allow-missing/, 'production requires an accepted baseline');
+    assert.match(String(getStep(publish, 'Stage complete publication tree').run), /--check-superseded/);
+    const push = getStep(publish, 'Commit and push NRRule');
+    assert.match(String(push.run), /--expected-head "\$EXPECTED_HEAD"/);
+    assert.match(String(push.run), /deploy: \$\{\{ github\.repository \}\}@\$\{\{ github\.sha \}\} \[\$SCOPES\]/);
+    assert.doesNotMatch(workflowText, /push --force|push -f\b|--force-with-lease/);
+    assert.match(String(getStep(publish, 'Verify Cloudflare deployment and production content').if), /steps\.push\.outputs\.deploy_commit != ''/);
+    assert.match(String(getStep(publish, 'Verify Cloudflare deployment and production content').run), /--timeout-minutes 15/);
+    assert.match(String(getStep(publish, 'Record acceptance receipt').if), /steps\.verify\.outputs\.outcome == 'accepted'/);
+    assert.match(String(getStep(publish, 'Archive NRRule').if), /always\(\)/);
+    assert.equal(publish.outputs?.deploy_commit, githubExpression('steps.push.outputs.deploy_commit'));
+    const publishSteps = publish.steps ?? [];
+    for (const step of publishSteps) {
+      assert.doesNotMatch(step.run ?? '', /\|\| true/, String(step.name));
+    }
+  });
+
+  it('builds against the accepted baseline tree instead of the NRRule HEAD', () => {
+    const buildJob = getJob('build');
+    assert.ok(getNeeds(buildJob).includes('baseline'));
+    assert.equal(hasStep(buildJob, 'Download missing directories for index.html'), false);
+    const restore = getStep(buildJob, 'Restore preserved directories from accepted baseline');
+    assert.match(String(restore.run), /restore-preserved/);
+    assert.doesNotMatch(String(restore.run), /git clone|\|\| true|mkdir -p "public\/\$dir"/);
+    const buildStep = buildJob.steps?.find(step => step.run === 'pnpm run build');
+    assert.match(String(buildStep?.env?.PUBLICATION_BASELINE_DIR), /publication-baseline/);
+    assert.equal(buildStep?.env?.PUBLICATION_BASELINE_RECEIPT_ID, githubExpression('needs.baseline.outputs.receipt_id'));
+    const names = (buildJob.steps ?? []).map(step => step.name ?? step.run);
+    assert.ok(names.indexOf('Check out accepted baseline tree') < names.indexOf('Restore preserved directories from accepted baseline'));
+    assert.ok(names.indexOf('Restore preserved directories from accepted baseline') < names.indexOf('pnpm run build'));
+    const baseline = getJob('baseline');
+    assert.match(String(getStep(baseline, 'Select accepted receipt').run), /select-baseline --allow-missing/);
+    assert.equal(baseline.permissions?.deployments, 'read');
+  });
+
+  it('bootstraps a pinned legacy revision through a 90-day artifact and a legacy-bootstrap receipt', () => {
+    const job = getJob('bootstrap-baseline');
+    assert.match(job.if ?? '', /'bootstrap-baseline'/);
+    assert.match(job.if ?? '', /github\.ref == 'refs\/heads\/main'/);
+    const verify = getStep(job, 'Verify pinned legacy revision');
+    assert.match(String(verify.run), /prepare-publication\.ts bootstrap/);
+    assert.equal(verify.env?.REVISION, githubExpression('github.event.inputs.bootstrap_revision'));
+    assert.equal(verify.env?.IMMUTABLE_URL, githubExpression('github.event.inputs.bootstrap_immutable_url'));
+    const upload = getStep(job, 'Upload legacy inventory');
+    assert.equal(upload.with?.['retention-days'], 90);
+    assert.equal(upload.with?.['if-no-files-found'], 'error');
+    const record = getStep(job, 'Record legacy-bootstrap receipt');
+    assert.match(String(record.run), /--kind legacy-bootstrap/);
+    assert.equal(record.env?.ARTIFACT_ID, githubExpression('steps.upload.outputs.artifact-id'));
+    assert.equal(record.env?.ARTIFACT_DIGEST, githubExpression('steps.upload.outputs.artifact-digest'));
+  });
+
+  it('skips automatic publication without a baseline receipt but fails explicit dispatches', () => {
+    const publish = getJob('publish');
+    const gate = getStep(publish, 'Check publication prerequisites');
+    assert.equal(publish.steps?.[0], gate);
+    assert.equal(gate.env?.BASELINE_AVAILABLE, githubExpression('needs.baseline.outputs.available'));
+    const run = (available: string, eventName: string) => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-gate-'));
+      const output = path.join(tempDir, 'out');
+      try {
+        const stdout = execFileSync('/bin/bash', ['-c', String(gate.run)], {
+          env: { ...process.env, GITHUB_OUTPUT: output, BASELINE_AVAILABLE: available, EVENT_NAME: eventName },
+          encoding: 'utf8',
+          stdio: 'pipe',
+        });
+        return { status: 0, stdout, output: fs.readFileSync(output, 'utf8') };
+      } catch (error) {
+        return { status: (error as { status?: number }).status ?? -1, stdout: '', output: '' };
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    };
+    assert.deepEqual(run('true', 'schedule'), { status: 0, stdout: '', output: 'proceed=true\n' });
+    const skipped = run('false', 'schedule');
+    assert.equal(skipped.status, 0);
+    assert.match(skipped.stdout, /::warning::publication skipped: bootstrap required/);
+    assert.equal(skipped.output, 'proceed=false\n');
+    assert.equal(run('false', 'push').output, 'proceed=false\n');
+    assert.equal(run('false', 'workflow_dispatch').status, 1);
+    for (const name of ['Download build artifact', 'Resolve accepted baseline inside the production lock', 'Resolve rollback candidate', 'Stage complete publication tree']) {
+      assert.match(String(getStep(publish, name).if), /steps\.gate\.outputs\.proceed == 'true'/, name);
+    }
+    for (const step of Object.values(workflow.jobs ?? {}).flatMap(job => job.steps ?? [])) {
+      if (String(step.run).includes('resolve-baseline') && !String(step.run).includes('--receipt-id')) {
+        assert.doesNotMatch(String(step.run), /--allow-missing/);
+      }
+    }
+  });
+
+  it('rolls back through the same staging, push and verification chain', () => {
+    const publish = getJob('publish');
+    const rollback = getStep(publish, 'Resolve rollback candidate');
+    assert.match(String(rollback.if), /'rollback'/);
+    assert.match(String(rollback.run), /resolve-baseline/);
+    assert.match(String(rollback.run), /--receipt-id "\$ROLLBACK_RECEIPT_ID"/);
+    assert.match(String(getStep(publish, 'Stage complete publication tree').run), /--rollback-evidence/);
+    assert.equal(rollback.env?.ROLLBACK_RECEIPT_ID, githubExpression('github.event.inputs.rollback_receipt_id'));
   });
 
   it('builds fresh artifacts for main deployment and PR comparison after optional jobs skip', () => {
@@ -541,25 +755,23 @@ describe('GitHub Actions workflow contract', () => {
     });
     assert.deepEqual(plan.tasks, ['build', 'deploy']);
 
-    for (const jobId of ['deploy-cloudflare', 'deploy-github']) {
-      const deployJob = getJob(jobId);
-      assert.ok(getNeeds(deployJob).includes('build'));
-      assert.match(
-        deployJob.if ?? '',
-        /!cancelled\(\)/,
-        `${jobId} must override implicit success() when optional ancestor jobs are skipped, while still honoring cancellation`,
-      );
-      assert.match(deployJob.if ?? '', /'deploy'/);
-      assert.match(deployJob.if ?? '', /github\.ref == 'refs\/heads\/main'/);
-      assert.match(deployJob.if ?? '', /needs\.build\.result == 'success'/);
-      assert.ok(
-        deployJob.steps?.some(
-          (step) =>
-            step.uses?.startsWith('actions/download-artifact@') &&
-            String(step.with?.name).startsWith('build-artifact-'),
-        ),
-      );
-    }
+    const deployJob = getJob('publish');
+    assert.ok(getNeeds(deployJob).includes('build'));
+    assert.match(
+      deployJob.if ?? '',
+      /!cancelled\(\)/,
+      'publish must override implicit success() when optional ancestor jobs are skipped, while still honoring cancellation',
+    );
+    assert.match(deployJob.if ?? '', /'deploy'/);
+    assert.match(deployJob.if ?? '', /github\.ref == 'refs\/heads\/main'/);
+    assert.match(deployJob.if ?? '', /needs\.build\.result == 'success'/);
+    assert.ok(
+      deployJob.steps?.some(
+        (step) =>
+          step.uses?.startsWith('actions/download-artifact@') &&
+          String(step.with?.name).startsWith('build-artifact-'),
+      ),
+    );
 
     const diffJob = getJob('diff-deployment-on-pr');
     assert.ok(getNeeds(diffJob).includes('build'));

@@ -69,9 +69,10 @@ describe('additional Sukka subscriptions', () => {
       assert.deepEqual(stats.errors, []);
       assert.equal(stats.filesProcessed, 3);
       for (const directory of ['List', 'Clash', 'Loon', 'sing-box']) {
-        for (const file of fs.readdirSync(path.join(outputDir, directory))) {
-          const content = fs.readFileSync(path.join(outputDir, directory, file), 'utf8');
-          assert.equal(content.includes(watermark), false, `${directory}/${file}`);
+        for (const entry of fs.readdirSync(path.join(outputDir, directory), { recursive: true, withFileTypes: true })) {
+          if (!entry.isFile()) continue;
+          const file = path.join(entry.parentPath, entry.name);
+          assert.equal(fs.readFileSync(file, 'utf8').includes(watermark), false, path.relative(outputDir, file));
         }
       }
       for (const [directory, extension] of [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list']]) {

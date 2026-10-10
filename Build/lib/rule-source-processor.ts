@@ -2,6 +2,7 @@ import type { Span } from '../trace';
 import { boundedMap } from '../utils/concurrency';
 import { PUBLIC_DIR } from '../constants/dir';
 import { fetchAssets } from '../utils/network/fetch-assets';
+import type { FetchAssetsSelection } from '../utils/network/fetch-assets';
 import { loadRules } from '../utils/rule-loader';
 import { EnhancedFileOutput } from './enhanced-file-output';
 import type {
@@ -15,6 +16,9 @@ import type {
 import { normalizeTargets } from './platform-config';
 import type { SupportedPlatform } from './platform-config';
 import { getErrorMessage } from './misc';
+import { rulesetIdFromConfigPath } from './rule-output-variants';
+import { observeSourceDownloads, sha256Hex, toPublicSourceUrl } from './output-audit';
+import type { RulesetAuditRecord, RulesetOutputAudit, SourceProvenance } from './output-audit';
 import path from 'node:path';
 import fs from 'node:fs';
 
@@ -29,14 +33,30 @@ interface ProcessorStats {
   rulesMerged: number;
   errors: Array<{ file: string; error: string }>;
   rulesets: RulesetSummary[];
+  /** Output audit of each successfully published ruleset, in publication order. */
+  audits: RulesetAuditRecord[];
+}
+
+/** One loaded source: public provenance plus the same-download raw input facts. */
+interface SourceInput {
+  provenance: SourceProvenance;
+  selection: FetchAssetsSelection | undefined;
+  rules: readonly string[];
 }
 
 type DownloadResult =
-  | { ok: true; rules: string[] }
+  | { ok: true; rules: string[]; selection?: FetchAssetsSelection }
   | { ok: false; error: Error };
 
+/**
+ * Explicit publication contract: `id` names the flat files `<PlatformDir>/<id>.<ext>`
+ * and the variant files `<PlatformDir>/<variant>/<id>.<ext>`.
+ */
 interface RulesetPublication {
+  id: string;
+  /** Configured path, used only in error messages. */
   path: string;
+  sources: SourceInput[];
   title: string;
   description: string[];
   targets?: RuleTarget[];
@@ -54,6 +74,56 @@ function createProcessorStats(): ProcessorStats {
     rulesMerged: 0,
     errors: [],
     rulesets: [],
+    audits: [],
+  };
+}
+
+function buildSourceProvenance(
+  configuredUrl: string,
+  fallbackUrls: readonly string[] | undefined,
+  selection: FetchAssetsSelection | undefined
+): SourceProvenance {
+  return {
+    configuredUrl: toPublicSourceUrl(configuredUrl),
+    fallbackUrls: (fallbackUrls ?? []).map(toPublicSourceUrl),
+    selectedUrl: selection ? toPublicSourceUrl(selection.sourceUrl) : null,
+    selection: selection ? (selection.fallbackIndex < 0 ? 'primary' : 'fallback') : 'unknown',
+    fallbackIndex: selection && selection.fallbackIndex >= 0 ? selection.fallbackIndex : null,
+    viaProxy: selection?.viaProxy ?? null,
+    responseAgeSeconds: selection?.responseAgeSeconds ?? null,
+    rawContentSha256: selection?.rawContentSha256 ?? null,
+    rawLineCount: selection?.rawLines.total ?? null,
+  };
+}
+
+/**
+ * Fold pre-cleaning facts from the downloads into the ruleset audit. fetchAssets drops
+ * empty and comment lines before EnhancedFileOutput sees them, so those are added back,
+ * and the raw digest covers the response bodies rather than the cleaned lines.
+ */
+function withSourceInputs(audit: RulesetOutputAudit, sources: readonly SourceInput[]): RulesetAuditRecord {
+  let emptyLines = 0;
+  let commentsOrMarkers = 0;
+  const digests: string[] = [];
+  for (const source of sources) {
+    emptyLines += source.selection?.rawLines.emptyLines ?? 0;
+    commentsOrMarkers += source.selection?.rawLines.commentsOrMarkers ?? 0;
+    // Unobserved loaders (sing-box JSON, local modules) fall back to the loaded lines.
+    digests.push(source.selection ? `raw:${source.selection.rawContentSha256}` : `lines:${sha256Hex(source.rules.join('\n'))}`);
+  }
+  return {
+    ...audit,
+    stages: {
+      ...audit.stages,
+      inputLines: audit.stages.inputLines + emptyLines + commentsOrMarkers,
+      filtered: {
+        ...audit.stages.filtered,
+        emptyLines: audit.stages.filtered.emptyLines + emptyLines,
+        commentsOrMarkers: audit.stages.filtered.commentsOrMarkers + commentsOrMarkers,
+      },
+    },
+    rawInputSha256: sha256Hex(digests.join('\n')),
+    sources: sources.map(source => source.provenance),
   };
 }
 
@@ -99,14 +169,10 @@ export class RuleSourceProcessor {
     span: Span,
     rules: string[],
     publication: RulesetPublication
-  ): Promise<RulesetSummary> {
-    const fileName = path.basename(
-      publication.path,
-      path.extname(publication.path)
-    ).toLowerCase();
+  ): Promise<{ summary: RulesetSummary; audit: RulesetAuditRecord }> {
     const output = this.createOutput(
       span,
-      fileName,
+      publication.id,
       publication.targets,
       publication.defaultPolicy,
       publication.options
@@ -124,8 +190,11 @@ export class RuleSourceProcessor {
       const filter = publication.options.sourcePolicies === undefined ? 'rule type' : 'source policy';
       throw new Error(`No rules remain after ${filter} filtering: ${publication.path}`);
     }
-    await output.write();
-    return output.getOutputSummary();
+    const audit = await output.write();
+    return {
+      summary: output.getOutputSummary(),
+      audit: withSourceInputs(audit, publication.sources),
+    };
   }
 
   private async processFileConfig(
@@ -143,11 +212,17 @@ export class RuleSourceProcessor {
     try {
       const rules = downloadResult.rules;
 
-      const summary = await this.publishRuleset(
+      const { summary, audit } = await this.publishRuleset(
         groupSpan,
         rules,
         {
+          id: rulesetIdFromConfigPath(fileConfig.path),
           path: fileConfig.path,
+          sources: [{
+            provenance: buildSourceProvenance(fileConfig.url, fileConfig.fallbackUrls, downloadResult.selection),
+            selection: downloadResult.selection,
+            rules,
+          }],
           title: fileConfig.title || group.name,
           description: [
             fileConfig.description || group.description || `Rules for ${group.name}`,
@@ -162,6 +237,7 @@ export class RuleSourceProcessor {
       stats.filesProcessed++;
       stats.rulesMerged += rules.length;
       stats.rulesets.push(summary);
+      stats.audits.push(audit);
     } catch (error) {
       RuleSourceProcessor.recordError(stats, fileConfig.path, error);
     }
@@ -174,10 +250,14 @@ export class RuleSourceProcessor {
     allowEmpty: boolean
   ): Promise<DownloadResult> {
     try {
+      let selection: FetchAssetsSelection | undefined;
       const rules = await ruleSpan
         .traceChild('load')
-        .traceAsyncFn(() => loadRules(source, { throwOnError: true, allowEmpty }));
-      return { ok: true, rules };
+        .traceAsyncFn(() => observeSourceDownloads(
+          selected => { selection = selected; },
+          () => loadRules(source, { throwOnError: true, allowEmpty })
+        ));
+      return { ok: true, rules, selection };
     } catch (error) {
       return { ok: false, error: toError(error) };
     }
@@ -195,6 +275,7 @@ export class RuleSourceProcessor {
 
           const downloads = await boundedMap(group.files, async (fileConfig): Promise<DownloadResult> => {
             try {
+              let selection: FetchAssetsSelection | undefined;
               const rules = await groupSpan
                 .traceChild('download')
                 .traceAsyncFn(() =>
@@ -202,10 +283,11 @@ export class RuleSourceProcessor {
                     fileConfig.url,
                     fileConfig.fallbackUrls || null,
                     true,
-                    fileConfig.allowEmpty ?? false
+                    fileConfig.allowEmpty ?? false,
+                    selected => { selection = selected; }
                   )
                 );
-              return { ok: true, rules };
+              return { ok: true, rules, selection };
             } catch (error) {
               return { ok: false, error: toError(error) };
             }
@@ -245,12 +327,20 @@ export class RuleSourceProcessor {
           );
 
           const allRules: string[] = [];
+          const sourceInputs: SourceInput[] = [];
           for (const [index, source] of ruleConfig.sourceFiles.entries()) {
             const result = sourceResults[index];
             if (!result.ok) {
               RuleSourceProcessor.recordError(stats, source, result.error);
             } else {
               appendRuleBatch(allRules, result.rules);
+              // Special sources have no fallbacks; a successful load used the configured source.
+              const provenance = buildSourceProvenance(source, undefined, result.selection);
+              sourceInputs.push({
+                provenance: { ...provenance, selectedUrl: toPublicSourceUrl(source), selection: 'primary' },
+                selection: result.selection,
+                rules: result.rules,
+              });
             }
           }
 
@@ -267,11 +357,13 @@ export class RuleSourceProcessor {
             return;
           }
 
-          const summary = await this.publishRuleset(
+          const { summary, audit } = await this.publishRuleset(
             ruleSpan,
             allRules,
             {
+              id: rulesetIdFromConfigPath(ruleConfig.targetFile),
               path: ruleConfig.targetFile,
+              sources: sourceInputs,
               title: ruleConfig.name,
               description: [
                 ruleConfig.description || `Rules for ${ruleConfig.name}`,
@@ -286,6 +378,7 @@ export class RuleSourceProcessor {
           stats.filesProcessed++;
           stats.rulesMerged += allRules.length;
           stats.rulesets.push(summary);
+          stats.audits.push(audit);
 
           if (ruleConfig.deleteSourceFiles) {
             for (const sourceUrl of ruleConfig.sourceFiles) {

@@ -102,6 +102,24 @@ describe('status manifest', () => {
     }
   });
 
+  it('adds report paths only when provided and keeps the legacy fields unchanged', () => {
+    const input = {
+      buildTime: BUILD_TIME,
+      commit: null,
+      rulesets: [{ id: 'a', platforms: ['surge' as const], ruleCount: 3 }],
+      mirrors: [],
+    };
+    const legacy = buildStatusManifest(input);
+    assert.equal('reports' in legacy, false);
+    const withReports = buildStatusManifest({
+      ...input,
+      reports: { ruleOutputAudit: 'Internal/rule-output-audit.json', sourceDelta: 'Internal/source-delta.json' },
+    });
+    assert.deepEqual(Object.keys(withReports), ['buildTime', 'commit', 'rulesets', 'mirrors', 'reports']);
+    assert.deepEqual(withReports.rulesets, legacy.rulesets);
+    assert.equal(withReports.reports?.sourceDelta, 'Internal/source-delta.json');
+  });
+
   it('counts canonical normalized rules once across multiple target platforms', async () => {
     const output = new EnhancedFileOutput(
       createSpan('status-count'),
