@@ -86,7 +86,7 @@ it('build entry publishes rules, index and status under PUBLIC_DIR from another 
   assert.equal(audit.rulesets[0].outputs.length, 16);
   const delta = JSON.parse(await fs.readFile(path.join(destination, 'Internal', 'source-delta.json'), 'utf8'));
   assert.deepEqual(delta.sources.map((entry: { status: string }) => entry.status), ['baseline-unavailable', 'baseline-unavailable']);
-  await fs.access(path.join(destination, 'Internal', 'source-snapshots', 'group.json'));
+  await fs.access(path.join(destination, 'Internal', 'source-snapshots', 'group.json.gz'));
   const coverage = JSON.parse(await fs.readFile(path.join(destination, 'Internal', 'rule-coverage.json'), 'utf8'));
   assert.equal(coverage.schemaVersion, 1);
   assert.equal(coverage.basis, 'example-order');

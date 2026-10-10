@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { Buffer } from 'node:buffer';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -39,6 +40,8 @@ const CORE_DIRS = ['List', 'Clash', 'Loon', 'sing-box', 'GeoIP', 'Internal'] as 
 const OPTIONAL_DIRS = ['Mirror', 'Modules', 'Scripts'] as const;
 /** Files regenerated for the final tree by build-public. */
 const REGENERATED_FILES = new Set(['index.html', '_headers', '404.html', 'README.md', 'LICENSE', LIFECYCLE_REPORT_FILE]);
+/** Cloudflare Pages rejects an individual asset larger than 25 MiB. */
+const MAX_PAGES_ASSET_BYTES = 25 * 1024 * 1024;
 
 export type StageErrorCode =
   | 'missing-core-dir'
@@ -52,6 +55,7 @@ export type StageErrorCode =
   | 'provenance-mismatch'
   | 'retired-present'
   | 'render-failed'
+  | 'asset-too-large'
   | 'unsafe-directory';
 
 export class StageError extends Error {
@@ -546,6 +550,11 @@ export async function stagePublication(options: StageOptions): Promise<StageResu
 
   for (const relative of REGENERATED_FILES) preservedFrom.delete(relative);
   const files = await scanTree(out);
+  for (const file of files) {
+    if (file.bytes > MAX_PAGES_ASSET_BYTES) {
+      throw new StageError('asset-too-large', `${file.path} is ${file.bytes} bytes; Cloudflare Pages allows at most ${MAX_PAGES_ASSET_BYTES} bytes per asset`);
+    }
+  }
   const published = new Set(files.map(file => file.path));
   const removedPaths = new Set([...removed, ...rebaseRemoved]);
   for (const file of options.baseline?.files ?? []) {
@@ -567,6 +576,9 @@ export async function stagePublication(options: StageOptions): Promise<StageResu
     preservedFrom: relative => preservedFrom.get(relative),
   });
   const manifestText = serializeManifest(manifest);
+  if (Buffer.byteLength(manifestText) > MAX_PAGES_ASSET_BYTES) {
+    throw new StageError('asset-too-large', `${PUBLICATION_MANIFEST_PATH} exceeds the Cloudflare Pages 25 MiB asset limit`);
+  }
   await writeFileAtomic(path.join(out, ...PUBLICATION_MANIFEST_PATH.split('/')), manifestText);
   return { manifest, manifestText, manifestSha256: sha256Hex(manifestText), removed };
 }

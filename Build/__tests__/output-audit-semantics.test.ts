@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { createSpan } from '../trace';
 import { EnhancedFileOutput } from '../lib/enhanced-file-output';
-import { recomputeSourceDeltaFromSnapshots, writeRuleOutputReports } from '../lib/output-audit';
+import { recomputeSourceDeltaFromSnapshots, writeRuleOutputReports, readSourceSnapshotFile, writeSourceSnapshotFile, listSourceSnapshotFiles } from '../lib/output-audit';
 import type { RulesetAuditRecord, SourceSnapshot } from '../lib/output-audit';
 import type { SupportedPlatform } from '../lib/platform-config';
 
@@ -32,7 +33,7 @@ interface DeltaReport {
 }
 
 async function readJson<T>(filename: string): Promise<T> {
-  return JSON.parse(await fs.readFile(filename, 'utf8')) as T;
+  return (filename.endsWith('.json.gz') ? await readSourceSnapshotFile(filename) : JSON.parse(await fs.readFile(filename, 'utf8'))) as T;
 }
 
 async function build(directory: string, rules: string[], baselineDir: string | null = null): Promise<RulesetAuditRecord> {
@@ -78,7 +79,7 @@ describe('normalized source and effective output audits', () => {
       assert.equal(output.added, 0);
       assert.equal(output.removed, 0);
     }
-    const snapshot = await readJson<SourceSnapshot>(path.join(candidateDir, 'Internal/source-snapshots/fixture.json'));
+    const snapshot = await readJson<SourceSnapshot>(path.join(candidateDir, 'Internal/source-snapshots/fixture.json.gz'));
     assert.equal(snapshot.semanticScope, 'normalized-source');
     assert.equal(snapshot.effectiveOutputVersion, 1);
     assert.equal(snapshot.effectiveOutputs?.length, 4);
@@ -126,12 +127,12 @@ describe('normalized source and effective output audits', () => {
     const baselineDir = path.join(root, 'baseline');
     const candidateDir = path.join(root, 'candidate');
     await build(baselineDir, ['DOMAIN,a.example']);
-    const filename = path.join(baselineDir, 'Internal/source-snapshots/fixture.json');
+    const filename = path.join(baselineDir, 'Internal/source-snapshots/fixture.json.gz');
     const old = await readJson<SourceSnapshot>(filename);
     delete old.effectiveOutputVersion;
     delete old.effectiveOutputs;
     delete old.semanticScope;
-    await fs.writeFile(filename, JSON.stringify(old));
+    await writeSourceSnapshotFile(filename, old);
     await build(candidateDir, ['DOMAIN,b.example'], baselineDir);
     const delta = (await readJson<DeltaReport>(path.join(candidateDir, 'Internal/source-delta.json'))).sources[0];
     assert.equal(delta.semanticChanged, true);
@@ -151,8 +152,9 @@ describe('normalized source and effective output audits', () => {
     await build(baselineDir, ['DOMAIN,a.example']);
     await build(newerDir, ['DOMAIN,c.example']);
     await build(candidateDir, ['DOMAIN,b.example'], baselineDir);
-    const filename = path.join(candidateDir, 'Internal/source-snapshots/fixture.json');
+    const filename = path.join(candidateDir, 'Internal/source-snapshots/fixture.json.gz');
     const snapshotBefore = await fs.readFile(filename, 'utf8');
+    const normalizedBefore = await readJson<SourceSnapshot>(filename);
     const flatBefore = await fs.readFile(path.join(candidateDir, 'List/fixture.list'), 'utf8');
     await recomputeSourceDeltaFromSnapshots(candidateDir, {
       baselineDir: newerDir, baselineReceiptId: 42, generatedAt: '2026-10-11T01:00:00.000Z',
@@ -173,7 +175,7 @@ describe('normalized source and effective output audits', () => {
     const snapshot = await readJson<SourceSnapshot>(filename);
     assert.deepEqual(snapshot.conditions, ['DOMAIN,b.example']);
     assert.equal(snapshot.effectiveOutputs?.length, 3);
-    assert.equal(snapshot.semanticSha256, (JSON.parse(snapshotBefore) as SourceSnapshot).semanticSha256);
+    assert.equal(snapshot.semanticSha256, normalizedBefore.semanticSha256);
     const projected = (await readJson<DeltaReport>(path.join(candidateDir, 'Internal/source-delta.json'))).sources[0];
     assert.deepEqual(projected.effectiveOutputs.find(output => output.platform === 'loon'), {
       platform: 'loon', format: 'loon-classical', status: 'removed', semanticChanged: true,
@@ -186,16 +188,16 @@ describe('normalized source and effective output audits', () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-audit-invalid-current-'));
     t.after(() => fs.rm(root, { recursive: true, force: true }));
     await build(root, ['DOMAIN,a.example']);
-    const snapshotPath = path.join(root, 'Internal/source-snapshots/fixture.json');
-    const snapshotText = await fs.readFile(snapshotPath, 'utf8');
+    const snapshotPath = path.join(root, 'Internal/source-snapshots/fixture.json.gz');
+    const snapshotText = await readJson<SourceSnapshot>(snapshotPath);
     const deltaPath = path.join(root, 'Internal/source-delta.json');
     const deltaText = await fs.readFile(deltaPath, 'utf8');
     await fs.rm(snapshotPath);
     await assert.rejects(recomputeSourceDeltaFromSnapshots(root, { baselineDir: null, baselineReceiptId: null }), /snapshot missing/);
     assert.equal(await fs.readFile(deltaPath, 'utf8'), deltaText);
-    const invalid = JSON.parse(snapshotText) as SourceSnapshot;
+    const invalid = snapshotText;
     invalid.conditions = [7] as unknown as string[];
-    await fs.writeFile(snapshotPath, JSON.stringify(invalid));
+    await writeSourceSnapshotFile(snapshotPath, invalid);
     await assert.rejects(recomputeSourceDeltaFromSnapshots(root, { baselineDir: null, baselineReceiptId: null }), /Invalid current source snapshot/);
     assert.equal(await fs.readFile(deltaPath, 'utf8'), deltaText);
   });
@@ -204,17 +206,17 @@ describe('normalized source and effective output audits', () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-audit-bindings-'));
     t.after(() => fs.rm(root, { recursive: true, force: true }));
     await build(root, ['DOMAIN,a.example']);
-    const snapshotPath = path.join(root, 'Internal/source-snapshots/fixture.json');
+    const snapshotPath = path.join(root, 'Internal/source-snapshots/fixture.json.gz');
     const original = await readJson<SourceSnapshot>(snapshotPath);
     const options = { baselineDir: null, baselineReceiptId: null };
-    await fs.writeFile(snapshotPath, JSON.stringify({ ...original, conditions: ['DOMAIN,incorrect.example'] }));
+    await writeSourceSnapshotFile(snapshotPath, { ...original, conditions: ['DOMAIN,incorrect.example'] });
     await assert.rejects(recomputeSourceDeltaFromSnapshots(root, options), /Invalid current source snapshot/);
-    await fs.writeFile(snapshotPath, JSON.stringify({ ...original, rawInputSha256: '0'.repeat(64) }));
+    await writeSourceSnapshotFile(snapshotPath, { ...original, rawInputSha256: '0'.repeat(64) });
     await assert.rejects(recomputeSourceDeltaFromSnapshots(root, options), /does not match output audit/);
-    await fs.writeFile(snapshotPath, JSON.stringify(original));
-    await fs.writeFile(path.join(root, 'Internal/source-snapshots/extra.json'), JSON.stringify({ ...original, sourceId: 'extra', rulesetId: 'extra' }));
+    await writeSourceSnapshotFile(snapshotPath, original);
+    await writeSourceSnapshotFile(path.join(root, 'Internal/source-snapshots/extra.json.gz'), { ...original, sourceId: 'extra', rulesetId: 'extra' });
     await assert.rejects(recomputeSourceDeltaFromSnapshots(root, options), /inventory does not match/);
-    await fs.rm(path.join(root, 'Internal/source-snapshots/extra.json'));
+    await fs.rm(path.join(root, 'Internal/source-snapshots/extra.json.gz'));
     const bodyPath = path.join(root, 'List/fixture.list');
     const body = await fs.readFile(bodyPath, 'utf8');
     await fs.writeFile(bodyPath, body.replace('DOMAIN,a.example', 'DOMAIN,incorrect.example'));
@@ -229,18 +231,22 @@ describe('normalized source and effective output audits', () => {
     await build(baselineDir, ['DOMAIN,a.example']);
     await build(candidateDir, ['DOMAIN,b.example']);
     for (const directory of [baselineDir, candidateDir]) {
-      const snapshotPath = path.join(directory, 'Internal/source-snapshots/fixture.json');
+      const compressedPath = path.join(directory, 'Internal/source-snapshots/fixture.json.gz');
+      const snapshotPath = compressedPath.slice(0, -3);
       // eslint-disable-next-line no-await-in-loop -- simulate each historical accepted tree
-      const snapshot = await readJson<SourceSnapshot>(snapshotPath);
+      const snapshot = await readJson<SourceSnapshot>(compressedPath);
       snapshot.converterVersion = 'mirrrule-rule-output/1';
       delete snapshot.effectiveOutputVersion;
       delete snapshot.effectiveOutputs;
       // eslint-disable-next-line no-await-in-loop -- fixture persistence is sequential
-      await fs.writeFile(snapshotPath, JSON.stringify(snapshot));
+      await writeSourceSnapshotFile(snapshotPath, snapshot);
+      // eslint-disable-next-line no-await-in-loop -- historical fixtures have exactly one plain encoding
+      await fs.rm(compressedPath);
       const auditPath = path.join(directory, 'Internal/rule-output-audit.json');
       // eslint-disable-next-line no-await-in-loop -- simulate each historical accepted tree
-      const audit = await readJson<{ converterVersion: string; rulesets: Array<{ effectiveOutputs?: unknown }> }>(auditPath);
+      const audit = await readJson<{ converterVersion: string; rulesets: Array<{ effectiveOutputs?: unknown; snapshotPath: string }> }>(auditPath);
       audit.converterVersion = 'mirrrule-rule-output/1';
+      audit.rulesets[0].snapshotPath = 'Internal/source-snapshots/fixture.json';
       delete audit.rulesets[0].effectiveOutputs;
       // eslint-disable-next-line no-await-in-loop -- fixture persistence is sequential
       await fs.writeFile(auditPath, JSON.stringify(audit));
@@ -252,5 +258,46 @@ describe('normalized source and effective output audits', () => {
     assert.equal(delta.sources[0].semanticChanged, true);
     assert.equal(delta.sources[0].added, 1);
     assert.equal(delta.sources[0].removed, 1);
+  });
+
+  it('compresses snapshots losslessly and rejects corrupted compressed evidence', async t => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-snapshot-codec-'));
+    t.after(() => fs.rm(root, { recursive: true, force: true }));
+    await build(root, ['DOMAIN,a.example']);
+    const file = path.join(root, 'Internal/source-snapshots/fixture.json.gz');
+    const original = await readJson<SourceSnapshot>(file);
+    const encoded = await fs.readFile(file);
+    assert.deepEqual([...encoded.subarray(0, 2)], [0x1F, 0x8B]);
+    assert.deepEqual(await readSourceSnapshotFile(file), original);
+    assert.ok(encoded.length < Buffer.byteLength(JSON.stringify(original)));
+    await fs.writeFile(file, encoded.subarray(0, -8));
+    const delta = await fs.readFile(path.join(root, 'Internal/source-delta.json'));
+    await assert.rejects(recomputeSourceDeltaFromSnapshots(root, { baselineDir: null, baselineReceiptId: null }));
+    assert.deepEqual(await fs.readFile(path.join(root, 'Internal/source-delta.json')), delta);
+  });
+
+  it('rejects duplicate encodings in current and baseline inventories', async t => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-snapshot-duplicates-'));
+    t.after(() => fs.rm(root, { recursive: true, force: true }));
+    await build(root, ['DOMAIN,a.example']);
+    const compressed = path.join(root, 'Internal/source-snapshots/fixture.json.gz');
+    await writeSourceSnapshotFile(compressed.slice(0, -3), await readSourceSnapshotFile(compressed));
+    await assert.rejects(listSourceSnapshotFiles(root), /Duplicate source snapshot encodings/);
+    await assert.rejects(recomputeSourceDeltaFromSnapshots(root, { baselineDir: null, baselineReceiptId: null }), /Duplicate source snapshot encodings/);
+    await assert.rejects(build(path.join(root, 'candidate'), ['DOMAIN,b.example'], root), /Duplicate source snapshot encodings/);
+  });
+
+  it('replaces a stale historical plain snapshot with one compressed file on rebuild', async t => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-snapshot-migrate-'));
+    t.after(() => fs.rm(root, { recursive: true, force: true }));
+    await build(root, ['DOMAIN,a.example']);
+    const compressed = path.join(root, 'Internal/source-snapshots/fixture.json.gz');
+    await writeSourceSnapshotFile(compressed.slice(0, -3), await readSourceSnapshotFile(compressed));
+    await fs.rm(compressed);
+    await build(root, ['DOMAIN,b.example'], root);
+    assert.deepEqual([...await listSourceSnapshotFiles(root)], [['fixture', 'fixture.json.gz']]);
+    const delta = (await readJson<DeltaReport>(path.join(root, 'Internal/source-delta.json'))).sources[0];
+    assert.deepEqual(delta.samples, { added: ['DOMAIN,b.example'], removed: ['DOMAIN,a.example'] });
+    await recomputeSourceDeltaFromSnapshots(root, { baselineDir: null, baselineReceiptId: null });
   });
 });

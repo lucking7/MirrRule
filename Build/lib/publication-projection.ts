@@ -4,7 +4,7 @@ import path from 'node:path';
 import { createRuleCoverageReport, writeRuleCoverageReport } from '../audit-rule-coverage';
 import { findLifecycleRecord, isRetiredPublicPath } from './artifact-lifecycle';
 import { writeFileAtomic } from './atomic-file';
-import { toSourceId } from './output-audit';
+import { toSourceId, sourceSnapshotPath, listSourceSnapshotFiles } from './output-audit';
 import { RULE_OUTPUT_AUDIT_FILE } from './publication-outputs';
 import type { AuditOutput } from './publication-outputs';
 
@@ -29,6 +29,7 @@ export async function projectRetiredRuleOutputs(root: string): Promise<{ changed
   const fullyRetired = new Set<string>();
   const retiredPlatforms = new Map<string, Set<string>>();
   const changedFiles: string[] = [];
+  const snapshotFiles = await listSourceSnapshotFiles(root);
   for (const ruleset of audit.rulesets) {
     const removed = ruleset.outputs.filter(output => isRetiredPublicPath(output.path));
     if (!removed.length) continue;
@@ -50,7 +51,9 @@ export async function projectRetiredRuleOutputs(root: string): Promise<{ changed
 
   for (const ruleset of audit.rulesets) {
     if (!fullyRetired.has(ruleset.id)) continue;
-    const expected = `Internal/source-snapshots/${toSourceId(ruleset.id)}.json`;
+    const sourceId = toSourceId(ruleset.id);
+    const filename = snapshotFiles.get(sourceId);
+    const expected = filename ? `Internal/source-snapshots/${filename}` : sourceSnapshotPath(sourceId);
     if (ruleset.snapshotPath !== undefined && ruleset.snapshotPath !== expected) {
       throw new Error(`Retired ruleset ${ruleset.id} has an unexpected snapshot path: ${ruleset.snapshotPath}`);
     }

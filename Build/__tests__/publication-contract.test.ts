@@ -595,6 +595,20 @@ describe('publication staging', () => {
     return { root, candidate, tree, out };
   }
 
+  it('accepts the Pages asset size boundary and rejects one extra byte before publication', async (t) => {
+    const env = await setup(t, candidateFixture({ receiptId: 7 }), { 'Mirror/a.sgmodule': 'a' });
+    const baseline = await baselineFrom(env.tree, 7);
+    const large = path.join(env.candidate, 'Internal', 'large.bin');
+    const handle = await fs.open(large, 'w');
+    await handle.truncate(25 * 1024 * 1024);
+    await handle.close();
+    const run = () => stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['build', 'deploy'], sourceCommit: SOURCE, baseline, baselineTreeDir: env.tree, render: fakeRender });
+    const result = await run();
+    assert.equal(result.manifest.files.find(file => file.path === 'Internal/large.bin')?.bytes, 25 * 1024 * 1024);
+    await fs.appendFile(large, 'x');
+    await assert.rejects(run(), stageError('asset-too-large', /Internal\/large\.bin/));
+  });
+
   it('fails when a required fresh directory is missing or empty instead of keeping production', async (t) => {
     const { 'GeoIP/Country.mmdb': _geoip, ...withoutGeoIp } = CORE_FIXTURE;
     const env = await setup(t, withoutGeoIp);

@@ -2,6 +2,8 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { promisify } from 'node:util';
+import { gzip, gunzip } from 'node:zlib';
 import type { RuleConversionLosses, RuleDropSummary } from '../core/output/writing-strategy/base';
 import type { SupportedPlatform } from './platform-config';
 import type { RuleOutputFormat, RuleOutputSlot, RuleOutputStatus } from './rule-output-variants';
@@ -352,17 +354,50 @@ function compareEffectiveOutputs(
   });
 }
 
+const gzipSnapshot = promisify(gzip);
+const gunzipSnapshot = promisify(gunzip);
+
+export function sourceSnapshotPath(sourceId: string, compressed = true): string {
+  return `${SOURCE_SNAPSHOT_DIR}/${sourceId}.json${compressed ? '.gz' : ''}`;
+}
+
+/** Both historical JSON and compressed JSON are lossless snapshot encodings. */
+export async function readSourceSnapshotFile(filename: string): Promise<unknown> {
+  const body = await fs.readFile(filename);
+  return JSON.parse((filename.endsWith('.json.gz') ? await gunzipSnapshot(body) : body).toString('utf8'));
+}
+
+export async function writeSourceSnapshotFile(filename: string, snapshot: unknown): Promise<void> {
+  const body = JSON.stringify(snapshot);
+  await writeFileAtomic(filename, filename.endsWith('.json.gz') ? await gzipSnapshot(body) : `${body}\n`);
+}
+
+/** Reject ambiguous encodings instead of silently choosing one source's evidence. */
+export async function listSourceSnapshotFiles(root: string): Promise<Map<string, string>> {
+  const files = new Map<string, string>();
+  for (const filename of (await fs.readdir(path.join(root, SOURCE_SNAPSHOT_DIR))).sort()) {
+    const suffix = filename.endsWith('.json.gz') ? '.json.gz' : (filename.endsWith('.json') ? '.json' : null);
+    if (!suffix) continue;
+    const sourceId = filename.slice(0, -suffix.length);
+    if (files.has(sourceId)) throw new Error(`Duplicate source snapshot encodings: ${sourceId}`);
+    files.set(sourceId, filename);
+  }
+  return files;
+}
+
 async function readBaselineSnapshot(baselineDir: string | null, sourceId: string): Promise<BaselineSnapshot> {
   if (!baselineDir) return { kind: 'unavailable', reason: 'baseline-not-configured' };
-  let text: string;
+  let files: Map<string, string>;
   try {
-    text = await fs.readFile(path.join(baselineDir, SOURCE_SNAPSHOT_DIR, `${sourceId}.json`), 'utf8');
+    files = await listSourceSnapshotFiles(baselineDir);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { kind: 'unavailable', reason: 'snapshot-missing' };
-    return { kind: 'unreadable' };
+    throw error;
   }
+  const filename = files.get(sourceId);
+  if (!filename) return { kind: 'unavailable', reason: 'snapshot-missing' };
   try {
-    const parsed: unknown = JSON.parse(text);
+    const parsed = await readSourceSnapshotFile(path.join(baselineDir, SOURCE_SNAPSHOT_DIR, filename));
     if (typeof parsed !== 'object' || parsed === null || !Array.isArray((parsed as SourceSnapshot).conditions)
       || !(parsed as SourceSnapshot).conditions.every(condition => typeof condition === 'string')) {
       return { kind: 'unreadable' };
@@ -462,15 +497,15 @@ async function readRemovedSources(
   policy: SourceDeltaAlertPolicy
 ): Promise<SourceDeltaEntry[]> {
   if (!baselineDir) return [];
-  let entries: string[];
+  let files: Map<string, string>;
   try {
-    entries = await fs.readdir(path.join(baselineDir, SOURCE_SNAPSHOT_DIR));
-  } catch {
-    return [];
+    files = await listSourceSnapshotFiles(baselineDir);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
   }
   const removed: SourceDeltaEntry[] = [];
-  for (const entry of entries.filter(name => name.endsWith('.json')).sort()) {
-    const sourceId = entry.slice(0, -'.json'.length);
+  for (const sourceId of files.keys()) {
     if (currentSourceIds.has(sourceId)) continue;
     // eslint-disable-next-line no-await-in-loop -- bounded sequential reads keep report order deterministic
     const baseline = await readBaselineSnapshot(baselineDir, sourceId);
@@ -622,8 +657,8 @@ interface AuditedSnapshotBinding {
   effectiveOutputs?: Array<Omit<EffectiveOutputSnapshot, 'conditions'> & { conditionCount: number }>;
 }
 
-async function assertAuditedSnapshot(publicDir: string, snapshot: SourceSnapshot, audit: AuditedSnapshotBinding): Promise<void> {
-  if (audit.sourceId !== snapshot.sourceId || audit.snapshotPath !== `${SOURCE_SNAPSHOT_DIR}/${snapshot.sourceId}.json`
+async function assertAuditedSnapshot(publicDir: string, snapshot: SourceSnapshot, audit: AuditedSnapshotBinding, filename: string): Promise<void> {
+  if (audit.sourceId !== snapshot.sourceId || audit.snapshotPath !== `${SOURCE_SNAPSHOT_DIR}/${filename}`
     || audit.semanticSha256 !== snapshot.semanticSha256 || audit.rawInputSha256 !== snapshot.rawInputSha256
     || (audit.contextSha256 !== undefined && audit.contextSha256 !== snapshot.contextSha256)
     || (audit.normalizedConditionCount !== undefined && audit.normalizedConditionCount !== snapshot.conditionCount)) {
@@ -668,10 +703,10 @@ export async function recomputeSourceDeltaFromSnapshots(
   const snapshots: SourceSnapshot[] = [];
   const changed: SourceSnapshot[] = [];
   const retired = new Set(options.retiredOutputPaths);
-  for (const filename of (await fs.readdir(snapshotDir)).filter(entry => entry.endsWith('.json')).sort()) {
-    const sourceId = filename.slice(0, -'.json'.length);
+  const snapshotFiles = await listSourceSnapshotFiles(publicDir);
+  for (const [sourceId, filename] of snapshotFiles) {
     // eslint-disable-next-line no-await-in-loop -- validate all snapshots before writing any projection
-    const value: unknown = JSON.parse(await fs.readFile(path.join(snapshotDir, filename), 'utf8'));
+    const value: unknown = await readSourceSnapshotFile(path.join(snapshotDir, filename));
     assertCurrentSnapshot(value, sourceId);
     if (value.effectiveOutputs) {
       const filtered = value.effectiveOutputs.filter(output => !retired.has(resolveRuleOutputTarget(output.platform, 'merged', value.rulesetId).relativePath));
@@ -695,14 +730,14 @@ export async function recomputeSourceDeltaFromSnapshots(
     if (!snapshot) throw new Error(`Current source snapshot missing for audited ruleset: ${ruleset.id}`);
     if (snapshot.converterVersion !== audit.converterVersion) throw new Error(`Current snapshot converter does not match output audit: ${snapshot.sourceId}`);
     // eslint-disable-next-line no-await-in-loop -- validate all bindings before replacing evidence
-    await assertAuditedSnapshot(publicDir, snapshot, ruleset);
+    await assertAuditedSnapshot(publicDir, snapshot, ruleset, snapshotFiles.get(snapshot.sourceId)!);
   }
   if (ids.size !== audit.rulesets.length) throw new Error('Current source snapshot inventory does not match output audit');
   // Read the baseline before projecting snapshots, including an explicitly in-place baseline.
   const result = await writeSourceDelta(publicDir, snapshots, options);
   for (const snapshot of changed) {
     // eslint-disable-next-line no-await-in-loop -- only explicit retirement projections replace snapshots
-    await writeFileAtomic(path.join(snapshotDir, `${snapshot.sourceId}.json`), toJson(snapshot));
+    await writeSourceSnapshotFile(path.join(snapshotDir, snapshotFiles.get(snapshot.sourceId)!), snapshot);
   }
   return result;
 }
@@ -728,12 +763,12 @@ export async function writeRuleOutputReports(options: RuleOutputReportOptions): 
   await fs.mkdir(snapshotDir, { recursive: true });
   for (const snapshot of snapshots) {
     // eslint-disable-next-line no-await-in-loop -- sequential atomic writes keep failures attributable
-    await writeFileAtomic(path.join(snapshotDir, `${snapshot.sourceId}.json`), toJson(snapshot));
+    await writeSourceSnapshotFile(path.join(options.outputRoot, sourceSnapshotPath(snapshot.sourceId)), snapshot);
   }
-  const expected = new Set(snapshots.map(snapshot => `${snapshot.sourceId}.json`));
+  const expected = new Set(snapshots.map(snapshot => `${snapshot.sourceId}.json.gz`));
   for (const entry of await fs.readdir(snapshotDir)) {
     // eslint-disable-next-line no-await-in-loop -- remove snapshots of rulesets that are no longer built
-    if (entry.endsWith('.json') && !expected.has(entry)) await fs.rm(path.join(snapshotDir, entry), { force: true });
+    if ((entry.endsWith('.json') || entry.endsWith('.json.gz')) && !expected.has(entry)) await fs.rm(path.join(snapshotDir, entry), { force: true });
   }
 
   const outputs = records.flatMap(record => record.outputs);
@@ -764,7 +799,7 @@ export async function writeRuleOutputReports(options: RuleOutputReportOptions): 
         ...output,
         conditionCount: _conditions.length,
       })),
-      snapshotPath: `${SOURCE_SNAPSHOT_DIR}/${toSourceId(record.id)}.json`,
+      snapshotPath: sourceSnapshotPath(toSourceId(record.id)),
       stages: record.stages,
       outputs: record.outputs,
     })),

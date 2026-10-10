@@ -5,11 +5,12 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 
 import { EnhancedFileOutput } from '../lib/enhanced-file-output';
-import { writeRuleOutputReports } from '../lib/output-audit';
+import { writeRuleOutputReports, readSourceSnapshotFile, writeSourceSnapshotFile } from '../lib/output-audit';
 import type { RulesetAuditRecord } from '../lib/output-audit';
 import type { ResolvedBaseline } from '../lib/publication-baseline';
 import { computeCandidateId, hashFile, scanTree, sha256Hex } from '../lib/publication-manifest';
 import { StageError, renderPublicInChild, stagePublication } from '../lib/publication-stage';
+import { projectRetiredRuleOutputs } from '../lib/publication-projection';
 import { collectAbsentPaths } from '../lib/publication-verify';
 import { createSpan } from '../trace';
 
@@ -19,7 +20,7 @@ const NEW_COMMIT = 'c'.repeat(40);
 const BUILT_AT = '2026-10-11T00:00:00.000Z';
 
 async function json<T>(file: string): Promise<T> {
-  return JSON.parse(await fs.readFile(file, 'utf8')) as T;
+  return (file.endsWith('.json.gz') ? await readSourceSnapshotFile(file) : JSON.parse(await fs.readFile(file, 'utf8'))) as T;
 }
 
 async function fixture(root: string, records: Array<[string, string[]]>, receiptId: number): Promise<void> {
@@ -67,7 +68,7 @@ describe('publication lifecycle projection and baseline rebase', () => {
     assert.ok(audit.retiredOutputs.every(output => output.lifecycleId === 'ruleset:discord'));
     assert.ok(result.manifest.retiredRemoved.includes('List/domainset/discord.list'));
     assert.ok(result.manifest.retiredRemoved.includes('sing-box/ip/discord.json'));
-    await assert.rejects(fs.access(path.join(env.out, 'Internal/source-snapshots/discord.json')));
+    await assert.rejects(fs.access(path.join(env.out, 'Internal/source-snapshots/discord.json.gz')));
     const delta = await json<Delta>(path.join(env.out, 'Internal/source-delta.json'));
     const removed = delta.sources.find(source => source.rulesetId === 'discord');
     assert.equal(removed?.status, 'removed');
@@ -78,7 +79,7 @@ describe('publication lifecycle projection and baseline rebase', () => {
     const absent = await collectAbsentPaths(env.out, result.manifest);
     assert.ok(absent.includes('List/domainset/discord.list'));
     assert.equal(result.manifest.files.find(file => file.path === 'Internal/rule-output-audit.json')?.origin, 'generated');
-    assert.equal(result.manifest.files.find(file => file.path === 'Internal/source-snapshots/keep.json')?.origin, 'preserved');
+    assert.equal(result.manifest.files.find(file => file.path === 'Internal/source-snapshots/keep.json.gz')?.origin, 'preserved');
     assert.ok((await json<ProjectionAudit>(path.join(env.candidate, 'Internal/rule-output-audit.json'))).rulesets.some(record => record.id === 'discord'));
   });
 
@@ -86,7 +87,7 @@ describe('publication lifecycle projection and baseline rebase', () => {
     const env = await environment(t);
     await fixture(env.candidate, [['keep', ['DOMAIN,keep.example']], ['china_asn', ['DOMAIN,asn.example', 'IP-ASN,1']]], 1);
     await fs.cp(env.candidate, env.tree, { recursive: true });
-    const before = await json<Snapshot>(path.join(env.candidate, 'Internal/source-snapshots/china_asn.json'));
+    const before = await json<Snapshot>(path.join(env.candidate, 'Internal/source-snapshots/china_asn.json.gz'));
     const result = await stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['rollback'], sourceCommit: SOURCE, baseline: await baseline(env.tree, 2), baselineTreeDir: env.tree, rollbackOf: { receiptId: 1, deployCommit: OLD_COMMIT, sourceCommit: SOURCE }, render: renderPublicInChild });
     const audit = await json<ProjectionAudit>(path.join(env.out, 'Internal/rule-output-audit.json'));
     const record = audit.rulesets.find(ruleset => ruleset.id === 'china_asn');
@@ -94,10 +95,10 @@ describe('publication lifecycle projection and baseline rebase', () => {
     assert.ok(record.outputs.every(output => !output.path.startsWith('sing-box/')));
     assert.ok(record.effectiveOutputs.every(output => output.platform !== 'singbox'));
     assert.ok(!record.platforms.includes('singbox'));
-    const after = await json<Snapshot>(path.join(env.out, 'Internal/source-snapshots/china_asn.json'));
+    const after = await json<Snapshot>(path.join(env.out, 'Internal/source-snapshots/china_asn.json.gz'));
     assert.deepEqual(after.conditions, before.conditions);
     assert.deepEqual(after.effectiveOutputs.map(output => output.platform).sort(), ['clash', 'loon', 'surge']);
-    assert.equal(result.manifest.files.find(file => file.path === 'Internal/source-snapshots/china_asn.json')?.origin, 'generated');
+    assert.equal(result.manifest.files.find(file => file.path === 'Internal/source-snapshots/china_asn.json.gz')?.origin, 'generated');
     await fs.access(path.join(env.out, 'List/china_asn.list'));
     await assert.rejects(fs.access(path.join(env.out, 'sing-box/domainset/china_asn.json')));
   });
@@ -270,8 +271,26 @@ describe('publication lifecycle projection and baseline rebase', () => {
     const env = await environment(t);
     await fixture(env.candidate, [['keep', ['DOMAIN,keep.example']]], 1);
     await fixture(env.tree, [['keep', ['DOMAIN,baseline.example']]], 2);
-    await fs.writeFile(path.join(env.candidate, 'Internal/source-snapshots/keep.json'), JSON.stringify({ conditions: ['invented'] }));
+    await writeSourceSnapshotFile(path.join(env.candidate, 'Internal/source-snapshots/keep.json.gz'), { conditions: ['invented'] });
     await assert.rejects(stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['build', 'deploy'], sourceCommit: SOURCE, baseline: await baseline(env.tree, 2), baselineTreeDir: env.tree, render: renderPublicInChild }), error => error instanceof StageError && error.code === 'invalid-report');
-    assert.equal(sha256Hex(await fs.readFile(path.join(env.candidate, 'Internal/source-snapshots/keep.json'))), sha256Hex(JSON.stringify({ conditions: ['invented'] })));
+    assert.deepEqual(await readSourceSnapshotFile(path.join(env.candidate, 'Internal/source-snapshots/keep.json.gz')), { conditions: ['invented'] });
+  });
+
+  it('retires a historical plain snapshot and rejects a second encoding before projection', async t => {
+    const env = await environment(t);
+    await fixture(env.candidate, [['discord', ['DOMAIN,discord.example']]], 1);
+    const compressed = path.join(env.candidate, 'Internal/source-snapshots/discord.json.gz');
+    const plain = compressed.slice(0, -3);
+    await writeSourceSnapshotFile(plain, await readSourceSnapshotFile(compressed));
+    await assert.rejects(projectRetiredRuleOutputs(env.candidate), /Duplicate source snapshot encodings/);
+    await fs.rm(compressed);
+    const auditPath = path.join(env.candidate, 'Internal/rule-output-audit.json');
+    const audit = await json<{ rulesets: Array<{ snapshotPath: string }> }>(auditPath);
+    audit.rulesets[0].snapshotPath = 'Internal/source-snapshots/discord.json';
+    await fs.writeFile(auditPath, JSON.stringify(audit));
+    const result = await projectRetiredRuleOutputs(env.candidate);
+    assert.equal(result.changed, true);
+    await assert.rejects(fs.access(plain));
+    assert.deepEqual((await json<ProjectionAudit>(auditPath)).rulesets, []);
   });
 });
