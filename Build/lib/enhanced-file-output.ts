@@ -15,8 +15,8 @@ import type { SupportedPlatform } from './platform-config';
 import type { RuleProcessingOptions } from './rule-source-types';
 import { classifyRuleLine, hasDomainMatcherSubRule, resolveRuleOutputTarget, RULE_OUTPUT_VARIANTS } from './rule-output-variants';
 import type { RuleOutputSlot, RuleOutputVariant } from './rule-output-variants';
-import { countEffectiveConditions, sha256Hex } from './output-audit';
-import type { RuleOutputFileAudit, RulesetOutputAudit, RulesetStageCounts } from './output-audit';
+import { countEffectiveConditions, sha256Hex, snapshotEffectiveOutput } from './output-audit';
+import type { RuleOptimizationAudit, RuleOutputFileAudit, RulesetOutputAudit, RulesetStageCounts } from './output-audit';
 import { cleanPolicy } from './policy-cleaner';
 import { smartConvertRule } from './misc';
 import { RuleLineUtils } from '../utils/validation/validators';
@@ -120,6 +120,7 @@ export class EnhancedFileOutput {
 
   private readonly rawInputHash: Hash = createHash('sha256');
   private publicationAudit: RulesetOutputAudit | null = null;
+  private readonly optimizations = new Map<RuleOptimizationAudit['reason'], RuleOptimizationAudit>();
 
   private readonly config: {
     keepComments: boolean;
@@ -563,6 +564,8 @@ export class EnhancedFileOutput {
 
     // DOMAIN-KEYWORD covers matching DOMAIN, DOMAIN-SUFFIX, and DOMAIN-WILDCARD rules.
     const kwfilter = createKeywordFilter(Array.from(this.domainKeywords));
+    const wildcardsBeforeCoverage = new Set<string>();
+    this.wildcardTrie.dumpWithoutDot(wildcard => wildcardsBeforeCoverage.add(wildcard));
 
     for (const outputs of this.platformOutputs) {
       // Surge DOMAIN-SET cannot carry RULE-SET extended matching, so those domains stay in non_ip.
@@ -575,6 +578,7 @@ export class EnhancedFileOutput {
 
     this.domainTrie.dumpWithoutDot((domain, includeAllSubdomain) => {
       if (kwfilter(domain)) {
+        this.recordOptimization('keyword-coverage', includeAllSubdomain ? 'DOMAIN-SUFFIX' : 'DOMAIN', domain);
         return;
       }
 
@@ -602,12 +606,15 @@ export class EnhancedFileOutput {
     }
 
     this.wildcardTrie.dumpWithoutDot(wildcard => {
+      wildcardsBeforeCoverage.delete(wildcard);
       if (kwfilter(wildcard)) {
+        this.recordOptimization('keyword-coverage', 'DOMAIN-WILDCARD', wildcard);
         return;
       }
 
       this.route('non_ip', 1, strategy => strategy.writeDomainWildcard(wildcard));
     }, true);
+    for (const wildcard of wildcardsBeforeCoverage) this.recordOptimization('domain-coverage', 'DOMAIN-WILDCARD', wildcard);
 
     const sourceIpOrCidr = Array.from(this.sourceIpOrCidr);
 
@@ -715,6 +722,17 @@ export class EnhancedFileOutput {
     if (this.ipasn.size) {
       this.route('ip', this.ipasn.size, strategy => strategy.writeIpAsns(this.ipasn, false));
     }
+  }
+
+  private recordOptimization(reason: RuleOptimizationAudit['reason'], type: string, value: string): void {
+    let summary = this.optimizations.get(reason);
+    if (!summary) {
+      summary = { reason, conditionCount: 0, byType: {}, samples: [] };
+      this.optimizations.set(reason, summary);
+    }
+    summary.conditionCount++;
+    summary.byType[type] = (summary.byType[type] ?? 0) + 1;
+    if (summary.samples.length < 20) summary.samples.push(`${type},${value}`);
   }
 
   /**
@@ -901,6 +919,16 @@ export class EnhancedFileOutput {
       outputs,
       rawInputSha256: this.rawInputHash.copy().digest('hex'),
       semanticSha256: sha256Hex(conditions.join('\n')),
+      semanticScope: 'normalized-source',
+      optimizations: [...this.optimizations.values()].map(summary => ({
+        ...summary,
+        byType: { ...summary.byType },
+        samples: [...summary.samples].sort(),
+      })),
+      effectiveOutputs: this.platformOutputs.map(output => {
+        const target = resolveRuleOutputTarget(output.platform, 'merged', this.id);
+        return snapshotEffectiveOutput(output.platform, target.format, output.merged.content);
+      }),
       conditions,
       contextSha256: sha256Hex(JSON.stringify({
         defaultPolicy: this.defaultPolicy,

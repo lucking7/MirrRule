@@ -19,7 +19,7 @@ export interface ArtifactLifecycleRecord {
   replacement?: string
 }
 
-export const ARTIFACT_LIFECYCLE_VERSION = 1;
+export const ARTIFACT_LIFECYCLE_VERSION = 2;
 
 /** Public report location, relative to the publication root. */
 export const ARTIFACT_LIFECYCLE_REPORT_PATH = 'Internal/artifact-lifecycle.json';
@@ -32,11 +32,8 @@ const MIRRORED_SCRIPT_PREFIX = '/Scripts/';
 
 function platformPaths(id: string): string[] {
   return [
-    `List/${id}.list`,
-    `Clash/${id}.txt`,
-    `Loon/${id}.list`,
-    `sing-box/${id}.json`,
-  ];
+    ['List', 'list'], ['Clash', 'txt'], ['Loon', 'list'], ['sing-box', 'json'],
+  ].flatMap(([root, extension]) => ['', 'domainset/', 'non_ip/', 'ip/'].map(variant => `${root}/${variant}${id}.${extension}`));
 }
 
 export const ARTIFACT_LIFECYCLE_REGISTRY: readonly ArtifactLifecycleRecord[] = [
@@ -58,7 +55,7 @@ export const ARTIFACT_LIFECYCLE_REGISTRY: readonly ArtifactLifecycleRecord[] = [
   {
     id: 'ruleset:china_asn:sing-box',
     state: 'retired',
-    paths: ['sing-box/china_asn.json'],
+    paths: platformPaths('china_asn').filter(relative => relative.startsWith('sing-box/')),
     reason: 'sing-box rule-set does not support IP-ASN; the artifact had no effective matchers',
     evidence: 'Build/core/output/rule-support-matrix.ts',
     replacement: 'sing-box/china_ip.json and sing-box/china_ip_ipv6.json (IP coverage is not equivalent to ASN matching)',

@@ -87,6 +87,16 @@ describe('artifact lifecycle registry', () => {
     assert.equal(getPluginRetirementReason({ url: TENCENT_SOURCE }), record.reason);
   });
 
+  it('purges retired merged and split rules while preserving active subscriptions', async () => {
+    const paths = ['List/discord.list', 'Clash/domainset/discord.txt', 'Loon/non_ip/scholar.list', 'sing-box/ip/container.json', 'sing-box/non_ip/china_asn.json'];
+    await withTree(Object.fromEntries([...paths.map(relative => [relative, 'old']), ['List/domainset/apple_cdn.list', '.apple.com']]), async root => {
+      for (const relative of paths) assert.equal(isRetiredPublicPath(relative), true);
+      assert.deepEqual(new Set(await purgeRetiredArtifacts(root)), new Set(paths));
+      await assertNoRetiredArtifacts(root);
+      assert.equal(await fs.readFile(path.join(root, 'List/domainset/apple_cdn.list'), 'utf8'), '.apple.com');
+    });
+  });
+
   it('isolates an active source that reuses the retired name while keeping retired filenames reserved', () => {
     const activeSource = 'https://plugins.test/Tencent_Video_remove_ads.lpx';
     assert.equal(getPluginRetirementReason({ url: activeSource }), undefined);

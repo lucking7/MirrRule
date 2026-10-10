@@ -189,7 +189,7 @@ Apple subscriptions are available both separately and in `apple`. Keep `apple_in
 
 `china_asn` is available for Surge, Clash, and Loon. sing-box has no ASN matcher, so use the separate `china_ip` / `china_ip_ipv6` subscriptions when IP-based China routing is appropriate; their coverage is not equivalent to ASN matching. The former `sing-box/china_asn.json` is retired (see [Retired Subscriptions](#retired-subscriptions)). Builds refuse to publish sing-box files without an effective matching condition.
 
-`reject` merges Sukka's base domain, non-IP, and IP blocking sources. `my_reject` is a separate optional subscription containing Sukka's personal choices, including finance, video, push, software validation, process, and port rules. Review it before enabling; Surge users should bind it to REJECT-DROP as indicated upstream. Other platforms retain only supported rule types and do not guarantee equivalent connection handling.
+`reject` merges Sukka's base domain, non-IP, and IP blocking sources. `my_reject` is a separate optional subscription containing Sukka's personal choices, including finance, video, push, software validation, process, and port rules. Review it before enabling; Surge users should bind it to REJECT-DROP as indicated upstream. Other platforms retain only supported rule types and do not guarantee equivalent connection handling. A logical expression with an unsupported, unknown or malformed child is rejected as a whole, with a drop reason; removing only that child would change its matching semantics.
 
 `reject_url_regex` remains separate from general blocking rules. Subscribe only when URL-level blocking is needed and bind it to REJECT in Surge. For HTTPS matching, enable and trust the Surge MITM certificate, then load the mirrored [Sukka MITM hostname module](https://nrrule.pages.dev/Mirror/Sukka/sgmodule/sukka_mitm_hostnames.sgmodule). This source does not generate Clash, Loon, or sing-box files. Empty regional streaming IP sources and deprecated Sukka aliases are excluded.
 
@@ -199,7 +199,7 @@ Mirrored Surge modules from [iRingo](https://github.com/NSRingo), [DualSubs](htt
 
 ## Retired Subscriptions
 
-Deprecated and retired files are recorded in one registry, `Build/lib/artifact-lifecycle.ts`, and published as `Internal/artifact-lifecycle.json` with the reason, evidence and any replacement. A deprecated file is still published for compatibility; a retired file is removed from every build, cache restoration, retained directory and rollback candidate, and is not published again. A replacement is a note for manual migration; old URLs are not redirected.
+Deprecated and retired files are recorded in one registry, `Build/lib/artifact-lifecycle.ts`, and published as `Internal/artifact-lifecycle.json` with the reason, evidence and any replacement. A deprecated file is still published for compatibility; a retired file is removed from every build, cache restoration, retained directory and rollback candidate, and is not published again. A replacement is a note for manual migration; old URLs are not redirected. Retirement covers both merged and split paths. Browser responses require revalidation; publication checks use the original URLs, including retired paths, without cache-busting queries.
 
 | Retired | Replacement |
 |---|---|
@@ -223,20 +223,20 @@ Each published build includes machine-readable reports under `Internal/`. Public
 | File | Content |
 |---|---|
 | `Internal/publication-manifest.json` | Every published file with its path, bytes and SHA-256, plus the source revision |
-| `Internal/rule-output-audit.json` | Format, path, status, effective count, bytes and SHA-256 for each ruleset, variant and platform |
+| `Internal/rule-output-audit.json` | Format, path, status, effective count, bytes and SHA-256 for each output; optimization reasons and effective platform digests |
 | `Internal/source-delta.json` | Added and removed upstream conditions compared with the last accepted publication; rulesets that existed in the baseline but are no longer built are listed as `removed`; `baseline-unavailable` on the first build, `not-comparable` when schema, converter or processing options changed |
-| `Internal/source-snapshots/<sourceId>.json` | Normalized conditions of each public upstream source, used for the next comparison |
+| `Internal/source-snapshots/<sourceId>.json` | Normalized source conditions and actual merged platform conditions, used for separate source and output comparisons |
 | `Internal/artifact-lifecycle.json` | Deprecated and retired subscriptions with reason and replacement |
 | `Internal/rule-coverage.json` | Cross-subscription coverage audit of the example order |
 | `Internal/preserved-artifacts.json` | Optional modules and scripts restored from the accepted baseline; these files are marked `preserved` in the manifest |
 
-`status.json` keeps its existing `ruleCount` meaning: the number of canonical conditions after processing, not the per-platform output count. Use `Internal/rule-output-audit.json` for the counts each platform actually publishes. A change limited to the banner or date is not a source change; a changed `no-resolve` flag or logical structure is.
+`status.json` keeps its existing `ruleCount` meaning: the number of canonical conditions after processing, not the per-platform output count. Use `Internal/rule-output-audit.json` for the counts each platform actually publishes. Normalized source deltas have `semanticScope: normalized-source`; `effectiveOutputs` separately compare the actual merged output on each platform. A covered upstream domain can be removed while the output stays identical. `optimizations` records keyword coverage and domain coverage of wildcards between canonical storage and writer routing; it does not classify every earlier Trie or CIDR normalization step. Text output comparisons use condition sets, retaining complete logical expressions and modifiers; they do not audit rule order. sing-box digests retain rule-object boundaries. Banner and date changes do not change either semantic digest. A changed `no-resolve` flag changes source semantics and only those platform outputs that retain it. Older converter versions or snapshots without effective output data are explicitly not comparable for the affected comparison.
 
 ## Publication and Rollback
 
 Production has one publication path. The workflow pushes the complete candidate to the NRRule repository, waits for the Cloudflare Pages Git integration check of that exact commit, and then verifies both the immutable deployment URL and `https://nrrule.pages.dev`. A publication is accepted only when both serve every manifest file with its SHA-256, and both return 404 for variants the audit lists as absent, for retired registry paths, and for baseline paths that are no longer published. The former direct Wrangler upload is removed. Only runs on `main` publish. For `workflow_dispatch`, the legacy `deploy_target` values `all`, `github` and `cloudflare` are still accepted and all mean production; `github` no longer means "repository only". The `build`, `mirror-sync`, `convert-plugins` and `merge-modules` tasks do not publish by themselves.
 
-A run that pushed to NRRule but whose website check failed or timed out reports "Git published, website not accepted" and is not a successful publication. Each accepted publication is recorded as a GitHub Deployment in MirrRule (a receipt binding the source commit, NRRule commit, candidate, manifest SHA-256 and immutable URL). Builds compare source changes against the latest accepted receipt, not against the NRRule branch head. If a different receipt is accepted between the build and publication, the run fails with `baseline-drift: rebuild required`. The exception is when the newer receipt is this same candidate, already accepted; that run ends as a no-op.
+A run that pushed to NRRule but whose website check failed or timed out reports "Git published, website not accepted" and is not a successful publication. Each accepted publication is recorded as a GitHub Deployment in MirrRule (a receipt binding the source commit, NRRule commit, candidate, manifest SHA-256 and immutable URL). Builds compare source changes against the latest accepted receipt, not against the NRRule branch head. If a different receipt is accepted between the build and publication, staging recomputes source deltas from the candidate snapshots against that baseline, verifies and refreshes preserved assets, and regenerates the index and manifest without redownloading upstream sources. Invalid snapshots or restoration digests fail staging. If the newer receipt already accepted this same candidate, the run ends as a no-op.
 
 First rollout:
 
@@ -247,7 +247,7 @@ First rollout:
 
 The bootstrap evidence artifact is kept for 90 days. If it expires before a normal publication replaces it, run `bootstrap-baseline` again; this creates a new receipt that replaces the old one. Retrying with the same evidence reuses the existing receipt.
 
-To roll back, run the workflow with task `rollback` and `rollback_receipt_id` set to an accepted publication receipt (bootstrap receipts cannot be rolled back to). The workflow starts from that accepted tree, applies the current retirement registry, and publishes the result as a new NRRule commit through the same check and acceptance steps. A rollback never restores retired files.
+To roll back, run the workflow with task `rollback` and `rollback_receipt_id` set to an accepted publication receipt (bootstrap receipts cannot be rolled back to). The workflow starts from that accepted tree, applies the current retirement registry, and publishes the result as a new NRRule commit through the same check and acceptance steps. Historical output audits and source snapshots are projected to the remaining subscriptions before validation; removed output metadata is retained separately in `retiredOutputs`, not counted as current published outputs. A rollback never restores retired files.
 
 ## Development
 

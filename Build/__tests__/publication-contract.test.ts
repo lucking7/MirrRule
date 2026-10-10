@@ -244,7 +244,8 @@ function candidateFixture(options: { receiptId?: number | null, rules?: Record<s
   return {
     ...rules,
     'GeoIP/Country.mmdb': 'mmdb',
-    'Internal/rule-output-audit.json': `${JSON.stringify({ schemaVersion: 1, rulesets: [{ id: 'fixture', outputs }] })}\n`,
+    'Internal/rule-output-audit.json': `${JSON.stringify({ schemaVersion: 1, converterVersion: 'mirrrule-rule-output/1', rulesets: [{ id: 'fixture', sourceId: 'fixture', snapshotPath: 'Internal/source-snapshots/fixture.json', rawInputSha256: '2'.repeat(64), semanticSha256: sha256Hex('DOMAIN,example.com'), sources: [], outputs }] })}\n`,
+    'Internal/source-snapshots/fixture.json': `${JSON.stringify({ schemaVersion: 1, converterVersion: 'mirrrule-rule-output/1', sourceId: 'fixture', rulesetId: 'fixture', contextSha256: '1'.repeat(64), sources: [], rawInputSha256: '2'.repeat(64), semanticSha256: sha256Hex('DOMAIN,example.com'), conditionCount: 1, conditions: ['DOMAIN,example.com'] })}\n`,
     'Internal/source-delta.json': `${JSON.stringify({ schemaVersion: 1, baseline: { configured: options.receiptId != null, receiptId: options.receiptId == null ? null : String(options.receiptId) }, sources: [] })}\n`,
     'Internal/rule-coverage.json': '{}\n',
     'status.json': '{"buildTime":"2026-10-10T00:00:00.000Z","commit":null,"rulesets":[]}\n',
@@ -689,11 +690,15 @@ describe('publication staging', () => {
     assert.ok(!absent.includes('List/ai.list'));
   });
 
-  it('fails on receipt drift unless the new baseline is this same candidate already accepted', async (t) => {
+  it('rebases receipt drift and recognizes this same candidate already accepted', async (t) => {
     const env = await setup(t, candidateFixture({ receiptId: 5 }), { 'Mirror/a.sgmodule': 'a' });
     const drifted = await baselineFrom(env.tree, 7);
     const run = (baseline: ResolvedBaseline) => stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['build', 'deploy'], sourceCommit: SOURCE, baseline, baselineTreeDir: env.tree, render: fakeRender });
-    await assert.rejects(run(drifted), stageError('baseline-drift', /rebuild required/));
+    const rebased = await run(drifted);
+    assert.equal(rebased.manifest.baselineReceiptId, 7);
+    const rebasedDelta = JSON.parse(await fs.readFile(path.join(env.out, 'Internal/source-delta.json'), 'utf8')) as { baseline: { receiptId: number } };
+    assert.equal(rebasedDelta.baseline.receiptId, 7);
+    assert.match(await fs.readFile(path.join(env.candidate, 'Internal/source-delta.json'), 'utf8'), /"receiptId":"5"/);
     const same = await baselineFrom(env.tree, 5);
     const result = await run(same);
     assert.equal(result.manifest.baselineReceiptId, 5);
