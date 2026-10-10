@@ -1,3 +1,4 @@
+import { splitLogicalFields } from './logical-fields';
 import type { Span } from '../../../trace';
 import { compareAndWriteFile } from '../../../lib/create-file';
 import { smartConvertRule } from '../../../lib/misc';
@@ -158,8 +159,50 @@ export abstract class BaseWriteStrategy {
       const type = this.accountOtherRule(trimmed);
       if (type === 'skip' || type === 'unknown' || !this.accepts(type)) continue;
       const converted = cleanPolicy(smartConvertRule(trimmed));
-      this.result.push(converted);
+      const supported = type === 'AND' || type === 'OR' || type === 'NOT'
+        ? this.convertSupportedLogicalRule(converted) : converted;
+      if (supported !== null) this.result.push(supported);
     }
+  }
+
+  /** A failed child rejects its whole expression; deleting it would change matching semantics. */
+  protected convertSupportedLogicalRule(rule: string, stripPolicy = true, depth = 0): string | null {
+    const fields = splitLogicalFields(rule);
+    if (fields === null || fields.length < 2 || depth > 64) {
+      this.accountOtherRule('INVALID');
+      return null;
+    }
+    const type = fields[0].toUpperCase();
+    if (type === 'AND' || type === 'OR' || type === 'NOT') {
+      const expression = fields[1];
+      const children = expression.startsWith('(') && expression.endsWith(')')
+        ? splitLogicalFields(expression.slice(1, -1)) : null;
+      if (!children?.length || (type === 'NOT' && children.length !== 1)) {
+        this.accountOtherRule('INVALID');
+        return null;
+      }
+      const converted: string[] = [];
+      for (const child of children) {
+        if (!child.startsWith('(') || !child.endsWith(')')) {
+          this.accountOtherRule('INVALID');
+          return null;
+        }
+        const value = this.convertSupportedLogicalRule(child.slice(1, -1), stripPolicy, depth + 1);
+        if (value === null) return null;
+        converted.push(`(${value})`);
+      }
+      return `${type},(${converted.join(',')})${fields.length > 2 ? ',' + fields.slice(2).join(',') : ''}`;
+    }
+    const canonicalType = ({ 'SRC-IP': 'SRC-IP-CIDR', 'SRC-IP-CIDR6': 'SRC-IP-CIDR', 'DST-PORT': 'DEST-PORT', NETWORK: 'PROTOCOL' } as Record<string, string>)[type] ?? type;
+    const accounted = this.accountOtherRule(`${canonicalType},${fields.slice(1).join(',')}`);
+    if (accounted === 'skip' || accounted === 'unknown' || !this.accepts(accounted)) return null;
+    const outputType = this.platform === 'surge'
+      ? ({ 'PROCESS-PATH': 'PROCESS-NAME', 'SRC-IP-CIDR': 'SRC-IP' } as Record<string, string>)[canonicalType] ?? canonicalType
+      : canonicalType;
+    const modifiers = stripPolicy
+      ? cleanPolicy(`${outputType},placeholder,${fields.slice(2).join(',')}`).split(',').slice(2)
+      : fields.slice(2);
+    return `${outputType},${fields[1]}${modifiers.length ? ',' + modifiers.join(',') : ''}`;
   }
 
   protected abstract withPadding(

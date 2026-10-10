@@ -1,6 +1,5 @@
 import { appendSetElementsToArray } from 'foxts/append-set-elements-to-array';
 import { BaseWriteStrategy } from './base';
-import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { OUTPUT_SURGE_DIR } from '../../../constants/dir';
 import { withBannerArray, smartConvertRule } from '../../../lib/misc';
 import { RuleLineUtils } from '../../../utils/validation/validators';
@@ -111,13 +110,16 @@ export class SurgeRuleSet extends BaseWriteStrategy {
     appendSetElementsToArray(this.result, protocol, i => `PROTOCOL,${i}`);
   }
 
-  writeOtherRules(rule: string[]): void {
-    if (this.stripPolicy) {
-      const convertedRules = rule.map(r => cleanPolicy(smartConvertRule(r)));
-      appendArrayInPlace(this.result, convertedRules);
-    } else {
-      // 智能处理所有规则类型，不依赖预分类
-      rule.forEach(r => this.processRuleIntelligently(r));
+  writeOtherRules(rules: string[]): void {
+    for (const rule of rules) {
+      if (/^(?:AND|OR|NOT)\s*,/i.test(rule.trim())) {
+        const converted = this.convertSupportedLogicalRule(this.stripPolicy ? cleanPolicy(rule) : rule.trim(), this.stripPolicy);
+        if (converted !== null) this.result.push(converted);
+      } else if (this.stripPolicy) {
+        this.result.push(cleanPolicy(smartConvertRule(rule)));
+      } else {
+        this.processRuleIntelligently(rule);
+      }
     }
   }
 
@@ -176,11 +178,6 @@ export class SurgeRuleSet extends BaseWriteStrategy {
       case 'IP-ASN':
         const asnParams = parts.slice(2).join(',');
         this.result.push(`IP-ASN,${value}${asnParams ? ',' + asnParams : ''}`);
-        break;
-      case 'AND':
-      case 'OR':
-      case 'NOT':
-        this.result.push(trimmed);
         break;
       default:
         // accountOtherRule exhaustively handles unknown types above.

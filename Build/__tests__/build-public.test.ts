@@ -384,6 +384,8 @@ describe('standalone ruleset index generation', () => {
       const readme = await fs.readFile(path.join(directory, 'README.md'), 'utf8');
       assert.match(readme, /lucking7\/MirrRule/);
       const headers = await fs.readFile(path.join(directory, '_headers'), 'utf8');
+      assert.match(headers, /cache-control: public, max-age=0, must-revalidate/);
+      assert.doesNotMatch(headers, /stale-while-revalidate|stale-if-error/);
       assert.match(headers, /\/List\/\*\n\s+content-type: text\/plain; charset=utf-8/);
       assert.doesNotMatch(headers, /\/GeoIP\/\*\n\s+content-type: text\/plain/);
     });

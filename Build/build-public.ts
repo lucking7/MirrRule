@@ -81,7 +81,7 @@ export const buildPublic = task(
       span,
       [
         '/*',
-        '  cache-control: public, max-age=240, stale-while-revalidate=60, stale-if-error=15',
+        '  cache-control: public, max-age=0, must-revalidate',
         'https://:project.pages.dev/*',
         '  X-Robots-Tag: noindex',
         ...rulesetHeaderDirs.map(

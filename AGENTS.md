@@ -173,7 +173,7 @@ eslint.config.js                   ESLint 配置
 - `Build/core/output/writing-strategy/*.ts`
 - `Build/build-public.ts`
 
-`status.json` 的 `ruleCount` 保持 canonical 逻辑数量的旧含义，不等于各平台实际输出数量；平台实际数量以 `Internal/rule-output-audit.json` 为准。
+`status.json` 的 `ruleCount` 保持 canonical 逻辑数量的旧含义，不等于各平台实际输出数量；平台实际数量以 `Internal/rule-output-audit.json` 为准。`semanticScope: normalized-source` 与 `effectiveOutputs` 分别比较标准化来源和平台实际输出；`optimizations` 记录 canonical 到 writer 路由间的 keyword/domain coverage，不代表早期 Trie/CIDR 归一化的逐条原因。旧 converter 或缺少有效输出快照时，相关比较标为不可比。
 
 ## 6. 规则源配置方式
 
@@ -317,7 +317,7 @@ CI 中会启动固定 digest 的 `xream/script-hub` image 用于插件转换。
 
 ### 退休登记
 
-`Build/lib/artifact-lifecycle.ts` 是 deprecated／retired 订阅的唯一登记，发布为 `Internal/artifact-lifecycle.json`。每条记录有稳定 id、原公开路径、原因、依据和可选 replacement。缓存恢复（`restore-optional-artifacts.ts`、`download-previous-build.ts`）、`build-public`、`prepare-publication` 与回滚候选都调用同一登记，retired 文件不能从历史产物、缓存或保留目录复活。清理只作用于已登记的公开路径，拒绝绝对路径和路径穿越；共享 Scripts 需有引用或独占证据才能删除。不要凭一次上游空响应新增退休记录。当前 retired：腾讯视频去广告模块、`container`／`discord`／`scholar` 四平台规则、`sing-box/china_asn.json`（replacement 为 `sing-box/china_ip.json` 与 `china_ip_ipv6.json`，IP 覆盖不等同于 ASN）。
+`Build/lib/artifact-lifecycle.ts` 是 deprecated／retired 订阅的唯一登记，发布为 `Internal/artifact-lifecycle.json`。每条记录有稳定 id、原公开路径、原因、依据和可选 replacement。缓存恢复（`restore-optional-artifacts.ts`、`download-previous-build.ts`）、`build-public`、`prepare-publication` 与回滚候选都调用同一登记，retired 文件不能从历史产物、缓存或保留目录复活。退休 ruleset 登记同时覆盖合并版和三个分版。清理只作用于已登记的公开路径，拒绝绝对路径和路径穿越；共享 Scripts 需有引用或独占证据才能删除。不要凭一次上游空响应新增退休记录。当前 retired：腾讯视频去广告模块、`container`／`discord`／`scholar` 四平台规则、`sing-box/china_asn.json`（replacement 为 `sing-box/china_ip.json` 与 `china_ip_ipv6.json`，IP 覆盖不等同于 ASN）。
 
 ### 模块合并
 
@@ -366,10 +366,10 @@ pnpm run node ./Build/merge-modules.ts --disable a,b
 
 - stage 要求 `Internal/rule-output-audit.json`、`source-delta.json`、`rule-coverage.json`、`status.json` 与 `Internal/artifact-lifecycle.json`，且每个 published 输出的 bytes 与 sha256 必须和审计一致；核心目录（List、Clash、Loon、sing-box、GeoIP、Internal）缺失或复制失败直接失败。未运行任务的 Mirror、Modules、Scripts 从已验收 baseline 按摘要复制；恢复进新鲜目录的可选文件记录在 `Internal/preserved-artifacts.json`，manifest 中标为 `preserved`。
 - 验收要求两个 origin 都按 manifest sha256 返回每个文件，并对审计 absent 的分版、退休登记路径和基线中已不再发布的路径返回 404。push 成功但验收失败报告“Git published, website not accepted”。
-- 基线是最近一个 success 状态的 GitHub Deployments receipt（`publication-receipt.ts`），不是 NRRule HEAD。生产锁内重新解析基线：若与构建时 source-delta 记录的 receiptId 不同，stage 以 `baseline-drift: rebuild required` 失败；若新 receipt 正是本候选已验收的结果，则 no-op。stage 不重新计算 delta。
+- 基线是最近一个 success 状态的 GitHub Deployments receipt（`publication-receipt.ts`），不是 NRRule HEAD。生产锁内重新解析基线：若与构建时 source-delta 记录的 receiptId 不同，stage 使用候选的标准化快照重算 delta，重新核对保留目录和历史恢复文件，生成 index 与 manifest；不重新下载上游。快照或恢复摘要不满足校验时失败。若新 receipt 正是本候选已验收的结果，则 no-op。
 - receipt 写入幂等：相同证据复用已有 deployment；写入失败退出码 14（网站已验收，验收记录未持久化）。
 - 上线顺序：合并后，自动 push/schedule 构建但以 `publication skipped: bootstrap required` 警告跳过发布，手动 deploy/rollback 直接失败；运行 `workflow_dispatch` task=`bootstrap-baseline`，填当前 NRRule commit（`bootstrap_revision`）与其 immutable URL（`bootstrap_immutable_url`），写入 `legacy-bootstrap` receipt；下一次 run 正常发布。bootstrap artifact 保留 90 天，过期后重新运行 bootstrap-baseline 会生成替代旧 receipt 的新 receipt。
-- 回滚：task=`rollback` 加 `rollback_receipt_id`（必须是 manifest receipt，不能是 bootstrap）。以该 tree 为候选，stage 应用当前退休登记，作为新 commit 沿同一链发布并验收；不得复活 retired 文件。
+- 回滚：task=`rollback` 加 `rollback_receipt_id`（必须是 manifest receipt，不能是 bootstrap）。以该 tree 为候选，stage 应用当前退休登记，投影历史输出审计到当前退休登记清理后的 tree，作为新 commit 沿同一链发布并验收；不得复活 retired 文件。
 
 CLI 子命令（未知命令打印 usage 并退出 2）：
 

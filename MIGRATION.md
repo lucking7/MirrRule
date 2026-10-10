@@ -20,7 +20,7 @@ MirrRule 是构建型规则聚合项目：下载上游成品规则，清洗、�
 | 构建状态                | [status-manifest.ts](Build/lib/status-manifest.ts)                                                                                                             | 成功主构建生成 `public/status.json` 和根目录 `.BUILD_FINISHED`                                                      |
 | 上游健康检查            | [validate-domain-alive.ts](Build/validate-domain-alive.ts)、[check-source-domain.yml](.github/workflows/check-source-domain.yml)                               | JSON 报告、定时状态分支与 Issue 告警；不等于生产构建成功                                                            |
 
-源码仓库 `lucking7/MirrRule`、产物仓库 `lucking7/NRRule`、Pages 项目 `nrrule` 是三个独立对象。源码仓不跟踪 `public/`。产物仓存放展开后的公开文件，根目录直接是 `List/`、`Modules/` 等；Pages 上传的是整个 `public/`。
+源码仓库 `lucking7/MirrRule`、产物仓库 `lucking7/NRRule`、Pages 项目 `nrrule` 是三个独立对象。源码仓不跟踪 `public/`。产物仓存放展开后的公开文件，根目录直接是 `List/`、`Modules/` 等；Pages 通过 Git integration 部署产物仓中的完整 staging tree。
 
 索引按实际产物显示 `List`、`Clash`、`Loon`、`sing-box` 等目录。顶层默认展开，`Mock` 和 `Internal` 默认折叠，嵌套目录默认折叠；访问者打开文件或通过浏览器复制链接地址。页面使用系统字体和自动 light / dark 配色，不依赖应用 JavaScript。订阅用途、分流顺序和 MITM 配置见 [README](README.md)。
 
@@ -39,7 +39,7 @@ MirrRule 是构建型规则聚合项目：下载上游成品规则，清洗、�
 | 网络与缓存   | `undici 8.7.0`、`undici-cache-store-better-sqlite3 1.1.0`、`better-sqlite3 12.11.1`                    |
 | 数据处理     | `yaml 2.9.0`、`fast-cidr-tools 0.3.2`、`foxts 5.8.0`、`tar-fs 3.1.3`                                   |
 | 质量检查     | Node 内置 `node:test`、ESLint `9.39.1`、Sukka config `8.9.3`、Knip `6.35.1`、Prettier `3.9.6`          |
-| 发布工具     | workflow 固定 Wrangler `4.114.0`；无需为本地规则构建安装 Wrangler                                      |
+| 发布工具     | GitHub Deployments receipt、Git push 与 Cloudflare Pages Git integration；生产不使用 Wrangler 上传 |
 | 插件转换服务 | Docker 镜像 `xream/script-hub@sha256:4e9e5055157d2d85f9c03abd045a0016fe594adc44d27410019cdb4818961f45` |
 
 本地需要 Git、Node、pnpm 和网络；复现 CI 的 Script-Hub 转换路径还需要可运行 Docker 的环境。源码包含本地转换 fallback，但不能据此保证缺少 Script-Hub 时所有插件都能转换。`better-sqlite3` 和 SWC 有原生二进制依赖，换 Node 大版本或 CPU 架构后不要复用旧 `node_modules`。预编译包不可用时，需要 Python 和系统 C/C++ 编译工具链。`pnpm test` 固定逐个运行测试文件，避免干净克隆首次创建共享 SQLite 缓存时多个测试进程争用锁。
@@ -74,7 +74,7 @@ GitHub Release / Sukka / fmz200 → 各自镜像命令 → public/Mirror
 已转换模块 → merge-modules → public/Modules/{Merged,Rules}
 上述可选产物就绪 → build-web → 更新完整文件索引
 
-CI 聚合 public artifact → Cloudflare Pages + 产物 Git 仓库
+CI 候选 artifact → 完整 staging tree → 产物 Git commit → Cloudflare Pages → 两个 origin 验收 → receipt
 ```
 
 `pnpm run build` 只执行规则、GeoIP 和网页构建，不调用镜像、插件转换或模块合并。`pnpm run build-web` 只重建索引，不更新 `status.json` 或成功标记。`status.json` 中 `mirrors` 当前由主入口写为空数组，不能用它证明镜像已同步；本地未设置 `GITHUB_SHA` 时 `commit` 为 `null`。
@@ -277,111 +277,84 @@ rg -n 'nrrule\.pages\.dev|cloudflare-proxy\.lucking' public
 
 ## 7. 在自己的账号中接入发布
 
-本节是迁移者的操作步骤，本次没有创建云资源、设置 Secrets、推送分支或部署。启用自动发布前，先完成第 6 节并审查目标。
+生产入口是产物仓的 Cloudflare Pages Git integration。源码仓、产物仓和 Pages 项目分别配置；不要再增加直接上传生产目录的入口。本节是新账号的操作步骤，不代表这些资源已为新账号创建。
 
-### 7.1 创建两个仓库并准备权限
+### 7.1 创建仓库并准备权限
 
-1. 在自己的账号中 fork/import 源码仓，先暂停主发布 workflow，避免推送 `main` 自动发布。
-2. 创建独立的公开产物仓，初始化 `main`（例如建一个 README commit）。不要把业务源码放在产物仓，发布脚本会替换目录并清理不在发布结构中的顶层目录。
-3. 修改所有旧仓库引用。当前补齐与 diff 使用无认证的公开 clone；仅设置 `GITHUB_TOKEN` 环境变量不会自动使这些 URL 获得私有仓访问权。私有产物仓需要额外设计认证，不属于原样迁移路径。
-4. 为源码仓配置下表 Secrets。令牌只授予需要的仓库/账号，使用 GitHub UI 或安全的密钥输入方式，不把值写进 Git。
-5. 源码仓需要允许所用 Actions。若启用 Dependabot auto-merge，还需启用仓库 auto-merge、相应机器人权限，并设置必需检查 `Build`；workflow 注释本身不会创建分支保护。
+1. Fork/import 源码仓并暂停发布 workflow，完成第 6 节的账号、仓库、域名和脚本 URL 替换。
+2. 创建公开产物仓并初始化 `main`。产物仓存放展开后的公开文件，不放业务源码。核对 `Build/lib/publication-github.ts`、发布 CLI 与 workflow 中的仓库和 Pages 项目标识，包括可信 Cloudflare app identity。
+3. 配置下表权限。令牌只授予所需仓库，通过安全输入保存，不写入 Git。私有产物仓的认证不属于原样迁移路径。
+4. 允许所用 Actions；如启用 Dependabot auto-merge，另外设置机器人权限、auto-merge 和必需 `Build` 检查。
 
-| Secret 名称             | 用途 / 权限                                                                              |
-| ----------------------- | ---------------------------------------------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN`  | 自己账号的 Pages 发布令牌，Account → Cloudflare Pages → Edit                             |
-| `CLOUDFLARE_ACCOUNT_ID` | Pages 项目所在账号 ID，按 workflow 当前形式放在 Secret 中                                |
-| `GIT_USER`              | 产物推送身份 / Git commit name                                                           |
-| `GIT_EMAIL`             | 产物 Git commit email                                                                    |
-| `GIT_TOKEN`             | 跨仓库推送令牌，需目标产物仓 Contents 写权限；若保留 archive/unarchive，还需仓库管理权限 |
-| `GITHUB_TOKEN`          | Actions 自动提供，无需复制原维护者令牌；用于 Release 读取、健康状态/Issue 和自动合并     |
+| Secret / 权限 | 用途 |
+|---|---|
+| `GIT_USER`、`GIT_EMAIL` | 产物 commit 身份 |
+| `GIT_TOKEN` | 产物仓 Contents 写入；archive/unarchive 还需要仓库管理权限 |
+| `GITHUB_TOKEN` | Actions 自动提供；发布 job 使用 `deployments: write` 和 `actions: read` 写入 receipt、读取基线证据 |
 
-现有部署脚本会先尝试 unarchive，结束后再 archive 产物仓。这两步允许失败，因此部署成功并不证明最终归档成功。新部署若不需要归档，可在自己的 workflow 中去掉这两步，并缩小 `GIT_TOKEN` 权限。不要归档源码仓。
+生产 Git integration 不需要 `CLOUDFLARE_API_TOKEN` 或 `CLOUDFLARE_ACCOUNT_ID`。不要为了恢复旧上传 job 增加这些 Secrets。当前 workflow 在发布前取消产物仓归档、结束后恢复归档；新账号如不保留这一管理行为，需要同步修改 workflow 并缩小权限。
 
-### 7.2 Cloudflare Pages
+### 7.2 连接 Cloudflare Pages
 
-使用 Direct Upload 项目接收 GitHub Actions 构建好的目录，不需要 Pages 再执行 `pnpm build`。可由 Wrangler 创建空项目：
+在 Pages 中连接自己的产物仓，生产分支设为 `main`，发布仓库根目录的现成静态文件，不再执行源码规则构建。授权 Cloudflare GitHub integration 访问该仓库，并确认 commit 上的 Pages check 和 immutable deployment URL。参见 [Cloudflare Git integration](https://developers.cloudflare.com/pages/configuration/git-integration/)。
 
-```bash
-pnpm dlx wrangler@4.114.0 login
-pnpm dlx wrangler@4.114.0 whoami
-# 确认账号无误，将下值改为自己的项目名后再创建
-PAGES_PROJECT_NAME=your-rules
-pnpm dlx wrangler@4.114.0 pages project create "$PAGES_PROJECT_NAME" --production-branch=main
-```
+核对实际项目域名、CLI 允许的 immutable 主机和正式 origin。自定义域名配置 HTTPS 后再切换订阅。静态文件使用 Pages CDN 缓存；生成的 `_headers` 要求浏览器重新验证，退休路径仍必须在裸订阅 URL 返回 404。不要用加查询参数的请求代替这一验收。参见 [Serving Pages](https://developers.cloudflare.com/pages/configuration/serving-pages/)。
 
-`whoami` 用于确认当前登录账号；有多个账号时需明确选择目标账号，不能沿用不明身份。创建命令要求显式项目名，生产分支设为 `main`。记录实际分配的 Pages 域名，然后更新第 6 节中的脚本基址。Direct Upload 与 Git integration 的选择和创建方法见 [Cloudflare 官方说明](https://developers.cloudflare.com/pages/get-started/direct-upload/)；令牌权限与 GitHub Secrets 设置见 [CI 发布说明](https://developers.cloudflare.com/pages/how-to/use-direct-upload-with-continuous-integration/)。
+### 7.3 首次上线与基线
 
-workflow 的实际命令是 `pages deploy public --project-name=nrrule --commit-dirty=true --branch=main`，只修改项目名还不够，生成物内的脚本 URL 也必须迁移。需要自定义域名时先在 Pages 中配置并确认解析与 HTTPS，再切换订阅链接。
+1. 在隔离目录完成规则构建及所需插件、合并、镜像验证。PR 或手动 `task=build` 只验证候选，不发布。
+2. 准备一个可验证的完整初始产物 Git commit，让 Git integration 生成该 commit 的 immutable deployment。README-only 仓库不能作为保留资产的完整基线。新账号初始化产物时也只使用这条 Git 链。
+3. 在源码仓 `main` 运行 `task=bootstrap-baseline`，指定该产物 commit 的 `bootstrap_revision` 和 `bootstrap_immutable_url`。流程核对 Git inventory、immutable URL、正式域名及可保留文件，保存 90 天证据 artifact，写入 `legacy-bootstrap` receipt。
+4. 运行 `task=all` 或 `task=deploy`。旧 `deploy_target=all/github/cloudflare` 均规范化为 `production`，不会选择不同发布入口。`deploy` 会重新构建候选，上游字节可能变化。
+5. 检查 `Publish to Production` 的精确 deployCommit、Pages check、两个 origin 的内容验收和 success receipt，再检查客户端订阅与脚本。只看到 Git push 或 workflow success 不足以证明网站已验收。
 
-### 7.3 首次上线顺序
-
-1. 完成本地规则构建及必要的转换、合并和镜像验证。全新产物仓没有旧文件可供 fallback，`merge-modules` 单独运行无法凭空产生转换模块。
-2. 配好自己的产物仓、Pages 项目、Secrets、脚本 URL 和可选 Worker。若仍无法生成默认选中的模块，先解决来源或明确调整自己配置，不能宣称完整迁移。
-3. 使用 PR 或手动 `task=build` 检查规则构建。PR 的生产对比 job 需要产物仓可以 clone；初始 README-only 仓库可用于启动，但还没有完整基线。
-4. 准备正式发布时，在自己的 `main` 手动选择 `task=all` 和所需 `deploy_target`。选择 `all` 部署到两个目标；也可先选 `cloudflare`，检查站点后再执行一次 `all`/`github`。后一次会重新构建，不保证上游字节完全相同。
-5. 检查两个部署 job 的结果，读取自己的 `status.json`，抽查四平台规则、合并模块及其 `script-path`，确认脚本 URL 返回实际 JS 而非 HTML/404，再让客户端导入。两个发布目标独立，可能一个成功、另一个失败。
-
-`pnpm run deploy` 只构建并打印提示，不执行远端部署。workflow 的手动 `task=deploy` 会在本次运行重新构建、验收并发布，不复用上一轮 artifact；新的构建可能取得不同的上游内容，见下一节。
+没有 receipt 时，自动 run 明确警告并跳过发布，手动 deploy/rollback 失败。bootstrap 证据过期后重新运行 bootstrap，不能回退到未经验收的产物仓 HEAD。`pnpm run deploy` 仅构建并打印提示。
 
 ## 8. GitHub Actions 的真实行为
 
-以 [main.yml](.github/workflows/main.yml) 的 `prepare` 输出、各 job 的 `if` 和 `needs` 为准，不只看注释。
+以 [main.yml](.github/workflows/main.yml) 的 `prepare` 输出、job 条件和 `needs` 为准。
 
-| 触发 / 手动 task       | 转换 | 合并 | 镜像 | Build | 发布                     |
-| ---------------------- | ---- | ---- | ---- | ----- | ------------------------ |
-| push `main` / `master` | 是   | 是   | 是   | 是    | 仅 `main` 可发布         |
-| pull_request           | 否   | 否   | 否   | 是    | 否；另做产物 diff        |
-| 手动 `all`             | 是   | 是   | 是   | 是    | `main`，按 deploy_target |
-| 手动 `build`           | 否   | 否   | 否   | 是    | 否                       |
-| 手动 `convert-plugins` | 是   | 否   | 否   | 否    | 否，只有转换 artifact    |
-| 手动 `merge-modules`   | 否   | 是   | 否   | 否    | 否，尝试读取已有转换产物 |
-| 手动 `mirror-sync`     | 否   | 否   | 是   | 是    | 否                       |
-| 手动 `deploy`          | 否   | 否   | 否   | 是    | `main`，按 deploy_target |
+| 触发 / task | 候选工作 | 发布 |
+|---|---|---|
+| push `main` / `master`、手动 `all` | 转换、合并、镜像、规则构建 | 仅 `main`，唯一 production 链 |
+| pull_request | 规则构建及产物 diff | 否 |
+| `build` | 规则构建 | 否 |
+| `convert-plugins` | 转换 artifact | 否 |
+| `merge-modules` | 合并 artifact，核对必需输入 | 否 |
+| `mirror-sync` | 镜像和规则构建 | 否 |
+| `deploy` | 本次重新构建规则候选 | 仅 `main` |
+| `bootstrap-baseline` | 验证固定 legacy tree | 仅写入初始 receipt |
+| `rollback` | 读取指定已验收 manifest receipt 的 tree | 作为新 commit 发布并重新验收 |
 
-`prepare` 在本次运行计算 `tasks` 任务计划；镜像步骤属于 Build job，因此手动镜像会执行构建但不会发布。手动部署先完成本次 Build 的测试、Knip、构建和成功标记检查，再交给选定发布 job。任务计划映射可由仓库测试验证，但新账号中的真实 Actions、Cloudflare 和 Git 发布仍须单独验证。
+定时任务使用 UTC：`0 5,17 * * *` 完整流程，`0 */4 * * *` 快速更新，`0 6,14,22 * * *` 镜像更新，`30 7,19 * * *` 转换和合并。新仓要确认定时 Actions 已启用。只有 PR 会取消同组旧 run；生产相关 run 排队，`nrrule-production` 锁不取消在途发布。GitHub 的 pending run 仍可能被后续排队事件替换。
 
-定时规则采用 UTC：`0 5,17 * * *` 执行完整流程；`0 */4 * * *` 规则构建与发布；`0 6,14,22 * * *` 镜像、规则构建与发布；`30 7,19 * * *` 转换、合并、规则构建与发布。新仓还需确认 Actions 定时运行已启用。相同 workflow/ref 共用并发组，仅新 push 可以取消在途运行；schedule 和 workflow_dispatch 排队，不能抢占正在发布的完整构建。GitHub 默认只保留一个 pending run，后续排队事件可能替换尚未开始的 pending run，不应把取消状态误认为代码失败。
+Build 运行 validate、测试、Knip 和任务计划中的构建。发布在锁内重新读取最近 success receipt，按任务从候选取得核心目录、从已验收基线核对并保留未更新的可选目录。基线变化时使用候选快照重算来源 delta，核对历史恢复文件并换成新基线版本，重新生成索引与 manifest，不重新下载上游。核心目录、必需报告缺失，复制失败或审计摘要不匹配都使发布失败。
 
-job 顺序为 `prepare → convert-plugins → merge-modules → build → 两个 deploy job`，转换或合并可按条件跳过。Build 依次运行 `validate`、测试、Knip，再处理镜像、artifact、缺失目录补齐、主构建与成功标记检查。PR 通过不证明插件转换、模块合并或部署可用。
+完整链为：候选 artifact → stage → 预期 HEAD 检查与 Git push → 该 deployCommit 的可信 Pages check → immutable URL → 正式域名 → success receipt。两个 origin 均核对清单摘要；absent、retired 和已删除路径必须返回 404。失败报告保存 deployCommit 和具体 URL，不创建 success receipt。
 
-部署和 PR 差异比较条件必须显式包含 `!cancelled()`，同时要求本轮 Build 成功，并保留任务、分支和目标限制。快速更新、镜像更新、手动 `deploy` 和 PR 会按计划跳过转换或合并；缺少状态函数时，GitHub 隐式添加的 `success()` 会使下游 job 继续跳过，即使 Build 已成功。因此验收增量发布必须查看两个 deploy job，不能仅凭 workflow 整体 success 判断已更新线上。参见 [GitHub 状态条件](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions#status-check-functions)。
+插件转换失败仍记录在报告中。本轮要求转换时，必需模块不能从旧产物替代；可选历史恢复记录路径、摘要及来源 commit。`.cache` 可重建，不是完整备份。候选 artifact、验收证据和成功 receipt 的用途不同，回滚以已验收 tree 为准。
 
-需要特别区分：
-
-- 插件 job 最多重试两次，最终非零退出会使 job 失败；显式按合并配置校验本轮必需输入，非必需失败另存报告并发 warning。只上传非空转换产物，不再上传 marker 冒充转换成功。模块合并进一步严格检查默认选中的输入。
-- 本轮要求插件转换时，合并禁止从旧产物仓补齐转换模块。单独运行合并且转换目录完全没有 `.sgmodule` 时，才允许读取产物仓；已有一部分文件但缺少其他必需文件时，不会自动逐个补齐。
-- Build 按顶层目录缺失/为空补齐旧产物，不校验整个目录是否完整。因此一个非空目录可能仍缺少必要文件。
-- `.cache` 是可重建缓存，不是完整 `public` 备份。缓存采用 runner OS 与日期/run ID key；插件、模块、Build artifacts 仅保留 1 天，应另外保存上线快照。
-- Pages 上传本次 artifact 的整份 `public`。Git 产物部署则替换选中的非空目录、保留缺失/空目录、复制根文件，并清理发布名单之外的顶层目录。它不是逐文件补丁更新，也不保证两个目标内容在部分构建时天然一致。
-
-[check-source-domain.yml](.github/workflows/check-source-domain.yml) 每日 `03:17 UTC` 检查；定时运行维护 `source-health-state` 分支和三次连续失败告警。手动运行只生成报告和退出状态，不更新持久状态或 Issue。其权限是 `contents: write`、`issues: write`；保留该功能时需允许专用状态分支被 workflow 强制更新，并确认新账号可使用 `ubuntu-24.04-arm` runner。健康报告保留 14 天，不能用健康报告替代 Build 验收。
+[check-source-domain.yml](.github/workflows/check-source-domain.yml) 每日 `03:17 UTC` 检查，维护 `source-health-state` 分支和连续失败告警。手动运行只生成报告，不更新状态或 Issue。上游健康报告不能替代构建或生产验收。
 
 ## 9. 故障排查与回滚
 
-| 现象                     | 检查 / 处理                                                                                                                             |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Node / native ABI 错误   | 确认 `node --version` 为 26.x；在正确 runtime 下重装依赖，必要时 `pnpm rebuild better-sqlite3`；不要改锁文件规避                        |
-| 首次测试 `SQLITE_BUSY`   | 确认使用当前 `pnpm test` 脚本，它以 `--test-concurrency=1` 串行运行测试文件，避免并发初始化共享 SQLite 缓存；不要把重跑通过当作首次通过 |
-| `--frozen-lockfile` 失败 | 核对源码和 lock 是否来自同一 commit，pnpm 是否匹配；保留日志，不能把重新解析依赖当作等价复现                                            |
-| 上游 403、404、超时      | 看具体 URL、状态、UA、直连/Worker 路径；限流等待恢复，授权问题修正权限，404 修正来源；不要无限重跑                                      |
-| GitHub Release 限流      | 使用已授权的 `GITHUB_TOKEN` 或等重置；fmz200 独立脚本不读该变量，须等其无认证额度恢复或另行改造                                         |
-| Script-Hub 连接失败      | 检查容器、9101 健康响应、`CI` 是否错误设置、容器出站网络；不能只检查主机浏览器                                                          |
-| 合并缺文件 / 未定义参数  | 对照 YAML 与 Converted 目录；先修转换依赖，再 dry-run。检查 Header/key 与模板，不用空文件占位                                           |
-| `PUBLIC_DIR` 后输出分散  | 使用默认 `public` 加独立克隆；当前代码不支持所有流程统一重定向                                                                          |
-| 有 index 但构建失败      | 检查退出码与 `.BUILD_FINISHED`，主构建可能继续产出部分文件。旧 `status.json` 也不能独立证明本次成功                                     |
-| 手动镜像/部署任务跳过    | 检查 `prepare.outputs.tasks`、Build job 的条件和结果、分支及 `deploy_target`；`deploy` 必须有本次 Build artifact                        |
-| Pages 成功、脚本仍404    | 检查 `SCRIPT_MIRROR_LOCATION`，核对 artifact 的 Scripts 与实际 script-path                                                              |
-| macOS 解压 artifact 报 `file exists` | fmz200 镜像同时包含 `WIFI万能钥匙.sgmodule` 和 `WiFi万能钥匙.sgmodule`。默认不区分大小写的文件系统无法完整保存两者；完整镜像使用 Linux 或区分大小写的卷，仅核验模块时可选择性解压 `Modules/`、`Scripts/` |
-| Git 发布被拒绝           | 检查产物仓是否初始化 main、是否归档、令牌跨仓权限及分支保护；不要为排错 force-push                                                      |
+| 现象 | 检查 / 处理 |
+|---|---|
+| Node / native ABI 错误 | 使用 Node 26 和固定 pnpm，重装依赖；不要改锁文件规避 |
+| `SQLITE_BUSY` | 使用串行测试文件的 `pnpm test`，核对其他进程是否共享缓存 |
+| 上游 403、404、超时 | 核对 URL、UA、重试/fallback 和代理路径，保留具体失败证据 |
+| Script-Hub / 合并失败 | 核对容器健康、转换报告与 YAML 必需输入；不以空文件或历史模块代替本轮必需输入 |
+| 缺少 baseline receipt | 按第 7 节建立可验证 bootstrap，不选择未经验收的 HEAD |
+| 基线重算失败 | 查看 snapshot schema、处理上下文及 preserved-artifacts 摘要；修复候选或重新构建，不绕过校验 |
+| Git published, website not accepted | 查看精确 commit 的 Pages check、immutable 与裸正式 URL 的失败项；不要记录 success receipt |
+| 退休 URL 仍返回旧内容 | 对比裸正式 URL 与 immutable URL；记录 CF-Ray、Age、缓存状态。查询参数只用于诊断，修复后仍核验原 URL |
+| 网站已验收但 receipt 写入失败 | 退出码 14；复用同一候选证据重试幂等 receipt 写入 |
+| macOS artifact 大小写冲突 | fmz200 同时含 `WIFI万能钥匙.sgmodule` 和 `WiFi万能钥匙.sgmodule`；完整 tree 使用 Linux 或区分大小写的卷 |
+| Git push 被拒绝 | 核对预期 HEAD、归档、跨仓权限和保护规则，不 force-push |
 
-上线前保存源码 commit、产物仓 commit、Pages deployment ID 和完整 artifact。失败时先停用自动发布，防止回滚后又被定时运行覆盖。
+保存源码 commit、deployCommit、immutable URL、receipt id 和证据 artifact。正常回滚在源码仓 `main` 运行 `task=rollback`，指定 `rollback_receipt_id`，只能选 manifest receipt。当前退休登记会清理历史 tree，审计同步投影到实际保留的输出，再生成新 commit，沿同一发布链验收。不能恢复退休规则或直接用 Pages 控制台回滚绕过 Git 与 receipt。
 
-- **本地产物**：使用新的干净克隆重新执行；如需清理，只处理确认属于该验证目录的生成物，保留日志，不删除用户工作区。
-- **源码**：在新分支 revert 问题提交，跑检查后按正常审核流程合并。只回滚源码不能还原实时上游字节。
-- **产物仓**：从已知成功 commit 恢复文件树，创建新的恢复 commit 并按仓库策略推送。保留原历史，避免 reset 后 force-push；如果仓库已归档，先由有权限的人取消归档。
-- **Pages**：在项目 Deployments 中选已成功的 production deployment，执行 “Rollback to this deployment”。Preview 不可作为该操作的回滚目标，见 [官方回滚说明](https://developers.cloudflare.com/pages/configuration/rollbacks/)。Pages 回滚不会同步恢复 Git 产物仓。
-- **客户端切换**：新旧服务并行验证，确认新订阅与脚本地址可用再替换客户端配置；出错时恢复已保存的旧订阅。该客户端验收由接管者完成。
+源码问题使用新分支 revert 并经过检查、合并。源码回滚不会还原实时上游字节；客户端问题恢复已保存的配置备份。只清理属于隔离验证目录的生成物，保留用户工作区和其他会话的改动。
 
 ## 10. 本次隔离验收记录
 

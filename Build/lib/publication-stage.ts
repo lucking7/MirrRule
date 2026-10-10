@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
-import { ARTIFACT_LIFECYCLE_VERSION, assertNoRetiredArtifacts, isRetiredPublicPath, purgeRetiredArtifacts } from './artifact-lifecycle';
+import { ARTIFACT_LIFECYCLE_VERSION, assertNoRetiredArtifacts, isRetiredPublicPath, normalizePublicPath, purgeRetiredArtifacts } from './artifact-lifecycle';
 import { writeFileAtomic } from './atomic-file';
 import type { ResolvedBaseline } from './publication-baseline';
 import type { GitHubClient } from './publication-github';
@@ -18,7 +18,10 @@ import {
   findOutputMismatches,
   readOutputContract,
 } from './publication-outputs';
-import { readPreservedArtifacts } from '../restore-optional-artifacts';
+import { extractScriptUrls } from '../integration/plugin-converter/script-extractor';
+import { PRESERVED_ARTIFACTS_PATH, readPreservedArtifacts } from '../restore-optional-artifacts';
+import { recomputeSourceDeltaFromSnapshots } from './output-audit';
+import { projectRetiredRuleOutputs } from './publication-projection';
 import {
   PUBLICATION_MANIFEST_PATH,
   buildManifest,
@@ -48,7 +51,8 @@ export type StageErrorCode =
   | 'output-mismatch'
   | 'provenance-mismatch'
   | 'retired-present'
-  | 'render-failed';
+  | 'render-failed'
+  | 'unsafe-directory';
 
 export class StageError extends Error {
   // eslint-disable-next-line sukka/unicorn/custom-error-definition -- structured publication fields precede the message
@@ -162,6 +166,100 @@ async function verifiedRestorationProvenance(out: string, baseline: ResolvedBase
   return result;
 }
 
+/** Replace only previously restored optional files; fresh outputs remain unchanged. */
+async function rebaseRestoredArtifacts(out: string, baseline: ResolvedBaseline, baselineTree: string, freshDirs: readonly string[]): Promise<string[]> {
+  const provenance = await readPreservedArtifacts(out);
+  if (!provenance || provenance.fromCommit === baseline.deployCommit) return [];
+  const removed: string[] = [];
+  const rebasedFiles: string[] = [];
+  provenance.files = provenance.files.filter(entry => freshDirs.some(dir => entry.path.startsWith(`${dir}/`)));
+  const accepted = new Map(baseline.files.map(file => [file.path, file.sha256]));
+  for (const entry of provenance.files) {
+    if (!OPTIONAL_DIRS.some(dir => entry.path.startsWith(`${dir}/`))) {
+      throw new StageError('provenance-mismatch', `restored path is outside optional directories: ${entry.path}`);
+    }
+    if (isRetiredPublicPath(entry.path)) continue;
+    const target = path.join(out, ...entry.path.split('/'));
+    // eslint-disable-next-line no-await-in-loop -- verify before replacing each restored file
+    const previous = await hashFile(target);
+    if (previous.sha256 !== entry.sha256 || previous.bytes !== entry.bytes) {
+      throw new StageError('provenance-mismatch', `restored ${entry.path} changed after restoration`);
+    }
+    const source = path.join(baselineTree, ...entry.path.split('/'));
+    if (!accepted.has(entry.path)) {
+      // eslint-disable-next-line no-await-in-loop -- remove only the verified restoration, never a fresh file
+      await fs.rm(target);
+      removed.push(entry.path);
+      continue;
+    }
+    // eslint-disable-next-line no-await-in-loop -- check the new accepted bytes before copying
+    const current = await hashFile(source);
+    if (current.sha256 !== accepted.get(entry.path)) throw new StageError('provenance-mismatch', `accepted ${entry.path} changed during rebase`);
+    // eslint-disable-next-line no-await-in-loop -- exact optional file replacement
+    await fs.copyFile(source, target);
+    entry.sha256 = current.sha256;
+    entry.bytes = current.bytes;
+    rebasedFiles.push(entry.path);
+  }
+  const inspected = new Set<string>();
+  for (let index = 0; index < rebasedFiles.length; index++) {
+    const relative = rebasedFiles[index];
+    if (inspected.has(relative)) continue;
+    inspected.add(relative);
+    if (!/\.(?:sgmodule|js|plugin|lpx)$/i.test(relative)) continue;
+    // eslint-disable-next-line no-await-in-loop -- follow only static mirrored script dependencies of rebased files
+    const content = await fs.readFile(path.join(out, relative), 'utf8');
+    for (const script of extractScriptUrls(content)) {
+      const url = new URL(script.originalUrl);
+      if (url.host !== 'nrrule.pages.dev') continue;
+      let dependency: string;
+      try {
+        dependency = normalizePublicPath(decodeURIComponent(url.pathname).slice(1));
+        if (!dependency.startsWith('Scripts/') || isRetiredPublicPath(dependency)) throw new Error('not an active Scripts path');
+      } catch {
+        throw new StageError('provenance-mismatch', `rebased ${relative} has an invalid mirrored script reference: ${url.pathname}`);
+      }
+      const target = path.join(out, ...dependency.split('/'));
+      try {
+        // eslint-disable-next-line no-await-in-loop -- fresh dependencies stay unchanged, but must be regular files
+        if (!(await fs.lstat(target)).isFile()) throw new StageError('provenance-mismatch', `mirrored dependency is not a regular file: ${dependency}`);
+        continue;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+      if (!accepted.has(dependency)) throw new StageError('provenance-mismatch', `rebased ${relative} references missing ${dependency}; rebuild required`);
+      const source = path.join(baselineTree, ...dependency.split('/'));
+      // eslint-disable-next-line no-await-in-loop -- only the accepted version may fill a missing dependency
+      const digest = await hashFile(source);
+      if (digest.sha256 !== accepted.get(dependency)) throw new StageError('provenance-mismatch', `accepted dependency ${dependency} changed during rebase`);
+      // eslint-disable-next-line no-await-in-loop -- copy missing dependencies without overwriting fresh outputs
+      await fs.mkdir(path.dirname(target), { recursive: true });
+      // eslint-disable-next-line no-await-in-loop -- exclusive copy preserves the fresh-output boundary
+      await fs.copyFile(source, target, fs.constants.COPYFILE_EXCL);
+      provenance.files.push({ path: dependency, ...digest });
+      rebasedFiles.push(dependency);
+    }
+  }
+  if (removed.length) {
+    const removedSet = new Set(removed);
+    for (const relative of await listTreeFiles(out)) {
+      if (!OPTIONAL_DIRS.some(dir => relative.startsWith(`${dir}/`)) || isRetiredPublicPath(relative)) continue;
+      if (!/\.(?:sgmodule|js|plugin|lpx)$/i.test(relative)) continue;
+      // eslint-disable-next-line no-await-in-loop -- static mirror dependencies must not become dangling after rebase
+      const content = await fs.readFile(path.join(out, relative), 'utf8');
+      for (const removedPath of removedSet) {
+        if (content.includes(removedPath) || content.includes(removedPath.split('/').map(segment => encodeURIComponent(segment)).join('/'))) {
+          throw new StageError('provenance-mismatch', `retained ${relative} references removed restored ${removedPath}; rebuild required`);
+        }
+      }
+    }
+  }
+  provenance.fromCommit = baseline.deployCommit;
+  provenance.files = provenance.files.filter(entry => !isRetiredPublicPath(entry.path) && !removed.includes(entry.path));
+  await writeFileAtomic(path.join(out, PRESERVED_ARTIFACTS_PATH), `${JSON.stringify(provenance, null, 2)}\n`);
+  return removed;
+}
+
 interface RenderOptions {
   builtAt: string,
   removed: readonly string[]
@@ -214,8 +312,8 @@ const RULE_DIRS = ['List', 'Clash', 'Loon', 'sing-box', 'GeoIP'] as const;
  * Compare the receipt the candidate's source delta was computed against with the accepted
  * baseline seen inside the production lock. When they differ only because this same candidate
  * was already accepted (for example a lost response after the receipt was written), the
- * publication is an idempotent retry. Any other difference needs a rebuild: the source delta
- * is computed by the rule build and is not recomputed here.
+ * publication is an idempotent retry. Other differences require staging to recompute the
+ * source delta from downloaded snapshots against the newly accepted baseline.
  */
 export async function classifyBaselineDrift(options: {
   candidateDir: string,
@@ -273,6 +371,38 @@ export interface StageResult {
   removed: string[]
 }
 
+/** Resolve symlink aliases even when the final output directory does not exist yet. */
+async function realTreePath(directory: string): Promise<string> {
+  let existing = path.resolve(directory);
+  const suffix: string[] = [];
+  for (;;) {
+    try {
+      return path.join(await fs.realpath(existing), ...suffix);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      suffix.unshift(path.basename(existing));
+      const parent = path.dirname(existing);
+      if (parent === existing) throw error;
+      existing = parent;
+    }
+  }
+}
+
+/** Staging must never remove or recursively copy its candidate or accepted baseline. */
+async function assertSeparateTrees(out: string, inputs: readonly string[]): Promise<void> {
+  const output = await realTreePath(out);
+  for (const input of inputs) {
+    // eslint-disable-next-line no-await-in-loop -- inspect each input before any output mutation
+    const source = await realTreePath(input);
+    const sourceRelative = path.relative(output, source);
+    const outputRelative = path.relative(source, output);
+    const descendant = (relative: string) => relative === '' || (!path.isAbsolute(relative) && relative !== '..' && !relative.startsWith(`..${path.sep}`));
+    if (descendant(sourceRelative) || descendant(outputRelative)) {
+      throw new StageError('unsafe-directory', `staging output overlaps input tree: ${out} and ${input}`);
+    }
+  }
+}
+
 /**
  * Assemble the complete production tree: required fresh directories from the candidate,
  * other optional directories from the accepted baseline, retired paths purged across the
@@ -282,6 +412,7 @@ export async function stagePublication(options: StageOptions): Promise<StageResu
   const candidate = path.resolve(options.candidateDir);
   const out = path.resolve(options.outDir);
   const rollback = options.rollbackOf ?? null;
+  await assertSeparateTrees(out, options.baselineTreeDir ? [candidate, options.baselineTreeDir] : [candidate]);
   await fs.rm(out, { recursive: true, force: true });
   await fs.mkdir(out, { recursive: true });
 
@@ -294,17 +425,21 @@ export async function stagePublication(options: StageOptions): Promise<StageResu
   }
 
   const builtAt = options.builtAt ?? await readCandidateBuiltAt(candidate) ?? new Date().toISOString();
-  await readOutputContract(candidate).catch(stageContractError);
+  const candidateContract = await readOutputContract(candidate).catch(stageContractError);
+  const originalMismatches = await findOutputMismatches(candidate, candidateContract.outputs);
+  if (originalMismatches.length) throw new StageError('output-mismatch', `candidate rule outputs disagree with ${RULE_OUTPUT_AUDIT_FILE}: ${originalMismatches.join('; ')}`);
+  let rebasing = false;
   if (!rollback) {
     const drift = await classifyBaselineDrift({ candidateDir: candidate, baseline: options.baseline, sourceCommit: options.sourceCommit, builtAt });
     if (drift.state === 'already-accepted') {
       throw new StageError('already-accepted', `this candidate is already accepted as receipt ${drift.receiptId} (NRRule ${drift.deployCommit}); nothing to publish`);
     }
     if (drift.state === 'drift') {
-      throw new StageError(
-        'baseline-drift',
-        `rebuild required: ${SOURCE_DELTA_FILE} was computed against receipt ${drift.declared ?? 'none'}, but the accepted baseline is now ${drift.current ?? 'none'}`
-      );
+      if (!options.baseline || !options.baselineTreeDir) {
+        throw new StageError('baseline-unavailable', 'cannot rebase source delta without a verified accepted tree');
+      }
+      rebasing = true;
+      options.log?.(`Rebasing candidate from receipt ${drift.declared ?? 'none'} to accepted receipt ${drift.current}`);
     }
   }
 
@@ -353,12 +488,40 @@ export async function stagePublication(options: StageOptions): Promise<StageResu
     }
   }
 
+  let rebaseRemoved: string[] = [];
   if (!rollback) {
+    if (rebasing) rebaseRemoved = await rebaseRestoredArtifacts(out, options.baseline!, options.baselineTreeDir!, fresh);
     for (const [relative, commit] of await verifiedRestorationProvenance(out, options.baseline)) preservedFrom.set(relative, commit);
   }
 
   await fs.rm(path.join(out, ...PUBLICATION_MANIFEST_PATH.split('/')), { force: true });
   const removed = await purgeRetiredArtifacts(out);
+  const projection = await projectRetiredRuleOutputs(out);
+  for (const relative of projection.changedFiles) preservedFrom.delete(relative);
+  if (rebasing || rollback || projection.changed) {
+    const snapshots = path.join(out, 'Internal/source-snapshots');
+    const previousSnapshots = new Map<string, string>();
+    for (const relative of await listTreeFiles(snapshots)) {
+      // eslint-disable-next-line no-await-in-loop -- only changed snapshot bytes are newly generated
+      previousSnapshots.set(relative, (await hashFile(path.join(snapshots, relative))).sha256);
+    }
+    try {
+      const delta = await recomputeSourceDeltaFromSnapshots(out, {
+        baselineDir: options.baselineTreeDir,
+        baselineReceiptId: options.baseline?.receiptId ?? null,
+        generatedAt: builtAt,
+        retiredOutputPaths: projection.retiredPaths,
+      });
+      for (const warning of delta.warnings) options.log?.(`Source delta warning: ${warning}`);
+    } catch (error) {
+      throw new StageError('invalid-report', `cannot recompute source delta: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    preservedFrom.delete(SOURCE_DELTA_FILE);
+    for (const relative of await listTreeFiles(snapshots)) {
+      // eslint-disable-next-line no-await-in-loop -- preserve provenance of unchanged normalized snapshots
+      if (previousSnapshots.get(relative) !== (await hashFile(path.join(snapshots, relative))).sha256) preservedFrom.delete(`Internal/source-snapshots/${relative}`);
+    }
+  }
   try {
     await assertNoRetiredArtifacts(out);
   } catch (error) {
@@ -384,7 +547,7 @@ export async function stagePublication(options: StageOptions): Promise<StageResu
   for (const relative of REGENERATED_FILES) preservedFrom.delete(relative);
   const files = await scanTree(out);
   const published = new Set(files.map(file => file.path));
-  const removedPaths = new Set(removed);
+  const removedPaths = new Set([...removed, ...rebaseRemoved]);
   for (const file of options.baseline?.files ?? []) {
     if (!published.has(file.path) && file.path !== PUBLICATION_MANIFEST_PATH) removedPaths.add(file.path);
   }

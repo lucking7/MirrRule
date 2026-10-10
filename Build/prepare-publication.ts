@@ -37,10 +37,10 @@ Commands:
       Assemble the complete production tree and write Internal/publication-manifest.json last.
       Requires the rule output audit, source delta, coverage, status and lifecycle reports, and
       every audited output to match its recorded bytes and sha256. If the accepted baseline
-      changed after the build, preserved directories, index and manifest follow the new
-      baseline, but the source delta is not recomputed: the stage fails with
-      "baseline-drift: rebuild required", unless the new baseline is this same candidate
-      already accepted, which ends as a no-op.
+      changed after the build, verify candidate snapshots and recompute source delta,
+      preserved assets, index and manifest against the new baseline without redownloading
+      upstream sources. Invalid snapshots fail staging. An already accepted candidate
+      ends as a no-op.
   purge             --root <dir>
       Remove registered retired artifacts under a directory and assert none remain.
   push              --repo <dir> --staging <dir> --expected-head <sha> --message <text> [--branch main]
@@ -106,7 +106,7 @@ async function resolveBaseline(args: string[]): Promise<number> {
   const expected = values['expected-receipt-id'];
   const drift = expected !== undefined && expected !== String(receipt.id);
   if (drift) {
-    console.log(`::notice::Accepted baseline changed from receipt ${expected || 'none'} to ${receipt.id} after the candidate was built; staging re-checks whether this candidate is already accepted, otherwise it fails with baseline-drift: rebuild required`);
+    console.log(`::notice::Accepted baseline changed from receipt ${expected || 'none'} to ${receipt.id} after the candidate was built; staging checks whether this candidate is already accepted; otherwise it verifies candidate snapshots, recomputes source deltas, and refreshes preserved assets against the new baseline`);
   }
   writeOutputs({ available: true, receipt_id: receipt.id, deploy_commit: resolved.deployCommit, kind: resolved.kind, drift });
   return 0;

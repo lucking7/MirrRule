@@ -24,7 +24,7 @@ Build/index.ts
 
 `EnhancedFileOutput` owns normalization, canonical rule state, finalization, and logical rule summaries. Its state is private; platform writers remain four adapters behind the existing writer seam. `RuleSourceProcessor` retains the same publication interface. Each output instance is finalized once, by either `compile()` or `write()`.
 
-Canonical rule collections deduplicate through Trie/Set storage, then platform writers apply their fixed output order. Clash and Loon share the default passthrough conversion in `BaseWriteStrategy`; Surge and sing-box retain their own overrides. Rule source configuration does not switch either behavior per source.
+Canonical rule collections deduplicate through Trie/Set storage, then platform writers apply their fixed output order. Logical output validation rejects a complete expression when a child cannot be represented by its platform. Base/Loon and Surge share recursive validation; Clash keeps its platform conversion and shares the quote-aware field splitter. sing-box rejects unsupported logical output. Rule source configuration does not switch either behavior per source.
 
 Service subscriptions use `specialRules` to merge complementary blackmatrix7 Surge rules and MetaCubeX text geosite categories. Netflix also merges MetaCubeX geoip CIDRs; WeChat remains a single blackmatrix7 source. `smartConvertRule` normalizes numeric-leading domains and bare IPv4/IPv6 CIDRs before they enter the same canonical collections. A required source failure prevents publishing its merged ruleset; `sourceFiles` are complementary inputs, not fallback URLs.
 
@@ -53,6 +53,12 @@ The standalone CLI requires every result to be `ready`. CI explicitly supplies t
 ## CI task plan
 
 The workflow's `prepare` job emits one `tasks` plan. Downstream jobs run from membership in that plan; the Build job owns mirror sync. A manual `mirror-sync` run therefore includes Build without deployment, while manual `deploy` builds and validates a fresh artifact before publishing it on `main`.
+
+## Publication
+
+Production uses one chain: candidate artifact, complete staged tree, NRRule Git commit, the exact commit's trusted Cloudflare Pages check, immutable and canonical HTTP acceptance, and a success receipt. Optional directories are copied by digest from the latest accepted receipt rather than the remote HEAD. The production lock serializes publication without cancelling a pushed commit's acceptance.
+
+If the accepted baseline changes after a build, staging recomputes source deltas from existing candidate snapshots and refreshes preserved assets against that baseline. Retirement is owned by `artifact-lifecycle.ts` across restoration, indexing and staging. Historical rollback audits and snapshots are projected after current retirement cleanup, while retained outputs still require matching file digests. The index and manifest are regenerated from the final tree.
 
 ## Public index
 
