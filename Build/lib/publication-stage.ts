@@ -39,7 +39,7 @@ const CORE_DIRS = ['List', 'Clash', 'Loon', 'sing-box', 'GeoIP', 'Internal'] as 
 /** Directories refreshed only by their own task; otherwise preserved from the accepted baseline. */
 const OPTIONAL_DIRS = ['Mirror', 'Modules', 'Scripts'] as const;
 /** Files regenerated for the final tree by build-public. */
-const REGENERATED_FILES = new Set(['index.html', '_headers', '404.html', 'README.md', 'LICENSE', LIFECYCLE_REPORT_FILE]);
+const REGENERATED_FILES = new Set(['index.html', '_headers', '_worker.js', '_routes.json', '404.html', 'README.md', 'LICENSE', LIFECYCLE_REPORT_FILE]);
 /** Cloudflare Pages rejects an individual asset larger than 25 MiB. */
 const MAX_PAGES_ASSET_BYTES = 25 * 1024 * 1024;
 

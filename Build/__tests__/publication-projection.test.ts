@@ -60,6 +60,8 @@ describe('publication lifecycle projection and baseline rebase', () => {
   it('rolls back a historical audited ruleset, retiring its flat and variant files without claiming they are published', async t => {
     const env = await environment(t);
     await fixture(env.candidate, [['keep', ['DOMAIN,keep.example']], ['discord', ['DOMAIN,discord.example', 'IP-CIDR,203.0.113.0/24']]], 1);
+    await fs.writeFile(path.join(env.candidate, '_worker.js'), 'stale worker');
+    await fs.writeFile(path.join(env.candidate, '_routes.json'), '{}');
     await fs.cp(env.candidate, env.tree, { recursive: true });
     const result = await stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['rollback'], sourceCommit: SOURCE, baseline: await baseline(env.tree, 2), baselineTreeDir: env.tree, rollbackOf: { receiptId: 1, deployCommit: OLD_COMMIT, sourceCommit: SOURCE }, render: renderPublicInChild });
     const audit = await json<ProjectionAudit>(path.join(env.out, 'Internal/rule-output-audit.json'));
@@ -80,6 +82,15 @@ describe('publication lifecycle projection and baseline rebase', () => {
     assert.ok(absent.includes('List/domainset/discord.list'));
     assert.equal(result.manifest.files.find(file => file.path === 'Internal/rule-output-audit.json')?.origin, 'generated');
     assert.equal(result.manifest.files.find(file => file.path === 'Internal/source-snapshots/keep.json.gz')?.origin, 'preserved');
+    for (const relative of ['_worker.js', '_routes.json']) {
+      assert.equal(result.manifest.files.find(file => file.path === relative)?.origin, 'generated');
+    }
+    const worker = await fs.readFile(path.join(env.out, '_worker.js'), 'utf8');
+    assert.ok(worker.includes('keep.json.gz'));
+    assert.equal(worker.includes('discord.json.gz'), false);
+    const routes = await json<{ include: string[]; exclude: string[] }>(path.join(env.out, '_routes.json'));
+    assert.deepEqual(routes.include, ['/Internal/*']);
+    assert.deepEqual(routes.exclude, []);
     assert.ok((await json<ProjectionAudit>(path.join(env.candidate, 'Internal/rule-output-audit.json'))).rulesets.some(record => record.id === 'discord'));
   });
 

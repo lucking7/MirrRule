@@ -330,6 +330,8 @@ rg -n 'nrrule\.pages\.dev|cloudflare-proxy\.lucking' public
 
 Build 运行 validate、测试、Knip 和任务计划中的构建。发布在锁内重新读取最近 success receipt，按任务从候选取得核心目录、从已验收基线核对并保留未更新的可选目录。基线变化时使用候选快照重算来源 delta，核对历史恢复文件并换成新基线版本，重新生成索引与 manifest，不重新下载上游。核心目录、必需报告缺失，复制失败或审计摘要不匹配都使发布失败。
 
+Pages 项目的 Functions fallback 应设为 fail-closed（production 和 preview 的 `fail_open: false`）。构建生成的 Worker 只处理 `/Internal/*`，用最终文件清单拒绝已删除的内部文件，其他订阅走静态资源服务。该设置防止额度耗尽时跳过已删除内部文件的 404 检查；不能用 build cache 清理替代 CDN 缓存清理。
+
 完整链为：候选 artifact → stage → 预期 HEAD 检查与 Git push → 该 deployCommit 的可信 Pages check → immutable URL → 正式域名 → success receipt。两个 origin 均核对清单摘要；absent、retired 和已删除路径必须返回 404。失败报告保存 deployCommit 和具体 URL，不创建 success receipt。
 
 插件转换失败仍记录在报告中。本轮要求转换时，必需模块不能从旧产物替代；可选历史恢复记录路径、摘要及来源 commit。`.cache` 可重建，不是完整备份。候选 artifact、验收证据和成功 receipt 的用途不同，回滚以已验收 tree 为准。

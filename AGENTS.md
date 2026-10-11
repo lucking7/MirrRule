@@ -173,7 +173,7 @@ eslint.config.js                   ESLint 配置
 - `Build/core/output/writing-strategy/*.ts`
 - `Build/build-public.ts`
 
-来源比较快照写为 `Internal/source-snapshots/*.json.gz`，读取兼容历史 `.json`；相同 source id 的两种编码不能同时存在。发布暂存检查单文件 25 MiB 上限，超限在 Git 推送前失败。
+来源比较快照写为 `Internal/source-snapshots/*.json.gz`，读取兼容历史 `.json`；相同 source id 的两种编码不能同时存在。发布暂存检查单文件 25 MiB 上限，超限在 Git 推送前失败。 最终 tree 同时生成 `_worker.js` 和 `_routes.json`，仅路由 `/Internal/*`；当前内部文件放行，缺失文件在静态缓存查询前返回 `404`。Pages production/preview 必须设置 `fail_open: false`，以免 Functions 额度耗尽后跳过检查。两文件属于生成物并登记为 generated provenance。
 
 `status.json` 的 `ruleCount` 保持 canonical 逻辑数量的旧含义，不等于各平台实际输出数量；平台实际数量以 `Internal/rule-output-audit.json` 为准。`semanticScope: normalized-source` 与 `effectiveOutputs` 分别比较标准化来源和平台实际输出；`optimizations` 记录 canonical 到 writer 路由间的 keyword/domain coverage，不代表早期 Trie/CIDR 归一化的逐条原因。旧 converter 或缺少有效输出快照时，相关比较标为不可比。
 
