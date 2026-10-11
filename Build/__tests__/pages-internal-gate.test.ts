@@ -7,6 +7,7 @@ import process from 'node:process';
 import { describe, it } from 'node:test';
 import { pathToFileURL } from 'node:url';
 import { writePagesInternalGate } from '../lib/pages-internal-gate';
+import { retiredPublicPaths } from '../lib/artifact-lifecycle';
 
 async function fixture(t: { after: (fn: () => Promise<unknown>) => void }): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-pages-gate-'));
@@ -66,7 +67,9 @@ describe('Pages Internal inventory gate', () => {
     await fs.writeFile(path.join(root, 'Internal/nested/report.json'), 'nested');
     await writePagesInternalGate(root);
     assert.deepEqual(JSON.parse(await fs.readFile(path.join(root, '_routes.json'), 'utf8')), {
-      version: 1, include: ['/Internal/*'], exclude: [],
+      version: 1,
+      include: ['/Internal/*', ...[...new Set(retiredPublicPaths().map(relative => `/${relative}`))].sort().map(relative => relative.split('/').map(segment => encodeURIComponent(segment)).join('/'))],
+      exclude: [],
     });
     exerciseWorker(root, [
       { pathname: '/Internal/source-snapshots/current.json.gz', status: 200, delegated: true },
@@ -83,6 +86,25 @@ describe('Pages Internal inventory gate', () => {
       { pathname: '/Internal/nested/report.json', status: 200, delegated: true },
       { pathname: '/Internal/preserved-artifacts.json', status: 404, delegated: false },
       { pathname: '/List/ai.list', status: 200, delegated: true },
+    ]);
+  });
+
+  it('blocks registered retired URLs without consulting cached assets while active subscriptions remain static', async t => {
+    const root = await fixture(t);
+    await writePagesInternalGate(root);
+    const routes = JSON.parse(await fs.readFile(path.join(root, '_routes.json'), 'utf8')) as { include: string[] };
+    assert.ok(routes.include.length <= 100);
+    const retiredChecks = retiredPublicPaths().map(relative => ({
+      pathname: `/${relative.split('/').map(segment => encodeURIComponent(segment)).join('/')}`,
+      status: 404, delegated: false,
+    }));
+    exerciseWorker(root, [
+      ...retiredChecks,
+      { pathname: '/sing-box/china_asn.json?original=1', status: 404, delegated: false },
+      { pathname: '/sing-box/china_asn.json', status: 404, delegated: false, method: 'HEAD' },
+      { pathname: '/Modules/Converted/腾讯视频去广告.sgmodule', status: 404, delegated: false },
+      { pathname: '/List/ai.list', status: 200, delegated: true },
+      { pathname: '/sing-box/china_ip.json', status: 200, delegated: true },
     ]);
   });
 

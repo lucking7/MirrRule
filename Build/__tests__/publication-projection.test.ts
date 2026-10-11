@@ -12,6 +12,7 @@ import { computeCandidateId, hashFile, scanTree, sha256Hex } from '../lib/public
 import { StageError, renderPublicInChild, stagePublication } from '../lib/publication-stage';
 import { projectRetiredRuleOutputs } from '../lib/publication-projection';
 import { collectAbsentPaths } from '../lib/publication-verify';
+import { retiredPublicPaths } from '../lib/artifact-lifecycle';
 import { createSpan } from '../trace';
 
 const SOURCE = 'a'.repeat(40);
@@ -89,7 +90,7 @@ describe('publication lifecycle projection and baseline rebase', () => {
     assert.ok(worker.includes('keep.json.gz'));
     assert.equal(worker.includes('discord.json.gz'), false);
     const routes = await json<{ include: string[]; exclude: string[] }>(path.join(env.out, '_routes.json'));
-    assert.deepEqual(routes.include, ['/Internal/*']);
+    assert.deepEqual(routes.include, ['/Internal/*', ...[...new Set(retiredPublicPaths())].sort().map(relative => '/' + relative.split('/').map(encodeURIComponent).join('/'))]);
     assert.deepEqual(routes.exclude, []);
     assert.ok((await json<ProjectionAudit>(path.join(env.candidate, 'Internal/rule-output-audit.json'))).rulesets.some(record => record.id === 'discord'));
   });
