@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic-file';
 import { listTreeFiles } from './publication-manifest';
+import { retiredPublicPaths } from './artifact-lifecycle';
 
 const INTERNAL_PREFIX = '/Internal/';
 
@@ -17,18 +18,22 @@ async function internalPaths(publicDir: string): Promise<string[]> {
   return (await listTreeFiles(directory)).map(relative => INTERNAL_PREFIX + relative);
 }
 
-/** Gate only Internal URLs against the final deployment inventory, before the static asset cache. */
+/** Gate Internal inventory and registered retired URLs before the static asset cache. */
 export async function writePagesInternalGate(publicDir: string): Promise<void> {
   const paths = await internalPaths(publicDir);
+  const retired = [...new Set(retiredPublicPaths().map(relative => `/${relative}`))].sort();
+  const include = [INTERNAL_PREFIX + '*', ...retired.map(relative => relative.split('/').map(segment => encodeURIComponent(segment)).join('/'))];
+  if (include.length > 100) throw new Error(`Pages gate requires ${include.length} routes; the limit is 100`);
   const worker = String.raw`const prefix = ${JSON.stringify(INTERNAL_PREFIX)};
 const active = new Set(${JSON.stringify(paths)});
+const retired = new Set(${JSON.stringify(retired)});
 export default {
   async fetch(request, env) {
     const pathname = new URL(request.url).pathname;
-    if (!pathname.startsWith(prefix)) return env.ASSETS.fetch(request);
     let decoded;
     try { decoded = decodeURIComponent(pathname); } catch { decoded = null; }
-    if (active.has(decoded)) {
+    if (!pathname.startsWith(prefix) && !retired.has(decoded)) return env.ASSETS.fetch(request);
+    if (!retired.has(decoded) && active.has(decoded)) {
       const asset = await env.ASSETS.fetch(request);
       const response = new Response(asset.body, asset);
       response.headers.set('cache-control', 'public, max-age=0, must-revalidate');
@@ -49,5 +54,5 @@ export default {
 };
 `;
   await writeFileAtomic(path.join(publicDir, '_worker.js'), worker);
-  await writeFileAtomic(path.join(publicDir, '_routes.json'), `${JSON.stringify({ version: 1, include: [INTERNAL_PREFIX + '*'], exclude: [] }, null, 2)}\n`);
+  await writeFileAtomic(path.join(publicDir, '_routes.json'), `${JSON.stringify({ version: 1, include, exclude: [] }, null, 2)}\n`);
 }
