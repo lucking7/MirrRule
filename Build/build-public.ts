@@ -12,6 +12,7 @@ import { compareAndWriteFile } from './lib/create-file';
 import { priorityOrder, prioritySorter } from './lib/public-index-sort.ts';
 import { escapeHtml } from './utils/escape-html';
 import { purgeRetiredArtifacts, writeLifecycleReport } from './lib/artifact-lifecycle';
+import { writePagesInternalGate } from './lib/pages-internal-gate';
 
 const INDEX_CSS = fs.readFileSync(path.join(__dirname, 'assets', 'ruleset-index.css'), 'utf8');
 const HIDDEN_INDEX_FILES = new Set(['cname', 'favicon.ico', 'favicon.svg', 'favicon.png', 'robots.txt']);
@@ -56,6 +57,7 @@ export const buildPublic = task(
   const removed = await purgeRetiredArtifacts(PUBLIC_DIR);
   if (removed.length) console.log(`Removed retired artifacts: ${removed.join(', ')}`);
   await writeLifecycleReport(PUBLIC_DIR, removed);
+  await writePagesInternalGate(PUBLIC_DIR);
   await span.traceChild('prepare public metadata').traceAsyncFn(() => Promise.all([
     fsp.copyFile(path.join(ROOT_DIR, 'LICENSE'), path.join(PUBLIC_DIR, 'LICENSE')),
     compareAndWriteFile(

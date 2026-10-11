@@ -132,6 +132,10 @@ describe('publication integration', () => {
     for (const relative of ['Internal/rule-output-audit.json', 'Internal/source-delta.json', 'Internal/source-snapshots/apple_cdn.json', 'Internal/rule-coverage.json', 'Internal/artifact-lifecycle.json']) {
       assert.ok(byPath.has(relative), relative);
     }
+    for (const relative of ['_worker.js', '_routes.json']) assert.equal(byPath.get(relative)?.origin, 'generated');
+    const worker = await fs.readFile(path.join(staging, '_worker.js'), 'utf8');
+    assert.ok(worker.includes('apple_cdn.json'));
+    assert.equal(worker.includes('apple_cdn.json.gz'), false);
     for (const relative of ['Mirror/iRingo/Weather.sgmodule', 'Modules/Converted/active.sgmodule', 'Modules/Merged/pro.sgmodule', 'Scripts/shared.js']) {
       assert.equal(byPath.get(relative)?.origin, 'preserved', relative);
       assert.equal(byPath.get(relative)?.preservedFromCommit, BASELINE_COMMIT, relative);
