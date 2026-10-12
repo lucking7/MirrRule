@@ -195,7 +195,7 @@ Apple subscriptions are available both separately and in `apple`. Keep `apple_in
 
 ## Surge Modules
 
-Mirrored Surge modules from [iRingo](https://github.com/NSRingo), [DualSubs](https://github.com/DualSubs), and [BiliUniverse](https://github.com/BiliUniverse) are available under `Mirror/`.
+Mirrored Surge modules from [iRingo](https://github.com/NSRingo), [DualSubs](https://github.com/DualSubs), [BiliUniverse](https://github.com/BiliUniverse), and [GetSomeFries](https://github.com/VirgilClyne/GetSomeFries) (ASN China, DNS, General) are available under `Mirror/`.
 
 ## Retired Subscriptions
 

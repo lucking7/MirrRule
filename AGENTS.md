@@ -79,7 +79,7 @@ pnpm run workflow:modules
 
 - `build`：执行主构建入口 `Build/index.ts`，包括 GEOIP 下载、规则处理、网页索引生成。
 - `build-web`：只重新生成 `public/index.html`、`_headers`、`404.html` 等公开目录辅助文件。
-- `sync-mirrors`：同步 iRingo、DualSubs、BiliUniverse 等上游模块镜像。
+- `sync-mirrors`：同步 iRingo、DualSubs、BiliUniverse、GetSomeFries 等上游模块镜像。
 - `convert-plugins`：从 Script-Hub/插件列表下载并转换插件。
 - `merge-modules`：执行 Surge module 合并流程。
 - `workflow:modules`：先转换插件，再合并模块。
@@ -90,6 +90,7 @@ pnpm run workflow:modules
 pnpm run mirror:iringo
 pnpm run mirror:dualsubs
 pnpm run mirror:biliuniverse
+pnpm run mirror:getsomefries
 ```
 
 ## 4. 重要目录与文件
@@ -292,6 +293,7 @@ pnpm run typecheck
 - iRingo / NSRingo 系列
 - DualSubs
 - BiliUniverse
+- GetSomeFries（上游无 Release，`branchFiles` 按 `main` 分支读取 ASN.China、DNS、General 的非 beta 文件，任一路径缺失即失败）
 - fmz200（split 目录由专用脚本处理）
 
 Mirror sync 只处理有生产配置的 release adapter，使用 `Build/lib/atomic-file.ts` 完成原子替换并保留 last-known-good。`NSRingo/Siri` 仅同步当前 release 中的 `iRingo.Siri`、`iRingo.Search` 与 `iRingo.Spotlight` 资产，不读取 `dev/debug` 文件。新增 adapter 前必须先有真实生产 source。

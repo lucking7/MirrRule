@@ -49,7 +49,7 @@ export async function probeSource(
       redirect: 'follow',
       signal: AbortSignal.timeout(15_000), // eslint-disable-line sukka/unicorn/numeric-separators-style -- 15 seconds
       headers: {
-        'user-agent': source.requestProfile === 'github-release' ? UA_MIRROR : UA_SURGE_MAC,
+        'user-agent': source.requestProfile === 'rule' ? UA_SURGE_MAC : UA_MIRROR,
       },
     });
     return { status: response.ok ? 'ok' : 'dead', httpStatus: response.status };

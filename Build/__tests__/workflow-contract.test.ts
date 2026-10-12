@@ -574,7 +574,7 @@ describe('GitHub Actions workflow contract', () => {
 
     const buildJob = getJob('build');
     assert.match(
-      getStep(buildJob, 'Sync mirrors (iRingo, DualSubs, BiliUniverse)').if ??
+      getStep(buildJob, 'Sync mirrors (iRingo, DualSubs, BiliUniverse, GetSomeFries)').if ??
       '',
       /'mirror-sync'/,
     );

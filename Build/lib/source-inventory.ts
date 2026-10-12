@@ -1,9 +1,10 @@
 import type { RuleGroup, SpecialRuleConfig } from './rule-source-types';
+import { getBranchFileUrl } from '../integration/mirror-sync/sync-engine';
 import type { MirrorGroup } from '../integration/mirror-sync/sync-engine';
 import { redactUrl } from '../utils/network/url-redaction';
 
 export type SourceRole = 'primary' | 'fallback' | 'special-source' | 'mirror-repository';
-type SourceRequestProfile = 'rule' | 'github-release';
+type SourceRequestProfile = 'rule' | 'github-release' | 'github-raw';
 
 export interface SourceInventoryEntry {
   id: string,
@@ -47,6 +48,13 @@ export function createSourceInventory(
   }
   for (const group of mirrorGroups) {
     for (const repository of group.repositories) {
+      if (repository.branchFiles) {
+        const { ref, paths } = repository.branchFiles;
+        for (const filePath of paths) {
+          add(entries, 'mirror-repository', 'github-raw', getBranchFileUrl(repository.repo, ref, filePath));
+        }
+        continue;
+      }
       add(
         entries,
         'mirror-repository',

@@ -128,6 +128,33 @@ export const MIRROR_GROUPS: MirrorGroup[] = [
     ]
   },
 
+  // GetSomeFries（🍟 薯条）：上游没有 Release，按 main 分支读取当前维护的非 beta 文件
+  {
+    name: 'GetSomeFries',
+    repositories: [
+      {
+        repo: 'VirgilClyne/GetSomeFries',
+        outputDir: path.join(OUTPUT_ROOT, 'GetSomeFries'),
+        allowedTypes: [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE],
+        branchFiles: {
+          ref: 'main',
+          paths: [
+            'sgmodule/ASN.China.sgmodule',
+            'stoverride/ASN.China.stoverride',
+            'sgmodule/DNS.sgmodule',
+            'plugin/DNS.plugin',
+            'snippet/DNS.snippet',
+            'stoverride/DNS.stoverride',
+            'sgmodule/General.sgmodule',
+            'sgmodule/General.mac.sgmodule',
+            'plugin/General.plugin',
+            'snippet/General.snippet'
+          ]
+        }
+      }
+    ]
+  },
+
   // fmz200 项目
   // 注意：fmz200 的 split 目录通过专门的脚本处理（download-fmz200-split.ts）
   // 该脚本会下载所有子目录中的 .sgmodule 文件，并根据 #!name= 重命名

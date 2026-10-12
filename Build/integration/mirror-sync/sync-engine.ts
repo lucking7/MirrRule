@@ -2,8 +2,8 @@ import { Buffer } from 'node:buffer';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import picocolors from 'picocolors';
-import { fetchLatestRelease, downloadAsset } from './github-api';
-import type { GitHubAsset } from './github-api';
+import { fetchLatestRelease, downloadAsset, downloadRawFile } from './github-api';
+import type { GitHubAsset, GitHubRelease } from './github-api';
 import { getErrorMessage } from '../../lib/misc';
 import { writeFileAtomic } from '../../lib/atomic-file';
 
@@ -15,11 +15,21 @@ export enum FileType {
   UNKNOWN = 'unknown'
 }
 
+/**
+ * 无 Release 的上游：按固定分支读取指定文件。
+ * 每个路径都是必需来源，缺失即同步失败，不回退为空。
+ */
+export interface MirrorBranchFiles {
+  ref: string,
+  paths: string[]
+}
+
 export interface MirrorRepository {
   repo: string,
   outputDir: string,
   allowedTypes: FileType[],
   assetNamePattern?: RegExp,
+  branchFiles?: MirrorBranchFiles,
   postProcess?: (filePath: string, content: string) => string | Promise<string>
 }
 
@@ -237,6 +247,25 @@ async function publishArtifactAtomic(
   return existed ? 'updated' : 'new';
 }
 
+const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com';
+
+/** Raw URL of a branch file; also used by the source inventory. */
+export function getBranchFileUrl(repo: string, ref: string, filePath: string): string {
+  return `${GITHUB_RAW_BASE}/${repo}/${ref}/${filePath}`;
+}
+
+function createBranchRelease(repo: string, branchFiles: MirrorBranchFiles): GitHubRelease {
+  return {
+    tag_name: branchFiles.ref,
+    name: branchFiles.ref,
+    html_url: `https://github.com/${repo}/tree/${branchFiles.ref}`,
+    assets: branchFiles.paths.map(filePath => {
+      const url = getBranchFileUrl(repo, branchFiles.ref, filePath);
+      return { name: path.posix.basename(filePath), url, size: 0, browser_download_url: url };
+    })
+  };
+}
+
 export async function syncRepository(
   repository: MirrorRepository,
   dependencies: {
@@ -248,7 +277,9 @@ export async function syncRepository(
 
   console.log(picocolors.cyan(`\n[Sync] Processing repository: ${repository.repo}`));
 
-  const releaseResult = await (dependencies.fetchRelease ?? fetchLatestRelease)(repository.repo);
+  const releaseResult = repository.branchFiles
+    ? createBranchRelease(repository.repo, repository.branchFiles)
+    : await (dependencies.fetchRelease ?? fetchLatestRelease)(repository.repo);
 
   if ('error' in releaseResult) {
     const error = releaseResult.error;
@@ -276,6 +307,17 @@ export async function syncRepository(
   ));
 
   const processable = filterProcessableAssets(classified);
+  if (repository.branchFiles && processable.length !== classified.length) {
+    const rejected: string[] = [];
+    for (const item of classified) {
+      if (!processable.includes(item)) rejected.push(item.asset.name);
+    }
+    const error = `Branch files outside allowed types: ${rejected.join(', ')}`;
+    console.log(picocolors.red(`[Sync] ✗ ${error}`));
+    result.total = 1;
+    result.failed.push({ asset: repository.repo, error, required: true });
+    return result;
+  }
   if (repository.assetNamePattern && processable.length === 0) {
     const error = `No release assets matched ${repository.assetNamePattern}`;
     console.log(picocolors.red(`[Sync] ✗ ${error}`));
@@ -294,7 +336,7 @@ export async function syncRepository(
     console.log(picocolors.gray(`[Sync] Processing: ${asset.name} (${asset.size} bytes)`));
 
     try {
-      const downloadResult = await (dependencies.download ?? downloadAsset)(asset.url);
+      const downloadResult = await (dependencies.download ?? (repository.branchFiles ? downloadRawFile : downloadAsset))(asset.url);
 
       if ('error' in downloadResult) {
         console.log(picocolors.red(`[Sync] ✗ Download failed: ${downloadResult.error.message}`));

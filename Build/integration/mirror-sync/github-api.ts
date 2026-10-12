@@ -257,3 +257,30 @@ export async function downloadAsset(assetUrl: string): Promise<Buffer | { error:
     };
   }
 }
+
+/**
+ * 下载公开分支文件。raw.githubusercontent.com 对无权访问目标仓库的 token 返回 404，
+ * 因此不附带 Authorization。
+ */
+export async function downloadRawFile(fileUrl: string): Promise<Buffer | { error: ApiError }> {
+  try {
+    const response = await $$fetch(fileUrl, {
+      ...defaultRequestInit,
+      headers: { 'User-Agent': UA_MIRROR },
+    });
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    if (buffer.length === 0) {
+      return {
+        error: createApiError(ApiErrorType.EMPTY_RESPONSE, 'Downloaded file is empty', fileUrl, false),
+      };
+    }
+
+    return buffer;
+  } catch (error) {
+    return {
+      error: mapGitHubApiError(fileUrl, error, { notFoundMessage: 'File not found on branch' }),
+    };
+  }
+}

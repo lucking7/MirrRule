@@ -636,7 +636,7 @@ jobs:
         run: pnpm run knip
 
       # 🔧 步骤 1: 镜像同步（如果需要）
-      - name: Sync mirrors (iRingo, DualSubs, BiliUniverse)
+      - name: Sync mirrors (iRingo, DualSubs, BiliUniverse, GetSomeFries)
         if: contains(fromJSON(needs.prepare.outputs.tasks), 'mirror-sync')
         run: pnpm run node ./Build/sync-mirrors.ts
         env:
@@ -768,6 +768,7 @@ jobs:
           echo "    - iRingo: $(find public/Mirror/iRingo -type f 2>/dev/null | wc -l) files"
           echo "    - DualSubs: $(find public/Mirror/DualSubs -type f 2>/dev/null | wc -l) files"
           echo "    - BiliUniverse: $(find public/Mirror/BiliUniverse -type f 2>/dev/null | wc -l) files"
+          echo "    - GetSomeFries: $(find public/Mirror/GetSomeFries -type f 2>/dev/null | wc -l) files"
           echo "    - Sukka/mock: $(find public/Mirror/Sukka/mock -type f 2>/dev/null | wc -l) files"
           echo "    - Sukka/sgmodule: $(find public/Mirror/Sukka/sgmodule -type f 2>/dev/null | wc -l) files"
 

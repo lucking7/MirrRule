@@ -78,7 +78,7 @@ describe('mirror family registry contract', () => {
   it('derives generic families and records the external fmz200 exception', () => {
     assert.deepEqual(
       eligibleFamilies.map(group => group.name),
-      ['iRingo', 'DualSubs', 'BiliUniverse']
+      ['iRingo', 'DualSubs', 'BiliUniverse', 'GetSomeFries']
     );
     const externalFamilies = MIRROR_GROUPS.filter(group => !getGenericMirrorFamilies().includes(group));
     assert.deepEqual(externalFamilies.map(group => group.name), Object.keys(EXTERNAL_MIRROR_FAMILIES));
