@@ -21,6 +21,7 @@
     "mirror:iringo": "pnpm run node ./Build/sync-mirrors.ts iRingo",
     "mirror:dualsubs": "pnpm run node ./Build/sync-mirrors.ts DualSubs",
     "mirror:biliuniverse": "pnpm run node ./Build/sync-mirrors.ts BiliUniverse",
+    "mirror:getsomefries": "pnpm run node ./Build/sync-mirrors.ts GetSomeFries",
     "lint": "eslint --format=sukka .",
     "lint:fix": "eslint --format=sukka --fix .",
     "typecheck": "node node_modules/typescript-compiler/bin/tsc --noEmit",

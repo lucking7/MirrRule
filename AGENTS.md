@@ -99,7 +99,7 @@ MirrRule 下载上游代理规则、GitHub Release 镜像和插件，经清洗�
 
 ## 镜像、插件与模块
 
-- 镜像同步（`Build/integration/mirror-sync/**`）只处理有生产配置的 release adapter，新增 adapter 前必须有真实的生产来源。替换经 `Build/lib/atomic-file.ts` 原子完成并保留 last-known-good。iRingo 的 `.sgmodule` 会把 `#!arguments=` 中 `Proxy` 参数的值替换为 `🇺🇸`。
+- 镜像同步（`Build/integration/mirror-sync/**`）只处理有生产配置的 release adapter，新增 adapter 前必须有真实的生产来源。替换经 `Build/lib/atomic-file.ts` 原子完成并保留 last-known-good。GetSomeFries 上游没有 Release，用 `branchFiles` 按 `main` 分支读取配置中列出的文件，任一路径缺失或类型不在允许范围内即同步失败。iRingo 的 `.sgmodule` 会把 `#!arguments=` 中 `Proxy` 参数的值替换为 `🇺🇸`。
 - 插件转换（`Build/integration/plugin-converter/**`）：kelee.one 的 WAF 只放行以 `Surge Mac/` 开头的 UA，应用标识放在括号里。插件目录 `hub.kelee.one/list.json` 先直连；其他 kelee.one 请求在设置了 `PROXY_BASE` 时先走代理再直连，CI 把 `PROXY_BASE` 指向本地的 `Build/browser-rule-gateway.py`。细节与排查步骤见 `RULE_SOURCES.md`。
   - 退出码 3：插件目录不可用，或缺失的必需模块全部因上游暂时不可用（网络错误、5xx、401、403、408、429）而失败。workflow 据此跳过合并并沿用已验收的 `Modules`、`Scripts`。退出码 1：必需脚本返回 404/410、模块改名导致缺失、转换或合并 dry-run 出错。分类逻辑在 `upstream-failure.ts` 与 `readiness.ts`，回归测试在 `Build/__tests__/plugin-readiness.test.ts`。
   - 插件缓存文件名包含 canonical source URL 的摘要，不能改回按插件名缓存。依赖脚本有了镜像或缓存 URL 后，转换结果才原子发布。

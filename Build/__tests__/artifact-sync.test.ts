@@ -116,4 +116,57 @@ describe('artifact synchronization', () => {
     assert.match(result.failed[0].error, /No release assets matched/);
     assert.equal(hasRequiredFailures(result), true);
   });
+  it('reads configured branch files without querying releases', async () => {
+    const { FileType, syncRepository } = require('../integration/mirror-sync/sync-engine');
+    const directory = await fsp.mkdtemp(path.join(os.tmpdir(), 'mirrrule-branch-files-'));
+    const downloaded: string[] = [];
+
+    try {
+      const result = await syncRepository({
+        repo: 'VirgilClyne/GetSomeFries',
+        outputDir: directory,
+        allowedTypes: [FileType.SGMODULE, FileType.PLUGIN],
+        branchFiles: { ref: 'main', paths: ['sgmodule/DNS.sgmodule', 'plugin/DNS.plugin'] },
+      }, {
+        fetchRelease: () => assert.fail('branch files must not query releases'),
+        download(url: string) {
+          downloaded.push(url);
+          return Promise.resolve(Buffer.from(`#!name=${path.posix.basename(url)}`));
+        },
+      });
+
+      assert.deepEqual(downloaded, [
+        'https://raw.githubusercontent.com/VirgilClyne/GetSomeFries/main/sgmodule/DNS.sgmodule',
+        'https://raw.githubusercontent.com/VirgilClyne/GetSomeFries/main/plugin/DNS.plugin',
+      ]);
+      assert.equal(result.succeeded, 2);
+      assert.equal(await fsp.readFile(path.join(directory, 'plugin', 'DNS.plugin'), 'utf8'), '#!name=DNS.plugin');
+    } finally {
+      await fsp.rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('fails when a configured branch file is missing or outside allowed types', async () => {
+    const { FileType, hasRequiredFailures, syncRepository } = require('../integration/mirror-sync/sync-engine');
+    const missing = await syncRepository({
+      repo: 'VirgilClyne/GetSomeFries',
+      outputDir: '/unused',
+      allowedTypes: [FileType.SGMODULE],
+      branchFiles: { ref: 'main', paths: ['sgmodule/Gone.sgmodule'] },
+    }, {
+      download: () => Promise.resolve({ error: { type: '404', message: 'Not Found', url: 'x', canRetry: false } }),
+    });
+    assert.equal(hasRequiredFailures(missing), true);
+
+    const disallowed = await syncRepository({
+      repo: 'VirgilClyne/GetSomeFries',
+      outputDir: '/unused',
+      allowedTypes: [FileType.SGMODULE],
+      branchFiles: { ref: 'main', paths: ['ruleset/ASN.China.list'] },
+    }, {
+      download: () => assert.fail('disallowed branch files must not be downloaded'),
+    });
+    assert.match(disallowed.failed[0].error, /outside allowed types: ASN\.China\.list/);
+    assert.equal(hasRequiredFailures(disallowed), true);
+  });
 });
