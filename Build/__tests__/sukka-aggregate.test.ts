@@ -33,13 +33,14 @@ describe('Sukka aggregate subscriptions', () => {
     const reject = specialRules.find(rule => rule.targetFile === 'List/reject.list');
     assert.ok(reject);
     assert.equal(reject.sourceFiles.some(source => phishing.sourceFiles.includes(source)), false);
+    assert.equal(reject.applyNoResolve, undefined, 'preserve source DNS resolution behavior');
   });
 
   it('merges and deduplicates four-platform outputs and preserves old files on source failure', async () => {
     const bodies = new Map<string, string>([
       ['/domainset/reject.conf', '.base-block.test\n'],
       ['/non_ip/reject.conf', 'DOMAIN,other-block.test\n'],
-      ['/ip/reject.conf', 'IP-CIDR,198.51.100.0/24\n'],
+      ['/ip/reject.conf', 'IP-CIDR,198.51.100.0/24\nIP-CIDR,192.0.2.0/24,no-resolve\n'],
       ['/non_ip/my_reject.conf', 'DOMAIN-SUFFIX,personal-block.test\n'],
       ['/non_ip/stream.conf', 'DOMAIN-SUFFIX,shared.test\nDOMAIN,child.shared.test\n'],
       ['/ip/stream.conf', 'IP-CIDR,203.0.113.0/24\nIP-CIDR6,2001:db8::/32\n'],
@@ -111,6 +112,11 @@ describe('Sukka aggregate subscriptions', () => {
         assert.ok(base.includes('base-block.test'));
         assert.ok(base.includes('other-block.test'));
         assert.ok(base.includes('198.51.100.0/24'));
+        if (extension !== 'json') {
+          const lines = new Set(base.split('\n'));
+          assert.ok(lines.has('IP-CIDR,198.51.100.0/24'));
+          assert.ok(lines.has('IP-CIDR,192.0.2.0/24,no-resolve'));
+        }
         assert.equal(base.includes('personal-block.test'), false);
         assert.ok(personal.includes('personal-block.test'));
         assert.equal(personal.includes('base-block.test'), false);

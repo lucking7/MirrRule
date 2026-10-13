@@ -336,7 +336,6 @@ export const specialRules: SpecialRuleConfig[] = [
     defaultPolicy: 'REJECT', // 明确指定拒绝策略
     targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持
     keepComments: false,
-    applyNoResolve: true,
     deleteSourceFiles: true,
   },
   {
