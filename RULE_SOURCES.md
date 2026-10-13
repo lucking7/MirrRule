@@ -84,7 +84,7 @@ SukkaW/Surge 的源码生成 domainset、non_ip、ip 等类别，发布到 rules
 
 ## Sukka 补充分类
 
-沿用现有 `specialRules` 下载、去重、格式转换与发布流程，不复制 Sukka 构建器。2026-10-02 将六个地域规则纳入总 `stream`，将钓鱼规则纳入 `reject_extra`。2026-10-07 补充 Apple 分开订阅、Microsoft CDN 和可选 URL 拦截，并移除空来源。独立订阅供客户端选择专用策略，来源基址是 `https://ruleset.skk.moe/List/`：
+沿用现有 `specialRules` 下载、去重、格式转换与发布流程，不复制 Sukka 构建器。2026-10-02 将六个地域规则纳入总 `stream`，将钓鱼规则纳入 `reject_extra`；2026-10-13 起钓鱼规则不再纳入，只在独立订阅 `reject_phishing` 发布。2026-10-07 补充 Apple 分开订阅、Microsoft CDN 和可选 URL 拦截，并移除空来源。独立订阅供客户端选择专用策略，来源基址是 `https://ruleset.skk.moe/List/`：
 
 | 输出 basename        | 上游路径（省略 `.conf`）            | 输出平台 | 用途与限制                                                                 |
 | -------------------- | ----------------------------------- | -------- | -------------------------------------------------------------------------- |
@@ -103,7 +103,7 @@ SukkaW/Surge 的源码生成 domainset、non_ip、ip 等类别，发布到 rules
 | `stream_tw`          | `non_ip/stream_tw` | 四平台   | 台湾流媒体域名和应用规则                                                        |
 | `stream_kr`          | `non_ip/stream_kr` | 四平台   | 韩国流媒体域名和应用规则                                                        |
 | `stream_eu`          | `non_ip/stream_eu` | 四平台   | 欧洲流媒体域名和应用规则                                                        |
-| `reject_phishing`    | `domainset/reject_phishing`         | 四平台   | 独立钓鱼网站拦截，客户端通常绑定 REJECT；同时纳入扩展集合 reject_extra     |
+| `reject_phishing`    | `domainset/reject_phishing`         | 四平台   | 独立钓鱼网站拦截，客户端按需启用并绑定 REJECT；不纳入扩展集合 reject_extra |
 | `domestic_cdn`       | `non_ip/domestic_cdn`               | 四平台   | 境外回国场景，可在回国代理规则之前绑定 DIRECT；其内容也在 domestic 中      |
 | `gitlab`             | `non_ip/gitlab`                     | 四平台   | 单独指定 GitLab 出口；可能与 global 重叠                                   |
 | `sogouinput`         | `non_ip/sogouinput`                 | 四平台   | 输入法隐私拦截，通常绑定 REJECT，可能影响账号同步、词库更新和反馈          |
@@ -127,9 +127,9 @@ CloudMounter 的规则包含 AND、`PROCESS-NAME,*CloudMounter`、`SRC-IP` 和�
 
 ### 同类规则的聚合归属
 
-总 `stream` 合并总 non_ip/ip 与六个地域的 non_ip，共 8 个来源，统一去重并给 IP 添加 `no-resolve`。聚合直接复用独立地域订阅的 `sourceFiles`，`reject_extra` 同样复用独立钓鱼订阅的来源，避免两边换源不同步。2026-10-02 核对的样本中，地域并集比总 non_ip 多 7 条规则（Hulu Japan 三条后缀域名、LiTV 四条精确域名），补入后只订阅总列表也可覆盖这些规则。来源会滚动变化，此差集不是固定产物条数承诺。
+总 `stream` 合并总 non_ip/ip 与六个地域的 non_ip，共 8 个来源，统一去重并给 IP 添加 `no-resolve`。聚合直接复用独立地域订阅的 `sourceFiles`，避免两边换源不同步。2026-10-02 核对的样本中，地域并集比总 non_ip 多 7 条规则（Hulu Japan 三条后缀域名、LiTV 四条精确域名），补入后只订阅总列表也可覆盖这些规则。来源会滚动变化，此差集不是固定产物条数承诺。
 
-`reject_extra` 合并 Sukka 原扩展集合与 `reject_phishing`，继续沿用 REJECT 用途。基础 `reject` 不引入钓鱼或搜狗来源；使用扩展集合意味着启用其钓鱼覆盖，不能再把它描述为仅有原 Sukka reject_extra。独立 `reject_phishing` 仍可供只需钓鱼拦截的客户端使用。上轮样本中钓鱼集合为 141666 条，与原扩展集合有 106 条完全相同行、143 条含父域覆盖的重叠，最终输出仍以 Trie 去重结果为准。
+`reject_extra` 只包含 Sukka 原扩展集合 `domainset/reject_extra`，绑定 REJECT。2026-10-02 至 2026-10-13 期间它还合并了 `reject_phishing`；现在钓鱼域名只在独立订阅 `reject_phishing` 发布，与上游默认不启用钓鱼拦截的用法一致。需要钓鱼拦截的客户端应另外订阅 `reject_phishing`，否则升级后这部分覆盖会消失。基础 `reject` 不引入钓鱼或搜狗来源。
 
 其余分类按用途与策略核对，不仅凭域名重复决定归并：game_download 的 52 条已在 download 中；domestic_cdn 的 19 条均被 domestic 完全相同行或父域后缀规则覆盖；Apple Intelligence 的 5 条已在 ai 中；GitLab 已在 global 中。因此不重复添加这些来源，保留独立出口订阅。sogouinput 可能拦截账号、词库与输入法进程，不自动纳入基础或扩展拦截；CloudMounter 保留带条件的 Surge 专用订阅，不并成通用无条件域名。
 

@@ -12,7 +12,7 @@ import { createSpan } from '../trace';
 const regions = ['us', 'hk', 'jp', 'tw', 'kr', 'eu'];
 
 describe('Sukka aggregate subscriptions', () => {
-  it('includes each regional source and phishing while retaining independent publishers', () => {
+  it('includes each regional source in stream and keeps phishing out of the reject aggregates', () => {
     const stream = specialRules.find(rule => rule.targetFile === 'List/stream.list');
     const extra = specialRules.find(rule => rule.targetFile === 'List/reject_extra.list');
     const phishing = specialRules.find(rule => rule.targetFile === 'List/reject_phishing.list');
@@ -27,8 +27,8 @@ describe('Sukka aggregate subscriptions', () => {
       assert.ok(regional);
       assert.ok(regional.sourceFiles.every(source => stream.sourceFiles.includes(source)));
     }
-    assert.equal(extra.sourceFiles.length, 2);
-    assert.ok(phishing.sourceFiles.every(source => extra.sourceFiles.includes(source)));
+    assert.deepEqual(extra.sourceFiles, ['https://ruleset.skk.moe/List/domainset/reject_extra.conf']);
+    assert.equal(extra.sourceFiles.some(source => phishing.sourceFiles.includes(source)), false);
     assert.equal(extra.defaultPolicy, 'REJECT');
     const reject = specialRules.find(rule => rule.targetFile === 'List/reject.list');
     assert.ok(reject);
@@ -89,15 +89,16 @@ describe('Sukka aggregate subscriptions', () => {
         assert.equal(stream.includes('7h15.ru1353t'), false);
         assert.equal(stream.split('\n').filter(line => line.startsWith('IP-CIDR,203.0.113.0/24')).length, 1);
         assert.ok(stream.includes('IP-CIDR6,2001:db8::/32,no-resolve'));
-        for (const domain of ['shared-reject.test', 'extra.test', 'phishing.test']) {
+        for (const domain of ['shared-reject.test', 'extra.test']) {
           assert.equal(extra.split('\n').filter(line => line.startsWith(`DOMAIN-SUFFIX,${domain}`)).length, 1);
         }
+        assert.equal(extra.includes('phishing.test'), false);
         assert.ok(fs.readFileSync(path.join(outputDir, directory, `stream_us.${extension}`), 'utf8').includes('us.test'));
         assert.ok(fs.readFileSync(path.join(outputDir, directory, `reject_phishing.${extension}`), 'utf8').includes('phishing.test'));
       }
       for (const [id, domains] of [
         ['stream', ['shared.test', ...regions.map(region => `${region}.test`)]],
-        ['reject_extra', ['shared-reject.test', 'extra.test', 'phishing.test']],
+        ['reject_extra', ['shared-reject.test', 'extra.test']],
       ] as const) {
         const file = path.join(outputDir, 'sing-box', `${id}.json`);
         const content = fs.readFileSync(file, 'utf8');
