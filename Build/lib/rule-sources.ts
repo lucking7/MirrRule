@@ -343,12 +343,8 @@ export const specialRules: SpecialRuleConfig[] = [
   {
     name: 'lucking - Reject Extra',
     targetFile: 'List/reject_extra.list',
-    sourceFiles: [
-      'https://ruleset.skk.moe/List/domainset/reject_extra.conf',
-      ...sukkaAdditionalRules
-        .filter(rule => rule.targetFile === 'List/reject_phishing.list')
-        .flatMap(rule => rule.sourceFiles),
-    ],
+    // 钓鱼域名只在独立订阅 reject_phishing 中发布，与上游默认用法一致。
+    sourceFiles: ['https://ruleset.skk.moe/List/domainset/reject_extra.conf'],
     defaultPolicy: 'REJECT',
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
