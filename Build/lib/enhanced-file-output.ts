@@ -51,6 +51,8 @@ interface PlatformOutputs {
   merged: BaseWriteStrategy;
   variants: Record<RuleOutputVariant, BaseWriteStrategy>;
   routed: Record<RuleOutputVariant, number>;
+  /** Conditions written to the merged writer; differs from the variant sum for source variants. */
+  mergedRouted: number;
   /** Surge RULE-SET extended matching cannot be expressed by DOMAIN-SET. */
   domainVariant: RuleOutputVariant;
   /** Logical rules kept in non_ip instead of ip to preserve Surge extended matching. */
@@ -106,6 +108,10 @@ export class EnhancedFileOutput {
   private readonly date = new Date();
   private strategiesWritten = false;
   private extendedDomainMatching = false;
+  /** Set on a source variant output: every condition goes to this variant and nothing is merged. */
+  private pinnedVariant: RuleOutputVariant | null = null;
+  /** Source variant outputs that replace type-based classification of the merged conditions. */
+  private readonly variantSources = new Map<RuleOutputVariant, EnhancedFileOutput>();
 
   private readonly stats = {
     inputDomains: 0,
@@ -138,20 +144,20 @@ export class EnhancedFileOutput {
     private readonly id: string,
     targets: SupportedPlatform[] = ['surge'],
     private readonly defaultPolicy: string | null = null,
-    config?: RuleProcessingOptions,
+    private readonly options?: RuleProcessingOptions,
     private readonly outputBaseDir = 'public'
   ) {
     this.span = span.traceChild('RuleOutput#' + id);
 
     this.config = {
-      keepComments: config?.keepComments ?? false,
-      keepEmptyLines: config?.keepEmptyLines ?? false,
-      keepInlineComments: config?.keepInlineComments ?? false,
-      formatConversion: config?.formatConversion ?? true,
-      applyNoResolve: config?.applyNoResolve ?? false,
-      validate: config?.validate ?? false,
-      sourcePolicies: config?.sourcePolicies?.map(policy => policy.trim().toLowerCase()),
-      excludedRuleTypes: new Set(config?.excludedRuleTypes?.map(type => type.trim().toUpperCase())),
+      keepComments: options?.keepComments ?? false,
+      keepEmptyLines: options?.keepEmptyLines ?? false,
+      keepInlineComments: options?.keepInlineComments ?? false,
+      formatConversion: options?.formatConversion ?? true,
+      applyNoResolve: options?.applyNoResolve ?? false,
+      validate: options?.validate ?? false,
+      sourcePolicies: options?.sourcePolicies?.map(policy => policy.trim().toLowerCase()),
+      excludedRuleTypes: new Set(options?.excludedRuleTypes?.map(type => type.trim().toUpperCase())),
     };
 
     this.targets = normalizeTargets(targets);
@@ -165,6 +171,7 @@ export class EnhancedFileOutput {
         ip: createVariantStrategy(platform, 'ip', outputBaseDir),
       },
       routed: { domainset: 0, non_ip: 0, ip: 0 },
+      mergedRouted: 0,
       domainVariant: 'domainset',
       reroutedFromIp: 0,
     }));
@@ -453,6 +460,22 @@ export class EnhancedFileOutput {
   }
 
   /**
+   * Publish one upstream source as a whole variant instead of classifying the merged
+   * conditions by type. The merged files still come from addRules; a variant without
+   * a source stays absent. Surge DOMAIN-SET rejects a source that is not domain-only.
+   */
+  public addVariantSource(variant: RuleOutputVariant, rules: string[]): this {
+    let source = this.variantSources.get(variant);
+    if (!source) {
+      source = new EnhancedFileOutput(this.span, this.id, this.targets, this.defaultPolicy, this.options, this.outputBaseDir);
+      source.pinnedVariant = variant;
+      this.variantSources.set(variant, source);
+    }
+    source.addRules(rules);
+    return this;
+  }
+
+  /**
    * 完成添加 - 输出统计信息（DEBUG 模式）
    */
   async done() {
@@ -548,8 +571,12 @@ export class EnhancedFileOutput {
     write: (strategy: BaseWriteStrategy) => void
   ) {
     for (const outputs of this.platformOutputs) {
-      const variant = typeof variantFor === 'function' ? variantFor(outputs) : variantFor;
-      write(outputs.merged);
+      if (this.pinnedVariant === null) {
+        write(outputs.merged);
+        outputs.mergedRouted += count;
+        if (this.variantSources.size > 0) continue;
+      }
+      const variant = this.pinnedVariant ?? (typeof variantFor === 'function' ? variantFor(outputs) : variantFor);
       write(outputs.variants[variant]);
       outputs.routed[variant] += count;
     }
@@ -646,10 +673,11 @@ export class EnhancedFileOutput {
       const surgeOtherRulesByVariant: Record<RuleOutputVariant, string[]> = { domainset: [], non_ip: [], ip: [] };
       let surgeRerouted = 0;
       for (const rule of this.otherRules) {
-        const variant = classifyRuleLine(rule);
-        if (!variant) continue;
+        const classified = classifyRuleLine(rule);
+        if (!classified) continue;
+        const variant = this.pinnedVariant ?? classified;
         otherRulesByVariant[variant].push(rule);
-        if (variant === 'ip' && this.extendedDomainMatching && hasDomainMatcherSubRule(rule)) {
+        if (variant === 'ip' && this.pinnedVariant === null && this.extendedDomainMatching && hasDomainMatcherSubRule(rule)) {
           surgeOtherRulesByVariant.non_ip.push(rule);
           surgeRerouted++;
         } else {
@@ -658,9 +686,13 @@ export class EnhancedFileOutput {
       }
       for (const outputs of this.platformOutputs) {
         const isSurge = outputs.platform === 'surge';
-        if (isSurge) outputs.reroutedFromIp = surgeRerouted;
+        if (isSurge && this.variantSources.size === 0) outputs.reroutedFromIp = surgeRerouted;
         const byVariant = isSurge ? surgeOtherRulesByVariant : otherRulesByVariant;
-        outputs.merged.writeOtherRules(this.otherRules);
+        if (this.pinnedVariant === null) {
+          outputs.merged.writeOtherRules(this.otherRules);
+          outputs.mergedRouted += RULE_OUTPUT_VARIANTS.reduce((sum, variant) => sum + byVariant[variant].length, 0);
+          if (this.variantSources.size > 0) continue;
+        }
         for (const variant of RULE_OUTPUT_VARIANTS) {
           const rules = byVariant[variant];
           if (rules.length === 0) continue;
@@ -722,6 +754,14 @@ export class EnhancedFileOutput {
     if (this.ipasn.size) {
       this.route('ip', this.ipasn.size, strategy => strategy.writeIpAsns(this.ipasn, false));
     }
+
+    for (const [variant, source] of this.variantSources) {
+      source.writeToStrategies();
+      for (const [index, outputs] of this.platformOutputs.entries()) {
+        outputs.variants[variant] = source.platformOutputs[index].variants[variant];
+        outputs.routed[variant] = source.platformOutputs[index].routed[variant];
+      }
+    }
   }
 
   private recordOptimization(reason: RuleOptimizationAudit['reason'], type: string, value: string): void {
@@ -767,9 +807,7 @@ export class EnhancedFileOutput {
   ): StagedOutput {
     const target = resolveRuleOutputTarget(outputs.platform, slot, this.id);
     const counts = countEffectiveConditions(target.format, strategy.content);
-    const routedConditionCount = slot === 'merged'
-      ? outputs.routed.domainset + outputs.routed.non_ip + outputs.routed.ip
-      : outputs.routed[slot];
+    const routedConditionCount = slot === 'merged' ? outputs.mergedRouted : outputs.routed[slot];
 
     let status: RuleOutputFileAudit['status'] = 'published';
     let reason: RuleOutputFileAudit['reason'];

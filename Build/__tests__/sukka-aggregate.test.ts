@@ -34,12 +34,14 @@ describe('Sukka aggregate subscriptions', () => {
     assert.ok(reject);
     assert.equal(reject.sourceFiles.some(source => phishing.sourceFiles.includes(source)), false);
     assert.equal(reject.applyNoResolve, undefined, 'preserve source DNS resolution behavior');
+    assert.deepEqual(reject.sourceVariants, ['domainset', 'non_ip', 'ip'], 'variants follow the upstream files');
+    assert.deepEqual(reject.sourceFiles.map(source => source.split('/').at(-2)), reject.sourceVariants);
   });
 
   it('merges and deduplicates four-platform outputs and preserves old files on source failure', async () => {
     const bodies = new Map<string, string>([
       ['/domainset/reject.conf', '.base-block.test\n'],
-      ['/non_ip/reject.conf', 'DOMAIN,other-block.test\n'],
+      ['/non_ip/reject.conf', 'DOMAIN,other-block.test\nDOMAIN-SUFFIX,base-block.test\nIP-CIDR,203.0.113.7/32,no-resolve\n'],
       ['/ip/reject.conf', 'IP-CIDR,198.51.100.0/24\nIP-CIDR,192.0.2.0/24,no-resolve\n'],
       ['/non_ip/my_reject.conf', 'DOMAIN-SUFFIX,personal-block.test\n'],
       ['/non_ip/stream.conf', 'DOMAIN-SUFFIX,shared.test\nDOMAIN,child.shared.test\n'],
@@ -121,6 +123,26 @@ describe('Sukka aggregate subscriptions', () => {
         assert.ok(personal.includes('personal-block.test'));
         assert.equal(personal.includes('base-block.test'), false);
       }
+      // Reject variants are the upstream files, not a type-based split of the merged rules.
+      for (const [directory, extension] of [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list']]) {
+        const read = (slot: string) => new Set(
+          fs.readFileSync(path.join(outputDir, directory, slot, `reject.${extension}`), 'utf8').split('\n').filter(line => line && !line.startsWith('#'))
+        );
+        const merged = read('.');
+        assert.ok(merged.has('IP-CIDR,203.0.113.7/32,no-resolve'));
+        assert.equal(merged.has('DOMAIN-SUFFIX,base-block.test'), true);
+        assert.deepEqual(read('non_ip'), new Set([
+          'DOMAIN,other-block.test', 'DOMAIN-SUFFIX,base-block.test', 'IP-CIDR,203.0.113.7/32,no-resolve',
+        ]));
+        assert.deepEqual(read('ip'), new Set(['IP-CIDR,198.51.100.0/24', 'IP-CIDR,192.0.2.0/24,no-resolve']));
+        assert.deepEqual(read('domainset'), new Set([directory === 'List' ? '.base-block.test' : 'DOMAIN-SUFFIX,base-block.test']));
+      }
+      const nonIp = JSON.parse(fs.readFileSync(path.join(outputDir, 'sing-box/non_ip/reject.json'), 'utf8'));
+      assert.deepEqual(nonIp.rules[0].ip_cidr, ['203.0.113.7/32']);
+      const mismatched = await processor.processSpecialRules([{ ...configs[4], sourceVariants: ['ip'] }]);
+      assert.equal(mismatched.filesProcessed, 0);
+      assert.match(mismatched.errors[0].error, /one variant per source/);
+
       const failures = await processor.processSpecialRules(configs.slice(0, 2).map(config => ({
         ...config,
         sourceFiles: [...config.sourceFiles, `${baseUrl}/failed`],

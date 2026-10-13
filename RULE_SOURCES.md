@@ -30,7 +30,7 @@ Surge 保留 domain ruleset 的 extended-matching 语义；PROCESS-PATH 按平�
 
 ## Reject 订阅边界
 
-基础 `reject` 仅合并 Sukka 的 `domainset/reject`、`non_ip/reject` 与 `ip/reject`，覆盖域名、通配规则和恶意 IP。IP 规则按上游逐条保留 `no-resolve`，不再统一添加，因此多数 IP 规则会匹配域名解析后的地址。合并版放在域名规则之前时，客户端应在该规则集行尾加 `no-resolve`，并把 `ip/reject` 放在所有域名规则之后，否则每个请求都会先在本地解析。`non_ip/my_reject` 移至独立可选订阅 `my_reject`，不再进入基础集合。其个人选择包含金融、视频、推送、软件验证、进程与端口拦截，启用前应核对使用需求。Surge 按上游说明绑定 REJECT-DROP；其他平台仅输出支持的类型，不保证连接处理方式等价。`ads`、`reject_extra`、fmz、drop/no-drop 与 URL 正则订阅保持独立。
+基础 `reject` 仅合并 Sukka 的 `domainset/reject`、`non_ip/reject` 与 `ip/reject`，覆盖域名、通配规则和恶意 IP。IP 规则按上游逐条保留 `no-resolve`，不再统一添加，因此多数 IP 规则会匹配域名解析后的地址。合并版放在域名规则之前时，客户端应在该规则集行尾加 `no-resolve`，否则每个请求都会先在本地解析。2026-10-13 起，`reject` 的三个分版改为按上游文件原样发布（`sourceVariants`），不再按规则类型从合并结果分类：上游 `non_ip/reject` 中带 `no-resolve` 的 IP 规则留在 `non_ip/reject`，与 `ip/reject` 可以绑定不同策略。Surge 按上游写法使用：`domainset/reject` 与 `non_ip/reject` 绑定 REJECT 并放在其他域名规则之前，`ip/reject` 绑定 REJECT-DROP 并放在所有域名规则之后。`non_ip/my_reject` 移至独立可选订阅 `my_reject`，不再进入基础集合。其个人选择包含金融、视频、推送、软件验证、进程与端口拦截，启用前应核对使用需求。Surge 按上游说明绑定 REJECT-DROP；其他平台仅输出支持的类型，不保证连接处理方式等价。`ads`、`reject_extra`、fmz、drop/no-drop 与 URL 正则订阅保持独立。
 
 ## 服务规则
 
