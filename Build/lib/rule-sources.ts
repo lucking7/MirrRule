@@ -333,6 +333,8 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/reject.conf',
       'https://ruleset.skk.moe/List/ip/reject.conf',
     ],
+    // 分版按上游文件原样发布：上游 non_ip 中带 no-resolve 的 IP 规则与 ip 使用不同策略。
+    sourceVariants: ['domainset', 'non_ip', 'ip'],
     defaultPolicy: 'REJECT', // 明确指定拒绝策略
     targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持
     keepComments: false,

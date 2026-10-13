@@ -17,6 +17,7 @@ import { normalizeTargets } from './platform-config';
 import type { SupportedPlatform } from './platform-config';
 import { getErrorMessage } from './misc';
 import { rulesetIdFromConfigPath } from './rule-output-variants';
+import type { RuleOutputVariant } from './rule-output-variants';
 import { observeSourceDownloads, sha256Hex, toPublicSourceUrl } from './output-audit';
 import type { RulesetAuditRecord, RulesetOutputAudit, SourceProvenance } from './output-audit';
 import path from 'node:path';
@@ -57,6 +58,8 @@ interface RulesetPublication {
   /** Configured path, used only in error messages. */
   path: string;
   sources: SourceInput[];
+  /** One variant per source; replaces type-based variant classification. */
+  sourceVariants?: readonly RuleOutputVariant[];
   title: string;
   description: string[];
   targets?: RuleTarget[];
@@ -182,6 +185,14 @@ export class RuleSourceProcessor {
       .withTitle(publication.title)
       .withDescription(publication.description);
     output.addRules(rules);
+    if (publication.sourceVariants) {
+      if (publication.sourceVariants.length !== publication.sources.length) {
+        throw new Error(`sourceVariants must list one variant per source: ${publication.path}`);
+      }
+      for (const [index, source] of publication.sources.entries()) {
+        output.addVariantSource(publication.sourceVariants[index], [...source.rules]);
+      }
+    }
     if (
       (publication.options.sourcePolicies !== undefined || publication.options.excludedRuleTypes !== undefined) &&
       !publication.options.allowEmpty &&
@@ -364,6 +375,7 @@ export class RuleSourceProcessor {
               id: rulesetIdFromConfigPath(ruleConfig.targetFile),
               path: ruleConfig.targetFile,
               sources: sourceInputs,
+              sourceVariants: ruleConfig.sourceVariants,
               title: ruleConfig.name,
               description: [
                 ruleConfig.description || `Rules for ${ruleConfig.name}`,

@@ -3,6 +3,8 @@
  * 支持处理配置文件中定义的规则组和特殊规则合并配置
  */
 
+import type { RuleOutputVariant } from './rule-output-variants';
+
 export type RulePolicy = 'DIRECT' | 'REJECT' | 'PROXY' | string | null;
 export type RuleTarget = 'surge' | 'clash' | 'singbox' | 'loon';
 
@@ -72,6 +74,12 @@ export interface SpecialRuleConfig extends RuleProcessingOptions {
   targetFile: string,
   /** 源文件URL列表 */
   sourceFiles: string[],
+  /**
+   * Publish each source as this variant, in sourceFiles order, instead of classifying the
+   * merged rules by type. Use it when upstream already ships the three files and their
+   * grouping must be kept, for example IP rules that upstream keeps in its non_ip file.
+   */
+  sourceVariants?: readonly RuleOutputVariant[],
   /** 合并后是否删除源文件 */
   deleteSourceFiles?: boolean,
   /** 规则描述 */
