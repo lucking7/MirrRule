@@ -63,6 +63,14 @@ const EXTENDED_MATCHER_TYPES: ReadonlySet<string> = new Set([
   'DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN-WILDCARD', 'URL-REGEX',
 ]);
 
+const DESTINATION_IP_RULE = /^(?:IP-CIDR6?|GEOIP|IP-ASN)\s*,/i;
+
+/** Drop the no-resolve field of a destination IP rule; other rules are returned unchanged. */
+function removeNoResolveParameter(rule: string): string {
+  if (!DESTINATION_IP_RULE.test(rule.trim())) return rule;
+  return rule.split(',').filter(field => field.trim().toLowerCase() !== 'no-resolve').join(',');
+}
+
 function getDomainVariant(outputs: PlatformOutputs): RuleOutputVariant {
   return outputs.domainVariant;
 }
@@ -134,6 +142,7 @@ export class EnhancedFileOutput {
     keepInlineComments: boolean;
     formatConversion: boolean;
     applyNoResolve: boolean;
+    removeNoResolve: boolean;
     validate: boolean;
     sourcePolicies: readonly string[] | undefined;
     excludedRuleTypes: ReadonlySet<string>;
@@ -155,10 +164,15 @@ export class EnhancedFileOutput {
       keepInlineComments: options?.keepInlineComments ?? false,
       formatConversion: options?.formatConversion ?? true,
       applyNoResolve: options?.applyNoResolve ?? false,
+      removeNoResolve: options?.removeNoResolve ?? false,
       validate: options?.validate ?? false,
       sourcePolicies: options?.sourcePolicies?.map(policy => policy.trim().toLowerCase()),
       excludedRuleTypes: new Set(options?.excludedRuleTypes?.map(type => type.trim().toUpperCase())),
     };
+
+    if (this.config.applyNoResolve && this.config.removeNoResolve) {
+      throw new Error(`applyNoResolve and removeNoResolve are mutually exclusive: ${id}`);
+    }
 
     this.targets = normalizeTargets(targets);
     this.strategies = createStrategiesForTargets(this.targets, outputBaseDir);
@@ -230,6 +244,8 @@ export class EnhancedFileOutput {
 
     if (this.config.applyNoResolve) {
       normalizedRule = this.applyNoResolveParameter(normalizedRule);
+    } else if (this.config.removeNoResolve) {
+      normalizedRule = removeNoResolveParameter(normalizedRule);
     }
 
     const processedRule =
@@ -975,6 +991,7 @@ export class EnhancedFileOutput {
         keepInlineComments: this.config.keepInlineComments,
         formatConversion: this.config.formatConversion,
         applyNoResolve: this.config.applyNoResolve,
+        removeNoResolve: this.config.removeNoResolve,
         validate: this.config.validate,
         sourcePolicies: this.config.sourcePolicies ? [...this.config.sourcePolicies].sort() : null,
         excludedRuleTypes: [...this.config.excludedRuleTypes].sort(),
