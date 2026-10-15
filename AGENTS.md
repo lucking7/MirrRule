@@ -199,7 +199,6 @@ eslint.config.js                   ESLint 配置
 - `keepEmptyLines`：是否保留空行，默认 `false`。
 - `formatConversion`：是否启用格式转换，默认 `true`。
 - `applyNoResolve`：是否为 IP 类规则添加 `no-resolve`。
-- `removeNoResolve`：去掉目标 IP 规则（IP-CIDR／IP-CIDR6／GEOIP／IP-ASN）上的 `no-resolve`，使其匹配域名解析后的地址；与 `applyNoResolve` 同时设置时构建失败。当前只有 `google` 使用。
 - `validate`：是否启用规则合法性校验，默认 `false`。
 - `sourcePolicies`：可选的上游策略白名单，在移除策略前按第三个逗号字段匹配（忽略大小写）。用于从混合 QX 规则源中提取 `direct` 或 `reject`，不把上游 `proxy` 例外误转为直连。筛选后为空会终止该订阅发布，除非显式设置 `allowEmpty: true`。
 - `excludedRuleTypes`：可选的规则类型排除列表，忽略大小写；在转换后筛选，包含被排除类型的复合规则整体丢弃，避免删减子条件扩大匹配。筛选后为空同样受 `allowEmpty` 发布边界约束。
