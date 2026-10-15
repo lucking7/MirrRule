@@ -20,8 +20,6 @@ export interface RuleProcessingOptions {
   keepEmptyLines?: boolean,
   /** 是否为IP规则添加no-resolve参数 */
   applyNoResolve?: boolean,
-  /** Remove no-resolve from destination IP rules so they match resolved addresses; excludes applyNoResolve. */
-  removeNoResolve?: boolean,
   /** 是否启用格式转换 (.domain.com → DOMAIN-SUFFIX,domain.com) */
   formatConversion?: boolean,
   /** 是否校验规则格式，丢弃无法识别的行 */

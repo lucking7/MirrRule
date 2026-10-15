@@ -176,10 +176,9 @@ const serviceRules: SpecialRuleConfig[] = [
   { name: 'TikTok', id: 'tiktok', blackmatrix: 'TikTok', geosite: 'tiktok' },
   // Meta has no dedicated WeChat category; do not merge the broader Tencent category.
   { name: 'WeChat', id: 'wechat', blackmatrix: 'WeChat' },
-  // Google IP rules match resolved addresses; clients load ip/google after their domain rules.
-  { name: 'Google', id: 'google', blackmatrix: 'Google', geosite: 'google', resolveIp: true },
+  { name: 'Google', id: 'google', blackmatrix: 'Google', geosite: 'google' },
   { name: 'GitHub', id: 'github', blackmatrix: 'GitHub', geosite: 'github' },
-].map(({ name, id, blackmatrix, geosite, geoip, resolveIp }): SpecialRuleConfig => ({
+].map(({ name, id, blackmatrix, geosite, geoip }): SpecialRuleConfig => ({
   name,
   targetFile: `List/${id}.list`,
   sourceFiles: [
@@ -190,7 +189,7 @@ const serviceRules: SpecialRuleConfig[] = [
   description: 'Service rules from blackmatrix7, merged with available MetaCubeX domain and IP categories.',
   targets: ['surge', 'clash', 'singbox', 'loon'],
   defaultPolicy: null,
-  ...(resolveIp ? { removeNoResolve: true } : { applyNoResolve: true }),
+  applyNoResolve: true,
 }));
 
 const sukkaAdditionalRules: SpecialRuleConfig[] = [

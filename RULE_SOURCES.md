@@ -46,10 +46,10 @@ Surge 保留 domain ruleset 的 extended-matching 语义；PROCESS-PATH 按平�
 | bilibili      | BiliBili          | bilibili     | 无                                              |
 | tiktok        | TikTok            | tiktok       | 无                                              |
 | wechat        | WeChat            | 无           | Meta 没有专用 WeChat 分类，不引入更宽的 Tencent |
-| google        | Google            | google       | 不合并范围更宽的 Google geoip；IP 规则去掉 `no-resolve` |
+| google        | Google            | google       | 不合并范围更宽的 Google geoip                   |
 | github        | GitHub            | github       | 无                                              |
 
-AI 保留 Sukka、ConnersHua、dler 来源，用 blackmatrix7 `OpenAI` 替换 Kelee AI，并使用 Meta `category-ai-!cn.list` 文本输入，补充 Sukka `List/ip/ai.conf`。PrimeVideo 不使用整个 Amazon 分类。2026-10-14 起 `google` 设置 `removeNoResolve`：上游 5 条 IP 规则原本都带 `no-resolve`，现在全部去掉，`ip/google` 放在所有域名规则之后时可以匹配解析后的地址；合并版放在域名规则之前时，客户端应在该行尾加 `no-resolve`。其他服务规则仍统一添加 `no-resolve`。上述分类与 Kelee 的覆盖范围不完全相同，尤其 WeChat 的 keyword 与 IPv6、不同来源的分类粒度可能影响客户端分流，迁移者应实测自己的应用。
+AI 保留 Sukka、ConnersHua、dler 来源，用 blackmatrix7 `OpenAI` 替换 Kelee AI，并使用 Meta `category-ai-!cn.list` 文本输入，补充 Sukka `List/ip/ai.conf`。PrimeVideo 不使用整个 Amazon 分类。上述分类与 Kelee 的覆盖范围不完全相同，尤其 WeChat 的 keyword 与 IPv6、不同来源的分类粒度可能影响客户端分流，迁移者应实测自己的应用。
 
 Surge 与 Loon 保留 `.list`，Clash 输出 classical `.txt`，sing-box 输出 `.json`。转换先处理 `DOMAIN`、`DOMAIN-SUFFIX` 等标准规则，再把裸域名、`+.`、`full:`、`domain:`、`keyword:` 与裸 IPv4/IPv6 CIDR 转成内部规则。数字开头的合法域名（如 `2mdn.net`）不再误删；CIDR 必须通过现有 IP validator。纯数字、无前缀 IP、超出范围的 CIDR 会被丢弃。服务规则移除上游 policy，IP 类添加 `no-resolve`。平台不支持的规则按既有 writer 行为丢弃，不能认为四个平台语义完全相同。
 
