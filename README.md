@@ -78,9 +78,11 @@ Surge:
 ```ini
 [Rule]
 DOMAIN-SET,https://nrrule.pages.dev/List/domainset/apple_cdn.list,DIRECT
-# For a ruleset that publishes all three variants, keep them together with the same policy:
+# domainset and non_ip go where the merged subscription was:
 DOMAIN-SET,https://nrrule.pages.dev/List/domainset/<id>.list,POLICY
 RULE-SET,https://nrrule.pages.dev/List/non_ip/<id>.list,POLICY
+# ... other domain rules ...
+# ip goes after all domain rules:
 RULE-SET,https://nrrule.pages.dev/List/ip/<id>.list,POLICY
 ```
 
@@ -121,7 +123,7 @@ sing-box:
 }
 ```
 
-Equal condition sets do not guarantee the same policy outcome once the variants are rearranged in a profile. For example, moving `ip` later or placing a mixed OR rule after other subscriptions can delay domain matching. When replacing a merged subscription, keep its variants adjacent at the merged subscription's position with the same policy; review any cross-subscription reordering with the coverage audit below.
+Split a ruleset only when its `ip` variant has rules without `no-resolve`. Such a rule makes Surge resolve the domain locally, so it must come after all domain rules. If every rule in the `ip` variant has `no-resolve`, it matches only connections made directly to an IP address; the merged subscription with `no-resolve` on its rule-set line matches the same requests and keeps a single line. Equal condition sets do not guarantee the same policy outcome once the variants are rearranged: an `ip` variant can hold logical rules with a domain child, and moving it later delays that domain match. Use the same policy for all variants of a ruleset unless its notes below say otherwise (see `reject`), and review cross-subscription reordering with the coverage audit below.
 
 ## Routing Coverage Audit
 
