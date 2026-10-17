@@ -216,7 +216,7 @@ describe('EnhancedFileOutput', () => {
     const audit = await output.write();
     assert.deepEqual(audit.stages, {
       inputLines: 9,
-      filtered: { emptyLines: 1, commentsOrMarkers: 1, excludedRuleType: 1, sourcePolicy: 0, invalid: 1 },
+      filtered: { emptyLines: 1, commentsOrMarkers: 1, excludedRuleType: 1, excludedRule: 0, sourcePolicy: 0, invalid: 1 },
       canonicalCount: 3,
     });
     assert.equal(audit.stages.canonicalCount, output.getOutputSummary().ruleCount);

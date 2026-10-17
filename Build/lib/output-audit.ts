@@ -66,6 +66,7 @@ export interface RulesetStageCounts {
     emptyLines: number;
     commentsOrMarkers: number;
     excludedRuleType: number;
+    excludedRule: number;
     sourcePolicy: number;
     invalid: number;
   };

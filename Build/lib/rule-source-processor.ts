@@ -192,11 +192,17 @@ export class RuleSourceProcessor {
       }
     }
     if (
-      (publication.options.sourcePolicies !== undefined || publication.options.excludedRuleTypes !== undefined) &&
+      (
+        publication.options.sourcePolicies !== undefined ||
+        publication.options.excludedRuleTypes !== undefined ||
+        publication.options.excludedRules !== undefined
+      ) &&
       !publication.options.allowEmpty &&
       output.getOutputSummary().ruleCount === 0
     ) {
-      const filter = publication.options.sourcePolicies === undefined ? 'rule type' : 'source policy';
+      const filter = publication.options.sourcePolicies !== undefined
+        ? 'source policy'
+        : (publication.options.excludedRuleTypes === undefined ? 'rule' : 'rule type');
       throw new Error(`No rules remain after ${filter} filtering: ${publication.path}`);
     }
     const audit = await output.write();
