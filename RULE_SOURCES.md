@@ -63,7 +63,7 @@ Surge 与 Loon 保留 `.list`，Clash 输出 classical `.txt`，sing-box 输出 
 | -------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `download_cn`                                | Repcz/Tool `X/Surge/Rules/DownloadCDN_CN.list`     | 与本次取得的 Kelee 中国下载 CDN 去注释、去空白后集合相同，17 条                                |
 | `download_global`                            | Repcz/Tool `X/Surge/Rules/DownloadCDN_Global.list` | 与本次取得的 Kelee 国际下载 CDN 集合相同，178 条唯一规则；含 2 条 AND，sing-box 按既有行为丢弃 |
-| `cdn`                                        | Sukka domainset + non_ip + ip CDN                  | 已有聚合源，继续使用；Repcz 通用 CDN 与其高度重叠，暂不叠加                                    |
+| `cdn`                                        | Sukka domainset + non_ip + ip CDN                  | 已有聚合源，继续使用；IP 规则按上游不带 `no-resolve`；Repcz 通用 CDN 与其高度重叠，暂不叠加    |
 | `download`                                   | Sukka domainset + non_ip + ip Download             | 补齐 IP 部分；此分类不限于游戏或单个测速服务                                                   |
 | `speedtest`                                  | Sukka domainset Speedtest                          | 已有全球测速集合，继续使用                                                                     |
 | `speedtest_china`、`speedtest_international` | Kelee SpeedtestChina、SpeedtestInternational       | 保留地域语义，CI 通过下述 browser gateway 下载                                                 |
