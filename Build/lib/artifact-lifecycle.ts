@@ -24,7 +24,7 @@ export interface ArtifactLifecycleRecord {
   replacement?: string
 }
 
-export const ARTIFACT_LIFECYCLE_VERSION = 2;
+export const ARTIFACT_LIFECYCLE_VERSION = 3;
 
 /** Public report location, relative to the publication root. */
 export const ARTIFACT_LIFECYCLE_REPORT_PATH = 'Internal/artifact-lifecycle.json';

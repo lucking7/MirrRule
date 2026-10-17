@@ -4,7 +4,8 @@ import type { SupportedPlatform } from './platform-config';
 /**
  * Mutually exclusive condition classes published next to each merged ruleset. ip holds only
  * conditions that may trigger a DNS lookup; everything else, including domains and destination
- * IP rules with no-resolve, is in non_ip.
+ * IP rules with no-resolve, is in non_ip. sing-box, which cannot express no-resolve, keeps every
+ * destination IP rule in ip.
  */
 export const RULE_OUTPUT_VARIANTS = ['non_ip', 'ip'] as const;
 export type RuleOutputVariant = typeof RULE_OUTPUT_VARIANTS[number];

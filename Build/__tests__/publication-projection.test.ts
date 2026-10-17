@@ -81,6 +81,8 @@ describe('publication lifecycle projection and baseline rebase', () => {
     assert.deepEqual(status.rulesets.map(record => record.id), ['keep']);
     const absent = await collectAbsentPaths(env.out, result.manifest);
     assert.ok(absent.includes('List/non_ip/discord.list'));
+    // Retired directories are probed on every run, not only when the baseline still listed files.
+    assert.ok(absent.includes('List/domainset/nrrule-retired-probe'));
     assert.equal(result.manifest.files.find(file => file.path === 'Internal/rule-output-audit.json')?.origin, 'generated');
     assert.equal(result.manifest.files.find(file => file.path === 'Internal/source-snapshots/keep.json.gz')?.origin, 'preserved');
     for (const relative of ['_worker.js', '_routes.json']) {
@@ -100,6 +102,24 @@ describe('publication lifecycle projection and baseline rebase', () => {
     ]);
     assert.deepEqual(routes.exclude, []);
     assert.ok((await json<ProjectionAudit>(path.join(env.candidate, 'Internal/rule-output-audit.json'))).rulesets.some(record => record.id === 'discord'));
+  });
+
+  it('refuses to roll back a ruleset whose historical split used the retired domainset variant', async t => {
+    const env = await environment(t);
+    await fixture(env.candidate, [['keep', ['DOMAIN,keep.example', 'USER-AGENT,Keep*']]], 1);
+    // Before 2026-10-17 plain domains lived only in domainset, so historical non_ip lacks them.
+    const auditPath = path.join(env.candidate, 'Internal/rule-output-audit.json');
+    const audit = await json<{ rulesets: Array<{ id: string, outputs: Array<Record<string, unknown>> }> }>(auditPath);
+    const content = 'keep.example\n';
+    await fs.mkdir(path.join(env.candidate, 'List/domainset'), { recursive: true });
+    await fs.writeFile(path.join(env.candidate, 'List/domainset/keep.list'), content);
+    audit.rulesets[0].outputs.push({ platform: 'surge', variant: 'domainset', format: 'surge-domainset', path: 'List/domainset/keep.list', status: 'published', bytes: new TextEncoder().encode(content).length, sha256: sha256Hex(content) });
+    await fs.writeFile(auditPath, JSON.stringify(audit));
+    await fs.cp(env.candidate, env.tree, { recursive: true });
+    await assert.rejects(
+      stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['rollback'], sourceCommit: SOURCE, baseline: await baseline(env.tree, 2), baselineTreeDir: env.tree, rollbackOf: { receiptId: 1, deployCommit: OLD_COMMIT, sourceCommit: SOURCE }, render: renderPublicInChild }),
+      /retired domainset variant layout/
+    );
   });
 
   it('projects partial platform retirement in the audit and snapshot while preserving normalized conditions and active platforms', async t => {

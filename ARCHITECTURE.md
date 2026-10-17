@@ -62,7 +62,7 @@ If the accepted baseline changes after a build, staging recomputes source deltas
 
 ## Public index
 
-`Build/build-public.ts` scans visible files under `public/` and renders their actual paths as a native `details` / `summary` directory tree. Root ordering comes from `Build/lib/public-index-sort.ts`; nested directories also prioritize `domainset`, `non_ip`, and `ip`. Rendering sorts copied arrays, escapes labels, and URL-encodes path segments without mutating the input tree.
+`Build/build-public.ts` scans visible files under `public/` and renders their actual paths as a native `details` / `summary` directory tree. Root ordering comes from `Build/lib/public-index-sort.ts`; nested directories also prioritize `non_ip` and `ip`. Rendering sorts copied arrays, escapes labels, and URL-encodes path segments without mutating the input tree.
 
 The index uses inline CSS from `Build/assets/ruleset-index.css`, system fonts, and the system light/dark preference. Root directories start expanded except `Mock` and `Internal`; nested directories start collapsed. File links point to NRRule's own artifacts, including the separate Surge, Clash, Loon, and sing-box directories. The page needs no frontend application JavaScript. Product and visual requirements are documented in [PRODUCT.md](PRODUCT.md) and [DESIGN.md](DESIGN.md), with upstream styling attribution in [Build/assets/README.md](Build/assets/README.md).
 

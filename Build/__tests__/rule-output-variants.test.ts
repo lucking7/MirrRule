@@ -276,9 +276,11 @@ describe('rule output variants', () => {
     const clashNonIp = await read('Clash/non_ip/mixed.txt');
     assert.ok(clashNonIp.includes('SRC-IP-CIDR,192.168.1.10/32'));
     const singboxIp = JSON.parse((await fs.readFile(path.join(directory, 'sing-box/ip/mixed.json'), 'utf8'))) as SingboxJson;
-    assert.deepEqual(singboxIp.rules[0].ip_cidr, ['149.154.160.0/20', '2001:67c:4e8::/48']);
+    // sing-box cannot express no-resolve and its rule-set ip_cidr filters DNS rule answers, so
+    // every destination IP rule stays in sing-box ip.
+    assert.deepEqual(singboxIp.rules[0].ip_cidr, ['91.108.4.0/22', '2001:b28:f23d::/48', '149.154.160.0/20', '2001:67c:4e8::/48']);
     const singboxNonIp = JSON.parse((await fs.readFile(path.join(directory, 'sing-box/non_ip/mixed.json'), 'utf8'))) as SingboxJson;
-    assert.deepEqual(singboxNonIp.rules[0].ip_cidr, ['91.108.4.0/22', '2001:b28:f23d::/48']);
+    assert.equal(singboxNonIp.rules.some(rule => 'ip_cidr' in rule), false);
   });
 
   it('writes no file for a platform that supports none of a variant and still gates merged sing-box output', async t => {
@@ -368,8 +370,8 @@ describe('rule output variants', () => {
     });
     assert.deepEqual(findOutput(audit.outputs, 'clash', 'non_ip').losses.droppedValues, { 'PROTOCOL:QUIC': 1 });
     assert.deepEqual(findOutput(audit.outputs, 'singbox', 'merged').losses.ignoredModifiers, { 'no-resolve': 2, 'extended-matching': 2 });
-    assert.deepEqual(findOutput(audit.outputs, 'singbox', 'non_ip').losses.ignoredModifiers, { 'no-resolve': 2, 'extended-matching': 2 });
-    assert.deepEqual(findOutput(audit.outputs, 'singbox', 'ip').losses.ignoredModifiers, {});
+    assert.deepEqual(findOutput(audit.outputs, 'singbox', 'non_ip').losses.ignoredModifiers, { 'extended-matching': 2 });
+    assert.deepEqual(findOutput(audit.outputs, 'singbox', 'ip').losses.ignoredModifiers, { 'no-resolve': 2 });
     assert.deepEqual(findOutput(audit.outputs, 'loon', 'non_ip').losses.ignoredModifiers, { 'extended-matching': 2 });
     assert.deepEqual(findOutput(audit.outputs, 'surge', 'merged').losses, { droppedValues: {}, ignoredModifiers: {} });
     const clash = await fs.readFile(path.join(directory, 'Clash/losses.txt'), 'utf8');
