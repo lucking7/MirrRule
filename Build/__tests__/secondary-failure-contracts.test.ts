@@ -48,22 +48,24 @@ describe('fmz200 CLI decision', () => {
     const preload = path.join(dir, 'mock-fetch.cjs');
     await fsp.writeFile(preload, `
 const fs = require('node:fs');
-global.fetch = async url => {
-  fs.appendFileSync(process.env.FMZ200_REQUEST_LOG, String(url) + '\\n');
+global.fetch = async (url, init) => {
+  fs.appendFileSync(process.env.FMZ200_REQUEST_LOG, String(url) + (init?.headers?.Authorization ? ' auth' : '') + '\\n');
   const catalog = String(url).includes('api.github.com');
+  const directory = process.env.FMZ200_SCENARIO === 'directory';
   const fails = process.env.FMZ200_SCENARIO === 'required' && catalog
-    || process.env.FMZ200_SCENARIO === 'optional' && !catalog;
+    || process.env.FMZ200_SCENARIO === 'optional' && !catalog
+    || directory && String(url).endsWith('/split/partV');
   return {
     ok: !fails,
     status: fails ? 503 : 200,
-    json: async () => [],
+    json: async () => (directory && String(url).endsWith('/split') ? [{ type: 'dir', name: 'partV' }] : []),
     text: async () => '#!name=example\\n[Rule]\\nDOMAIN,example.test,REJECT\\n'
   };
 };
 `);
 
     try {
-      for (const [scenario, expectedStatus] of [['success', 0], ['required', 1], ['optional', 0]] as const) {
+      for (const [scenario, expectedStatus, requestCount] of [['success', 0, 4], ['required', 1, 4], ['optional', 0, 4], ['directory', 1, 5]] as const) {
         const requestLog = path.join(dir, `${scenario}.requests`);
         const result = spawnSync(process.execPath, [
           '-r', '@swc-node/register', '-r', preload, 'Build/download-fmz200-split.ts'
@@ -74,15 +76,21 @@ global.fetch = async url => {
             SWC_NODE_IGNORE_DYNAMIC: 'true',
             PUBLIC_DIR: path.join(dir, 'public'),
             FMZ200_REQUEST_LOG: requestLog,
-            FMZ200_SCENARIO: scenario
+            FMZ200_SCENARIO: scenario,
+            GITHUB_TOKEN: scenario === 'directory' ? 'test-token' : ''
           },
           encoding: 'utf8',
           timeout: 10000
         });
         assert.equal(result.status, expectedStatus, result.stderr || result.stdout);
         const requests = (await fsp.readFile(requestLog, 'utf8')).trim().split('\n');
-        assert.equal(requests.length, 4, `unexpected request count for ${scenario}`);
-        assert.equal(new Set(requests).size, 4, `duplicate requests for ${scenario}`);
+        assert.equal(requests.length, requestCount, `unexpected request count for ${scenario}`);
+        assert.equal(new Set(requests).size, requestCount, `duplicate requests for ${scenario}`);
+        if (scenario === 'directory') {
+          // An unlistable category directory fails the sync, and GitHub API calls carry the token.
+          assert.match(result.stderr + result.stdout, /partV: Failed to fetch Surge\/module\/split\/partV: HTTP 503/);
+          assert.ok(requests.filter(line => line.includes('api.github.com')).every(line => line.endsWith(' auth')));
+        }
         assert.equal((result.stdout.match(/fmz200 Modules Sync/g) ?? []).length, 1);
       }
     } finally {

@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fsp from 'node:fs/promises';
+import process from 'node:process';
 import { task } from './trace';
 import picocolors from 'picocolors';
 import { OUTPUT_SUKKA_MIRROR_DIR } from './constants/dir';
@@ -72,13 +73,15 @@ function sanitizeFileName(name: string): string {
  */
 async function fetchDirectoryContents(dirPath: string): Promise<any[]> {
   const url = `${GITHUB_API_BASE}/${dirPath}`;
+  const headers: Record<string, string> = {
+    'User-Agent': UA_MIRROR,
+    Accept: 'application/vnd.github.v3+json',
+  };
+  // Unauthenticated contents calls share a 60/hour limit per runner IP; one listing per
+  // category directory runs out of it on shared runners.
+  if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
 
-  const response = await fetch(url, {
-      headers: {
-        'User-Agent': UA_MIRROR,
-        Accept: 'application/vnd.github.v3+json',
-      },
-    });
+  const response = await fetch(url, { headers });
 
   if (!response.ok) {
     throw new Error(`Failed to fetch ${dirPath}: HTTP ${response.status}`);
@@ -309,7 +312,9 @@ export async function runFmz200Split(): Promise<PipelineResult> {
             });
           }
         } catch (error) {
-          result.failed.push({ asset: dir.name, error: getErrorMessage(error), required: false });
+          // A directory that cannot be listed would silently drop its whole category from the
+          // publication; fail instead so the previous accepted tree stays published.
+          result.failed.push({ asset: dir.name, error: getErrorMessage(error), required: true });
         }
       }
       return result;
@@ -325,6 +330,7 @@ export function printFmz200Summary(result: PipelineResult): void {
 
 export function assertFmz200Success(result: PipelineResult): void {
   if (hasRequiredFailures(result)) {
-    throw new Error(`fmz200 sync failed for ${result.failed.length} required assets`);
+    const required = result.failed.flatMap(failure => (failure.required ? [`${failure.asset}: ${failure.error}`] : []));
+    throw new Error(`fmz200 sync failed for ${required.length} required assets: ${required.join('; ')}`);
   }
 }
