@@ -10,7 +10,7 @@ import type { PublicationManifest } from './publication-manifest';
 import { RULE_OUTPUT_AUDIT_FILE, auditAbsentPaths, readOutputContract } from './publication-outputs';
 
 /** File name probed below every retired directory prefix; no published file uses it. */
-export const RETIRED_PREFIX_PROBE = 'nrrule-retired-probe';
+const RETIRED_PREFIX_PROBE = 'nrrule-retired-probe';
 
 /**
  * Paths that must answer 404: outputs the audit declares absent, every retired registry path,
