@@ -74,7 +74,7 @@ const LOGICAL_RULE_TYPES: ReadonlySet<string> = new Set(['AND', 'OR', 'NOT']);
 const LOGICAL_CHILD_TYPE = /\(\s*([A-Z][A-Z\d-]*)\s*,/gi;
 
 /** Rule types that Surge's extended-matching flag applies to. */
-const EXTENDED_MATCHING_RULE_TYPES: ReadonlySet<string> = new Set([
+export const EXTENDED_MATCHING_RULE_TYPES: ReadonlySet<string> = new Set([
   'DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN-WILDCARD', 'URL-REGEX',
 ]);
 

@@ -216,29 +216,6 @@ export function parseManifest(text: string): PublicationManifest {
   return typed;
 }
 
-export interface ManifestDiff {
-  added: string[],
-  removed: string[],
-  changed: string[]
-}
-
-export function diffManifests(
-  previous: ReadonlyArray<Pick<TreeFileDigest, 'path' | 'sha256'>>,
-  next: ReadonlyArray<Pick<TreeFileDigest, 'path' | 'sha256'>>
-): ManifestDiff {
-  const before = new Map(previous.map(file => [file.path, file.sha256]));
-  const after = new Map(next.map(file => [file.path, file.sha256]));
-  const added: string[] = [];
-  const changed: string[] = [];
-  for (const [relative, sha] of after) {
-    const old = before.get(relative);
-    if (old === undefined) added.push(relative);
-    else if (old !== sha) changed.push(relative);
-  }
-  const removed = [...before.keys()].filter(relative => !after.has(relative));
-  return { added: added.sort(comparePaths), removed: removed.sort(comparePaths), changed: changed.sort(comparePaths) };
-}
-
 export interface TreeVerification {
   missing: string[],
   extra: string[],

@@ -10,10 +10,10 @@ import { createRetrieKeywordFilter as createKeywordFilter } from 'foxts/retrie';
 import type { BaseWriteStrategy, RuleConversionLosses, RuleDropSummary } from '../core/output/writing-strategy/base';
 import type { RulePlatform } from '../core/output/rule-support-matrix';
 import { compareAndWriteFile } from './create-file';
-import { createStrategiesForTargets, createVariantStrategy, normalizeTargets } from './platform-config';
+import { createWriter, normalizeTargets } from './platform-config';
 import type { SupportedPlatform } from './platform-config';
 import type { RuleProcessingOptions } from './rule-source-types';
-import { classifyRuleLine, hasDomainMatcherSubRule, resolveRuleOutputTarget, RULE_OUTPUT_VARIANTS } from './rule-output-variants';
+import { classifyRuleLine, EXTENDED_MATCHING_RULE_TYPES, hasDomainMatcherSubRule, resolveRuleOutputTarget, RULE_OUTPUT_VARIANTS } from './rule-output-variants';
 import type { RuleOutputSlot, RuleOutputVariant } from './rule-output-variants';
 import { countEffectiveConditions, sha256Hex, snapshotEffectiveOutput } from './output-audit';
 import type { RuleOptimizationAudit, RuleOutputFileAudit, RulesetOutputAudit, RulesetStageCounts } from './output-audit';
@@ -56,10 +56,6 @@ interface PlatformOutputs {
   /** Logical rules kept in non_ip instead of ip to preserve Surge extended matching. */
   reroutedFromIp: number;
 }
-
-const EXTENDED_MATCHER_TYPES: ReadonlySet<string> = new Set([
-  'DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN-WILDCARD', 'URL-REGEX',
-]);
 
 /**
  * A no-resolve IP rule never triggers a DNS lookup, so it can sit among domain rules in non_ip.
@@ -164,13 +160,13 @@ export class EnhancedFileOutput {
     };
 
     this.targets = normalizeTargets(targets);
-    this.strategies = createStrategiesForTargets(this.targets, outputBaseDir);
+    this.strategies = this.targets.map(platform => createWriter(platform));
     this.platformOutputs = this.targets.map((platform, index) => ({
       platform,
       merged: this.strategies[index],
       variants: {
-        non_ip: createVariantStrategy(platform, 'non_ip', outputBaseDir),
-        ip: createVariantStrategy(platform, 'ip', outputBaseDir),
+        non_ip: createWriter(platform),
+        ip: createWriter(platform),
       },
       routed: { non_ip: 0, ip: 0 },
       mergedRouted: 0,
@@ -868,7 +864,7 @@ export class EnhancedFileOutput {
     } else {
       for (const line of strategy.content) {
         const type = line.slice(0, line.indexOf(',')).trim().toUpperCase();
-        if (EXTENDED_MATCHER_TYPES.has(type) || ((type === 'AND' || type === 'OR' || type === 'NOT') && hasDomainMatcherSubRule(line))) {
+        if (EXTENDED_MATCHING_RULE_TYPES.has(type) || ((type === 'AND' || type === 'OR' || type === 'NOT') && hasDomainMatcherSubRule(line))) {
           ignored++;
         }
       }

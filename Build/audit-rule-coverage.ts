@@ -4,6 +4,7 @@ import process from 'node:process';
 import { auditRuleCoverage, cleanAuditRuleLine, splitSurgeRuleFields } from './lib/rule-coverage-audit';
 import type { CoverageAuditReport, CoverageSubscription, CoverageVariant } from './lib/rule-coverage-audit';
 import { writeFileAtomic } from './lib/atomic-file';
+import { RULE_OUTPUT_VARIANTS } from './lib/rule-output-variants';
 
 /** An illustrative order, with distinct policy roles to expose otherwise hidden overlaps. */
 export const exampleRoutingOrder: ReadonlyArray<readonly [string, string]> = [
@@ -52,7 +53,7 @@ async function readSubscription(
 }
 
 const NRRULE_HOST = 'nrrule.pages.dev';
-const SPLIT_VARIANTS = new Set<string>(['non_ip', 'ip']);
+const SPLIT_VARIANTS: ReadonlySet<string> = new Set(RULE_OUTPUT_VARIANTS);
 const NRRULE_SURGE_PATH = /^\/List\/(?:([^/]+)\/)?([^/]+\.list)$/;
 
 type ReferenceFormat = 'rule-set' | 'domain-set';

@@ -23,7 +23,6 @@ import {
   PUBLICATION_MANIFEST_PATH,
   buildManifest,
   computeCandidateId,
-  diffManifests,
   parseManifest,
   scanTree,
   serializeManifest,
@@ -301,11 +300,6 @@ describe('publication manifest', () => {
     const tampered = JSON.parse(text) as { files: Array<{ sha256: string }> };
     tampered.files[1].sha256 = '9'.repeat(64);
     assert.throws(() => parseManifest(JSON.stringify(tampered)), /candidateId does not match/);
-    assert.deepEqual(diffManifests(manifest.files, [{ path: 'Clash/a.txt', sha256: '4'.repeat(64) }, { path: 'Loon/c.list', sha256: '5'.repeat(64) }]), {
-      added: ['Loon/c.list'],
-      removed: ['List/b.list'],
-      changed: ['Clash/a.txt'],
-    });
   });
 });
 

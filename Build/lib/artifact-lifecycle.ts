@@ -325,15 +325,6 @@ export async function findRetiredExclusiveScripts(
   return exclusive;
 }
 
-/** Remove only scripts proven to belong exclusively to present retired files. */
-export async function purgeOrphanedRetiredScripts(
-  publicRoot: string,
-  registry: readonly ArtifactLifecycleRecord[] = ARTIFACT_LIFECYCLE_REGISTRY
-): Promise<string[]> {
-  const root = path.resolve(publicRoot);
-  return removeRegistered(root, await findRetiredExclusiveScripts(root, registry));
-}
-
 /**
  * Remove registered retired files under a publication root, plus scripts referenced exclusively
  * by those files; returns removed relative paths.

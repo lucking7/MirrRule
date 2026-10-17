@@ -29,7 +29,7 @@ describe('writing strategies', () => {
   });
 
   it('writes Surge rules in normalized ruleset form', () => {
-    const strategy = new SurgeRuleSet('', 'out');
+    const strategy = new SurgeRuleSet();
 
     strategy.writeDomain('example.com');
     strategy.writeDomainSuffix('example.org');
@@ -48,7 +48,7 @@ describe('writing strategies', () => {
   });
 
   it('writes Clash classic rules and strips policies from passthrough rules', () => {
-    const strategy = new ClashClassicRuleSet('', 'out');
+    const strategy = new ClashClassicRuleSet();
 
     strategy.writeDomain('example.com');
     strategy.writeDomainSuffix('example.org');
@@ -66,7 +66,7 @@ describe('writing strategies', () => {
   });
 
   it('writes Loon rules and omits unsupported wildcard rules', () => {
-    const strategy = new LoonRuleSet('', 'out');
+    const strategy = new LoonRuleSet();
 
     strategy.writeDomain('example.com');
     strategy.writeDomainSuffix('example.org');
@@ -83,7 +83,7 @@ describe('writing strategies', () => {
   });
 
   it('writes sing-box JSON rule-set fields', () => {
-    const strategy = new SingboxSource('', 'out');
+    const strategy = new SingboxSource();
 
     strategy.writeDomain('example.com');
     strategy.writeDomainSuffix('example.org');
@@ -101,7 +101,7 @@ describe('writing strategies', () => {
   });
 
   it('accounts unsupported, malformed, and unknown rules deterministically per strategy', () => {
-    const clash = new ClashClassicRuleSet('', 'out');
+    const clash = new ClashClassicRuleSet();
     clash.writeUserAgents(new Set(['Agent*', 'Other*']));
     clash.writeUrlRegexes(new Set(['^https://example']));
     clash.writeOtherRules(['BROKEN', 'DOMAIN,', 'FUTURE-RULE,value']);
@@ -117,7 +117,7 @@ describe('writing strategies', () => {
       'clash: dropped 1 rules of type FUTURE-RULE (unknown)',
     ]);
 
-    const loon = new LoonRuleSet('', 'out');
+    const loon = new LoonRuleSet();
     loon.writeDomainWildcard('*.example');
     loon.writeProcessNames(new Set(['App']));
     loon.writeSourceIpCidrs(['192.0.2.1']);
@@ -125,7 +125,7 @@ describe('writing strategies', () => {
       'DOMAIN-WILDCARD': 1, 'PROCESS-NAME': 1, 'SRC-IP-CIDR': 1,
     });
 
-    const singbox = new SingboxSource('', 'out');
+    const singbox = new SingboxSource();
     singbox.writeGeoip(new Set(['US']));
     singbox.writeIpAsns(new Set(['64512']));
     singbox.writeProtocols(new Set(['TCP']));
@@ -133,7 +133,7 @@ describe('writing strategies', () => {
       GEOIP: 1, 'IP-ASN': 1, PROTOCOL: 1,
     });
 
-    assert.deepEqual(new SurgeRuleSet('', 'out').ruleDropSummary, {
+    assert.deepEqual(new SurgeRuleSet().ruleDropSummary, {
       unsupported: {}, malformed: 0, unknown: {},
     });
   });

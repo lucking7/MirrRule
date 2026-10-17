@@ -1,11 +1,12 @@
 import { domainToASCII } from 'node:url';
 import { isIP } from 'node:net';
+import type { RuleOutputVariant } from './rule-output-variants';
 
 /** Consumer format used to parse subscription lines; never inferred from a directory name alone. */
 type CoverageSubscriptionFormat = 'rule-set' | 'domain-set' | 'inline';
 
 /** `merged` is the flat legacy subscription; the others are NRRule split variants. */
-export type CoverageVariant = 'merged' | 'non_ip' | 'ip';
+export type CoverageVariant = 'merged' | RuleOutputVariant;
 
 export interface CoverageSubscription {
   id: string,

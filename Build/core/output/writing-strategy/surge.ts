@@ -1,25 +1,17 @@
 import { appendSetElementsToArray } from 'foxts/append-set-elements-to-array';
 import { BaseWriteStrategy } from './base';
-import { OUTPUT_SURGE_DIR } from '../../../constants/dir';
 import { withBannerArray, smartConvertRule } from '../../../lib/misc';
 import { RuleLineUtils } from '../../../utils/validation/validators';
 import { cleanPolicy } from '../../../lib/policy-cleaner';
 
 export class SurgeRuleSet extends BaseWriteStrategy {
   public readonly platform = 'surge' as const;
-  public readonly name: string = 'surge ruleset';
-
-  readonly fileExtension = 'list'; // 修改为 .list 扩展名
 
   // 移除签名行,保持结果数组为空
   protected result: string[] = [];
 
-  constructor(
-    public readonly type: '' | 'ip' | 'non_ip' | (string & {}),
-    public readonly outputDir = OUTPUT_SURGE_DIR,
-    private readonly stripPolicy = false
-  ) {
-    super(outputDir);
+  constructor(private readonly stripPolicy = false) {
+    super();
   }
 
   withPadding = withBannerArray;
