@@ -12,7 +12,7 @@ import { computeCandidateId, hashFile, scanTree, sha256Hex } from '../lib/public
 import { StageError, renderPublicInChild, stagePublication } from '../lib/publication-stage';
 import { projectRetiredRuleOutputs } from '../lib/publication-projection';
 import { collectAbsentPaths } from '../lib/publication-verify';
-import { retiredPublicPaths } from '../lib/artifact-lifecycle';
+import { retiredPublicPaths, retiredPublicPrefixes } from '../lib/artifact-lifecycle';
 import { createSpan } from '../trace';
 
 const SOURCE = 'a'.repeat(40);
@@ -80,7 +80,7 @@ describe('publication lifecycle projection and baseline rebase', () => {
     const status = await json<{ rulesets: Array<{ id: string }> }>(path.join(env.out, 'status.json'));
     assert.deepEqual(status.rulesets.map(record => record.id), ['keep']);
     const absent = await collectAbsentPaths(env.out, result.manifest);
-    assert.ok(absent.includes('List/domainset/discord.list'));
+    assert.ok(absent.includes('List/non_ip/discord.list'));
     assert.equal(result.manifest.files.find(file => file.path === 'Internal/rule-output-audit.json')?.origin, 'generated');
     assert.equal(result.manifest.files.find(file => file.path === 'Internal/source-snapshots/keep.json.gz')?.origin, 'preserved');
     for (const relative of ['_worker.js', '_routes.json']) {
@@ -90,7 +90,11 @@ describe('publication lifecycle projection and baseline rebase', () => {
     assert.ok(worker.includes('keep.json.gz'));
     assert.equal(worker.includes('discord.json.gz'), false);
     const routes = await json<{ include: string[]; exclude: string[] }>(path.join(env.out, '_routes.json'));
-    assert.deepEqual(routes.include, ['/Internal/*', ...[...new Set(retiredPublicPaths())].sort().map(relative => '/' + relative.split('/').map(encodeURIComponent).join('/'))]);
+    assert.deepEqual(routes.include, [
+      '/Internal/*',
+      ...retiredPublicPrefixes().sort().map(prefix => `/${prefix}*`),
+      ...[...new Set(retiredPublicPaths())].sort().map(relative => '/' + relative.split('/').map(encodeURIComponent).join('/')),
+    ]);
     assert.deepEqual(routes.exclude, []);
     assert.ok((await json<ProjectionAudit>(path.join(env.candidate, 'Internal/rule-output-audit.json'))).rulesets.some(record => record.id === 'discord'));
   });

@@ -12,6 +12,11 @@ export interface ArtifactLifecycleRecord {
   state: ArtifactLifecycleState,
   /** Public paths relative to the publication root, using `/` separators. */
   paths: readonly string[],
+  /**
+   * Retired directories, relative and ending with `/`; every file below them is retired. Used
+   * when exact paths would exceed the Pages route limit of the 404 gate.
+   */
+  pathPrefixes?: readonly string[],
   /** Upstream sources whose conversion is retired, compared after canonicalization. */
   canonicalSources?: readonly string[],
   reason: string,
@@ -33,7 +38,7 @@ const MIRRORED_SCRIPT_PREFIX = '/Scripts/';
 function platformPaths(id: string): string[] {
   return [
     ['List', 'list'], ['Clash', 'txt'], ['Loon', 'list'], ['sing-box', 'json'],
-  ].flatMap(([root, extension]) => ['', 'domainset/', 'non_ip/', 'ip/'].map(variant => `${root}/${variant}${id}.${extension}`));
+  ].flatMap(([root, extension]) => ['', 'non_ip/', 'ip/'].map(variant => `${root}/${variant}${id}.${extension}`));
 }
 
 export const ARTIFACT_LIFECYCLE_REGISTRY: readonly ArtifactLifecycleRecord[] = [
@@ -60,6 +65,15 @@ export const ARTIFACT_LIFECYCLE_REGISTRY: readonly ArtifactLifecycleRecord[] = [
     evidence: 'Build/core/output/rule-support-matrix.ts',
     replacement: 'sing-box/china_ip.json and sing-box/china_ip_ipv6.json (IP coverage is not equivalent to ASN matching)',
   },
+  {
+    id: 'variant:domainset',
+    state: 'retired',
+    paths: [],
+    pathPrefixes: ['List/domainset/', 'Clash/domainset/', 'Loon/domainset/', 'sing-box/domainset/'],
+    reason: 'The domainset variant was merged into non_ip; Surge RULE-SET indexes domain rules',
+    evidence: 'Build/lib/rule-output-variants.ts publishes only non_ip and ip',
+    replacement: '<platform>/non_ip/<id> (Surge: RULE-SET instead of DOMAIN-SET)',
+  },
 ];
 
 /** Normalize a public relative path and reject absolute or traversing values. */
@@ -75,15 +89,30 @@ export function normalizePublicPath(relative: string): string {
   return normalized;
 }
 
+/** Normalize a lifecycle directory prefix to `<dir>/`. */
+function normalizePublicPrefix(prefix: string): string {
+  return normalizePublicPath(prefix.replace(/\/+$/, '')) + '/';
+}
+
 /** Reject records that could address unregistered locations or collide with another identity. */
 export function validateLifecycleRegistry(registry: readonly ArtifactLifecycleRecord[]): void {
   const ids = new Set<string>();
   const paths = new Map<string, string>();
+  const prefixes = new Map<string, string>();
   for (const record of registry) {
     if (ids.has(record.id)) throw new Error(`Duplicate lifecycle id: ${record.id}`);
     ids.add(record.id);
     if (!record.reason.trim() || !record.evidence.trim()) throw new Error(`Lifecycle record needs reason and evidence: ${record.id}`);
-    if (!record.paths.length) throw new Error(`Lifecycle record needs at least one path: ${record.id}`);
+    if (!record.paths.length && !record.pathPrefixes?.length) throw new Error(`Lifecycle record needs at least one path: ${record.id}`);
+    for (const raw of record.pathPrefixes ?? []) {
+      const normalized = normalizePublicPrefix(raw);
+      const segments = normalized.split('/');
+      if (!raw.endsWith('/') || segments.length < 3 || !LIFECYCLE_ROOTS.has(segments[0])) {
+        throw new Error(`Lifecycle prefix must be a directory below a registered publication directory: ${raw}`);
+      }
+      if (prefixes.has(normalized)) throw new Error(`Duplicate lifecycle prefix: ${raw}`);
+      prefixes.set(normalized, record.id);
+    }
     for (const raw of record.paths) {
       const normalized = normalizePublicPath(raw);
       const segments = normalized.split('/');
@@ -100,6 +129,10 @@ export function validateLifecycleRegistry(registry: readonly ArtifactLifecycleRe
       if (url.hash || url.toString() !== source) throw new Error(`Lifecycle source is not canonical: ${source}`);
     }
   }
+  for (const [relative, owner] of paths) {
+    const prefix = [...prefixes.keys()].find(candidate => relative.startsWith(candidate));
+    if (prefix) throw new Error(`Lifecycle path ${relative} registered by ${owner} is inside prefix ${prefix} of ${prefixes.get(prefix)}`);
+  }
 }
 
 validateLifecycleRegistry(ARTIFACT_LIFECYCLE_REGISTRY);
@@ -108,12 +141,18 @@ export function retiredPublicPaths(registry: readonly ArtifactLifecycleRecord[] 
   return registry.filter(record => record.state === 'retired').flatMap(record => record.paths.map(normalizePublicPath));
 }
 
+/** Retired directory prefixes, normalized with a trailing `/`. */
+export function retiredPublicPrefixes(registry: readonly ArtifactLifecycleRecord[] = ARTIFACT_LIFECYCLE_REGISTRY): string[] {
+  return registry.filter(record => record.state === 'retired').flatMap(record => (record.pathPrefixes ?? []).map(normalizePublicPrefix));
+}
+
 export function findLifecycleRecord(
   relative: string,
   registry: readonly ArtifactLifecycleRecord[] = ARTIFACT_LIFECYCLE_REGISTRY
 ): ArtifactLifecycleRecord | undefined {
   const normalized = normalizePublicPath(relative);
-  return registry.find(record => record.paths.some(candidate => normalizePublicPath(candidate) === normalized));
+  return registry.find(record => record.paths.some(candidate => normalizePublicPath(candidate) === normalized))
+    ?? registry.find(record => record.pathPrefixes?.some(prefix => normalized.startsWith(normalizePublicPrefix(prefix))));
 }
 
 export function isRetiredPublicPath(relative: string, registry: readonly ArtifactLifecycleRecord[] = ARTIFACT_LIFECYCLE_REGISTRY): boolean {
@@ -175,6 +214,19 @@ async function removeRegistered(root: string, relatives: readonly string[]): Pro
     }
   }
   return removed;
+}
+
+/** Files below retired prefixes, as relative paths; symlinked prefix ancestors are refused. */
+async function retiredPrefixFiles(root: string, registry: readonly ArtifactLifecycleRecord[]): Promise<string[]> {
+  const files: string[] = [];
+  for (const prefix of retiredPublicPrefixes(registry)) {
+    // eslint-disable-next-line no-await-in-loop -- deterministic report order
+    const directory = await resolveInsideRoot(root, prefix.slice(0, -1));
+    if (!directory) continue;
+    // eslint-disable-next-line no-await-in-loop -- deterministic report order
+    for (const file of (await filesUnder(directory)).sort()) files.push(path.relative(root, file).split(path.sep).join('/'));
+  }
+  return files;
 }
 
 async function filesUnder(directory: string): Promise<string[]> {
@@ -293,6 +345,7 @@ export async function purgeRetiredArtifacts(
   const root = path.resolve(publicRoot);
   const exclusiveScripts = await findRetiredExclusiveScripts(root, registry);
   const removed = await removeRegistered(root, retiredPublicPaths(registry));
+  removed.push(...await removeRegistered(root, await retiredPrefixFiles(root, registry)));
   removed.push(...await removeRegistered(root, exclusiveScripts));
   return removed;
 }
@@ -314,6 +367,7 @@ export async function assertNoRetiredArtifacts(
       // absent is the expected state
     }
   }
+  present.push(...await retiredPrefixFiles(root, registry));
   if (present.length) throw new Error(`Retired artifacts present in publication: ${present.join(', ')}`);
 }
 
@@ -321,6 +375,7 @@ interface ArtifactLifecycleReportRecord {
   id: string,
   state: ArtifactLifecycleState,
   paths: string[],
+  pathPrefixes?: string[],
   canonicalSources?: string[],
   reason: string,
   evidence: string,
@@ -349,6 +404,7 @@ export function createLifecycleReport(
       id: record.id,
       state: record.state,
       paths: record.paths.map(normalizePublicPath),
+      ...(record.pathPrefixes && record.pathPrefixes.length > 0 && { pathPrefixes: record.pathPrefixes.map(normalizePublicPrefix) }),
       ...(record.canonicalSources && record.canonicalSources.length > 0 && { canonicalSources: [...record.canonicalSources] }),
       reason: record.reason,
       evidence: record.evidence,

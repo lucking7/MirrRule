@@ -68,7 +68,11 @@ describe('Pages Internal inventory gate', () => {
     await writePagesInternalGate(root);
     assert.deepEqual(JSON.parse(await fs.readFile(path.join(root, '_routes.json'), 'utf8')), {
       version: 1,
-      include: ['/Internal/*', ...[...new Set(retiredPublicPaths().map(relative => `/${relative}`))].sort().map(relative => relative.split('/').map(segment => encodeURIComponent(segment)).join('/'))],
+      include: [
+        '/Internal/*',
+        '/Clash/domainset/*', '/List/domainset/*', '/Loon/domainset/*', '/sing-box/domainset/*',
+        ...[...new Set(retiredPublicPaths().map(relative => `/${relative}`))].sort().map(relative => relative.split('/').map(segment => encodeURIComponent(segment)).join('/')),
+      ],
       exclude: [],
     });
     exerciseWorker(root, [
@@ -103,6 +107,9 @@ describe('Pages Internal inventory gate', () => {
       { pathname: '/sing-box/china_asn.json?original=1', status: 404, delegated: false },
       { pathname: '/sing-box/china_asn.json', status: 404, delegated: false, method: 'HEAD' },
       { pathname: '/Modules/Converted/腾讯视频去广告.sgmodule', status: 404, delegated: false },
+      { pathname: '/List/domainset/cdn.list', status: 404, delegated: false },
+      { pathname: '/sing-box/domainset/cdn.json?v=1', status: 404, delegated: false },
+      { pathname: '/List/non_ip/cdn.list', status: 200, delegated: true },
       { pathname: '/List/ai.list', status: 200, delegated: true },
       { pathname: '/sing-box/china_ip.json', status: 200, delegated: true },
     ]);
