@@ -4,22 +4,12 @@ import { withBannerArray } from '../../../lib/misc';
 import { fastIpVersion } from 'foxts/fast-ip-version';
 import { splitLogicalFields } from './logical-fields';
 import { cleanPolicy } from '../../../lib/policy-cleaner';
-import { OUTPUT_CLASH_DIR } from '../../../constants/dir';
 
 export class ClashClassicRuleSet extends BaseWriteStrategy {
   public readonly platform = 'clash' as const;
-  public readonly name: string = 'clash classic ruleset';
-
-  readonly fileExtension = 'txt';
 
   protected result: string[] = [];
 
-  constructor(
-    public readonly type: '' | 'ip' | 'non_ip',
-    public readonly outputDir = OUTPUT_CLASH_DIR
-  ) {
-    super(outputDir);
-  }
 
   withPadding = withBannerArray;
 

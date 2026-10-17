@@ -245,7 +245,6 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
-    deleteSourceFiles: true,
   },
   {
     name: 'CDN',
@@ -258,7 +257,6 @@ export const specialRules: SpecialRuleConfig[] = [
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
     // 上游 ip/cdn 的 IP 规则不带 no-resolve，保持其解析选择。
-    deleteSourceFiles: true,
   },
   {
     name: 'AI',
@@ -275,7 +273,6 @@ export const specialRules: SpecialRuleConfig[] = [
     defaultPolicy: null, // 无策略，纯RULE-SET格式
     targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持
     keepComments: false,
-    deleteSourceFiles: true,
   },
   {
     name: 'Apple',
@@ -335,7 +332,6 @@ export const specialRules: SpecialRuleConfig[] = [
     defaultPolicy: 'REJECT', // 明确指定拒绝策略
     targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持
     keepComments: false,
-    deleteSourceFiles: true,
   },
   {
     name: 'lucking - Reject Extra',
@@ -345,7 +341,6 @@ export const specialRules: SpecialRuleConfig[] = [
     defaultPolicy: 'REJECT',
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
-    deleteSourceFiles: true,
   },
 
   {
@@ -360,7 +355,6 @@ export const specialRules: SpecialRuleConfig[] = [
     applyNoResolve: true,
     // Drop unrecoverable garbage; YAML list markers are stripped earlier.
     validate: true,
-    deleteSourceFiles: false,
   },
   {
     name: 'NeteaseMusic',
@@ -370,7 +364,6 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/ip/neteasemusic.conf',
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
-    deleteSourceFiles: true,
   },
   {
     name: 'Streaming',

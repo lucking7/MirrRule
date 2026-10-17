@@ -1,7 +1,6 @@
 import { appendSetElementsToArray } from 'foxts/append-set-elements-to-array';
 import { BaseWriteStrategy } from './base';
 import { withBannerArray } from '../../../lib/misc';
-import { OUTPUT_LOON_DIR } from '../../../constants/dir';
 import { RuleLineUtils } from '../../../utils/validation/validators';
 
 /**
@@ -9,19 +8,10 @@ import { RuleLineUtils } from '../../../utils/validation/validators';
  */
 export class LoonRuleSet extends BaseWriteStrategy {
   public readonly platform = 'loon' as const;
-  public readonly name = 'loon ruleset';
-
-  readonly fileExtension = 'list' as const;
 
 
   protected result: string[] = [];
 
-  constructor(
-    public readonly type: '' | 'ip' | 'non_ip',
-    public readonly outputDir = OUTPUT_LOON_DIR
-  ) {
-    super(outputDir);
-  }
 
   withPadding = withBannerArray;
 

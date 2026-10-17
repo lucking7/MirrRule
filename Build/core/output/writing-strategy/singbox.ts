@@ -2,7 +2,6 @@ import { BaseWriteStrategy } from './base';
 import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { withIdentityContent } from '../../../lib/misc';
 import stringify from 'json-stringify-pretty-compact';
-import { OUTPUT_SINGBOX_DIR } from '../../../constants/dir';
 import { RuleLineUtils } from '../../../utils/validation/validators';
 
 interface SingboxHeadlessRule {
@@ -15,9 +14,6 @@ interface SingboxHeadlessRule {
 
 export class SingboxSource extends BaseWriteStrategy {
   public readonly platform = 'singbox' as const;
-  public readonly name = 'singbox';
-
-  readonly fileExtension = 'json';
 
   static readonly jsonToLines = (json: unknown): string[] => stringify(json).split('\n');
 
@@ -34,12 +30,6 @@ export class SingboxSource extends BaseWriteStrategy {
     });
   }
 
-  constructor(
-    public type: '' | 'non_ip' | 'ip' /* | (string & {}) */,
-    public readonly outputDir = OUTPUT_SINGBOX_DIR
-  ) {
-    super(outputDir);
-  }
 
   withPadding = withIdentityContent;
 

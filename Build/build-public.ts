@@ -13,21 +13,17 @@ import { priorityOrder, prioritySorter } from './lib/public-index-sort.ts';
 import { escapeHtml } from './utils/escape-html';
 import { purgeRetiredArtifacts, writeLifecycleReport } from './lib/artifact-lifecycle';
 import { writePagesInternalGate } from './lib/pages-internal-gate';
+import { PLATFORM_OUTPUT_LAYOUT, RULE_OUTPUT_VARIANTS } from './lib/rule-output-variants';
 
 const INDEX_CSS = fs.readFileSync(path.join(__dirname, 'assets', 'ruleset-index.css'), 'utf8');
 const HIDDEN_INDEX_FILES = new Set(['cname', 'favicon.ico', 'favicon.svg', 'favicon.png', 'robots.txt']);
 const CLOSED_ROOT_FOLDERS = new Set(['Mock', 'Internal']);
-const NESTED_FOLDER_PRIORITY = new Map([['non_ip', 20], ['ip', 30]]);
-/** Consumer format of split subscription folders, keyed by `<platform root>/<variant>`. */
-const VARIANT_FORMAT_LABELS = new Map([
-  ['List/non_ip', 'Surge RULE-SET'],
-  ['List/ip', 'Surge RULE-SET'],
-  ...['non_ip', 'ip'].flatMap(variant => [
-    [`Clash/${variant}`, 'Clash classical'],
-    [`Loon/${variant}`, 'Loon RULE-SET'],
-    [`sing-box/${variant}`, 'sing-box rule-set JSON v2'],
-  ] as Array<[string, string]>),
-]);
+const NESTED_FOLDER_PRIORITY = new Map<string, number>(RULE_OUTPUT_VARIANTS.map((variant, index) => [variant, (index + 2) * 10]));
+const PLATFORM_FORMAT_LABELS: Readonly<Record<string, string>> = {
+  List: 'Surge RULE-SET', Clash: 'Clash classical', Loon: 'Loon RULE-SET', 'sing-box': 'sing-box rule-set JSON v2',
+};
+/** Consumer format of split subscription folders, keyed by `<platform root>/<variant>`; every variant uses the platform format. */
+const VARIANT_FORMAT_LABELS = new Map<string, string>(Object.values(PLATFORM_OUTPUT_LAYOUT).flatMap(({ directory }) => RULE_OUTPUT_VARIANTS.map(variant => [`${directory}/${variant}`, PLATFORM_FORMAT_LABELS[directory]] as const)));
 
 export function isVisiblePublicFile(name: string): boolean {
   return !name.startsWith('.') && !name.startsWith('_') && !/\.html?$/i.test(name) && !HIDDEN_INDEX_FILES.has(name.toLowerCase());

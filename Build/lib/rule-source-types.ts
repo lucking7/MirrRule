@@ -76,12 +76,11 @@ export interface SpecialRuleConfig extends RuleProcessingOptions {
   sourceFiles: string[],
   /**
    * Publish each source as this variant, in sourceFiles order, instead of classifying the
-   * merged rules by type. Use it when upstream already ships the three files and their
-   * grouping must be kept, for example IP rules that upstream keeps in its non_ip file.
+   * merged rules by type; several sources may share a variant. Use it when upstream grouping
+   * must be kept, for example no-resolve IP rules that upstream keeps in its ip file so they
+   * share that file's policy.
    */
   sourceVariants?: readonly RuleOutputVariant[],
-  /** 合并后是否删除源文件 */
-  deleteSourceFiles?: boolean,
   /** 规则描述 */
   description?: string,
   /** 默认策略组（可设为null表示无策略，null时会移除规则中的策略） */

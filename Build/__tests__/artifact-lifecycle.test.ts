@@ -16,7 +16,6 @@ import {
   findRetiredExclusiveScripts,
   isRetiredPublicPath,
   normalizePublicPath,
-  purgeOrphanedRetiredScripts,
   purgeRetiredArtifacts,
   validateLifecycleRegistry,
   writeLifecycleReport,
@@ -247,7 +246,7 @@ describe('retired artifact cleanup', () => {
 
   it('does not delete scripts once the retired module that proved ownership is gone', async () => {
     await withTree({ 'Scripts/tencent-only.js': 'const tencent = true;' }, async root => {
-      assert.deepEqual(await purgeOrphanedRetiredScripts(root), []);
+      assert.deepEqual(await purgeRetiredArtifacts(root), []);
       assert.equal(await exists(path.join(root, 'Scripts/tencent-only.js')), true);
     });
   });
@@ -255,7 +254,7 @@ describe('retired artifact cleanup', () => {
   it('keeps deprecated subscriptions published and reports replacement without redirecting', async () => {
     const registry: ArtifactLifecycleRecord[] = [
       ...ARTIFACT_LIFECYCLE_REGISTRY,
-      { id: 'ruleset:legacy', state: 'deprecated', paths: ['List/legacy.list'], reason: 'Split into variants', evidence: 'test', replacement: 'List/domainset/legacy.list' },
+      { id: 'ruleset:legacy', state: 'deprecated', paths: ['List/legacy.list'], reason: 'Split into variants', evidence: 'test', replacement: 'List/non_ip/legacy.list' },
     ];
     await withTree({ 'List/legacy.list': 'DOMAIN,legacy.test', 'List/container.list': 'DOMAIN,old.test' }, async root => {
       const removed = await purgeRetiredArtifacts(root, registry);
@@ -270,7 +269,7 @@ describe('retired artifact cleanup', () => {
       assert.equal(report.automaticRedirects, false);
       assert.deepEqual(report.removed, ['List/container.list']);
       assert.deepEqual(report.records.find((record: { id: string }) => record.id === 'ruleset:legacy'), {
-        id: 'ruleset:legacy', state: 'deprecated', paths: ['List/legacy.list'], reason: 'Split into variants', evidence: 'test', replacement: 'List/domainset/legacy.list',
+        id: 'ruleset:legacy', state: 'deprecated', paths: ['List/legacy.list'], reason: 'Split into variants', evidence: 'test', replacement: 'List/non_ip/legacy.list',
       });
       const asn = report.records.find((record: { id: string }) => record.id === 'ruleset:china_asn:sing-box');
       assert.match(asn?.replacement ?? '', /sing-box\/china_ip\.json/);
@@ -278,7 +277,7 @@ describe('retired artifact cleanup', () => {
       assert.ok(tencent);
       assert.deepEqual(tencent.canonicalSources, [TENCENT_SOURCE]);
       assert.equal('replacement' in tencent, false);
-      assert.equal(await exists(path.join(root, 'List/domainset/legacy.list')), false);
+      assert.equal(await exists(path.join(root, 'List/non_ip/legacy.list')), false);
     });
   });
 });

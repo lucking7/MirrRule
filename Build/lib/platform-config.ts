@@ -2,14 +2,11 @@
  * 平台矩阵配置 - 可开关的多平台支持
  */
 
-import path from 'node:path';
 import { SurgeRuleSet } from '../core/output/writing-strategy/surge';
 import { ClashClassicRuleSet } from '../core/output/writing-strategy/clash';
 import { SingboxSource } from '../core/output/writing-strategy/singbox';
 import { LoonRuleSet } from '../core/output/writing-strategy/loon';
 import type { BaseWriteStrategy } from '../core/output/writing-strategy/base';
-import { PLATFORM_OUTPUT_LAYOUT } from './rule-output-variants';
-import type { RuleOutputVariant } from './rule-output-variants';
 
 export type SupportedPlatform = 'surge' | 'clash' | 'singbox' | 'loon';
 
@@ -34,58 +31,17 @@ export function normalizeTargets(
   return rawTargets as SupportedPlatform[];
 }
 
-export function createStrategiesForTargets(
-  targets: SupportedPlatform[],
-  outputBaseDir = 'public'
-): BaseWriteStrategy[] {
-  const strategies: BaseWriteStrategy[] = [];
-
-  // 使用静态导入避免动态加载问题
-  for (const target of targets) {
-    const platformDir = PLATFORM_OUTPUT_LAYOUT[target].directory;
-    const fullOutputDir = path.join(outputBaseDir, platformDir);
-
-    switch (target) {
-      case 'surge':
-
-        strategies.push(new SurgeRuleSet('', fullOutputDir));
-        break;
-      case 'clash':
-
-        strategies.push(new ClashClassicRuleSet('', fullOutputDir));
-        break;
-      case 'singbox':
-
-        strategies.push(new SingboxSource('', fullOutputDir));
-        break;
-      case 'loon':
-
-        strategies.push(new LoonRuleSet('', fullOutputDir));
-        break;
-      default:
-        throw new Error(`Unknown platform target: ${String(target)}`);
-    }
-  }
-
-  return strategies;
-}
-
-/** Create the writer for one variant; its `type` places output under `<PlatformDir>/<variant>/`. */
-export function createVariantStrategy(
-  target: SupportedPlatform,
-  variant: RuleOutputVariant,
-  outputBaseDir = 'public'
-): BaseWriteStrategy {
-  const fullOutputDir = path.join(outputBaseDir, PLATFORM_OUTPUT_LAYOUT[target].directory);
+/** Create one platform writer; output paths come from `resolveRuleOutputTarget`. */
+export function createWriter(target: SupportedPlatform): BaseWriteStrategy {
   switch (target) {
     case 'surge':
-      return new SurgeRuleSet(variant, fullOutputDir);
+      return new SurgeRuleSet();
     case 'clash':
-      return new ClashClassicRuleSet(variant, fullOutputDir);
+      return new ClashClassicRuleSet();
     case 'singbox':
-      return new SingboxSource(variant, fullOutputDir);
+      return new SingboxSource();
     case 'loon':
-      return new LoonRuleSet(variant, fullOutputDir);
+      return new LoonRuleSet();
     default:
       throw new Error(`Unknown platform target: ${target as string}`);
   }

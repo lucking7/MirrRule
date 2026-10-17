@@ -203,7 +203,6 @@ eslint.config.js                   ESLint 配置
 - `sourcePolicies`：可选的上游策略白名单，在移除策略前按第三个逗号字段匹配（忽略大小写）。用于从混合 QX 规则源中提取 `direct` 或 `reject`，不把上游 `proxy` 例外误转为直连。筛选后为空会终止该订阅发布，除非显式设置 `allowEmpty: true`。
 - `excludedRuleTypes`：可选的规则类型排除列表，忽略大小写；在转换后筛选，包含被排除类型的复合规则整体丢弃，避免删减子条件扩大匹配。筛选后为空同样受 `allowEmpty` 发布边界约束。
 - `sourceVariants`：仅 `specialRules`。按 `sourceFiles` 的顺序给每个来源指定一个分版（`non_ip`／`ip`），该来源整体发布为这个分版，多个来源可以指定同一分版，不再按规则类型分类；合并版不受影响。数量必须与 `sourceFiles` 一致。当前只有 `reject` 使用。
-- `deleteSourceFiles`：特殊规则完成后，按来源 URL 的 basename 尝试删除输出根目录中的同名文件。当前下载器只把来源保存在内存中，不会自行创建这些根目录文件；外部预置的同名文件仍可能被删除。
 
 规则输出始终按 `EnhancedFileOutput` 的 Trie/Set 与平台 writer 处理去重和顺序，规则源配置没有单独的 `dedup` 或 `sort` 开关。
 
@@ -242,7 +241,7 @@ loon    -> public/Loon
 flat 合并版 URL 保持不变；分版是追加输出，契约在 `Build/lib/rule-output-variants.ts`：
 
 - 路径：`<平台目录>/<variant>/<id>.<扩展名>`，平台目录与扩展名同上表（`List/.list`、`Clash/.txt`、`Loon/.list`、`sing-box/.json`），`id` 为配置路径 basename 的小写形式。
-- 两类互斥，同一平台两者并集等于合并版：`non_ip` 为不触发 DNS 解析的条件，包括全部域名规则、SRC-IP 等源地址条件和带 `no-resolve` 的目标 IP 规则（比 Sukka 按来源文件的目录划分更严格：Sukka 的 `ip/stream`、`ip/telegram` 等也放带 `no-resolve` 的规则，只有 `non_ip/reject`、`non_ip/apple_services` 等少数 `non_ip` 文件带这类规则；Sukka 来源是否带 `no-resolve` 跟随上游）；sing-box 不能表达 `no-resolve`，且 rule-set 中的 `ip_cidr` 会在 DNS 规则里充当地址过滤，所以 sing-box 的目标 IP 规则全部归入 `ip`；`ip` 为不带 `no-resolve` 的 IP-CIDR／IP-CIDR6／IP-ASN／GEOIP 及含目标 IP 子条件的完整 logical 规则。logical 规则不拆分子条件。2026-10-17 起 `domainset` 分版并入 `non_ip`，旧 `<平台目录>/domainset/` 地址返回 404；`publication-outputs.ts` 仍检查该目录，残留文件会使 stage 失败。
+- 两类互斥，同一平台两者并集等于合并版：`non_ip` 为不触发 DNS 解析的条件，包括全部域名规则、SRC-IP 等源地址条件和带 `no-resolve` 的目标 IP 规则（比 Sukka 按来源文件的目录划分更严格：Sukka 的 `ip/stream`、`ip/telegram` 等也放带 `no-resolve` 的规则，只有 `non_ip/reject`、`non_ip/apple_services` 等少数 `non_ip` 文件带这类规则；Sukka 来源是否带 `no-resolve` 跟随上游）；sing-box 不能表达 `no-resolve`，且 rule-set 中的 `ip_cidr` 会在 DNS 规则里充当地址过滤，所以 sing-box 的目标 IP 规则全部归入 `ip`；`ip` 为不带 `no-resolve` 的 IP-CIDR／IP-CIDR6／IP-ASN／GEOIP 及含目标 IP 子条件的完整 logical 规则。logical 规则不拆分子条件。2026-10-17 起 `domainset` 分版并入 `non_ip`，旧 `<平台目录>/domainset/` 由 `variant:domainset` 退休前缀覆盖，残留文件会在 stage 时清除并记入 `retiredRemoved`。
 - 按来源分版的例外：规则集设置 `sourceVariants` 时，每个分版是指定给它的上游文件经同样清洗后的内容，不按上面的类型分类，也不跨分版去重。此时 `ip` 可以包含上游放在该文件中、带 `no-resolve` 的 IP 规则，两者并集仍等于合并版的匹配范围，但条数之和可以大于合并版。
 - Surge 的 extended-matching 例外：规则集含 `extended-matching` 时，含域名子条件的目标 IP logical 规则留在 Surge `non_ip` 以保留文件级标志，审计记为 `reroutedFromIp`。其他平台仍归入 `ip`。
 - 转换损失记录在 `outputs[].losses`（`droppedValues`、`ignoredModifiers`）：sing-box 不能表达 `no-resolve`，Surge 以外忽略 `extended-matching`，Clash 丢弃 TCP/UDP 以外的 `PROTOCOL` 值。不要把这些损失写成"保留"。

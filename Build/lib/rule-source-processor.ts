@@ -20,8 +20,6 @@ import { rulesetIdFromConfigPath } from './rule-output-variants';
 import type { RuleOutputVariant } from './rule-output-variants';
 import { observeSourceDownloads, sha256Hex, toPublicSourceUrl } from './output-audit';
 import type { RulesetAuditRecord, RulesetOutputAudit, SourceProvenance } from './output-audit';
-import path from 'node:path';
-import fs from 'node:fs';
 
 export interface RulesetSummary {
   id: string;
@@ -391,19 +389,6 @@ export class RuleSourceProcessor {
           stats.rulesMerged += allRules.length;
           stats.rulesets.push(summary);
           stats.audits.push(audit);
-
-          if (ruleConfig.deleteSourceFiles) {
-            for (const sourceUrl of ruleConfig.sourceFiles) {
-              try {
-                const sourcePath = path.join(this.outputDir, path.basename(sourceUrl));
-                if (fs.existsSync(sourcePath)) {
-                  fs.unlinkSync(sourcePath);
-                }
-              } catch {
-                // Ignore delete failures
-              }
-            }
-          }
         });
       } catch (error) {
         RuleSourceProcessor.recordError(stats, ruleConfig.targetFile, error);

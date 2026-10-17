@@ -51,7 +51,7 @@ describe('platform rule semantics', () => {
   });
 
   it('recursively adapts logical child types, ports and source IP predicates', () => {
-    const writer = new ClashClassicRuleSet('');
+    const writer = new ClashClassicRuleSet();
     writer.writeOtherRules([
       'AND,((PROTOCOL,UDP),(OR,((DEST-PORT,443),(NOT,((SRC-IP,2001:db8::1)))))),Proxy',
     ]);
@@ -74,7 +74,7 @@ describe('platform rule semantics', () => {
   });
 
   it('rejects entire AND, OR and NOT trees when any descendant is unsupported or malformed', () => {
-    const writer = new ClashClassicRuleSet('');
+    const writer = new ClashClassicRuleSet();
     writer.writeOtherRules([
       'AND,((DOMAIN,example.com),(OR,((DOMAIN,test.com),(URL-REGEX,"a,b"))))',
       'OR,((DOMAIN,example.com),(USER-AGENT,test))',

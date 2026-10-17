@@ -1,6 +1,4 @@
 import { splitLogicalFields } from './logical-fields';
-import type { Span } from '../../../trace';
-import { compareAndWriteFile } from '../../../lib/create-file';
 import { smartConvertRule } from '../../../lib/misc';
 import { cleanPolicy } from '../../../lib/policy-cleaner';
 import type { CanonicalRuleType, RulePlatform } from '../rule-support-matrix';
@@ -27,7 +25,6 @@ export interface RuleConversionLosses {
  */
 export abstract class BaseWriteStrategy {
   public abstract readonly platform: RulePlatform;
-  public abstract readonly name: string;
 
   /**
    * Normalize Surge rule format - standardize comma-separated format
@@ -53,17 +50,6 @@ export abstract class BaseWriteStrategy {
       result.push(`${ruleType},${cidrs[i]}${noResolve ? ',no-resolve' : ''}`);
     }
   }
-
-  public abstract readonly type: 'non_ip' | 'ip' | (string & {});
-
-  abstract readonly fileExtension:
-    | 'conf'
-    | 'txt'
-    | 'json'
-    | 'sgmodule'
-    | 'list'; /* | (string & {}) */
-
-  constructor(public readonly outputDir: string) {}
 
   private readonly dropSummary: RuleDropSummary = { unsupported: {}, malformed: 0, unknown: {} };
   private readonly losses: RuleConversionLosses = { droppedValues: {}, ignoredModifiers: {} };
@@ -232,23 +218,6 @@ export abstract class BaseWriteStrategy {
     result += '$';
     return result;
   };
-
-  public output(
-    span: Span,
-    title: string,
-    description: string[] | readonly string[],
-    date: Date,
-    filePath: string
-  ): Promise<void> {
-    this.validateForPublication();
-    for (const message of this.getRuleDropMessages()) console.warn(message);
-
-    return compareAndWriteFile(
-      span,
-      this.render(title, description, date),
-      filePath
-    );
-  }
 
   /** Final file lines, including the platform banner, without writing them. */
   public render(title: string, description: string[] | readonly string[], date: Date): string[] {

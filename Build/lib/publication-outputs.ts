@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { normalizePublicPath } from './artifact-lifecycle';
 import { comparePaths, hashFile } from './publication-manifest';
+import { PLATFORM_OUTPUT_LAYOUT, RULE_OUTPUT_VARIANTS } from './rule-output-variants';
 
 export const RULE_OUTPUT_AUDIT_FILE = 'Internal/rule-output-audit.json';
 export const SOURCE_DELTA_FILE = 'Internal/source-delta.json';
@@ -16,9 +17,7 @@ const CANDIDATE_REPORTS = [RULE_OUTPUT_AUDIT_FILE, SOURCE_DELTA_FILE, RULE_COVER
 export const PUBLICATION_REPORTS = [...CANDIDATE_REPORTS, LIFECYCLE_REPORT_FILE] as const;
 
 const OUTPUT_STATUSES = new Set(['published', 'absent-empty', 'absent-unsupported']);
-const RULE_OUTPUT_ROOTS = new Set(['List', 'Clash', 'Loon', 'sing-box']);
-// domainset was merged into non_ip on 2026-10-17; a leftover file there is still an unaudited variant.
-const VARIANT_DIRS = ['domainset', 'non_ip', 'ip'] as const;
+const RULE_OUTPUT_ROOTS = new Set<string>(Object.values(PLATFORM_OUTPUT_LAYOUT).map(layout => layout.directory));
 
 export interface AuditOutput {
   path: string,
@@ -176,7 +175,7 @@ export async function findOutputMismatches(root: string, outputs: readonly Audit
   }
   const audited = new Set(outputs.map(output => output.path));
   for (const platform of RULE_OUTPUT_ROOTS) {
-    for (const variant of VARIANT_DIRS) {
+    for (const variant of RULE_OUTPUT_VARIANTS) {
       // eslint-disable-next-line no-await-in-loop -- twelve small directory reads
       const names = await fs.readdir(path.join(root, platform, variant)).catch((error: NodeJS.ErrnoException) => {
         if (error.code === 'ENOENT') return [] as string[];

@@ -7,12 +7,6 @@ export const CACHE_DIR = path.resolve(ROOT_DIR, '.cache');
 
 export const PUBLIC_DIR = process.env.PUBLIC_DIR || path.resolve(ROOT_DIR, 'public');
 
-// Surge 输出目录改为 public/List/
-export const OUTPUT_SURGE_DIR = path.join(PUBLIC_DIR, 'List');
-export const OUTPUT_CLASH_DIR = path.resolve(PUBLIC_DIR, 'Clash');
-export const OUTPUT_SINGBOX_DIR = path.resolve(PUBLIC_DIR, 'sing-box');
-export const OUTPUT_LOON_DIR = path.resolve(PUBLIC_DIR, 'Loon');
-
 // Sukka 镜像目录 - 统一放在 Mirror/Sukka 下
 export const OUTPUT_SUKKA_MIRROR_DIR = path.resolve(PUBLIC_DIR, 'Mirror', 'Sukka');
 export const OUTPUT_MOCK_DIR = path.resolve(OUTPUT_SUKKA_MIRROR_DIR, 'mock');
