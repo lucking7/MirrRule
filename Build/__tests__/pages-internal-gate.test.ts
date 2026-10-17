@@ -34,13 +34,18 @@ for (const check of ${JSON.stringify(checks)}) {
   assert.equal(calls, check.delegated ? 1 : 0, check.pathname);
   if (check.delegated) {
     assert.equal(response.headers.get('x-asset'), 'preserved');
-    assert.equal(response.headers.get('content-type'), 'application/gzip');
     assert.equal(await response.text(), check.method === 'HEAD' ? '' : 'current asset');
     if (check.pathname.startsWith('/Internal/')) {
+      assert.equal(response.headers.get('content-type'), 'application/gzip');
       assert.equal(response.headers.get('cache-control'), 'public, max-age=0, must-revalidate');
       assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
       assert.equal(response.headers.get('x-robots-tag'), 'noindex');
+    } else if (/^\/(?:List|Clash|Loon|sing-box)\/ip\//.test(check.pathname)) {
+      assert.equal(response.headers.get('cache-control'), 'public, max-age=0, must-revalidate');
+      assert.equal(response.headers.get('content-type'), 'text/plain; charset=utf-8');
+      assert.equal(response.headers.get('x-robots-tag'), 'noindex');
     } else {
+      assert.equal(response.headers.get('content-type'), 'application/gzip');
       assert.equal(response.headers.get('cache-control'), 'public, max-age=240');
     }
   } else {
@@ -65,16 +70,24 @@ describe('Pages Internal inventory gate', () => {
     await fs.writeFile(path.join(root, 'Internal/audit.json'), 'audit');
     await fs.mkdir(path.join(root, 'Internal/nested'));
     await fs.writeFile(path.join(root, 'Internal/nested/report.json'), 'nested');
+    await fs.mkdir(path.join(root, 'List/ip'), { recursive: true });
+    await fs.writeFile(path.join(root, 'List/ip/cdn.list'), 'IP-CIDR,185.199.108.0/22');
     await writePagesInternalGate(root);
-    assert.deepEqual(JSON.parse(await fs.readFile(path.join(root, '_routes.json'), 'utf8')), {
+    const routes = JSON.parse(await fs.readFile(path.join(root, '_routes.json'), 'utf8')) as { version: number, include: string[], exclude: string[] };
+    const routed = ['/Clash/ip/', '/List/ip/', '/Loon/ip/', '/sing-box/ip/', '/Clash/domainset/', '/List/domainset/', '/Loon/domainset/', '/sing-box/domainset/'];
+    assert.deepEqual(routes, {
       version: 1,
       include: [
         '/Internal/*',
-        '/Clash/domainset/*', '/List/domainset/*', '/Loon/domainset/*', '/sing-box/domainset/*',
-        ...[...new Set(retiredPublicPaths().map(relative => `/${relative}`))].sort().map(relative => relative.split('/').map(segment => encodeURIComponent(segment)).join('/')),
+        ...routed.map(prefix => `${prefix}*`),
+        ...[...new Set(retiredPublicPaths().map(relative => `/${relative}`))].sort().flatMap(relative => (
+          routed.some(prefix => relative.startsWith(prefix)) ? [] : [relative.split('/').map(segment => encodeURIComponent(segment)).join('/')]
+        )),
       ],
       exclude: [],
     });
+    // Retired exact paths in a routed directory, such as List/ip/discord.list, need no own route.
+    assert.equal(routes.include.includes('/List/ip/discord.list'), false);
     exerciseWorker(root, [
       { pathname: '/Internal/source-snapshots/current.json.gz', status: 200, delegated: true },
       { pathname: '/Internal/source-snapshots/current.json.gz?query=1', status: 200, delegated: true },
@@ -90,6 +103,13 @@ describe('Pages Internal inventory gate', () => {
       { pathname: '/Internal/nested/report.json', status: 200, delegated: true },
       { pathname: '/Internal/preserved-artifacts.json', status: 404, delegated: false },
       { pathname: '/List/ai.list', status: 200, delegated: true },
+      { pathname: '/List/ip/cdn.list', status: 200, delegated: true },
+      { pathname: '/List/ip/cdn.list', status: 200, delegated: true, method: 'HEAD' },
+      // A deleted ip variant is answered before the edge cache can serve its stale copy.
+      { pathname: '/List/ip/netflix.list', status: 404, delegated: false },
+      { pathname: '/Clash/ip/cdn.txt', status: 404, delegated: false },
+      { pathname: '/List/ip/discord.list', status: 404, delegated: false },
+      { pathname: '/List/non_ip/cdn.list', status: 200, delegated: true },
     ]);
   });
 

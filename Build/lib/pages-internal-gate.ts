@@ -3,31 +3,53 @@ import path from 'node:path';
 import { writeFileAtomic } from './atomic-file';
 import { listTreeFiles } from './publication-manifest';
 import { retiredPublicPaths, retiredPublicPrefixes } from './artifact-lifecycle';
+import { PLATFORM_OUTPUT_LAYOUT } from './rule-output-variants';
 
 const INTERNAL_PREFIX = '/Internal/';
+/**
+ * ip variants come and go with upstream no-resolve choices, and the edge cache keeps serving a
+ * deleted file. The worker serves only the ip files of this tree and answers 404 for the rest.
+ */
+const GATED_VARIANT_PREFIXES = Object.values(PLATFORM_OUTPUT_LAYOUT).map(layout => `/${layout.directory}/ip/`).sort();
 
-async function internalPaths(publicDir: string): Promise<string[]> {
-  const directory = path.join(publicDir, 'Internal');
+function encodePublicPath(relative: string): string {
+  return relative.split('/').map(segment => encodeURIComponent(segment)).join('/');
+}
+
+/** Files below `<publicDir><prefix>` as public paths; a missing directory has none. */
+async function treePaths(publicDir: string, prefix: string): Promise<string[]> {
+  const directory = path.join(publicDir, ...prefix.split('/').filter(Boolean));
   try {
     const stat = await fs.lstat(directory);
-    if (!stat.isDirectory()) throw new Error(`Internal inventory is not a regular directory: ${directory}`);
+    if (!stat.isDirectory()) throw new Error(`Gated directory is not a regular directory: ${directory}`);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
     throw error;
   }
-  return (await listTreeFiles(directory)).map(relative => INTERNAL_PREFIX + relative);
+  return (await listTreeFiles(directory)).map(relative => prefix + relative);
 }
 
-/** Gate Internal inventory and registered retired URLs and directories before the static asset cache. */
+/**
+ * Gate Internal inventory, ip variants, and registered retired URLs and directories before the
+ * static asset cache.
+ */
 export async function writePagesInternalGate(publicDir: string): Promise<void> {
-  const paths = await internalPaths(publicDir);
+  const paths = await treePaths(publicDir, INTERNAL_PREFIX);
+  const published = (await Promise.all(GATED_VARIANT_PREFIXES.map(prefix => treePaths(publicDir, prefix)))).flat();
   const retired = [...new Set(retiredPublicPaths().map(relative => `/${relative}`))].sort();
   const retiredPrefixes = [...new Set(retiredPublicPrefixes().map(relative => `/${relative}`))].sort();
-  const encode = (relative: string) => relative.split('/').map(segment => encodeURIComponent(segment)).join('/');
-  const include = [INTERNAL_PREFIX + '*', ...retiredPrefixes.map(prefix => encode(prefix) + '*'), ...retired.map(encode)];
+  // Exact retired paths inside a routed directory need no route of their own.
+  const routedPrefixes = [...GATED_VARIANT_PREFIXES, ...retiredPrefixes];
+  const include = [
+    INTERNAL_PREFIX + '*',
+    ...routedPrefixes.map(prefix => encodePublicPath(prefix) + '*'),
+    ...retired.flatMap(relative => (routedPrefixes.some(prefix => relative.startsWith(prefix)) ? [] : [encodePublicPath(relative)])),
+  ];
   if (include.length > 100) throw new Error(`Pages gate requires ${include.length} routes; the limit is 100`);
   const worker = String.raw`const prefix = ${JSON.stringify(INTERNAL_PREFIX)};
 const active = new Set(${JSON.stringify(paths)});
+const gatedPrefixes = ${JSON.stringify(GATED_VARIANT_PREFIXES)};
+const published = new Set(${JSON.stringify(published)});
 const retired = new Set(${JSON.stringify(retired)});
 const retiredPrefixes = ${JSON.stringify(retiredPrefixes)};
 export default {
@@ -36,7 +58,17 @@ export default {
     let decoded;
     try { decoded = decodeURIComponent(pathname); } catch { decoded = null; }
     const isRetired = retired.has(decoded) || (decoded !== null && retiredPrefixes.some(retiredPrefix => decoded.startsWith(retiredPrefix)));
-    if (!pathname.startsWith(prefix) && !isRetired) return env.ASSETS.fetch(request);
+    const isGated = gatedPrefixes.some(gatedPrefix => pathname.startsWith(gatedPrefix));
+    if (!pathname.startsWith(prefix) && !isGated && !isRetired) return env.ASSETS.fetch(request);
+    if (!isRetired && isGated && published.has(decoded)) {
+      const asset = await env.ASSETS.fetch(request);
+      const response = new Response(asset.body, asset);
+      // _headers rules do not apply to worker responses; repeat the ruleset directory headers.
+      response.headers.set('cache-control', 'public, max-age=0, must-revalidate');
+      response.headers.set('content-type', 'text/plain; charset=utf-8');
+      response.headers.set('x-robots-tag', 'noindex');
+      return response;
+    }
     if (!isRetired && active.has(decoded)) {
       const asset = await env.ASSETS.fetch(request);
       const response = new Response(asset.body, asset);

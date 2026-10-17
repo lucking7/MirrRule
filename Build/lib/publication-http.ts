@@ -1,4 +1,5 @@
 import { sha256Hex } from './publication-manifest';
+import { isRetiredPublicPath } from './artifact-lifecycle';
 import type { Clock } from './publication-check';
 import { systemClock } from './publication-check';
 
@@ -98,7 +99,8 @@ export interface ExpectedFile {
   sha256: string
 }
 
-type OriginFailureReason = 'network' | 'status' | 'content' | 'header' | 'retired-present' | 'deadline';
+/** `retired-present`: a lifecycle-retired path answered; `absent-present`: an audit-absent or removed path answered. */
+type OriginFailureReason = 'network' | 'status' | 'content' | 'header' | 'retired-present' | 'absent-present' | 'deadline';
 
 export interface OriginFailure {
   key: string,
@@ -163,7 +165,9 @@ function buildChecks(input: OriginCheckInput): OriginCheck[] {
       key,
       path: relative,
       url,
-      run: guarded(key, relative, url, result => (result.status === 404 ? null : failure(key, relative, url, 'retired-present', `HTTP ${result.status}, expected 404`))),
+      run: guarded(key, relative, url, result => (result.status === 404
+        ? null
+        : failure(key, relative, url, isRetiredPublicPath(relative) ? 'retired-present' : 'absent-present', `HTTP ${result.status}, expected 404`))),
     });
   }
   for (const probe of probes) {
