@@ -104,6 +104,7 @@ Build/
   merge-modules.ts                 模块合并 CLI
   validate-domain-alive.ts         上游域名可用性检查
   audit-rule-coverage.ts           跨订阅覆盖审查 CLI（解析 RULE-SET／DOMAIN-SET 与分版引用）
+  check-profile-variants.ts        对照输出审计检查 Surge 配置：已发布但未加载的分版（如新出现的 ip）、已加载但不再发布的分版
   prepare-publication.ts           组装完整发布候选、核对保留目录与退休登记、生成 publication manifest
   verify-publication.ts            核对 NRRule commit 的 Cloudflare check、immutable URL 与正式域名内容
   __tests__/                       Node test 测试
