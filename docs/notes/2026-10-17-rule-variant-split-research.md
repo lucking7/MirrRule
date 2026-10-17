@@ -16,6 +16,7 @@
 | PR #430 | `domainset` 分版并入 `non_ip`，只发布 `non_ip` 和 `ip` |
 | PR #431 | 退休登记支持目录前缀 `pathPrefixes`，用 `variant:domainset` 让四个平台的 `domainset/` 目录经 `_worker.js` 返回 404 |
 | PR #432、#433 及后续 | `_worker.js` 接管四个平台的 `ip/` 与 `non_ip/` 目录，只放行本次 tree 中的文件；验收报告把不在退休登记里的失败标为 `absent-present`；sing-box 的目标 IP 规则全部归入 `ip` |
+| 2026-10-18 分支 `fix/netflix-excluded-rules-20261018` | 新增 `excludedRules`，去掉 Netflix 的 `us-west-2.amazonaws.com`、`cookielaw.org`、`onetrust.com` 和 Disney 的 `execute-api.us-east-1.amazonaws.com`、`braze.com`；撤销 PR #429，带 `no-resolve` 的目标 IP 规则回到 `ip`，四个平台统一采用 Sukka 布局 |
 
 ## 上游调研要点
 
@@ -26,7 +27,8 @@
   - `ip/telegram`、`ip/stream`、`ip/domestic`、`ip/teleproto` 全部带 `no-resolve`。
   - `non_ip/reject` 含 47 条、`non_ip/apple_services` 含 1 条带 `no-resolve` 的 IP 规则。
   - `ip/reject` 有 722 条不带 `no-resolve` 的 IP-CIDR。
-- 所以 NRRule 把带 `no-resolve` 的 IP 规则放进 `non_ip`，比 Sukka 的目录划分更严格，与 Sukka 并不完全相同。`AGENTS.md` 与 README 原先写的"与 Sukka 的 non_ip 文件一致"已改为这一说法。
+- PR #429 曾把带 `no-resolve` 的 IP 规则放进 `non_ip`，按"是否触发解析"划分比 Sukka 更严格。2026-10-18 按用户决定撤销：所有目标 IP 规则都进 `ip`，与 Sukka 的 `ip/` 文件一致。`reject` 用 `sourceVariants` 按上游文件发布，所以 `non_ip/reject` 仍保留上游放在那里的 47 条 `no-resolve` IP 规则，也与 Sukka 一致。
+- 2026-10-18 逐条核对：Sukka 来源的规则集（telegram、cdn、domestic、reject、download、stream、lan、neteasemusic、china_ip、apple_services_ip）在 NRRule 合并版中，带与不带 `no-resolve` 的 IP 规则数量都和上游一致。`ai` 多 3 条带 `no-resolve` 的规则，来自额外合并的 ConnersHua 和 dler 来源。
 - 每个文件都带一行防抄袭标记 `DOMAIN,7h15.ru1353t.1s.m4d3.by.5ukk4w.skk.moe`，已由 `Build/utils/validation/validators.ts` 过滤。
 - Sukka 建议 Telegram 只用官方 CIDR，ASN 规则只作补充。NRRule 的 `telegram` 合并了 `ip/telegram_asn`，因此 `ip/telegram` 只剩 5 条不带 `no-resolve` 的 IP-ASN。
 
@@ -46,6 +48,6 @@
 ## 未解决的问题
 
 1. **已删除的 `ip/` 分版文件在正式域名上仍返回 200（已处理）。** PR #429 之后，很多规则集不再生成 `ip` 分版，但 `https://nrrule.pages.dev` 仍从 Cloudflare 边缘缓存返回旧文件（`cf-cache-status: HIT`），定时构建 39029739278 因此以 `production-lagging` 失败，共 78 个 URL。逐条登记会超过 `_routes.json` 的 100 条上限，所以改为由 `_worker.js` 接管 `/<平台目录>/ip/*` 和 `/<平台目录>/non_ip/*` 八条路由，只放行本次 tree 中存在的文件。最初只接管了 `ip/`，随后 sing-box 的 `non_ip/apple_services_ip.json` 在规则集只剩 IP 后消失，同样因缓存导致 run 39049320715 验收失败，于是一并接管。代价是分版的每个请求都计入 Functions 调用次数；生产环境 `fail_open: false`，额度用完时分版订阅会下载失败。
-2. **旧订阅不兼容。** 订阅了 `domainset/` 或已为空的 `ip/` 地址的用户会得到 404。Surge 会报规则集下载失败，Clash 可能报错。如果要照顾旧用户，可以考虑在 README 写明迁移方法。
+2. **旧订阅不兼容。** 订阅了 `domainset/` 地址的用户会得到 404。撤销 PR #429 后，只含 `no-resolve` IP 的规则集（如 netflix、telegram、stream）重新发布 `ip/` 文件，`non_ip/` 中不再有这些 IP 规则；只订阅 `non_ip` 的用户需要补上 `ip`。Surge 会报规则集下载失败，Clash 可能报错。如果要照顾旧用户，可以考虑在 README 写明迁移方法。
 3. **Mihomo 性能。** Sukka README 指出 Mihomo 只对 `behavior: domain` 和 `behavior: ipcidr` 的规则集做了匹配优化，`classical` 没有。NRRule 的 Clash 分版全部是 classical，并入前的 Clash `domainset` 也是 classical，所以合并没有让 Mihomo 用户损失性能。如果以后要为 Mihomo 提供优化格式，应另外发布 `behavior: domain` 的纯域名文件和 `behavior: ipcidr` 的纯 CIDR 文件。
-4. **blackmatrix7 过宽条目。** 可以考虑为 `serviceRules` 增加排除列表，或改用 Sukka 已有的对应规则集（Sukka 的 `stream_us` 等按地区分组，不按单个服务分组）。修改前需要确认对现有订阅者的影响。
+4. **blackmatrix7 过宽条目（部分处理）。** `excludedRules` 已去掉 Netflix 和 Disney 中最宽的条目。Disney 还有 `cdn.optimizely.com`、`js-agent.newrelic.com`、`disney.my.sentry.io` 等第三方子域，范围较窄，暂未排除。其他服务新增过宽条目时，在 `serviceRules` 的 `excluded` 中追加。

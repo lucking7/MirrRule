@@ -57,15 +57,6 @@ interface PlatformOutputs {
   reroutedFromIp: number;
 }
 
-/**
- * A no-resolve IP rule never triggers a DNS lookup, so it can sit among domain rules in non_ip.
- * sing-box cannot express no-resolve: its ip_cidr in a rule-set also filters DNS rule answers,
- * so sing-box keeps every destination IP rule in ip.
- */
-function noResolveIpVariant(outputs: PlatformOutputs): RuleOutputVariant {
-  return outputs.platform === 'singbox' ? 'ip' : 'non_ip';
-}
-
 /** `TYPE,value` key for excludedRules, or null for logical and malformed rules. */
 function ruleExclusionKey(rule: string): string | null {
   const [rawType, rawValue] = rule.split(',', 2);
@@ -748,17 +739,17 @@ export class EnhancedFileOutput {
     // no-resolve
     if (ipcidrNoResolve) {
       const values = ipcidrNoResolve;
-      this.route(noResolveIpVariant, values.length, strategy => strategy.writeIpCidrs(values, true));
+      this.route('ip', values.length, strategy => strategy.writeIpCidrs(values, true));
     }
     if (ipcidr6NoResolve) {
       const values = ipcidr6NoResolve;
-      this.route(noResolveIpVariant, values.length, strategy => strategy.writeIpCidr6s(values, true));
+      this.route('ip', values.length, strategy => strategy.writeIpCidr6s(values, true));
     }
     if (this.ipasnNoResolve.size) {
-      this.route(noResolveIpVariant, this.ipasnNoResolve.size, strategy => strategy.writeIpAsns(this.ipasnNoResolve, true));
+      this.route('ip', this.ipasnNoResolve.size, strategy => strategy.writeIpAsns(this.ipasnNoResolve, true));
     }
     if (this.groipNoResolve.size) {
-      this.route(noResolveIpVariant, this.groipNoResolve.size, strategy => strategy.writeGeoip(this.groipNoResolve, true));
+      this.route('ip', this.groipNoResolve.size, strategy => strategy.writeGeoip(this.groipNoResolve, true));
     }
 
     // triggers DNS resolution

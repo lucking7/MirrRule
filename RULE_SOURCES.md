@@ -18,9 +18,9 @@ Surge 保留 domain ruleset 的 extended-matching 语义；PROCESS-PATH 按平�
 
 ## 分版订阅
 
-每个启用的规则集保留原 flat 合并版，并在其原有 targets 上追加 `non_ip`、`ip` 两类分版，路径为 `List|Clash|Loon|sing-box/<分版>/<basename>.<原扩展名>`。两类互斥，同一平台两者并集等于该平台合并版：`non_ip` 是不触发 DNS 解析的条件（含 DOMAIN、DOMAIN-SUFFIX、keyword、wildcard、URL-REGEX、UA、进程、源地址 SRC-IP、端口、不含目标 IP 子条件的 logical 规则，以及带 `no-resolve` 的目标 IP 规则）；`ip` 是不带 `no-resolve` 的 IP-CIDR／IP-CIDR6／IP-ASN／GEOIP 及含目标 IP 子条件的完整 logical 规则。分版沿用各平台合并版的编码，Surge 两类都用 `RULE-SET` 引用。2026-10-17 起带 `no-resolve` 的 IP 规则改入 `non_ip`，全部 IP 规则都带 `no-resolve` 的规则集不再发布 `ip` 分版；同日 `domainset` 分版并入 `non_ip`，旧 `domainset/` 地址返回 404。
+每个启用的规则集保留原 flat 合并版，并在其原有 targets 上追加 `non_ip`、`ip` 两类分版，路径为 `List|Clash|Loon|sing-box/<分版>/<basename>.<原扩展名>`。两类互斥，同一平台两者并集等于该平台合并版：`non_ip` 是不使用目标 IP 的条件（含 DOMAIN、DOMAIN-SUFFIX、keyword、wildcard、URL-REGEX、UA、进程、源地址 SRC-IP、端口、不含目标 IP 子条件的 logical 规则）；`ip` 是全部 IP-CIDR／IP-CIDR6／IP-ASN／GEOIP（不论是否带 `no-resolve`）及含目标 IP 子条件的完整 logical 规则，与 Sukka 的 `ip/` 文件布局一致。所有 `non_ip` 放在所有 `ip` 之前。分版沿用各平台合并版的编码，Surge 两类都用 `RULE-SET` 引用。2026-10-17 曾把带 `no-resolve` 的 IP 规则改入 `non_ip`，2026-10-18 撤销，恢复 Sukka 布局；2026-10-17 起 `domainset` 分版并入 `non_ip`，旧 `domainset/` 地址返回 404。
 
-sing-box 例外：它不能表达 `no-resolve`，rule-set 中的 `ip_cidr` 还会在 DNS 规则里充当地址过滤，所以 sing-box 的目标 IP 规则不论是否带 `no-resolve` 都归入 `ip`，其 `non_ip` 可以直接用于 DNS 规则（2026-10-18 起）。含 `extended-matching` 的规则集在 Surge 上例外：同时含域名子条件与目标 IP 条件的 logical 规则留在 Surge `non_ip`，以保留文件级标志，审计以 `reroutedFromIp` 记录条数，其他平台仍归入 `ip`。转换损失记录在审计的 `outputs[].losses`：sing-box 不能表达 `no-resolve`，Surge 以外的平台忽略 `extended-matching`，Clash 丢弃 TCP、UDP 以外的 `PROTOCOL` 值。
+sing-box 不能表达 `no-resolve`；它的 `non_ip` 不含 `ip_cidr`，可以直接用于 DNS 规则。含 `extended-matching` 的规则集在 Surge 上例外：同时含域名子条件与目标 IP 条件的 logical 规则留在 Surge `non_ip`，以保留文件级标志，审计以 `reroutedFromIp` 记录条数，其他平台仍归入 `ip`。转换损失记录在审计的 `outputs[].losses`：sing-box 不能表达 `no-resolve`，Surge 以外的平台忽略 `extended-matching`，Clash 丢弃 TCP、UDP 以外的 `PROTOCOL` 值。
 
 上游来源目录名（如 Sukka 的 `domainset/apple_cdn`、`non_ip/microsoft_cdn`）只说明来源，不决定本项目分版：分类按处理后的条件语义进行。例如 Apple CDN 的纯后缀条件与 Microsoft CDN 的 URL-REGEX 都在 `non_ip`，两者都没有 `ip` 分版。为空或平台全部不支持的分版不发布文件，状态（`absent-empty`／`absent-unsupported`）、格式、有效条数、字节数与 SHA-256 记录在 `Internal/rule-output-audit.json`；上游条件增删相对上一份已验收发布记录在 `Internal/source-delta.json`，首次构建标为 baseline-unavailable，基线中存在但本次不再构建的规则集标为 `removed`。下文各表的输出 basename 同时是分版文件名。
 
