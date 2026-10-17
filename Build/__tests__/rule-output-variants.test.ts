@@ -156,12 +156,15 @@ describe('rule output variant contract', () => {
     assert.equal(resolveRuleOutputTarget('singbox', 'ip', 'x').relativePath, 'sing-box/ip/x.json');
   });
 
-  it('classifies destination IP and logical rules whole, and keeps source IP outside ip', () => {
+  it('classifies resolving destination IP and logical rules whole into ip, and keeps source IP and no-resolve IP in non_ip', () => {
     assert.equal(classifyRuleLine('AND,((DOMAIN,a.example),(IP-CIDR,1.0.0.0/8))'), 'ip');
     assert.equal(classifyRuleLine('NOT,((AND,((DOMAIN,a.example),(OR,((IP-ASN,1),(DOMAIN,b.example))))))'), 'ip');
     assert.equal(classifyRuleLine('AND,((SRC-IP,10.0.0.1),(DOMAIN,a.example))'), 'non_ip');
     assert.equal(classifyRuleLine('SRC-IP-CIDR,10.0.0.0/8'), 'non_ip');
-    assert.equal(classifyRuleLine('GEOIP,CN,no-resolve'), 'ip');
+    assert.equal(classifyRuleLine('GEOIP,CN'), 'ip');
+    assert.equal(classifyRuleLine('GEOIP,CN,no-resolve'), 'non_ip');
+    assert.equal(classifyRuleLine('IP-SUFFIX,192.0.2.1,no-resolve'), 'non_ip');
+    assert.equal(classifyRuleLine('AND,((DOMAIN,a.example),(IP-CIDR,1.0.0.0/8,no-resolve))'), 'ip');
     assert.equal(classifyRuleLine('# comment'), null);
     assert.equal(classifyRuleLine(''), null);
   });
@@ -263,10 +266,6 @@ describe('rule output variants', () => {
       'AND,((DOMAIN-SUFFIX,stream.example),(IP-CIDR,203.0.113.0/24))',
       'NOT,((OR,((GEOIP,CN),(DOMAIN,c.example))))',
       'GEOIP,US',
-      'IP-CIDR,91.108.4.0/22,no-resolve',
-      'IP-CIDR6,2001:b28:f23d::/48,no-resolve',
-      'IP-ASN,62041,no-resolve',
-      'GEOIP,TG,no-resolve',
       'IP-CIDR,149.154.160.0/20',
       'IP-CIDR6,2001:67c:4e8::/48',
       'IP-ASN,44907',
@@ -275,14 +274,22 @@ describe('rule output variants', () => {
     assert.ok(surgeNonIp.includes('SRC-IP,192.168.1.10'));
     assert.ok(surgeNonIp.includes('AND,((SRC-IP,10.0.0.1),(DOMAIN,d.example))'));
     assert.ok(surgeNonIp.includes('OR,((DOMAIN,a.or.example),(DOMAIN,b.or.example))'));
-    assert.equal(surgeNonIp.some(line => line.startsWith('IP-') || line.startsWith('GEOIP')), false);
+    // no-resolve IP rules never trigger a DNS lookup, so they stay with the non-IP conditions.
+    assert.deepEqual(surgeNonIp.filter(line => line.startsWith('IP-') || line.startsWith('GEOIP')), [
+      'IP-CIDR,91.108.4.0/22,no-resolve',
+      'IP-CIDR6,2001:b28:f23d::/48,no-resolve',
+      'IP-ASN,62041,no-resolve',
+      'GEOIP,TG,no-resolve',
+    ]);
     assert.deepEqual(await read('List/domainset/mixed.list'), ['chat.example', '.openai.com']);
     const clashIp = await read('Clash/ip/mixed.txt');
     assert.ok(clashIp.includes('AND,((DOMAIN-SUFFIX,stream.example),(IP-CIDR,203.0.113.0/24))'));
     const clashNonIp = await read('Clash/non_ip/mixed.txt');
     assert.ok(clashNonIp.includes('SRC-IP-CIDR,192.168.1.10/32'));
     const singboxIp = JSON.parse((await fs.readFile(path.join(directory, 'sing-box/ip/mixed.json'), 'utf8'))) as SingboxJson;
-    assert.deepEqual(singboxIp.rules[0].ip_cidr, ['91.108.4.0/22', '2001:b28:f23d::/48', '149.154.160.0/20', '2001:67c:4e8::/48']);
+    assert.deepEqual(singboxIp.rules[0].ip_cidr, ['149.154.160.0/20', '2001:67c:4e8::/48']);
+    const singboxNonIp = JSON.parse((await fs.readFile(path.join(directory, 'sing-box/non_ip/mixed.json'), 'utf8'))) as SingboxJson;
+    assert.deepEqual(singboxNonIp.rules[0].ip_cidr, ['91.108.4.0/22', '2001:b28:f23d::/48']);
   });
 
   it('writes no file for a platform that supports none of a variant and still gates merged sing-box output', async t => {
@@ -383,7 +390,8 @@ describe('rule output variants', () => {
     });
     assert.deepEqual(findOutput(audit.outputs, 'clash', 'non_ip').losses.droppedValues, { 'PROTOCOL:QUIC': 1 });
     assert.deepEqual(findOutput(audit.outputs, 'singbox', 'merged').losses.ignoredModifiers, { 'no-resolve': 2, 'extended-matching': 2 });
-    assert.deepEqual(findOutput(audit.outputs, 'singbox', 'ip').losses.ignoredModifiers, { 'no-resolve': 2 });
+    assert.deepEqual(findOutput(audit.outputs, 'singbox', 'non_ip').losses.ignoredModifiers, { 'no-resolve': 2, 'extended-matching': 1 });
+    assert.deepEqual(findOutput(audit.outputs, 'singbox', 'ip').losses.ignoredModifiers, {});
     assert.deepEqual(findOutput(audit.outputs, 'loon', 'domainset').losses.ignoredModifiers, { 'extended-matching': 1 });
     assert.deepEqual(findOutput(audit.outputs, 'surge', 'merged').losses, { droppedValues: {}, ignoredModifiers: {} });
     const clash = await fs.readFile(path.join(directory, 'Clash/losses.txt'), 'utf8');

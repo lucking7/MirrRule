@@ -18,7 +18,7 @@ Surge 保留 domain ruleset 的 extended-matching 语义；PROCESS-PATH 按平�
 
 ## 分版订阅
 
-每个启用的规则集保留原 flat 合并版，并在其原有 targets 上追加 `domainset`、`non_ip`、`ip` 三类分版，路径为 `List|Clash|Loon|sing-box/<分版>/<basename>.<原扩展名>`。三类互斥，同一平台三者并集等于该平台合并版，需组合使用：`domainset` 只含可无损表达的独立 DOMAIN／DOMAIN-SUFFIX；`non_ip` 是其余不依赖目标 IP 的条件（含 keyword、wildcard、URL-REGEX、UA、进程、源地址 SRC-IP、端口和不含目标 IP 子条件的 logical 规则）；`ip` 是 IP-CIDR／IP-CIDR6／IP-ASN／GEOIP 及含这些条件的完整 logical 规则，平台能表达时保留 `no-resolve`。Surge `List/domainset/` 为 native DOMAIN-SET，须用 `DOMAIN-SET` 引用；Clash 与 Loon 的 domainset 仍是 classical 编码，sing-box 为 JSON v2。
+每个启用的规则集保留原 flat 合并版，并在其原有 targets 上追加 `domainset`、`non_ip`、`ip` 三类分版，路径为 `List|Clash|Loon|sing-box/<分版>/<basename>.<原扩展名>`。三类互斥，同一平台三者并集等于该平台合并版，需组合使用：`domainset` 只含可无损表达的独立 DOMAIN／DOMAIN-SUFFIX；`non_ip` 是其余不触发 DNS 解析的条件（含 keyword、wildcard、URL-REGEX、UA、进程、源地址 SRC-IP、端口、不含目标 IP 子条件的 logical 规则，以及带 `no-resolve` 的目标 IP 规则）；`ip` 是不带 `no-resolve` 的 IP-CIDR／IP-CIDR6／IP-ASN／GEOIP 及含目标 IP 子条件的完整 logical 规则。2026-10-17 起带 `no-resolve` 的 IP 规则改入 `non_ip`，全部 IP 规则都带 `no-resolve` 的规则集不再发布 `ip` 分版。Surge `List/domainset/` 为 native DOMAIN-SET，须用 `DOMAIN-SET` 引用；Clash 与 Loon 的 domainset 仍是 classical 编码，sing-box 为 JSON v2。
 
 含 `extended-matching` 的规则集在 Surge 上例外：DOMAIN-SET 无法携带该标志，域名条件留在 `non_ip`，Surge `domainset` 记为 absent，reason 为 `extended-matching`；同时含域名子条件与目标 IP 条件的 logical 规则也留在 Surge `non_ip`，审计以 `reroutedFromIp` 记录条数，其他平台仍归入 `ip`。转换损失记录在审计的 `outputs[].losses`：sing-box 不能表达 `no-resolve`，Surge 以外的平台忽略 `extended-matching`，Clash 丢弃 TCP、UDP 以外的 `PROTOCOL` 值。
 

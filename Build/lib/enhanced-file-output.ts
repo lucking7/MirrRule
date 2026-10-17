@@ -726,20 +726,21 @@ export class EnhancedFileOutput {
       ipcidr6NoResolve = Array.from(this.ipcidr6NoResolve);
     }
 
-    // no-resolve
+    // no-resolve: matches only requests made to an IP address and never triggers a DNS
+    // lookup, so it belongs to non_ip (as in SukkaW's non_ip files) and can sit among domain rules.
     if (ipcidrNoResolve) {
       const values = ipcidrNoResolve;
-      this.route('ip', values.length, strategy => strategy.writeIpCidrs(values, true));
+      this.route('non_ip', values.length, strategy => strategy.writeIpCidrs(values, true));
     }
     if (ipcidr6NoResolve) {
       const values = ipcidr6NoResolve;
-      this.route('ip', values.length, strategy => strategy.writeIpCidr6s(values, true));
+      this.route('non_ip', values.length, strategy => strategy.writeIpCidr6s(values, true));
     }
     if (this.ipasnNoResolve.size) {
-      this.route('ip', this.ipasnNoResolve.size, strategy => strategy.writeIpAsns(this.ipasnNoResolve, true));
+      this.route('non_ip', this.ipasnNoResolve.size, strategy => strategy.writeIpAsns(this.ipasnNoResolve, true));
     }
     if (this.groipNoResolve.size) {
-      this.route('ip', this.groipNoResolve.size, strategy => strategy.writeGeoip(this.groipNoResolve, true));
+      this.route('non_ip', this.groipNoResolve.size, strategy => strategy.writeGeoip(this.groipNoResolve, true));
     }
 
     // triggers DNS resolution
