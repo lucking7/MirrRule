@@ -90,10 +90,13 @@ describe('publication lifecycle projection and baseline rebase', () => {
     assert.ok(worker.includes('keep.json.gz'));
     assert.equal(worker.includes('discord.json.gz'), false);
     const routes = await json<{ include: string[]; exclude: string[] }>(path.join(env.out, '_routes.json'));
+    const routed = ['Clash/ip/', 'List/ip/', 'Loon/ip/', 'sing-box/ip/', ...retiredPublicPrefixes().sort()];
     assert.deepEqual(routes.include, [
       '/Internal/*',
-      ...retiredPublicPrefixes().sort().map(prefix => `/${prefix}*`),
-      ...[...new Set(retiredPublicPaths())].sort().map(relative => '/' + relative.split('/').map(encodeURIComponent).join('/')),
+      ...routed.map(prefix => `/${prefix}*`),
+      ...[...new Set(retiredPublicPaths())].sort().flatMap(relative => (
+        routed.some(prefix => relative.startsWith(prefix)) ? [] : ['/' + relative.split('/').map(encodeURIComponent).join('/')]
+      )),
     ]);
     assert.deepEqual(routes.exclude, []);
     assert.ok((await json<ProjectionAudit>(path.join(env.candidate, 'Internal/rule-output-audit.json'))).rulesets.some(record => record.id === 'discord'));

@@ -385,7 +385,7 @@ describe('publication verification', () => {
     { path: 'index.html', sha256: sha256Hex('<html>') },
     { path: '_headers', sha256: sha256Hex('ignored') },
   ];
-  const absentPaths = ['List/domainset/old.list', 'Modules/Converted/腾讯视频去广告.sgmodule'];
+  const absentPaths = ['List/ip/old.list', 'Modules/Converted/腾讯视频去广告.sgmodule'];
   const site = { '/List/ai.list': 'new', '/': '<html>' };
 
   function scenario(checkRuns: FakeGitHub['checkRuns'], sites: Record<string, Record<string, string>>) {
@@ -442,13 +442,15 @@ describe('publication verification', () => {
   });
 
   it('does not accept while an absent variant still answers 200, even if every published file matches', async () => {
-    const stale = { ...site, '/List/domainset/old.list': '.example.com\n' };
+    const stale = { ...site, '/List/ip/old.list': 'IP-CIDR,192.0.2.0/24\n' };
     const immutable = await scenario(sha => [successRun(sha)], { [IMMUTABLE]: stale, 'https://nrrule.pages.dev': site }).run();
     assert.equal(immutable.outcome, 'immutable-mismatch');
-    assert.deepEqual(immutable.failures.map(item => item.url), [`${IMMUTABLE}/List/domainset/old.list`]);
+    assert.deepEqual(immutable.failures.map(item => item.url), [`${IMMUTABLE}/List/ip/old.list`]);
     const production = await scenario(sha => [successRun(sha)], { [IMMUTABLE]: site, 'https://nrrule.pages.dev': stale }).run();
     assert.equal(production.outcome, 'production-lagging');
-    assert.equal(production.failures[0].path, 'List/domainset/old.list');
+    assert.equal(production.failures[0].path, 'List/ip/old.list');
+    // Not in the lifecycle registry, so it is reported as a stale absent path, not a retired one.
+    assert.equal(production.failures[0].reason, 'absent-present');
   });
 
   it('starts no request after the deadline, aborts in-flight requests and never accepts late', async () => {
