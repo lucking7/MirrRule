@@ -88,13 +88,33 @@ describe('artifact lifecycle registry', () => {
   });
 
   it('purges retired merged and split rules while preserving active subscriptions', async () => {
-    const paths = ['List/discord.list', 'Clash/domainset/discord.txt', 'Loon/non_ip/scholar.list', 'sing-box/ip/container.json', 'sing-box/non_ip/china_asn.json'];
-    await withTree(Object.fromEntries([...paths.map(relative => [relative, 'old']), ['List/domainset/apple_cdn.list', '.apple.com']]), async root => {
+    // domainset files are retired by directory prefix, whatever the ruleset id.
+    const paths = ['List/discord.list', 'Clash/domainset/discord.txt', 'List/domainset/apple_cdn.list', 'sing-box/domainset/nested/x.json', 'Loon/non_ip/scholar.list', 'sing-box/ip/container.json', 'sing-box/non_ip/china_asn.json'];
+    await withTree(Object.fromEntries([...paths.map(relative => [relative, 'old']), ['List/non_ip/apple_cdn.list', 'DOMAIN-SUFFIX,apple.com']]), async root => {
       for (const relative of paths) assert.equal(isRetiredPublicPath(relative), true);
+      assert.equal(isRetiredPublicPath('List/domainset'), false);
+      assert.equal(isRetiredPublicPath('List/domainsetx/a.list'), false);
+      assert.equal(findLifecycleRecord('Clash/domainset/discord.txt')?.id, 'variant:domainset');
+      await fs.writeFile(path.join(root, 'List/domainset/apple_cdn.list'), 'old');
+      await assert.rejects(assertNoRetiredArtifacts(root), /List\/domainset\/apple_cdn\.list/);
       assert.deepEqual(new Set(await purgeRetiredArtifacts(root)), new Set(paths));
       await assertNoRetiredArtifacts(root);
-      assert.equal(await fs.readFile(path.join(root, 'List/domainset/apple_cdn.list'), 'utf8'), '.apple.com');
+      assert.equal(await fs.readFile(path.join(root, 'List/non_ip/apple_cdn.list'), 'utf8'), 'DOMAIN-SUFFIX,apple.com');
     });
+  });
+
+  it('validates retired directory prefixes', () => {
+    const base = { state: 'retired' as const, reason: 'r', evidence: 'e' };
+    assert.doesNotThrow(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['List/old/'] }]));
+    assert.throws(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['List/old'] }]), /directory/);
+    assert.throws(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['List/'] }]), /directory/);
+    assert.throws(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['Other/old/'] }]), /directory/);
+    assert.throws(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['../List/old/'] }]), /escapes/);
+    assert.throws(() => validateLifecycleRegistry([
+      { ...base, id: 'a', paths: [], pathPrefixes: ['List/old/'] },
+      { ...base, id: 'b', paths: ['List/old/x.list'] },
+    ]), /inside prefix List\/old\/ of a/);
+    assert.throws(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [] }]), /at least one path/);
   });
 
   it('isolates an active source that reuses the retired name while keeping retired filenames reserved', () => {

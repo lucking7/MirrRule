@@ -173,7 +173,7 @@ eslint.config.js                   ESLint 配置
 - `Build/core/output/writing-strategy/*.ts`
 - `Build/build-public.ts`
 
-来源比较快照写为 `Internal/source-snapshots/*.json.gz`，读取兼容历史 `.json`；相同 source id 的两种编码不能同时存在。发布暂存检查单文件 25 MiB 上限，超限在 Git 推送前失败。 最终 tree 同时生成 `_worker.js` 和 `_routes.json`，路由 `/Internal/*` 和退休登记中的精确路径；当前内部文件放行，缺失内部文件和退休订阅在静态缓存查询前返回 `404`。Pages production/preview 必须设置 `fail_open: false`，以免 Functions 额度耗尽后跳过检查。两文件属于生成物并登记为 generated provenance。
+来源比较快照写为 `Internal/source-snapshots/*.json.gz`，读取兼容历史 `.json`；相同 source id 的两种编码不能同时存在。发布暂存检查单文件 25 MiB 上限，超限在 Git 推送前失败。 最终 tree 同时生成 `_worker.js` 和 `_routes.json`，路由 `/Internal/*`、退休登记中的目录前缀（`/<prefix>*`）和精确路径，总数不能超过 Pages 的 100 条上限；当前内部文件放行，缺失内部文件和退休订阅在静态缓存查询前返回 `404`。Pages production/preview 必须设置 `fail_open: false`，以免 Functions 额度耗尽后跳过检查。两文件属于生成物并登记为 generated provenance。
 
 `status.json` 的 `ruleCount` 保持 canonical 逻辑数量的旧含义，不等于各平台实际输出数量；平台实际数量以 `Internal/rule-output-audit.json` 为准。`semanticScope: normalized-source` 与 `effectiveOutputs` 分别比较标准化来源和平台实际输出；`optimizations` 记录 canonical 到 writer 路由间的 keyword/domain coverage，不代表早期 Trie/CIDR 归一化的逐条原因。旧 converter 或缺少有效输出快照时，相关比较标为不可比。
 
@@ -321,7 +321,7 @@ CI 中会启动固定 digest 的 `xream/script-hub` image 用于插件转换。
 
 ### 退休登记
 
-`Build/lib/artifact-lifecycle.ts` 是 deprecated／retired 订阅的唯一登记，发布为 `Internal/artifact-lifecycle.json`。每条记录有稳定 id、原公开路径、原因、依据和可选 replacement。缓存恢复（`restore-optional-artifacts.ts`、`download-previous-build.ts`）、`build-public`、`prepare-publication` 与回滚候选都调用同一登记，retired 文件不能从历史产物、缓存或保留目录复活。退休 ruleset 登记同时覆盖合并版和三个分版。清理只作用于已登记的公开路径，拒绝绝对路径和路径穿越；共享 Scripts 需有引用或独占证据才能删除。不要凭一次上游空响应新增退休记录。当前 retired：腾讯视频去广告模块、`container`／`discord`／`scholar` 四平台规则、`sing-box/china_asn.json`（replacement 为 `sing-box/china_ip.json` 与 `china_ip_ipv6.json`，IP 覆盖不等同于 ASN）。
+`Build/lib/artifact-lifecycle.ts` 是 deprecated／retired 订阅的唯一登记，发布为 `Internal/artifact-lifecycle.json`。每条记录有稳定 id、原公开路径（或以 `/` 结尾的目录前缀 `pathPrefixes`，其下所有文件都视为退休）、原因、依据和可选 replacement。精确路径不能落在其他记录的前缀内。缓存恢复（`restore-optional-artifacts.ts`、`download-previous-build.ts`）、`build-public`、`prepare-publication` 与回滚候选都调用同一登记，retired 文件不能从历史产物、缓存或保留目录复活。退休 ruleset 登记同时覆盖合并版和 `non_ip`、`ip` 分版，旧 `domainset/` 路径由 `variant:domainset` 前缀记录覆盖。清理只作用于已登记的公开路径，拒绝绝对路径和路径穿越；共享 Scripts 需有引用或独占证据才能删除。不要凭一次上游空响应新增退休记录。当前 retired：腾讯视频去广告模块、`container`／`discord`／`scholar` 四平台规则、`sing-box/china_asn.json`（replacement 为 `sing-box/china_ip.json` 与 `china_ip_ipv6.json`，IP 覆盖不等同于 ASN）、四平台 `domainset/` 目录（2026-10-17 并入 `non_ip`，旧文件仍在 Cloudflare 边缘缓存中返回 200，必须由 worker 返回 404）。
 
 ### 模块合并
 

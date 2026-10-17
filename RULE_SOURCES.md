@@ -26,7 +26,7 @@ Surge 保留 domain ruleset 的 extended-matching 语义；PROCESS-PATH 按平�
 
 ## 退休与替代
 
-退休和废弃订阅统一登记在 [artifact-lifecycle.ts](Build/lib/artifact-lifecycle.ts)，发布为 `Internal/artifact-lifecycle.json`，包含原因、依据与替代。缓存恢复、历史产物下载、网页索引、发布候选和回滚都使用同一登记，retired 文件不会被重新发布；replacement 只是迁移说明，不做跨格式重定向。当前 retired：腾讯视频去广告插件模块（上游停止维护，无替代）；`container`、`discord`、`scholar` 四平台规则（已从规则源移除，无替代）；`sing-box/china_asn.json`（替代见上文）。
+退休和废弃订阅统一登记在 [artifact-lifecycle.ts](Build/lib/artifact-lifecycle.ts)，发布为 `Internal/artifact-lifecycle.json`，包含原因、依据与替代。缓存恢复、历史产物下载、网页索引、发布候选和回滚都使用同一登记，retired 文件不会被重新发布；replacement 只是迁移说明，不做跨格式重定向。当前 retired：腾讯视频去广告插件模块（上游停止维护，无替代）；`container`、`discord`、`scholar` 四平台规则（已从规则源移除，无替代）；`sing-box/china_asn.json`（替代见上文）；四平台 `domainset/` 目录下的全部文件（2026-10-17 并入 `non_ip`，替代为同名 `non_ip` 文件）。
 
 ## Reject 订阅边界
 
