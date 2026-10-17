@@ -55,8 +55,8 @@ Every enabled ruleset keeps its merged flat URL (for example `List/apple_cdn.lis
 | Variant | Contains |
 |---|---|
 | `domainset` | Standalone `DOMAIN` and `DOMAIN-SUFFIX` conditions that the platform can express without loss |
-| `non_ip` | All remaining conditions that do not need the destination IP: keyword, wildcard, URL-REGEX, User-Agent, process, source address (`SRC-IP`), ports, and logical rules without a destination-IP child |
-| `ip` | `IP-CIDR`, `IP-CIDR6`, `IP-ASN`, `GEOIP`, and whole logical rules that contain them; `no-resolve` is kept where the platform can express it |
+| `non_ip` | All remaining conditions that never trigger a DNS lookup: keyword, wildcard, URL-REGEX, User-Agent, process, source address (`SRC-IP`), ports, logical rules without a destination-IP child, and destination-IP rules with `no-resolve` |
+| `ip` | `IP-CIDR`, `IP-CIDR6`, `IP-ASN` and `GEOIP` without `no-resolve`, and whole logical rules with a destination-IP child |
 
 Paths follow `<directory>/<variant>/<id>.<extension>`, using the directories and extensions from [Supported Platforms](#supported-platforms). For one platform, the union of the three variants equals the merged subscription. Use them together: `non_ip` alone is not a complete non-IP subscription, because the plain domain conditions are in `domainset`. Logical rules are never split into separate child conditions.
 
@@ -123,7 +123,7 @@ sing-box:
 }
 ```
 
-Split a ruleset only when its `ip` variant has rules without `no-resolve`. Such a rule makes Surge resolve the domain locally, so it must come after all domain rules. If every rule in the `ip` variant has `no-resolve`, it matches only connections made directly to an IP address; the merged subscription with `no-resolve` on its rule-set line matches the same requests and keeps a single line. Equal condition sets do not guarantee the same policy outcome once the variants are rearranged: an `ip` variant can hold logical rules with a domain child, and moving it later delays that domain match. Use the same policy for all variants of a ruleset unless its notes below say otherwise (see `reject`), and review cross-subscription reordering with the coverage audit below.
+A destination-IP rule with `no-resolve` matches only connections made directly to an IP address and never makes Surge resolve a domain, so it is published in `non_ip`, as in Sukka's `non_ip` files. An `ip` variant therefore exists only for rulesets with rules that can trigger a local DNS lookup, and it must come after all domain rules. A ruleset without an `ip` variant can stay as the merged subscription in a single line. Equal condition sets do not guarantee the same policy outcome once the variants are rearranged: an `ip` variant can hold logical rules with a domain child, and moving it later delays that domain match. Use the same policy for all variants of a ruleset unless its notes below say otherwise (see `reject`), and review cross-subscription reordering with the coverage audit below.
 
 ## Routing Coverage Audit
 
