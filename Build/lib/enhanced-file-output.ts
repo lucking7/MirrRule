@@ -57,13 +57,14 @@ interface PlatformOutputs {
   reroutedFromIp: number;
 }
 
-/**
- * A no-resolve IP rule never triggers a DNS lookup, so it can sit among domain rules in non_ip.
- * sing-box cannot express no-resolve: its ip_cidr in a rule-set also filters DNS rule answers,
- * so sing-box keeps every destination IP rule in ip.
- */
-function noResolveIpVariant(outputs: PlatformOutputs): RuleOutputVariant {
-  return outputs.platform === 'singbox' ? 'ip' : 'non_ip';
+/** `TYPE,value` key for excludedRules, or null for logical and malformed rules. */
+function ruleExclusionKey(rule: string): string | null {
+  const [rawType, rawValue] = rule.split(',', 2);
+  const type = rawType.trim().toUpperCase();
+  let value = rawValue?.trim().toLowerCase();
+  if (!type || !value || type === 'AND' || type === 'OR' || type === 'NOT') return null;
+  if (type === 'DOMAIN-SUFFIX' && value.startsWith('.')) value = value.slice(1);
+  return `${type},${value}`;
 }
 
 interface StagedOutput {
@@ -120,7 +121,7 @@ export class EnhancedFileOutput {
 
   private readonly stageCounts: Omit<RulesetStageCounts, 'canonicalCount'> = {
     inputLines: 0,
-    filtered: { emptyLines: 0, commentsOrMarkers: 0, excludedRuleType: 0, sourcePolicy: 0, invalid: 0 },
+    filtered: { emptyLines: 0, commentsOrMarkers: 0, excludedRuleType: 0, excludedRule: 0, sourcePolicy: 0, invalid: 0 },
   };
 
   private readonly rawInputHash: Hash = createHash('sha256');
@@ -136,6 +137,7 @@ export class EnhancedFileOutput {
     validate: boolean;
     sourcePolicies: readonly string[] | undefined;
     excludedRuleTypes: ReadonlySet<string>;
+    excludedRules: ReadonlySet<string>;
   };
 
   constructor(
@@ -157,6 +159,11 @@ export class EnhancedFileOutput {
       validate: options?.validate ?? false,
       sourcePolicies: options?.sourcePolicies?.map(policy => policy.trim().toLowerCase()),
       excludedRuleTypes: new Set(options?.excludedRuleTypes?.map(type => type.trim().toUpperCase())),
+      excludedRules: new Set(options?.excludedRules?.map(rule => {
+        const key = ruleExclusionKey(rule);
+        if (key === null) throw new Error(`excludedRules entry must be TYPE,value: ${rule}`);
+        return key;
+      })),
     };
 
     this.targets = normalizeTargets(targets);
@@ -210,6 +217,14 @@ export class EnhancedFileOutput {
     if (this.hasExcludedRuleType(normalizedRule)) {
       this.stageCounts.filtered.excludedRuleType++;
       return this;
+    }
+
+    if (this.config.excludedRules.size > 0) {
+      const key = ruleExclusionKey(normalizedRule);
+      if (key !== null && this.config.excludedRules.has(key)) {
+        this.stageCounts.filtered.excludedRule++;
+        return this;
+      }
     }
 
     if (this.config.sourcePolicies !== undefined) {
@@ -724,17 +739,17 @@ export class EnhancedFileOutput {
     // no-resolve
     if (ipcidrNoResolve) {
       const values = ipcidrNoResolve;
-      this.route(noResolveIpVariant, values.length, strategy => strategy.writeIpCidrs(values, true));
+      this.route('ip', values.length, strategy => strategy.writeIpCidrs(values, true));
     }
     if (ipcidr6NoResolve) {
       const values = ipcidr6NoResolve;
-      this.route(noResolveIpVariant, values.length, strategy => strategy.writeIpCidr6s(values, true));
+      this.route('ip', values.length, strategy => strategy.writeIpCidr6s(values, true));
     }
     if (this.ipasnNoResolve.size) {
-      this.route(noResolveIpVariant, this.ipasnNoResolve.size, strategy => strategy.writeIpAsns(this.ipasnNoResolve, true));
+      this.route('ip', this.ipasnNoResolve.size, strategy => strategy.writeIpAsns(this.ipasnNoResolve, true));
     }
     if (this.groipNoResolve.size) {
-      this.route(noResolveIpVariant, this.groipNoResolve.size, strategy => strategy.writeGeoip(this.groipNoResolve, true));
+      this.route('ip', this.groipNoResolve.size, strategy => strategy.writeGeoip(this.groipNoResolve, true));
     }
 
     // triggers DNS resolution
@@ -971,6 +986,8 @@ export class EnhancedFileOutput {
         validate: this.config.validate,
         sourcePolicies: this.config.sourcePolicies ? [...this.config.sourcePolicies].sort() : null,
         excludedRuleTypes: [...this.config.excludedRuleTypes].sort(),
+        // Omitted when unset so existing snapshots stay comparable.
+        ...(this.config.excludedRules.size > 0 && { excludedRules: [...this.config.excludedRules].sort() }),
       })),
     };
   }

@@ -27,7 +27,13 @@ export interface RuleProcessingOptions {
   /** Accept only these source policies in the third comma field, ignoring case. */
   sourcePolicies?: readonly string[],
   /** Drop these normalized rule types, including entire logical expressions containing them. */
-  excludedRuleTypes?: readonly string[]
+  excludedRuleTypes?: readonly string[],
+  /**
+   * Drop standalone rules matching one of these `TYPE,value` entries after format conversion,
+   * ignoring case, policy and modifiers. Logical rules are kept, since removing a child changes
+   * their meaning.
+   */
+  excludedRules?: readonly string[]
 }
 
 /**

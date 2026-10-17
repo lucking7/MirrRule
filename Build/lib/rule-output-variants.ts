@@ -2,10 +2,9 @@ import path from 'node:path';
 import type { SupportedPlatform } from './platform-config';
 
 /**
- * Mutually exclusive condition classes published next to each merged ruleset. ip holds only
- * conditions that may trigger a DNS lookup; everything else, including domains and destination
- * IP rules with no-resolve, is in non_ip. sing-box, which cannot express no-resolve, keeps every
- * destination IP rule in ip.
+ * Mutually exclusive condition classes published next to each merged ruleset, following Sukka's
+ * layout: ip holds every destination IP rule, with or without no-resolve, and whole logical rules
+ * with a destination-IP child; everything else, including all domain rules, is in non_ip.
  */
 export const RULE_OUTPUT_VARIANTS = ['non_ip', 'ip'] as const;
 export type RuleOutputVariant = typeof RULE_OUTPUT_VARIANTS[number];
@@ -89,7 +88,7 @@ export function hasDomainMatcherSubRule(rule: string): boolean {
 /**
  * Classify a canonical rule line that is not stored in a typed canonical set.
  * Returns null for lines that carry no matching condition (comments, empty lines).
- * A destination IP rule with no-resolve never triggers a DNS lookup and belongs to non_ip.
+ * Every destination IP rule belongs to ip, whether or not it carries no-resolve.
  * Logical expressions are classified as a whole and are never split.
  */
 export function classifyRuleLine(rule: string): RuleOutputVariant | null {
@@ -98,7 +97,7 @@ export function classifyRuleLine(rule: string): RuleOutputVariant | null {
   const fields = trimmed.split(',').map(field => field.trim());
   const type = fields[0].toUpperCase();
   if (DESTINATION_IP_RULE_TYPES.has(type)) {
-    return fields.slice(2).some(field => field.toLowerCase() === 'no-resolve') ? 'non_ip' : 'ip';
+    return 'ip';
   }
   if (LOGICAL_RULE_TYPES.has(type)) {
     for (const child of trimmed.matchAll(LOGICAL_CHILD_TYPE)) {

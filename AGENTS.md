@@ -173,7 +173,7 @@ eslint.config.js                   ESLint 配置
 - `Build/core/output/writing-strategy/*.ts`
 - `Build/build-public.ts`
 
-来源比较快照写为 `Internal/source-snapshots/*.json.gz`，读取兼容历史 `.json`；相同 source id 的两种编码不能同时存在。发布暂存检查单文件 25 MiB 上限，超限在 Git 推送前失败。 最终 tree 同时生成 `_worker.js` 和 `_routes.json`，路由 `/Internal/*`、四个平台的 `ip/` 与 `non_ip/` 分版目录、退休登记中的目录前缀（`/<prefix>*`）和不在这些目录内的精确路径，总数不能超过 Pages 的 100 条上限；分版目录只放行本次 tree 中存在的文件并补上 `_headers` 中的规则目录响应头，其余返回 `404`，因为分版文件会随上游内容出现和消失（如 `ip` 随 `no-resolve` 选择变化、规则集只剩 IP 时 sing-box `non_ip` 消失），被删除的文件仍会留在边缘缓存中；分版请求因此都计入 Functions 调用次数；当前内部文件放行，缺失内部文件和退休订阅在静态缓存查询前返回 `404`。Pages production/preview 必须设置 `fail_open: false`，以免 Functions 额度耗尽后跳过检查。两文件属于生成物并登记为 generated provenance。
+来源比较快照写为 `Internal/source-snapshots/*.json.gz`，读取兼容历史 `.json`；相同 source id 的两种编码不能同时存在。发布暂存检查单文件 25 MiB 上限，超限在 Git 推送前失败。 最终 tree 同时生成 `_worker.js` 和 `_routes.json`，路由 `/Internal/*`、四个平台的 `ip/` 与 `non_ip/` 分版目录、退休登记中的目录前缀（`/<prefix>*`）和不在这些目录内的精确路径，总数不能超过 Pages 的 100 条上限；分版目录只放行本次 tree 中存在的文件并补上 `_headers` 中的规则目录响应头，其余返回 `404`，因为分版文件会随上游内容出现和消失（如规则集只剩域名时 `ip` 消失、只剩 IP 时 `non_ip` 消失），被删除的文件仍会留在边缘缓存中；分版请求因此都计入 Functions 调用次数；当前内部文件放行，缺失内部文件和退休订阅在静态缓存查询前返回 `404`。Pages production/preview 必须设置 `fail_open: false`，以免 Functions 额度耗尽后跳过检查。两文件属于生成物并登记为 generated provenance。
 
 `status.json` 的 `ruleCount` 保持 canonical 逻辑数量的旧含义，不等于各平台实际输出数量；平台实际数量以 `Internal/rule-output-audit.json` 为准。`semanticScope: normalized-source` 与 `effectiveOutputs` 分别比较标准化来源和平台实际输出；`optimizations` 记录 canonical 到 writer 路由间的 keyword/domain coverage，不代表早期 Trie/CIDR 归一化的逐条原因。旧 converter 或缺少有效输出快照时，相关比较标为不可比。
 
@@ -202,6 +202,7 @@ eslint.config.js                   ESLint 配置
 - `validate`：是否启用规则合法性校验，默认 `false`。
 - `sourcePolicies`：可选的上游策略白名单，在移除策略前按第三个逗号字段匹配（忽略大小写）。用于从混合 QX 规则源中提取 `direct` 或 `reject`，不把上游 `proxy` 例外误转为直连。筛选后为空会终止该订阅发布，除非显式设置 `allowEmpty: true`。
 - `excludedRuleTypes`：可选的规则类型排除列表，忽略大小写；在转换后筛选，包含被排除类型的复合规则整体丢弃，避免删减子条件扩大匹配。筛选后为空同样受 `allowEmpty` 发布边界约束。
+- `excludedRules`：可选的条目排除列表，每项为 `TYPE,value`，在转换后按类型和值匹配，忽略大小写、策略和修饰参数（`DOMAIN-SUFFIX` 的前导点也忽略）；只匹配独立规则，复合规则不检查子条件。用于去掉上游中被多个无关网站共用的过宽条目，当前 `serviceRules` 的 Netflix、Disney 使用。审计计数为 `stages.filtered.excludedRule`。
 - `sourceVariants`：仅 `specialRules`。按 `sourceFiles` 的顺序给每个来源指定一个分版（`non_ip`／`ip`），该来源整体发布为这个分版，多个来源可以指定同一分版，不再按规则类型分类；合并版不受影响。数量必须与 `sourceFiles` 一致。当前只有 `reject` 使用。
 
 规则输出始终按 `EnhancedFileOutput` 的 Trie/Set 与平台 writer 处理去重和顺序，规则源配置没有单独的 `dedup` 或 `sort` 开关。
@@ -241,8 +242,8 @@ loon    -> public/Loon
 flat 合并版 URL 保持不变；分版是追加输出，契约在 `Build/lib/rule-output-variants.ts`：
 
 - 路径：`<平台目录>/<variant>/<id>.<扩展名>`，平台目录与扩展名同上表（`List/.list`、`Clash/.txt`、`Loon/.list`、`sing-box/.json`），`id` 为配置路径 basename 的小写形式。
-- 两类互斥，同一平台两者并集等于合并版：`non_ip` 为不触发 DNS 解析的条件，包括全部域名规则、SRC-IP 等源地址条件和带 `no-resolve` 的目标 IP 规则（比 Sukka 按来源文件的目录划分更严格：Sukka 的 `ip/stream`、`ip/telegram` 等也放带 `no-resolve` 的规则，只有 `non_ip/reject`、`non_ip/apple_services` 等少数 `non_ip` 文件带这类规则；Sukka 来源是否带 `no-resolve` 跟随上游）；sing-box 不能表达 `no-resolve`，且 rule-set 中的 `ip_cidr` 会在 DNS 规则里充当地址过滤，所以 sing-box 的目标 IP 规则全部归入 `ip`；`ip` 为不带 `no-resolve` 的 IP-CIDR／IP-CIDR6／IP-ASN／GEOIP 及含目标 IP 子条件的完整 logical 规则。logical 规则不拆分子条件。2026-10-17 起 `domainset` 分版并入 `non_ip`，旧 `<平台目录>/domainset/` 由 `variant:domainset` 退休前缀覆盖，残留文件会在 stage 时清除并记入 `retiredRemoved`。
-- 按来源分版的例外：规则集设置 `sourceVariants` 时，每个分版是指定给它的上游文件经同样清洗后的内容，不按上面的类型分类，也不跨分版去重。此时 `ip` 可以包含上游放在该文件中、带 `no-resolve` 的 IP 规则，两者并集仍等于合并版的匹配范围，但条数之和可以大于合并版。
+- 两类互斥，同一平台两者并集等于合并版：`non_ip` 为不使用目标 IP 的条件，包括全部域名规则、SRC-IP 等源地址条件；`ip` 为全部 IP-CIDR／IP-CIDR6／IP-ASN／GEOIP（不论是否带 `no-resolve`）及含目标 IP 子条件的完整 logical 规则。这与 Sukka 的 `ip/` 文件一致（2026-10-18 起，撤销 10-17 把带 `no-resolve` 的 IP 规则放进 `non_ip` 的做法）；Sukka 来源是否带 `no-resolve` 跟随上游。logical 规则不拆分子条件。2026-10-17 起 `domainset` 分版并入 `non_ip`，旧 `<平台目录>/domainset/` 由 `variant:domainset` 退休前缀覆盖，残留文件会在 stage 时清除并记入 `retiredRemoved`。
+- 按来源分版的例外：规则集设置 `sourceVariants` 时，每个分版是指定给它的上游文件经同样清洗后的内容，不按上面的类型分类，也不跨分版去重。此时 `non_ip` 可以包含上游放在该文件中、带 `no-resolve` 的 IP 规则（如 `non_ip/reject`），两者并集仍等于合并版的匹配范围，但条数之和可以大于合并版。
 - Surge 的 extended-matching 例外：规则集含 `extended-matching` 时，含域名子条件的目标 IP logical 规则留在 Surge `non_ip` 以保留文件级标志，审计记为 `reroutedFromIp`。其他平台仍归入 `ip`。
 - 转换损失记录在 `outputs[].losses`（`droppedValues`、`ignoredModifiers`）：sing-box 不能表达 `no-resolve`，Surge 以外忽略 `extended-matching`，Clash 丢弃 TCP/UDP 以外的 `PROTOCOL` 值。不要把这些损失写成"保留"。
 - 格式：分版沿用各平台合并版的编码：Surge `List/non_ip`、`List/ip` 与 Loon 为 classical RULE-SET，Clash 为 classical 文本，sing-box 为 JSON v2。消费者格式以审计报告的 `format` 字段为准，不按目录名猜测。

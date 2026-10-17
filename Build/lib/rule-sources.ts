@@ -165,9 +165,17 @@ const BLACKMATRIX_SURGE = 'https://raw.githubusercontent.com/blackmatrix7/ios_ru
 const META_RULES = 'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo';
 
 // Keep service subscriptions separate from the existing regional/aggregate rulesets.
+// `excluded` drops blackmatrix7 suffixes shared by unrelated sites (whole cloud regions,
+// consent and analytics SDKs), which would otherwise route them through the service policy.
 const serviceRules: SpecialRuleConfig[] = [
-  { name: 'Netflix', id: 'netflix', blackmatrix: 'Netflix', geosite: 'netflix', geoip: 'netflix' },
-  { name: 'Disney', id: 'disney', blackmatrix: 'Disney', geosite: 'disney' },
+  {
+    name: 'Netflix', id: 'netflix', blackmatrix: 'Netflix', geosite: 'netflix', geoip: 'netflix',
+    excluded: ['DOMAIN-SUFFIX,us-west-2.amazonaws.com', 'DOMAIN-SUFFIX,cookielaw.org', 'DOMAIN-SUFFIX,onetrust.com'],
+  },
+  {
+    name: 'Disney', id: 'disney', blackmatrix: 'Disney', geosite: 'disney',
+    excluded: ['DOMAIN-SUFFIX,execute-api.us-east-1.amazonaws.com', 'DOMAIN-SUFFIX,braze.com'],
+  },
   { name: 'Spotify', id: 'spotify', blackmatrix: 'Spotify', geosite: 'spotify' },
   { name: 'Prime Video', id: 'primevideo', blackmatrix: 'AmazonPrimeVideo', geosite: 'primevideo' },
   { name: 'YouTube', id: 'youtube', blackmatrix: 'YouTube', geosite: 'youtube' },
@@ -177,7 +185,9 @@ const serviceRules: SpecialRuleConfig[] = [
   { name: 'WeChat', id: 'wechat', blackmatrix: 'WeChat' },
   { name: 'Google', id: 'google', blackmatrix: 'Google', geosite: 'google' },
   { name: 'GitHub', id: 'github', blackmatrix: 'GitHub', geosite: 'github' },
-].map(({ name, id, blackmatrix, geosite, geoip }): SpecialRuleConfig => ({
+].map(({ name, id, blackmatrix, geosite, geoip, excluded }: {
+  name: string, id: string, blackmatrix: string, geosite?: string, geoip?: string, excluded?: string[],
+}): SpecialRuleConfig => ({
   name,
   targetFile: `List/${id}.list`,
   sourceFiles: [
@@ -189,6 +199,7 @@ const serviceRules: SpecialRuleConfig[] = [
   targets: ['surge', 'clash', 'singbox', 'loon'],
   defaultPolicy: null,
   applyNoResolve: true,
+  ...(excluded && { excludedRules: excluded }),
 }));
 
 const sukkaAdditionalRules: SpecialRuleConfig[] = [

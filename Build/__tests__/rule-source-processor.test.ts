@@ -116,7 +116,7 @@ describe('RuleSourceProcessor raw input audit', () => {
       for (const audit of first) {
         assert.deepEqual(audit.stages, {
           inputLines: 5,
-          filtered: { emptyLines: 1, commentsOrMarkers: 2, excludedRuleType: 0, sourcePolicy: 0, invalid: 0 },
+          filtered: { emptyLines: 1, commentsOrMarkers: 2, excludedRuleType: 0, excludedRule: 0, sourcePolicy: 0, invalid: 0 },
           canonicalCount: 2,
         });
         assert.equal(audit.sources[0].rawLineCount, 5);
