@@ -15,7 +15,7 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
   protected result: string[] = [];
 
   constructor(
-    public readonly type: '' | 'domainset' | 'ip' | 'non_ip',
+    public readonly type: '' | 'ip' | 'non_ip',
     public readonly outputDir = OUTPUT_CLASH_DIR
   ) {
     super(outputDir);

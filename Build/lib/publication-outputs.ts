@@ -17,6 +17,7 @@ export const PUBLICATION_REPORTS = [...CANDIDATE_REPORTS, LIFECYCLE_REPORT_FILE]
 
 const OUTPUT_STATUSES = new Set(['published', 'absent-empty', 'absent-unsupported']);
 const RULE_OUTPUT_ROOTS = new Set(['List', 'Clash', 'Loon', 'sing-box']);
+// domainset was merged into non_ip on 2026-10-17; a leftover file there is still an unaudited variant.
 const VARIANT_DIRS = ['domainset', 'non_ip', 'ip'] as const;
 
 export interface AuditOutput {

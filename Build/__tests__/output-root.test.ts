@@ -70,7 +70,7 @@ it('build entry publishes rules, index and status under PUBLIC_DIR from another 
       assert.match(content, new RegExp(String.raw`${id}\.example`));
     }
     // eslint-disable-next-line no-await-in-loop -- assert each published variant fixture
-    const variant = await fs.readFile(path.join(destination, platform, 'domainset', `group.${extension}`), 'utf8');
+    const variant = await fs.readFile(path.join(destination, platform, 'non_ip', `group.${extension}`), 'utf8');
     assert.match(variant, /group\.example/);
     // eslint-disable-next-line no-await-in-loop -- assert each absent variant fixture
     await assert.rejects(fs.access(path.join(destination, platform, 'ip', `group.${extension}`)), { code: 'ENOENT' });
@@ -83,7 +83,7 @@ it('build entry publishes rules, index and status under PUBLIC_DIR from another 
   assert.deepEqual(audit.rulesets.map((entry: { id: string }) => entry.id), ['group', 'special']);
   assert.equal(audit.rulesets[0].sources[0].configuredUrl, 'https://fixture.test/group');
   assert.equal(audit.rulesets[1].sources[0].selection, 'primary');
-  assert.equal(audit.rulesets[0].outputs.length, 16);
+  assert.equal(audit.rulesets[0].outputs.length, 12);
   const delta = JSON.parse(await fs.readFile(path.join(destination, 'Internal', 'source-delta.json'), 'utf8'));
   assert.deepEqual(delta.sources.map((entry: { status: string }) => entry.status), ['baseline-unavailable', 'baseline-unavailable']);
   await fs.access(path.join(destination, 'Internal', 'source-snapshots', 'group.json.gz'));

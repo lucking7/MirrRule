@@ -54,7 +54,7 @@ export abstract class BaseWriteStrategy {
     }
   }
 
-  public abstract readonly type: 'domainset' | 'non_ip' | 'ip' | (string & {});
+  public abstract readonly type: 'non_ip' | 'ip' | (string & {});
 
   abstract readonly fileExtension:
     | 'conf'

@@ -17,7 +17,6 @@ import {
   RULE_OUTPUT_VARIANTS,
   rulesetIdFromConfigPath,
 } from '../lib/rule-output-variants';
-import type { RuleOutputVariant } from '../lib/rule-output-variants';
 import type { RuleOutputFileAudit } from '../lib/output-audit';
 
 const ALL_PLATFORMS: SupportedPlatform[] = ['surge', 'clash', 'singbox', 'loon'];
@@ -44,21 +43,14 @@ function textConditions(lines: readonly string[]): string[] {
   return lines.filter(line => line.trim() && !line.startsWith('#'));
 }
 
-/** Rebuild classical conditions from a native Surge DOMAIN-SET body. */
-function fromDomainSet(lines: readonly string[]): string[] {
-  return textConditions(lines).map(line => (line.startsWith('.') ? `DOMAIN-SUFFIX,${line.slice(1)}` : `DOMAIN,${line}`));
-}
-
 function singboxEntries(lines: readonly string[]): string[] {
   const json = JSON.parse(lines.join('\n')) as SingboxJson;
   return json.rules.flatMap(rule => Object.entries(rule).flatMap(([key, values]) => values.map(value => `${key}:${value}`)));
 }
 
 /** Conditions of one platform output, in the merged writer's syntax. */
-function variantConditions(platform: SupportedPlatform, variant: RuleOutputVariant, lines: readonly string[]): string[] {
-  if (platform === 'singbox') return singboxEntries(lines);
-  if (platform === 'surge' && variant === 'domainset') return fromDomainSet(lines);
-  return textConditions(lines);
+function variantConditions(platform: SupportedPlatform, lines: readonly string[]): string[] {
+  return platform === 'singbox' ? singboxEntries(lines) : textConditions(lines);
 }
 
 function mergedConditions(platform: SupportedPlatform, lines: readonly string[]): string[] {
@@ -68,9 +60,9 @@ function mergedConditions(platform: SupportedPlatform, lines: readonly string[])
 async function assertUnionEqualsMerged(output: EnhancedFileOutput, platforms: SupportedPlatform[]) {
   const merged = await output.compile();
   for (const [index, platform] of platforms.entries()) {
-    const union = RULE_OUTPUT_VARIANTS.flatMap(variant => variantConditions(platform, variant, output.getVariantContent(platform, variant)));
+    const union = RULE_OUTPUT_VARIANTS.flatMap(variant => variantConditions(platform, output.getVariantContent(platform, variant)));
     assert.deepEqual([...union].sort(), [...mergedConditions(platform, merged[index])].sort(), `${platform} variant union`);
-    const sets = RULE_OUTPUT_VARIANTS.map(variant => new Set(variantConditions(platform, variant, output.getVariantContent(platform, variant))));
+    const sets = RULE_OUTPUT_VARIANTS.map(variant => new Set(variantConditions(platform, output.getVariantContent(platform, variant))));
     for (const [left, set] of sets.entries()) {
       for (const other of sets.slice(left + 1)) {
         assert.equal([...set].some(condition => other.has(condition)), false, `${platform} variants overlap`);
@@ -147,10 +139,10 @@ describe('rule output variant contract', () => {
     assert.deepEqual(resolveRuleOutputTarget('surge', 'merged', 'apple_cdn'), {
       platform: 'surge', slot: 'merged', format: 'surge-classical', relativePath: 'List/apple_cdn.list',
     });
-    assert.deepEqual(resolveRuleOutputTarget('surge', 'domainset', 'apple_cdn'), {
-      platform: 'surge', slot: 'domainset', format: 'surge-domainset', relativePath: 'List/domainset/apple_cdn.list',
+    assert.deepEqual(resolveRuleOutputTarget('surge', 'non_ip', 'apple_cdn'), {
+      platform: 'surge', slot: 'non_ip', format: 'surge-classical', relativePath: 'List/non_ip/apple_cdn.list',
     });
-    assert.equal(resolveRuleOutputTarget('clash', 'domainset', 'x').format, 'clash-classical');
+    assert.deepEqual(RULE_OUTPUT_VARIANTS, ['non_ip', 'ip']);
     assert.equal(resolveRuleOutputTarget('clash', 'non_ip', 'x').relativePath, 'Clash/non_ip/x.txt');
     assert.equal(resolveRuleOutputTarget('loon', 'ip', 'x').relativePath, 'Loon/ip/x.list');
     assert.equal(resolveRuleOutputTarget('singbox', 'ip', 'x').relativePath, 'sing-box/ip/x.json');
@@ -190,7 +182,7 @@ describe('rule output variant contract', () => {
 });
 
 describe('rule output variants', () => {
-  it('publishes Apple CDN-like suffix rules only as domainset with the merged boundaries', async t => {
+  it('publishes Apple CDN-like suffix rules only as non_ip with the merged boundaries', async t => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-variants-apple-'));
     t.after(() => fs.rm(directory, { recursive: true, force: true }));
     const output = makeOutput('apple_cdn', [
@@ -202,36 +194,31 @@ describe('rule output variants', () => {
     ], { directory });
     const audit = await output.write();
 
-    const surge = await fs.readFile(path.join(directory, 'List/domainset/apple_cdn.list'), 'utf8');
-    assert.deepEqual(
-      textConditions(surge.split('\n')).sort(),
-      ['.aaplimg.com', '.cdn-apple.com', 'mzstatic.com', 'notcdn-apple.com']
-    );
-    const merged = await fs.readFile(path.join(directory, 'List/apple_cdn.list'), 'utf8');
+    const surge = await fs.readFile(path.join(directory, 'List/non_ip/apple_cdn.list'), 'utf8');
     // Same order and boundaries: suffix covers apex and subdomains, the look-alike stays exact.
-    assert.deepEqual(fromDomainSet(surge.split('\n')), textConditions(merged.split('\n')));
-    assert.equal(merged.includes('sub.cdn-apple.com'), false);
-    for (const [directoryName, extension] of [['Clash', 'txt'], ['Loon', 'list'], ['sing-box', 'json']]) {
+    assert.deepEqual(textConditions(surge.split('\n')), [
+      'DOMAIN,mzstatic.com', 'DOMAIN,notcdn-apple.com', 'DOMAIN-SUFFIX,aaplimg.com', 'DOMAIN-SUFFIX,cdn-apple.com',
+    ].sort((x, y) => surge.indexOf(x) - surge.indexOf(y)));
+    for (const [directoryName, extension] of [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list'], ['sing-box', 'json']]) {
       // eslint-disable-next-line no-await-in-loop -- compare each platform pair
       const flat = await fs.readFile(path.join(directory, directoryName, `apple_cdn.${extension}`), 'utf8');
       // eslint-disable-next-line no-await-in-loop -- compare each platform pair
-      const domainset = await fs.readFile(path.join(directory, directoryName, 'domainset', `apple_cdn.${extension}`), 'utf8');
-      assert.equal(stripBanner(domainset), stripBanner(flat), directoryName);
+      const nonIp = await fs.readFile(path.join(directory, directoryName, 'non_ip', `apple_cdn.${extension}`), 'utf8');
+      assert.equal(stripBanner(nonIp), stripBanner(flat), directoryName);
     }
     for (const platform of ALL_PLATFORMS) {
-      assert.equal(findOutput(audit.outputs, platform, 'domainset').status, 'published');
-      for (const variant of ['non_ip', 'ip'] as const) {
-        const entry = findOutput(audit.outputs, platform, variant);
-        assert.equal(entry.status, 'absent-empty');
-        assert.equal(entry.reason, 'no-conditions');
-        assert.equal(entry.sha256, null);
-      }
+      assert.equal(findOutput(audit.outputs, platform, 'non_ip').status, 'published');
+      const entry = findOutput(audit.outputs, platform, 'ip');
+      assert.equal(entry.status, 'absent-empty');
+      assert.equal(entry.reason, 'no-conditions');
+      assert.equal(entry.sha256, null);
     }
-    await assert.rejects(fs.access(path.join(directory, 'List/non_ip/apple_cdn.list')), { code: 'ENOENT' });
-    const surgeDomainset = findOutput(audit.outputs, 'surge', 'domainset');
-    assert.equal(surgeDomainset.format, 'surge-domainset');
-    assert.equal(surgeDomainset.effectiveConditionCount, 4);
-    assert.equal(surgeDomainset.bytes, new TextEncoder().encode(surge).length);
+    await assert.rejects(fs.access(path.join(directory, 'List/ip/apple_cdn.list')), { code: 'ENOENT' });
+    await assert.rejects(fs.access(path.join(directory, 'List/domainset/apple_cdn.list')), { code: 'ENOENT' });
+    const surgeNonIp = findOutput(audit.outputs, 'surge', 'non_ip');
+    assert.equal(surgeNonIp.format, 'surge-classical');
+    assert.equal(surgeNonIp.effectiveConditionCount, 4);
+    assert.equal(surgeNonIp.bytes, new TextEncoder().encode(surge).length);
     await assertUnionEqualsMerged(makeOutput('apple_cdn', ['DOMAIN-SUFFIX,cdn-apple.com', 'DOMAIN,notcdn-apple.com']), ALL_PLATFORMS);
   });
 
@@ -242,15 +229,16 @@ describe('rule output variants', () => {
     const audit = await makeOutput('microsoft_cdn', rules, { directory }).write();
     const nonIp = await fs.readFile(path.join(directory, 'List/non_ip/microsoft_cdn.list'), 'utf8');
     assert.ok(nonIp.includes(String.raw`URL-REGEX,^https?://download\.windowsupdate\.com/`));
-    assert.equal(nonIp.includes('msecnd.net'), false);
+    assert.ok(nonIp.includes('DOMAIN-SUFFIX,msecnd.net'));
     assert.equal(findOutput(audit.outputs, 'loon', 'non_ip').status, 'published');
     for (const platform of ['clash', 'singbox'] as const) {
       const entry = findOutput(audit.outputs, platform, 'non_ip');
-      assert.equal(entry.status, 'absent-unsupported');
-      assert.equal(entry.routedConditionCount, 1);
+      assert.equal(entry.status, 'published');
+      assert.equal(entry.routedConditionCount, 2);
+      assert.equal(entry.effectiveConditionCount, 1);
       assert.deepEqual(entry.drops.unsupported, { 'URL-REGEX': 1 });
     }
-    await assert.rejects(fs.access(path.join(directory, 'Clash/non_ip/microsoft_cdn.txt')), { code: 'ENOENT' });
+    assert.equal((await fs.readFile(path.join(directory, 'Clash/non_ip/microsoft_cdn.txt'), 'utf8')).includes('URL-REGEX'), false);
     await assertUnionEqualsMerged(makeOutput('microsoft_cdn', rules), ALL_PLATFORMS);
   });
 
@@ -281,7 +269,8 @@ describe('rule output variants', () => {
       'IP-ASN,62041,no-resolve',
       'GEOIP,TG,no-resolve',
     ]);
-    assert.deepEqual(await read('List/domainset/mixed.list'), ['chat.example', '.openai.com']);
+    assert.ok(surgeNonIp.includes('DOMAIN,chat.example'));
+    assert.ok(surgeNonIp.includes('DOMAIN-SUFFIX,openai.com'));
     const clashIp = await read('Clash/ip/mixed.txt');
     assert.ok(clashIp.includes('AND,((DOMAIN-SUFFIX,stream.example),(IP-CIDR,203.0.113.0/24))'));
     const clashNonIp = await read('Clash/non_ip/mixed.txt');
@@ -315,24 +304,13 @@ describe('rule output variants', () => {
     await assert.rejects(fs.access(path.join(directory, 'List/ip/asn_only.list')), { code: 'ENOENT' });
   });
 
-  it('keeps extended-matching domains out of Surge DOMAIN-SET only', async () => {
+  it('keeps extended-matching on Surge non_ip domains only', async () => {
     const output = makeOutput('extended', ['DOMAIN-SUFFIX,example.com,extended-matching', 'DOMAIN,other.test']);
     await assertUnionEqualsMerged(output, ALL_PLATFORMS);
-    assert.deepEqual(output.getVariantContent('surge', 'domainset'), []);
     assert.deepEqual([...output.getVariantContent('surge', 'non_ip')].sort(), [
       'DOMAIN,other.test,extended-matching', 'DOMAIN-SUFFIX,example.com,extended-matching',
     ]);
-    assert.deepEqual([...output.getVariantContent('clash', 'domainset')].sort(), ['DOMAIN,other.test', 'DOMAIN-SUFFIX,example.com']);
-
-    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-variants-extended-'));
-    try {
-      const audit = await makeOutput('extended', ['DOMAIN-SUFFIX,example.com,extended-matching'], { directory }).write();
-      const entry = findOutput(audit.outputs, 'surge', 'domainset');
-      assert.equal(entry.status, 'absent-empty');
-      assert.equal(entry.reason, 'extended-matching');
-    } finally {
-      await fs.rm(directory, { recursive: true, force: true });
-    }
+    assert.deepEqual([...output.getVariantContent('clash', 'non_ip')].sort(), ['DOMAIN,other.test', 'DOMAIN-SUFFIX,example.com']);
   });
 
   it('preserves Surge set-wide extended matching for logical domain+IP rules after splitting', async t => {
@@ -390,9 +368,9 @@ describe('rule output variants', () => {
     });
     assert.deepEqual(findOutput(audit.outputs, 'clash', 'non_ip').losses.droppedValues, { 'PROTOCOL:QUIC': 1 });
     assert.deepEqual(findOutput(audit.outputs, 'singbox', 'merged').losses.ignoredModifiers, { 'no-resolve': 2, 'extended-matching': 2 });
-    assert.deepEqual(findOutput(audit.outputs, 'singbox', 'non_ip').losses.ignoredModifiers, { 'no-resolve': 2, 'extended-matching': 1 });
+    assert.deepEqual(findOutput(audit.outputs, 'singbox', 'non_ip').losses.ignoredModifiers, { 'no-resolve': 2, 'extended-matching': 2 });
     assert.deepEqual(findOutput(audit.outputs, 'singbox', 'ip').losses.ignoredModifiers, {});
-    assert.deepEqual(findOutput(audit.outputs, 'loon', 'domainset').losses.ignoredModifiers, { 'extended-matching': 1 });
+    assert.deepEqual(findOutput(audit.outputs, 'loon', 'non_ip').losses.ignoredModifiers, { 'extended-matching': 2 });
     assert.deepEqual(findOutput(audit.outputs, 'surge', 'merged').losses, { droppedValues: {}, ignoredModifiers: {} });
     const clash = await fs.readFile(path.join(directory, 'Clash/losses.txt'), 'utf8');
     assert.equal(clash.includes('QUIC'), false);
@@ -409,7 +387,7 @@ describe('rule output variants', () => {
     // A failing ruleset (sing-box merged gate) must not delete or rewrite anything.
     await assert.rejects(makeOutput('cycle', ['USER-AGENT,Only*'], { directory }).write());
     assert.equal(await fs.readFile(ipPath, 'utf8'), ipContent);
-    await fs.access(path.join(directory, 'List/domainset/cycle.list'));
+    await fs.access(path.join(directory, 'List/non_ip/cycle.list'));
 
     const audit = await makeOutput('cycle', ['DOMAIN,a.example'], { directory }).write();
     assert.equal(findOutput(audit.outputs, 'surge', 'ip').status, 'absent-empty');
@@ -417,7 +395,7 @@ describe('rule output variants', () => {
       // eslint-disable-next-line no-await-in-loop -- check each platform cleanup
       await assert.rejects(fs.access(path.join(directory, relative)), { code: 'ENOENT' }, relative);
     }
-    await fs.access(path.join(directory, 'List/domainset/cycle.list'));
+    await fs.access(path.join(directory, 'List/non_ip/cycle.list'));
   });
 
   it('leaves previous files untouched and records no audit when a source download fails', async t => {

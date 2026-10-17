@@ -35,7 +35,7 @@ export class SingboxSource extends BaseWriteStrategy {
   }
 
   constructor(
-    public type: '' | 'domainset' | 'non_ip' | 'ip' /* | (string & {}) */,
+    public type: '' | 'non_ip' | 'ip' /* | (string & {}) */,
     public readonly outputDir = OUTPUT_SINGBOX_DIR
   ) {
     super(outputDir);

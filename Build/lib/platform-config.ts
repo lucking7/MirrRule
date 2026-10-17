@@ -7,7 +7,6 @@ import { SurgeRuleSet } from '../core/output/writing-strategy/surge';
 import { ClashClassicRuleSet } from '../core/output/writing-strategy/clash';
 import { SingboxSource } from '../core/output/writing-strategy/singbox';
 import { LoonRuleSet } from '../core/output/writing-strategy/loon';
-import { SurgeDomainSet } from '../core/output/writing-strategy/surge-domainset';
 import type { BaseWriteStrategy } from '../core/output/writing-strategy/base';
 import { PLATFORM_OUTPUT_LAYOUT } from './rule-output-variants';
 import type { RuleOutputVariant } from './rule-output-variants';
@@ -80,9 +79,7 @@ export function createVariantStrategy(
   const fullOutputDir = path.join(outputBaseDir, PLATFORM_OUTPUT_LAYOUT[target].directory);
   switch (target) {
     case 'surge':
-      return variant === 'domainset'
-        ? new SurgeDomainSet(fullOutputDir)
-        : new SurgeRuleSet(variant, fullOutputDir);
+      return new SurgeRuleSet(variant, fullOutputDir);
     case 'clash':
       return new ClashClassicRuleSet(variant, fullOutputDir);
     case 'singbox':

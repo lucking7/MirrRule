@@ -3,15 +3,15 @@ import type { SupportedPlatform } from './platform-config';
 
 /**
  * Mutually exclusive condition classes published next to each merged ruleset. ip holds only
- * conditions that may trigger a DNS lookup; destination IP rules with no-resolve are in non_ip.
+ * conditions that may trigger a DNS lookup; everything else, including domains and destination
+ * IP rules with no-resolve, is in non_ip.
  */
-export const RULE_OUTPUT_VARIANTS = ['domainset', 'non_ip', 'ip'] as const;
+export const RULE_OUTPUT_VARIANTS = ['non_ip', 'ip'] as const;
 export type RuleOutputVariant = typeof RULE_OUTPUT_VARIANTS[number];
 export type RuleOutputSlot = 'merged' | RuleOutputVariant;
 
 export type RuleOutputFormat =
   | 'surge-classical'
-  | 'surge-domainset'
   | 'clash-classical'
   | 'loon-classical'
   | 'singbox-json-v2';
@@ -58,7 +58,7 @@ export function resolveRuleOutputTarget(
   return {
     platform,
     slot,
-    format: platform === 'surge' && slot === 'domainset' ? 'surge-domainset' : layout.format,
+    format: layout.format,
     relativePath: slot === 'merged'
       ? `${layout.directory}/${filename}`
       : `${layout.directory}/${slot}/${filename}`,

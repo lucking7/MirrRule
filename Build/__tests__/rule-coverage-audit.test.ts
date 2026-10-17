@@ -232,12 +232,12 @@ describe('coverage CLI and profile input', () => {
   it('maps flat and nested NRRule Surge paths to the matching local files and formats', () => {
     const rulesDir = '/tmp/public/List';
     assert.deepEqual(resolveNrruleSurgeReference('/List/apple_cdn.list', 'rule-set', rulesDir), { label: 'apple_cdn.list', variant: 'merged', filename: path.join(rulesDir, 'apple_cdn.list') });
-    assert.equal(resolveNrruleSurgeReference('/List/domainset/apple_cdn.list', 'domain-set', rulesDir).filename, path.join(rulesDir, 'domainset', 'apple_cdn.list'));
     assert.equal(resolveNrruleSurgeReference('/List/non_ip/microsoft_cdn.list', 'rule-set', rulesDir).filename, path.join(rulesDir, 'non_ip', 'microsoft_cdn.list'));
     assert.equal(resolveNrruleSurgeReference('/List/ip/telegram.list', 'rule-set', rulesDir).variant, 'ip');
-    assert.equal(resolveNrruleSurgeReference('/List/domainset/apple_cdn.list', 'rule-set', rulesDir).skipped, 'format-mismatch');
+    assert.equal(resolveNrruleSurgeReference('/List/non_ip/apple_cdn.list', 'domain-set', rulesDir).skipped, 'format-mismatch');
     assert.equal(resolveNrruleSurgeReference('/List/apple_cdn.list', 'domain-set', rulesDir).skipped, 'format-mismatch');
-    for (const unresolved of ['/List/other/apple_cdn.list', '/List/a/b/c.list', '/Clash/apple_cdn.txt']) {
+    // domainset was merged into non_ip; its old paths are no longer NRRule subscriptions.
+    for (const unresolved of ['/List/domainset/apple_cdn.list', '/List/other/apple_cdn.list', '/List/a/b/c.list', '/Clash/apple_cdn.txt']) {
       const resolved = resolveNrruleSurgeReference(unresolved, 'rule-set', rulesDir);
       assert.equal(resolved.skipped, 'unavailable-remote');
       assert.equal(resolved.filename, undefined);
@@ -250,11 +250,10 @@ describe('coverage CLI and profile input', () => {
     assert.equal(domainSetLineToRule('DOMAIN,example.com'), 'DOMAIN-SET-INVALID,DOMAIN,example.com');
     assert.equal(domainSetLineToRule('# comment'), '# comment');
     const report = auditRuleCoverage([
-      { id: 'cdn', policy: 'DIRECT', format: 'domain-set', variant: 'domainset', lines: ['.mzstatic.com', 'exact.apple.com', 'DOMAIN-SUFFIX,bad.example'] },
+      { id: 'cdn', policy: 'DIRECT', format: 'domain-set', lines: ['.mzstatic.com', 'exact.apple.com', 'DOMAIN-SUFFIX,bad.example'] },
       { id: 'later', policy: 'Proxy', lines: ['DOMAIN,mzstatic.com', 'DOMAIN,a.b.mzstatic.com', 'DOMAIN,badmzstatic.com', 'DOMAIN,exact.apple.com', 'DOMAIN,sub.exact.apple.com'] }
     ]);
     assert.equal(report.subscriptions[0].format, 'domain-set');
-    assert.equal(report.subscriptions[0].variant, 'domainset');
     assert.equal(report.subscriptions[0].reviewStatus, 'reviewed');
     assert.equal(report.subscriptions[0].domainRules, 2);
     assert.equal(report.subscriptions[0].unsupportedTypes['DOMAIN-SET-INVALID'], 1);
@@ -264,22 +263,21 @@ describe('coverage CLI and profile input', () => {
     assert.equal(report.subscriptions[1].differentPolicyConflicts, 3);
   });
 
-  it('resolves DOMAIN-SET and nested RULE-SET variant references to local files', async () => {
+  it('resolves local DOMAIN-SET and nested RULE-SET variant references to local files', async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'coverage-variants-'));
     try {
       const rulesDir = path.join(directory, 'List');
-      await fs.mkdir(path.join(rulesDir, 'domainset'), { recursive: true });
       await fs.mkdir(path.join(rulesDir, 'non_ip'), { recursive: true });
-      await fs.writeFile(path.join(rulesDir, 'domainset', 'apple_cdn.list'), '.mzstatic.com\nupdate.apple.com\n');
+      await fs.writeFile(path.join(directory, 'apple_cdn.list'), '.mzstatic.com\nupdate.apple.com\n');
       await fs.writeFile(path.join(rulesDir, 'non_ip', 'microsoft_cdn.list'), 'URL-REGEX,^http://example\\.com/\nDOMAIN,mzstatic.com\n');
       const profile = [
         '[Rule]',
-        'DOMAIN-SET,https://nrrule.pages.dev/List/domainset/apple_cdn.list,DIRECT',
+        'DOMAIN-SET,apple_cdn.list,DIRECT',
         'RULE-SET,https://nrrule.pages.dev/List/non_ip/microsoft_cdn.list,DIRECT',
         'DOMAIN,a.mzstatic.com,Proxy'
       ].join('\n');
       const subscriptions = await readProfileSubscriptions(profile, directory, rulesDir);
-      assert.equal(subscriptions[0].id, 'nrrule.pages.dev/domainset/apple_cdn.list:2');
+      assert.equal(subscriptions[0].id, 'local/apple_cdn.list:2');
       assert.equal(subscriptions[0].format, 'domain-set');
       assert.equal(subscriptions[1].id, 'nrrule.pages.dev/non_ip/microsoft_cdn.list:3');
       assert.equal(subscriptions[1].format, 'rule-set');
@@ -298,9 +296,8 @@ describe('coverage CLI and profile input', () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'coverage-absent-'));
     try {
       const rulesDir = path.join(directory, 'List');
-      await fs.mkdir(path.join(rulesDir, 'domainset'), { recursive: true });
+      await fs.mkdir(rulesDir, { recursive: true });
       await fs.mkdir(path.join(directory, 'Internal'), { recursive: true });
-      await fs.writeFile(path.join(rulesDir, 'domainset', 'apple_cdn.list'), '.mzstatic.com\n');
       await fs.writeFile(path.join(directory, 'Internal', 'rule-output-audit.json'), JSON.stringify({
         rulesets: [{ id: 'apple_cdn', outputs: [
           { platform: 'surge', variant: 'ip', status: 'absent-empty', reason: 'no-conditions', path: 'List/ip/apple_cdn.list' },
@@ -311,8 +308,8 @@ describe('coverage CLI and profile input', () => {
         '[Rule]',
         'RULE-SET,https://nrrule.pages.dev/List/ip/apple_cdn.list,DIRECT',
         'RULE-SET,https://nrrule.pages.dev/List/non_ip/apple_cdn.list,DIRECT',
-        'RULE-SET,https://nrrule.pages.dev/List/domainset/apple_cdn.list,DIRECT',
-        'DOMAIN-SET,https://nrrule.pages.dev/List/unknown/apple_cdn.list,DIRECT',
+        'DOMAIN-SET,https://nrrule.pages.dev/List/non_ip/apple_cdn.list,DIRECT',
+        'DOMAIN-SET,https://nrrule.pages.dev/List/domainset/apple_cdn.list,DIRECT',
         'DOMAIN-SET,https://example.com/set.txt,DIRECT'
       ].join('\n');
       const report = auditRuleCoverage(await readProfileSubscriptions(profile, directory, rulesDir), { basis: 'profile-rule-section' });
@@ -346,7 +343,7 @@ describe('coverage CLI and profile input', () => {
       await fs.writeFile(auditPath, JSON.stringify({ rulesets: [
         { id: 'a', outputs: [{ platform: 'singbox', variant: 'ip', status: 'absent-unsupported' }] },
         { id: 'b', outputs: [{ platform: 'surge', variant: 'non_ip', status: 'absent-unsupported', reason: 'platform-unsupported' }] },
-        { id: 'c', outputs: [{ platform: 'surge', variant: 'domainset', status: 'published' }] }
+        { id: 'c', outputs: [{ platform: 'surge', variant: 'ip', status: 'published' }] }
       ] }));
       assert.deepEqual([...await loadVariantAvailability(auditPath)], [['b/non_ip', 'absent-unsupported (platform-unsupported)']]);
       assert.equal((await loadVariantAvailability(path.join(directory, 'missing.json'))).size, 0);

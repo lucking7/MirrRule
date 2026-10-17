@@ -65,7 +65,6 @@ describe('output audit', () => {
     assert.deepEqual(countEffectiveConditions('surge-classical', [
       '# banner', 'DOMAIN,a.example', 'AND,((DOMAIN,b.example),(IP-CIDR,10.0.0.0/8))', '', '// note',
     ]), { effectiveConditionCount: 2 });
-    assert.deepEqual(countEffectiveConditions('surge-domainset', ['.a.example', 'b.example']), { effectiveConditionCount: 2 });
     assert.deepEqual(countEffectiveConditions('singbox-json-v2', JSON.stringify({
       version: 2,
       rules: [{ domain: ['a.example', 'b.example'], domain_suffix: [], ip_cidr: ['10.0.0.0/8', '2001:db8::/32'] }],

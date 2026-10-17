@@ -13,7 +13,7 @@ MirrRule 是一个 **Node.js + TypeScript 的网络代理规则聚合、转换�
 - Loon：`public/Loon/*.list`
 - sing-box rule-set：`public/sing-box/*.json`
 - Surge modules / plugins / mirrors：`public/Mirror/**`
-- 规则分版（追加输出，见第 7 节）：`public/<平台目录>/{domainset,non_ip,ip}/*`
+- 规则分版（追加输出，见第 7 节）：`public/<平台目录>/{non_ip,ip}/*`
 - 机器可读报告：`public/Internal/*.json`（输出审计、来源 delta、发布清单、退休登记、覆盖审查）
 
 公开服务基础地址见 `README.md`：`https://nrrule.pages.dev`。
@@ -112,7 +112,7 @@ Build/
   integration/mirror-sync/         GitHub Release/镜像同步实现
   integration/plugin-converter/    插件下载、转换、镜像实现
   lib/                             规则处理、输出、解析、模块合并等核心逻辑
-  lib/rule-output-variants.ts      分版（domainset/non_ip/ip）分类、路径与格式契约
+  lib/rule-output-variants.ts      分版（non_ip/ip）分类、路径与格式契约
   lib/output-audit.ts              各 ruleset×分版×平台的实际输出审计、来源快照与 delta
   lib/publication-manifest.ts      发布清单（路径、字节数、SHA256、generated/preserved 来源）
   lib/publication-receipt.ts       GitHub Deployments 验收 receipt 的读写与基线选择
@@ -155,7 +155,7 @@ eslint.config.js                   ESLint 配置
 3. 创建 `RuleSourceProcessor`，读取 `ruleGroups` 与 `specialRules`。
 4. 逐个下载上游规则源。
 5. 通过 `EnhancedFileOutput` 清洗、转换、去重、排序、分类规则。
-6. 按目标平台创建输出策略，写入 flat 合并版 `public/List`、`public/Clash`、`public/Loon`、`public/sing-box`，并在同一次 canonical 处理结果上分类写入 `<平台目录>/{domainset,non_ip,ip}/` 分版（不重新下载）。
+6. 按目标平台创建输出策略，写入 flat 合并版 `public/List`、`public/Clash`、`public/Loon`、`public/sing-box`，并在同一次 canonical 处理结果上分类写入 `<平台目录>/{non_ip,ip}/` 分版（不重新下载）。
 7. 生成 `Internal/rule-output-audit.json`（每个 ruleset×分版×平台的格式、路径、状态、有效条数、字节数、SHA256）、`Internal/source-snapshots/<sourceId>.json.gz` 与 `Internal/source-delta.json`（相对 `PUBLICATION_BASELINE_DIR` 中已验收 tree 的来源条件增删，并记录基线 receiptId；无基线为 baseline-unavailable，版本或处理选项变化为 not-comparable，基线中有、本次不再构建的规则集为 removed）。
 8. 执行跨订阅覆盖审查，写入 `Internal/rule-coverage.json`；缺失示例订阅时该步骤失败。
 9. 执行 `buildPublic` 生成 `index.html`、`_headers`、`404.html`、`README.md` 等 public 辅助文件，并按退休登记清除 retired 文件。
@@ -202,7 +202,7 @@ eslint.config.js                   ESLint 配置
 - `validate`：是否启用规则合法性校验，默认 `false`。
 - `sourcePolicies`：可选的上游策略白名单，在移除策略前按第三个逗号字段匹配（忽略大小写）。用于从混合 QX 规则源中提取 `direct` 或 `reject`，不把上游 `proxy` 例外误转为直连。筛选后为空会终止该订阅发布，除非显式设置 `allowEmpty: true`。
 - `excludedRuleTypes`：可选的规则类型排除列表，忽略大小写；在转换后筛选，包含被排除类型的复合规则整体丢弃，避免删减子条件扩大匹配。筛选后为空同样受 `allowEmpty` 发布边界约束。
-- `sourceVariants`：仅 `specialRules`。按 `sourceFiles` 的顺序给每个来源指定一个分版（`domainset`／`non_ip`／`ip`），该来源整体发布为这个分版，不再按规则类型分类；合并版不受影响。数量必须与 `sourceFiles` 一致。当前只有 `reject` 使用。
+- `sourceVariants`：仅 `specialRules`。按 `sourceFiles` 的顺序给每个来源指定一个分版（`non_ip`／`ip`），该来源整体发布为这个分版，多个来源可以指定同一分版，不再按规则类型分类；合并版不受影响。数量必须与 `sourceFiles` 一致。当前只有 `reject` 使用。
 - `deleteSourceFiles`：特殊规则完成后，按来源 URL 的 basename 尝试删除输出根目录中的同名文件。当前下载器只把来源保存在内存中，不会自行创建这些根目录文件；外部预置的同名文件仍可能被删除。
 
 规则输出始终按 `EnhancedFileOutput` 的 Trie/Set 与平台 writer 处理去重和顺序，规则源配置没有单独的 `dedup` 或 `sort` 开关。
@@ -242,13 +242,13 @@ loon    -> public/Loon
 flat 合并版 URL 保持不变；分版是追加输出，契约在 `Build/lib/rule-output-variants.ts`：
 
 - 路径：`<平台目录>/<variant>/<id>.<扩展名>`，平台目录与扩展名同上表（`List/.list`、`Clash/.txt`、`Loon/.list`、`sing-box/.json`），`id` 为配置路径 basename 的小写形式。
-- 三类互斥，同一平台三者并集等于合并版：`domainset` 为可无损表达的独立 DOMAIN／DOMAIN-SUFFIX；`non_ip` 为其余不触发 DNS 解析的条件，SRC-IP 等源地址条件和带 `no-resolve` 的目标 IP 规则属于此类（与 Sukka 的 `non_ip` 文件一致）；`ip` 为不带 `no-resolve` 的 IP-CIDR／IP-CIDR6／IP-ASN／GEOIP 及含目标 IP 子条件的完整 logical 规则。logical 规则不拆分子条件；不能无损表达的域名条件留在 `non_ip`。
-- 按来源分版的例外：规则集设置 `sourceVariants` 时，三个分版分别是对应上游文件经同样清洗后的内容，不按上面的类型分类，也不跨分版去重。此时 `non_ip` 可以包含已被 `domainset` 覆盖的域名，`ip` 可以包含上游放在该文件中、带 `no-resolve` 的 IP 规则，三者并集仍等于合并版的匹配范围，但条数之和可以大于合并版。来源含非域名条件却指定为 Surge `domainset` 时构建失败。
-- Surge 的 extended-matching 例外：规则集含 `extended-matching` 时，Surge 域名条件留在 `non_ip`（DOMAIN-SET 不能携带该标志），`domainset` 记为 `absent-empty`、reason `extended-matching`；含域名子条件的目标 IP logical 规则也留在 Surge `non_ip` 以保留文件级标志，审计记为 `reroutedFromIp`。其他平台仍归入 `ip`。
+- 两类互斥，同一平台两者并集等于合并版：`non_ip` 为不触发 DNS 解析的条件，包括全部域名规则、SRC-IP 等源地址条件和带 `no-resolve` 的目标 IP 规则（与 Sukka 的 `non_ip` 文件一致；Sukka 来源是否带 `no-resolve` 跟随上游）；`ip` 为不带 `no-resolve` 的 IP-CIDR／IP-CIDR6／IP-ASN／GEOIP 及含目标 IP 子条件的完整 logical 规则。logical 规则不拆分子条件。2026-10-17 起 `domainset` 分版并入 `non_ip`，旧 `<平台目录>/domainset/` 地址返回 404；`publication-outputs.ts` 仍检查该目录，残留文件会使 stage 失败。
+- 按来源分版的例外：规则集设置 `sourceVariants` 时，每个分版是指定给它的上游文件经同样清洗后的内容，不按上面的类型分类，也不跨分版去重。此时 `ip` 可以包含上游放在该文件中、带 `no-resolve` 的 IP 规则，两者并集仍等于合并版的匹配范围，但条数之和可以大于合并版。
+- Surge 的 extended-matching 例外：规则集含 `extended-matching` 时，含域名子条件的目标 IP logical 规则留在 Surge `non_ip` 以保留文件级标志，审计记为 `reroutedFromIp`。其他平台仍归入 `ip`。
 - 转换损失记录在 `outputs[].losses`（`droppedValues`、`ignoredModifiers`）：sing-box 不能表达 `no-resolve`，Surge 以外忽略 `extended-matching`，Clash 丢弃 TCP/UDP 以外的 `PROTOCOL` 值。不要把这些损失写成"保留"。
-- 格式：Surge `List/domainset/*.list` 是 native DOMAIN-SET（`example.com` 精确、`.example.com` 后缀），由 `Build/core/output/writing-strategy/surge-domainset.ts` 写出，不得写入 classical 规则；`List/non_ip`、`List/ip` 是 classical RULE-SET。Clash、Loon 分版使用 classical 编码，sing-box 使用 JSON v2。消费者格式以审计报告的 `format` 字段为准，不按目录名猜测。
+- 格式：分版沿用各平台合并版的编码：Surge `List/non_ip`、`List/ip` 与 Loon 为 classical RULE-SET，Clash 为 classical 文本，sing-box 为 JSON v2。消费者格式以审计报告的 `format` 字段为准，不按目录名猜测。
 - 空分版或平台全部不支持的分版不写文件，在审计报告中记为 `absent-empty`／`absent-unsupported`；成功构建会清除以前存在、现已合法消失的分版文件。下载失败属于构建失败，不得解释为空分版。sing-box 仍执行有效匹配条件门槛。
-- 覆盖审查（`Build/audit-rule-coverage.ts`）按引用关键字选择解析器：`DOMAIN-SET` 对应 `List/domainset/<id>.list`，`RULE-SET` 对应 flat 与 `List/{non_ip,ip}/<id>.list`。缺失分版、格式不符、未知路径与远端引用都记为 `reviewStatus: not-covered` 并给出 `notCoveredReason`，不能计为已审查。
+- 覆盖审查（`Build/audit-rule-coverage.ts`）按引用关键字选择解析器：NRRule 的 flat 与 `List/{non_ip,ip}/<id>.list` 都是 `RULE-SET`；`DOMAIN-SET` 只解析本地文件，指向 NRRule 地址时记为格式不符或未知路径。缺失分版、格式不符、未知路径与远端引用都记为 `reviewStatus: not-covered` 并给出 `notCoveredReason`，不能计为已审查。
 
 ## 8. 规则清洗与转换约定
 

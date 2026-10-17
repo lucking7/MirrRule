@@ -34,8 +34,8 @@ describe('Sukka aggregate subscriptions', () => {
     assert.ok(reject);
     assert.equal(reject.sourceFiles.some(source => phishing.sourceFiles.includes(source)), false);
     assert.equal(reject.applyNoResolve, undefined, 'preserve source DNS resolution behavior');
-    assert.deepEqual(reject.sourceVariants, ['domainset', 'non_ip', 'ip'], 'variants follow the upstream files');
-    assert.deepEqual(reject.sourceFiles.map(source => source.split('/').at(-2)), reject.sourceVariants);
+    assert.deepEqual(reject.sourceVariants, ['non_ip', 'non_ip', 'ip'], 'variants follow the upstream files');
+    assert.deepEqual(reject.sourceFiles.map(source => source.split('/').at(-2)), ['domainset', 'non_ip', 'ip']);
     const cdn = specialRules.find(rule => rule.targetFile === 'List/cdn.list');
     assert.ok(cdn);
     assert.equal(cdn.applyNoResolve, undefined, 'upstream ip/cdn rules resolve the destination');
@@ -48,7 +48,7 @@ describe('Sukka aggregate subscriptions', () => {
       ['/ip/reject.conf', 'IP-CIDR,198.51.100.0/24\nIP-CIDR,192.0.2.0/24,no-resolve\n'],
       ['/non_ip/my_reject.conf', 'DOMAIN-SUFFIX,personal-block.test\n'],
       ['/non_ip/stream.conf', 'DOMAIN-SUFFIX,shared.test\nDOMAIN,child.shared.test\n'],
-      ['/ip/stream.conf', 'IP-CIDR,203.0.113.0/24\nIP-CIDR6,2001:db8::/32\n'],
+      ['/ip/stream.conf', 'IP-CIDR,203.0.113.0/24,no-resolve\nIP-CIDR6,2001:db8::/32\n'],
       ['/domainset/reject_extra.conf', '.shared-reject.test\n.extra.test\n'],
       ['/domainset/reject_phishing.conf', '.shared-reject.test\n.phishing.test\n'],
     ]);
@@ -90,8 +90,10 @@ describe('Sukka aggregate subscriptions', () => {
         }
         assert.equal(stream.includes('DOMAIN,child.shared.test'), false);
         assert.equal(stream.includes('7h15.ru1353t'), false);
+        // Sukka sources keep their upstream no-resolve choice per rule.
         assert.equal(stream.split('\n').filter(line => line.startsWith('IP-CIDR,203.0.113.0/24')).length, 1);
-        assert.ok(stream.includes('IP-CIDR6,2001:db8::/32,no-resolve'));
+        assert.ok(stream.split('\n').includes('IP-CIDR,203.0.113.0/24,no-resolve'));
+        assert.ok(stream.split('\n').includes('IP-CIDR6,2001:db8::/32'));
         for (const domain of ['shared-reject.test', 'extra.test']) {
           assert.equal(extra.split('\n').filter(line => line.startsWith(`DOMAIN-SUFFIX,${domain}`)).length, 1);
         }
@@ -127,7 +129,7 @@ describe('Sukka aggregate subscriptions', () => {
         assert.ok(personal.includes('personal-block.test'));
         assert.equal(personal.includes('base-block.test'), false);
       }
-      // Reject variants are the upstream files, not a type-based split of the merged rules.
+      // Reject variants are the upstream files (domainset and non_ip together), not a type-based split.
       for (const [directory, extension] of [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list']]) {
         const read = (slot: string) => new Set(
           fs.readFileSync(path.join(outputDir, directory, slot, `reject.${extension}`), 'utf8').split('\n').filter(line => line && !line.startsWith('#'))
@@ -139,7 +141,6 @@ describe('Sukka aggregate subscriptions', () => {
           'DOMAIN,other-block.test', 'DOMAIN-SUFFIX,base-block.test', 'IP-CIDR,203.0.113.7/32,no-resolve',
         ]));
         assert.deepEqual(read('ip'), new Set(['IP-CIDR,198.51.100.0/24', 'IP-CIDR,192.0.2.0/24,no-resolve']));
-        assert.deepEqual(read('domainset'), new Set([directory === 'List' ? '.base-block.test' : 'DOMAIN-SUFFIX,base-block.test']));
       }
       const nonIp = JSON.parse(fs.readFileSync(path.join(outputDir, 'sing-box/non_ip/reject.json'), 'utf8'));
       assert.deepEqual(nonIp.rules[0].ip_cidr, ['203.0.113.7/32']);

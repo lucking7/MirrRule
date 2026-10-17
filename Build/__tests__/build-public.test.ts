@@ -217,7 +217,7 @@ describe('native public directory tree', () => {
   it('labels split variant folders with their consumer format and leaves merged files and other folders unlabeled', () => {
     const variants = (root: string, extension: string) => dir(root, [
       file(`apple.${extension}`, `/${root}/apple.${extension}`),
-      ...['ip', 'domainset', 'non_ip'].map(variant => dir(variant, [
+      ...['ip', 'non_ip'].map(variant => dir(variant, [
         file(`apple.${extension}`, `/${root}/${variant}/apple.${extension}`),
       ], `/${root}/${variant}`)),
     ]);
@@ -228,15 +228,15 @@ describe('native public directory tree', () => {
     ];
     const rendered = treeHtml(tree);
     assert.deepEqual([...rendered.matchAll(/<summary>([^<]*)<\/summary>/g)].map(match => match[1]), [
-      'List', 'domainset (Surge DOMAIN-SET)', 'non_ip (Surge RULE-SET)', 'ip (Surge RULE-SET)',
-      'Loon', 'domainset (Loon RULE-SET)', 'non_ip (Loon RULE-SET)', 'ip (Loon RULE-SET)',
-      'Clash', 'domainset (Clash classical)', 'non_ip (Clash classical)', 'ip (Clash classical)',
-      'sing-box', 'domainset (sing-box rule-set JSON v2)', 'non_ip (sing-box rule-set JSON v2)', 'ip (sing-box rule-set JSON v2)',
+      'List', 'non_ip (Surge RULE-SET)', 'ip (Surge RULE-SET)',
+      'Loon', 'non_ip (Loon RULE-SET)', 'ip (Loon RULE-SET)',
+      'Clash', 'non_ip (Clash classical)', 'ip (Clash classical)',
+      'sing-box', 'non_ip (sing-box rule-set JSON v2)', 'ip (sing-box rule-set JSON v2)',
       'Mirror', 'domainset', 'List2', 'non_ip', 'ip',
     ]);
     const links = fileLinks(rendered).map(link => link.href);
-    assert.deepEqual(links.slice(0, 4), ['/List/domainset/apple.list', '/List/non_ip/apple.list', '/List/ip/apple.list', '/List/apple.list']);
-    assert.ok(links.includes('/sing-box/domainset/apple.json'));
+    assert.deepEqual(links.slice(0, 3), ['/List/non_ip/apple.list', '/List/ip/apple.list', '/List/apple.list']);
+    assert.ok(links.includes('/sing-box/non_ip/apple.json'));
   });
 
   it('preserves category order and sorts files without mutating the input at any depth', () => {
@@ -246,13 +246,12 @@ describe('native public directory tree', () => {
         file('zeta.list', '/List/zeta.list'),
         dir('ip', [file('b.conf', '/List/ip/b.conf'), file('a.conf', '/List/ip/a.conf')], '/List/ip'),
         dir('non_ip', [file('service.conf', '/List/non_ip/service.conf')], '/List/non_ip'),
-        dir('domainset', [file('cdn.conf', '/List/domainset/cdn.conf')], '/List/domainset'),
         file('alpha.list', '/List/alpha.list'),
       ]),
     ];
     const before = structuredClone(tree);
     assert.deepEqual(fileLinks(treeHtml(tree)).map(link => link.href), [
-      '/List/domainset/cdn.conf', '/List/non_ip/service.conf', '/List/ip/a.conf',
+      '/List/non_ip/service.conf', '/List/ip/a.conf',
       '/List/ip/b.conf', '/List/alpha.list', '/List/zeta.list', '/README.md',
     ]);
     assert.deepEqual(tree, before);

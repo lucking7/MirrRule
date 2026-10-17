@@ -45,7 +45,7 @@ const RULE_TYPE_MAP: Record<string, string> = {
   NETWORK: 'protocol',
 };
 
-/** One platform's merged writer plus the three mutually exclusive variant writers. */
+/** One platform's merged writer plus the mutually exclusive variant writers. */
 interface PlatformOutputs {
   platform: SupportedPlatform;
   merged: BaseWriteStrategy;
@@ -53,8 +53,6 @@ interface PlatformOutputs {
   routed: Record<RuleOutputVariant, number>;
   /** Conditions written to the merged writer; differs from the variant sum for source variants. */
   mergedRouted: number;
-  /** Surge RULE-SET extended matching cannot be expressed by DOMAIN-SET. */
-  domainVariant: RuleOutputVariant;
   /** Logical rules kept in non_ip instead of ip to preserve Surge extended matching. */
   reroutedFromIp: number;
 }
@@ -62,10 +60,6 @@ interface PlatformOutputs {
 const EXTENDED_MATCHER_TYPES: ReadonlySet<string> = new Set([
   'DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN-WILDCARD', 'URL-REGEX',
 ]);
-
-function getDomainVariant(outputs: PlatformOutputs): RuleOutputVariant {
-  return outputs.domainVariant;
-}
 
 interface StagedOutput {
   audit: RuleOutputFileAudit;
@@ -166,13 +160,11 @@ export class EnhancedFileOutput {
       platform,
       merged: this.strategies[index],
       variants: {
-        domainset: createVariantStrategy(platform, 'domainset', outputBaseDir),
         non_ip: createVariantStrategy(platform, 'non_ip', outputBaseDir),
         ip: createVariantStrategy(platform, 'ip', outputBaseDir),
       },
-      routed: { domainset: 0, non_ip: 0, ip: 0 },
+      routed: { non_ip: 0, ip: 0 },
       mergedRouted: 0,
-      domainVariant: 'domainset',
       reroutedFromIp: 0,
     }));
   }
@@ -462,7 +454,7 @@ export class EnhancedFileOutput {
   /**
    * Publish one upstream source as a whole variant instead of classifying the merged
    * conditions by type. The merged files still come from addRules; a variant without
-   * a source stays absent. Surge DOMAIN-SET rejects a source that is not domain-only.
+   * a source stays absent.
    */
   public addVariantSource(variant: RuleOutputVariant, rules: string[]): this {
     let source = this.variantSources.get(variant);
@@ -595,8 +587,6 @@ export class EnhancedFileOutput {
     this.wildcardTrie.dumpWithoutDot(wildcard => wildcardsBeforeCoverage.add(wildcard));
 
     for (const outputs of this.platformOutputs) {
-      // Surge DOMAIN-SET cannot carry RULE-SET extended matching, so those domains stay in non_ip.
-      outputs.domainVariant = outputs.platform === 'surge' && this.extendedDomainMatching ? 'non_ip' : 'domainset';
       outputs.merged.setExtendedDomainMatching(this.extendedDomainMatching);
       for (const variant of RULE_OUTPUT_VARIANTS) {
         outputs.variants[variant].setExtendedDomainMatching(this.extendedDomainMatching);
@@ -616,7 +606,7 @@ export class EnhancedFileOutput {
       this.wildcardTrie.whitelist(domain, includeAllSubdomain);
 
       this.route(
-        getDomainVariant,
+        'non_ip',
         1,
         includeAllSubdomain
           ? strategy => strategy.writeDomainSuffix(domain)
@@ -666,11 +656,11 @@ export class EnhancedFileOutput {
     }
     if (this.otherRules.length) {
       // Logical expressions are classified whole; a destination-IP child sends the expression to ip.
-      const otherRulesByVariant: Record<RuleOutputVariant, string[]> = { domainset: [], non_ip: [], ip: [] };
+      const otherRulesByVariant: Record<RuleOutputVariant, string[]> = { non_ip: [], ip: [] };
       // Surge applies the RULE-SET-wide extended matching to domain sub-rules as well. The
       // Surge non_ip file keeps that context through its flagged domain rules, while the ip
       // file has no top-level domain rule to carry it, so such logical rules stay in non_ip.
-      const surgeOtherRulesByVariant: Record<RuleOutputVariant, string[]> = { domainset: [], non_ip: [], ip: [] };
+      const surgeOtherRulesByVariant: Record<RuleOutputVariant, string[]> = { non_ip: [], ip: [] };
       let surgeRerouted = 0;
       for (const rule of this.otherRules) {
         const classified = classifyRuleLine(rule);
@@ -792,7 +782,7 @@ export class EnhancedFileOutput {
       for (const variant of RULE_OUTPUT_VARIANTS) {
         staged.push(this.stageOutput(outputs, variant, outputs.variants[variant], title, [
           ...descriptions,
-          `Variant: ${variant}. Combine domainset, non_ip and ip for the conditions of the merged ruleset.`,
+          `Variant: ${variant}. Combine non_ip and ip for the conditions of the merged ruleset.`,
         ]));
       }
     }
@@ -815,9 +805,7 @@ export class EnhancedFileOutput {
     if (slot !== 'merged') {
       if (routedConditionCount === 0) {
         status = 'absent-empty';
-        reason = slot === 'domainset' && outputs.domainVariant !== 'domainset' && outputs.routed.non_ip > 0
-          ? 'extended-matching'
-          : 'no-conditions';
+        reason = 'no-conditions';
       } else if (counts.effectiveConditionCount === 0) {
         status = 'absent-unsupported';
         reason = 'platform-unsupported';
