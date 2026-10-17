@@ -34,20 +34,22 @@ sing-box 不能表达 `no-resolve`；它的 `non_ip` 不含 `ip_cidr`，可以�
 
 ## 服务规则
 
-配置在 [rule-sources.ts](Build/lib/rule-sources.ts)。blackmatrix7 使用 `master/rule/Surge/<分类>/<分类>.list`；MetaCubeX 使用 `meta/geo/geosite/<分类>.list`。这些是互补来源，合并后去重，任一必需来源下载失败会阻止该 ruleset 发布，不是互相替代的 fallback。
+配置在 [rule-sources.ts](Build/lib/rule-sources.ts)。MetaCubeX 使用 `meta/geo/geosite/<分类>.list`（及 `meta/geo/geoip/<分类>.list`）；blackmatrix7 使用 `master/rule/Surge/<分类>/<分类>.list`。同一 ruleset 的多个来源合并后去重，任一必需来源下载失败会阻止该 ruleset 发布，不是互相替代的 fallback。
 
-| 输出 basename | blackmatrix7 分类 | Meta geosite | 额外来源                                        |
-| ------------- | ----------------- | ------------ | ----------------------------------------------- |
-| netflix       | Netflix           | netflix      | Meta `meta/geo/geoip/netflix.list`              |
-| disney        | Disney            | disney       | 无                                              |
-| spotify       | Spotify           | spotify      | 无                                              |
-| primevideo    | AmazonPrimeVideo  | primevideo   | 无                                              |
-| youtube       | YouTube           | youtube      | 无                                              |
-| bilibili      | BiliBili          | bilibili     | 无                                              |
-| tiktok        | TikTok            | tiktok       | 无                                              |
-| wechat        | WeChat            | 无           | Meta 没有专用 WeChat 分类，不引入更宽的 Tencent |
-| google        | Google            | google       | 不合并范围更宽的 Google geoip                   |
-| github        | GitHub            | github       | 无                                              |
+2026-10-18 起，MetaCubeX 分类与 blackmatrix7 覆盖接近的服务只用 MetaCubeX。对比当时上游：blackmatrix7 独有的多是第三方条目，例如 Netflix 的 `us-west-2.amazonaws.com`、`onetrust.com`、`cookielaw.org`，Disney 的 braze、conviva、optimizely 等统计与 CDN 域名，YouTube 的 `gvt1.com`、`gvt2.com`。代价是失去 blackmatrix7 的 PROCESS-NAME、USER-AGENT 与多数 IP 规则：Netflix 的 1119 条 IP 段中有 1106 条不在 Meta geoip 内，另有 `netflix.com.au`、`netflixstudios.com` 等 9 个域名未被 Meta 覆盖。Meta 明显更窄的服务继续合并 blackmatrix7。
+
+| 输出 basename | Meta geosite | blackmatrix7 分类 | 说明                                                              |
+| ------------- | ------------ | ----------------- | ----------------------------------------------------------------- |
+| netflix       | netflix      | 无                | 另含 Meta `meta/geo/geoip/netflix.list`                           |
+| disney        | disney       | 无                |                                                                   |
+| spotify       | spotify      | 无                |                                                                   |
+| youtube       | youtube      | 无                |                                                                   |
+| google        | google       | 无                | 不合并范围更宽的 Google geoip                                     |
+| github        | github       | 无                |                                                                   |
+| primevideo    | primevideo   | AmazonPrimeVideo  | Meta 缺 `aiv-delivery.net`、`pv-cdn.net` 等视频 CDN                |
+| bilibili      | bilibili     | BiliBili          | Meta 缺 PCDN 域名                                                 |
+| tiktok        | tiktok       | TikTok            | Meta 缺 CapCut、byteoversea 等海外域名                            |
+| wechat        | 无           | WeChat            | Meta 没有专用 WeChat 分类，不引入更宽的 Tencent                   |
 
 AI 保留 Sukka、ConnersHua、dler 来源，用 blackmatrix7 `OpenAI` 替换 Kelee AI，并使用 Meta `category-ai-!cn.list` 文本输入，补充 Sukka `List/ip/ai.conf`。PrimeVideo 不使用整个 Amazon 分类。上述分类与 Kelee 的覆盖范围不完全相同，尤其 WeChat 的 keyword 与 IPv6、不同来源的分类粒度可能影响客户端分流，迁移者应实测自己的应用。
 

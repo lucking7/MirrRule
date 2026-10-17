@@ -6,7 +6,6 @@ import { describe, it } from 'node:test';
 
 import { createSpan } from '../trace';
 import { EnhancedFileOutput } from '../lib/enhanced-file-output';
-import { specialRules } from '../lib/rule-sources';
 
 describe('excludedRules', () => {
   it('drops matching standalone rules regardless of case, leading dot, policy and modifiers', async t => {
@@ -40,15 +39,5 @@ describe('excludedRules', () => {
       () => new EnhancedFileOutput(createSpan('test'), 'bad', ['surge'], null, { excludedRules: ['onetrust.com'] }),
       /excludedRules entry must be TYPE,value: onetrust\.com/
     );
-  });
-
-  it('excludes shared third-party suffixes from the blackmatrix7 service rules', () => {
-    const netflix = specialRules.find(rule => rule.targetFile === 'List/netflix.list');
-    assert.deepEqual(netflix?.excludedRules, [
-      'DOMAIN-SUFFIX,us-west-2.amazonaws.com', 'DOMAIN-SUFFIX,cookielaw.org', 'DOMAIN-SUFFIX,onetrust.com',
-    ]);
-    const disney = specialRules.find(rule => rule.targetFile === 'List/disney.list');
-    assert.deepEqual(disney?.excludedRules, ['DOMAIN-SUFFIX,execute-api.us-east-1.amazonaws.com', 'DOMAIN-SUFFIX,braze.com']);
-    assert.equal(specialRules.find(rule => rule.targetFile === 'List/youtube.list')?.excludedRules, undefined);
   });
 });

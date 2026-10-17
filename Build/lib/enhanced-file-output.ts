@@ -578,7 +578,7 @@ export class EnhancedFileOutput {
 
   /** Write to the merged writer and to the one variant writer that owns this condition class. */
   private route(
-    variantFor: RuleOutputVariant | ((outputs: PlatformOutputs) => RuleOutputVariant),
+    variant: RuleOutputVariant,
     count: number,
     write: (strategy: BaseWriteStrategy) => void
   ) {
@@ -588,9 +588,9 @@ export class EnhancedFileOutput {
         outputs.mergedRouted += count;
         if (this.variantSources.size > 0) continue;
       }
-      const variant = this.pinnedVariant ?? (typeof variantFor === 'function' ? variantFor(outputs) : variantFor);
-      write(outputs.variants[variant]);
-      outputs.routed[variant] += count;
+      const slot = this.pinnedVariant ?? variant;
+      write(outputs.variants[slot]);
+      outputs.routed[slot] += count;
     }
   }
 
