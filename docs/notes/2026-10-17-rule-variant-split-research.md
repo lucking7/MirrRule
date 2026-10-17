@@ -15,7 +15,7 @@
 | PR #429 | 带 `no-resolve` 的目标 IP 规则归入 `non_ip`，因为它们不触发解析 |
 | PR #430 | `domainset` 分版并入 `non_ip`，只发布 `non_ip` 和 `ip` |
 | PR #431 | 退休登记支持目录前缀 `pathPrefixes`，用 `variant:domainset` 让四个平台的 `domainset/` 目录经 `_worker.js` 返回 404 |
-| 2026-10-18 的 ip 分版路由修复 | `_worker.js` 接管四个平台的 `ip/` 目录，只放行本次 tree 中的文件；验收报告把不在退休登记里的失败标为 `absent-present` |
+| PR #432、#433 及后续 | `_worker.js` 接管四个平台的 `ip/` 与 `non_ip/` 目录，只放行本次 tree 中的文件；验收报告把不在退休登记里的失败标为 `absent-present`；sing-box 的目标 IP 规则全部归入 `ip` |
 
 ## 上游调研要点
 
@@ -45,7 +45,7 @@
 
 ## 未解决的问题
 
-1. **已删除的 `ip/` 分版文件在正式域名上仍返回 200（已处理）。** PR #429 之后，很多规则集不再生成 `ip` 分版，但 `https://nrrule.pages.dev` 仍从 Cloudflare 边缘缓存返回旧文件（`cf-cache-status: HIT`），定时构建 39029739278 因此以 `production-lagging` 失败，共 78 个 URL。逐条登记会超过 `_routes.json` 的 100 条上限，所以改为由 `_worker.js` 接管 `/<平台目录>/ip/*` 四条路由，只放行本次 tree 中存在的文件。代价是 `ip/` 的每个请求都计入 Functions 调用次数；生产环境 `fail_open: false`，额度用完时 `ip` 订阅会下载失败。`non_ip/` 没有接管，以后若出现 `non_ip` 文件消失，需要再评估。
+1. **已删除的 `ip/` 分版文件在正式域名上仍返回 200（已处理）。** PR #429 之后，很多规则集不再生成 `ip` 分版，但 `https://nrrule.pages.dev` 仍从 Cloudflare 边缘缓存返回旧文件（`cf-cache-status: HIT`），定时构建 39029739278 因此以 `production-lagging` 失败，共 78 个 URL。逐条登记会超过 `_routes.json` 的 100 条上限，所以改为由 `_worker.js` 接管 `/<平台目录>/ip/*` 和 `/<平台目录>/non_ip/*` 八条路由，只放行本次 tree 中存在的文件。最初只接管了 `ip/`，随后 sing-box 的 `non_ip/apple_services_ip.json` 在规则集只剩 IP 后消失，同样因缓存导致 run 39049320715 验收失败，于是一并接管。代价是分版的每个请求都计入 Functions 调用次数；生产环境 `fail_open: false`，额度用完时分版订阅会下载失败。
 2. **旧订阅不兼容。** 订阅了 `domainset/` 或已为空的 `ip/` 地址的用户会得到 404。Surge 会报规则集下载失败，Clash 可能报错。如果要照顾旧用户，可以考虑在 README 写明迁移方法。
 3. **Mihomo 性能。** Sukka README 指出 Mihomo 只对 `behavior: domain` 和 `behavior: ipcidr` 的规则集做了匹配优化，`classical` 没有。NRRule 的 Clash 分版全部是 classical，并入前的 Clash `domainset` 也是 classical，所以合并没有让 Mihomo 用户损失性能。如果以后要为 Mihomo 提供优化格式，应另外发布 `behavior: domain` 的纯域名文件和 `behavior: ipcidr` 的纯 CIDR 文件。
 4. **blackmatrix7 过宽条目。** 可以考虑为 `serviceRules` 增加排除列表，或改用 Sukka 已有的对应规则集（Sukka 的 `stream_us` 等按地区分组，不按单个服务分组）。修改前需要确认对现有订阅者的影响。

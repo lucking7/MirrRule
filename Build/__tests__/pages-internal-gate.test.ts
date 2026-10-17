@@ -40,7 +40,7 @@ for (const check of ${JSON.stringify(checks)}) {
       assert.equal(response.headers.get('cache-control'), 'public, max-age=0, must-revalidate');
       assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
       assert.equal(response.headers.get('x-robots-tag'), 'noindex');
-    } else if (/^\/(?:List|Clash|Loon|sing-box)\/ip\//.test(check.pathname)) {
+    } else if (/^\/(?:List|Clash|Loon|sing-box)\/(?:ip|non_ip)\//.test(check.pathname)) {
       assert.equal(response.headers.get('cache-control'), 'public, max-age=0, must-revalidate');
       assert.equal(response.headers.get('content-type'), 'text/plain; charset=utf-8');
       assert.equal(response.headers.get('x-robots-tag'), 'noindex');
@@ -72,9 +72,14 @@ describe('Pages Internal inventory gate', () => {
     await fs.writeFile(path.join(root, 'Internal/nested/report.json'), 'nested');
     await fs.mkdir(path.join(root, 'List/ip'), { recursive: true });
     await fs.writeFile(path.join(root, 'List/ip/cdn.list'), 'IP-CIDR,185.199.108.0/22');
+    await fs.mkdir(path.join(root, 'List/non_ip'), { recursive: true });
+    await fs.writeFile(path.join(root, 'List/non_ip/cdn.list'), 'DOMAIN-SUFFIX,cdn.example');
     await writePagesInternalGate(root);
     const routes = JSON.parse(await fs.readFile(path.join(root, '_routes.json'), 'utf8')) as { version: number, include: string[], exclude: string[] };
-    const routed = ['/Clash/ip/', '/List/ip/', '/Loon/ip/', '/sing-box/ip/', '/Clash/domainset/', '/List/domainset/', '/Loon/domainset/', '/sing-box/domainset/'];
+    const routed = [
+      '/Clash/ip/', '/Clash/non_ip/', '/List/ip/', '/List/non_ip/', '/Loon/ip/', '/Loon/non_ip/', '/sing-box/ip/', '/sing-box/non_ip/',
+      '/Clash/domainset/', '/List/domainset/', '/Loon/domainset/', '/sing-box/domainset/',
+    ];
     assert.deepEqual(routes, {
       version: 1,
       include: [
@@ -110,6 +115,8 @@ describe('Pages Internal inventory gate', () => {
       { pathname: '/Clash/ip/cdn.txt', status: 404, delegated: false },
       { pathname: '/List/ip/discord.list', status: 404, delegated: false },
       { pathname: '/List/non_ip/cdn.list', status: 200, delegated: true },
+      // A sing-box non_ip that disappears when a ruleset turns IP-only is not served from the cache.
+      { pathname: '/sing-box/non_ip/apple_services_ip.json', status: 404, delegated: false },
     ]);
   });
 
@@ -129,7 +136,7 @@ describe('Pages Internal inventory gate', () => {
       { pathname: '/Modules/Converted/腾讯视频去广告.sgmodule', status: 404, delegated: false },
       { pathname: '/List/domainset/cdn.list', status: 404, delegated: false },
       { pathname: '/sing-box/domainset/cdn.json?v=1', status: 404, delegated: false },
-      { pathname: '/List/non_ip/cdn.list', status: 200, delegated: true },
+      { pathname: '/List/non_ip/cdn.list', status: 404, delegated: false },
       { pathname: '/List/ai.list', status: 200, delegated: true },
       { pathname: '/sing-box/china_ip.json', status: 200, delegated: true },
     ]);
