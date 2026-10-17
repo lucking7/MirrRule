@@ -258,7 +258,7 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
-    applyNoResolve: true,
+    // 上游 ip/cdn 的 IP 规则不带 no-resolve，保持其解析选择。
     deleteSourceFiles: true,
   },
   {

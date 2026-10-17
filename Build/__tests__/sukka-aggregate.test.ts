@@ -36,6 +36,9 @@ describe('Sukka aggregate subscriptions', () => {
     assert.equal(reject.applyNoResolve, undefined, 'preserve source DNS resolution behavior');
     assert.deepEqual(reject.sourceVariants, ['domainset', 'non_ip', 'ip'], 'variants follow the upstream files');
     assert.deepEqual(reject.sourceFiles.map(source => source.split('/').at(-2)), reject.sourceVariants);
+    const cdn = specialRules.find(rule => rule.targetFile === 'List/cdn.list');
+    assert.ok(cdn);
+    assert.equal(cdn.applyNoResolve, undefined, 'upstream ip/cdn rules resolve the destination');
   });
 
   it('merges and deduplicates four-platform outputs and preserves old files on source failure', async () => {
