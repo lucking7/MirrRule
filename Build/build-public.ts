@@ -17,13 +17,12 @@ import { writePagesInternalGate } from './lib/pages-internal-gate';
 const INDEX_CSS = fs.readFileSync(path.join(__dirname, 'assets', 'ruleset-index.css'), 'utf8');
 const HIDDEN_INDEX_FILES = new Set(['cname', 'favicon.ico', 'favicon.svg', 'favicon.png', 'robots.txt']);
 const CLOSED_ROOT_FOLDERS = new Set(['Mock', 'Internal']);
-const NESTED_FOLDER_PRIORITY = new Map([['domainset', 10], ['non_ip', 20], ['ip', 30]]);
+const NESTED_FOLDER_PRIORITY = new Map([['non_ip', 20], ['ip', 30]]);
 /** Consumer format of split subscription folders, keyed by `<platform root>/<variant>`. */
 const VARIANT_FORMAT_LABELS = new Map([
-  ['List/domainset', 'Surge DOMAIN-SET'],
   ['List/non_ip', 'Surge RULE-SET'],
   ['List/ip', 'Surge RULE-SET'],
-  ...['domainset', 'non_ip', 'ip'].flatMap(variant => [
+  ...['non_ip', 'ip'].flatMap(variant => [
     [`Clash/${variant}`, 'Clash classical'],
     [`Loon/${variant}`, 'Loon RULE-SET'],
     [`sing-box/${variant}`, 'sing-box rule-set JSON v2'],

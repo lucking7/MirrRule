@@ -188,11 +188,11 @@ describe('EnhancedFileOutput', () => {
     await assert.rejects(published.compile(), /Strategies already written/);
     await assert.rejects(published.write(), /Strategies already written/);
     assert.equal(await fs.readFile(outputPath, 'utf8'), content);
-    assert.deepEqual(await fs.readdir(path.join(directory, 'List')), ['domainset', 'published.list']);
-    assert.deepEqual(await fs.readdir(path.join(directory, 'List', 'domainset')), ['published.list']);
-    const domainset = await fs.readFile(path.join(directory, 'List/domainset/published.list'), 'utf8');
-    assert.ok(domainset.split('\n').includes('published.example'));
-    assert.match(domainset, /^# Variant: domainset\./m);
+    assert.deepEqual(await fs.readdir(path.join(directory, 'List')), ['non_ip', 'published.list']);
+    assert.deepEqual(await fs.readdir(path.join(directory, 'List', 'non_ip')), ['published.list']);
+    const nonIp = await fs.readFile(path.join(directory, 'List/non_ip/published.list'), 'utf8');
+    assert.ok(nonIp.split('\n').includes('DOMAIN,published.example'));
+    assert.match(nonIp, /^# Variant: non_ip\./m);
   });
 
   it('records stage counts and reads the publication audit without recounting drops', async t => {
@@ -225,7 +225,10 @@ describe('EnhancedFileOutput', () => {
     assert.deepEqual(clashMerged?.drops.unsupported, { 'USER-AGENT': 1 });
     assert.equal(clashMerged?.effectiveConditionCount, 2);
     const clashNonIp = audit.outputs.find(entry => entry.platform === 'clash' && entry.variant === 'non_ip');
-    assert.equal(clashNonIp?.status, 'absent-unsupported');
+    // The domain keeps Clash non_ip published; the dropped User-Agent is still counted.
+    assert.equal(clashNonIp?.status, 'published');
+    assert.deepEqual(clashNonIp?.drops.unsupported, { 'USER-AGENT': 1 });
+    assert.equal(clashNonIp?.effectiveConditionCount, 1);
     assert.deepEqual(output.getPublicationAudit(), audit);
     assert.deepEqual(output.getRuleDropSummaries().clash?.unsupported, { 'USER-AGENT': 1 });
     assert.deepEqual(output.getPublicationAudit().outputs, audit.outputs);

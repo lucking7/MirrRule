@@ -156,7 +156,6 @@ export const ruleGroups: RuleGroup[] = [
         path: 'List/global.list',
         url: 'https://ruleset.skk.moe/List/non_ip/global.conf',
         keepComments: true,
-        applyNoResolve: true,
       },
     ],
   },
@@ -221,7 +220,7 @@ const sukkaAdditionalRules: SpecialRuleConfig[] = [
   sourceFiles: sources.map(source => `https://ruleset.skk.moe/List/${source}.conf`),
   targets: surgeOnly ? ['surge'] : ['surge', 'clash', 'singbox', 'loon'],
   defaultPolicy: null,
-  applyNoResolve: true,
+  // Sukka sources keep their upstream no-resolve choice per rule.
 }));
 
 export const specialRules: SpecialRuleConfig[] = [
@@ -290,7 +289,6 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
-    applyNoResolve: true,
   },
   {
     name: 'Microsoft',
@@ -301,7 +299,6 @@ export const specialRules: SpecialRuleConfig[] = [
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
-    applyNoResolve: true,
   },
   {
     name: 'Amazon',
@@ -333,8 +330,8 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://ruleset.skk.moe/List/non_ip/reject.conf',
       'https://ruleset.skk.moe/List/ip/reject.conf',
     ],
-    // 分版按上游文件原样发布：上游 non_ip 中带 no-resolve 的 IP 规则与 ip 使用不同策略。
-    sourceVariants: ['domainset', 'non_ip', 'ip'],
+    // 分版按上游文件发布：domainset 与 non_ip 合为 non_ip，ip 原样发布并使用不同策略。
+    sourceVariants: ['non_ip', 'non_ip', 'ip'],
     defaultPolicy: 'REJECT', // 明确指定拒绝策略
     targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持
     keepComments: false,
@@ -348,7 +345,6 @@ export const specialRules: SpecialRuleConfig[] = [
     defaultPolicy: 'REJECT',
     targets: ['surge', 'clash', 'singbox', 'loon'],
     keepComments: false,
-    applyNoResolve: true,
     deleteSourceFiles: true,
   },
 
@@ -387,7 +383,6 @@ export const specialRules: SpecialRuleConfig[] = [
         .flatMap(rule => rule.sourceFiles),
     ],
     targets: ['surge', 'clash', 'singbox', 'loon'],
-    applyNoResolve: true,
   },
   {
     name: 'lucking - Domestic',

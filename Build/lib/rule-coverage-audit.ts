@@ -5,7 +5,7 @@ import { isIP } from 'node:net';
 type CoverageSubscriptionFormat = 'rule-set' | 'domain-set' | 'inline';
 
 /** `merged` is the flat legacy subscription; the others are NRRule split variants. */
-export type CoverageVariant = 'merged' | 'domainset' | 'non_ip' | 'ip';
+export type CoverageVariant = 'merged' | 'non_ip' | 'ip';
 
 export interface CoverageSubscription {
   id: string,

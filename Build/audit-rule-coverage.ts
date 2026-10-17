@@ -52,13 +52,13 @@ async function readSubscription(
 }
 
 const NRRULE_HOST = 'nrrule.pages.dev';
-const SPLIT_VARIANTS = new Set<string>(['domainset', 'non_ip', 'ip']);
+const SPLIT_VARIANTS = new Set<string>(['non_ip', 'ip']);
 const NRRULE_SURGE_PATH = /^\/List\/(?:([^/]+)\/)?([^/]+\.list)$/;
 
 type ReferenceFormat = 'rule-set' | 'domain-set';
 
 interface ResolvedReference {
-  /** Path label below the NRRule host, e.g. `domainset/apple_cdn.list`. */
+  /** Path label below the NRRule host, e.g. `non_ip/apple_cdn.list`. */
   label: string,
   variant?: CoverageVariant,
   filename?: string,
@@ -68,8 +68,8 @@ interface ResolvedReference {
 
 /**
  * Map an NRRule Surge URL path to a file below the supplied `List` directory.
- * Flat `List/<id>.list` is the merged RULE-SET; `List/domainset/<id>.list` is native DOMAIN-SET;
- * `List/non_ip|ip/<id>.list` are classical RULE-SET variants. Anything else stays unresolved.
+ * Flat `List/<id>.list` is the merged RULE-SET and `List/non_ip|ip/<id>.list` are classical
+ * RULE-SET variants; none is a DOMAIN-SET. Anything else stays unresolved.
  */
 export function resolveNrruleSurgeReference(pathname: string, format: ReferenceFormat, rulesDir: string): ResolvedReference {
   const match = NRRULE_SURGE_PATH.exec(pathname);
@@ -78,21 +78,18 @@ export function resolveNrruleSurgeReference(pathname: string, format: ReferenceF
     return {
       label: pathname.replace(/^\//, ''),
       skipped: 'unavailable-remote',
-      notCoveredReason: 'NRRule path is not a known Surge subscription (List/<id>.list or List/{domainset,non_ip,ip}/<id>.list)'
+      notCoveredReason: 'NRRule path is not a known Surge subscription (List/<id>.list or List/{non_ip,ip}/<id>.list)'
     };
   }
   const variant = (directory ?? 'merged') as CoverageVariant;
   const basename = match[2];
   const label = directory ? `${directory}/${basename}` : basename;
-  const expected: ReferenceFormat = variant === 'domainset' ? 'domain-set' : 'rule-set';
-  if (format !== expected) {
+  if (format !== 'rule-set') {
     return {
       label,
       variant,
       skipped: 'format-mismatch',
-      notCoveredReason: expected === 'domain-set'
-        ? 'List/domainset files are native DOMAIN-SET; reference them with DOMAIN-SET, not RULE-SET'
-        : `List/${label} is a classical RULE-SET; reference it with RULE-SET, not DOMAIN-SET`
+      notCoveredReason: `List/${label} is a classical RULE-SET; reference it with RULE-SET, not DOMAIN-SET`
     };
   }
   return { label, variant, filename: directory ? path.join(rulesDir, directory, basename) : path.join(rulesDir, basename) };
@@ -259,7 +256,7 @@ export async function runCoverageAuditCli(args: readonly string[]): Promise<numb
   if (args[0] === '--') args = args.slice(1);
   if (args.includes('--help') || args.includes('-h')) {
     console.log('Usage: pnpm run node Build/audit-rule-coverage.ts --rules-dir public/List --output report.json [--profile profile.conf] [--profile-base directory] [--output-audit Internal/rule-output-audit.json] [--fail-on-full-shadow]');
-    console.log('Without --profile, audits an illustrative ordering template, not your active configuration. No remote downloads. Profile DOMAIN-SET references to List/domainset/<id>.list and RULE-SET references to List/{non_ip,ip}/<id>.list resolve below --rules-dir. Missing local subscriptions, absent variants and RULE-SET/DOMAIN-SET format mismatches exit 1; --fail-on-full-shadow exits 2 for proven full subscription shadow.');
+    console.log('Without --profile, audits an illustrative ordering template, not your active configuration. No remote downloads. Profile RULE-SET references to List/<id>.list and List/{non_ip,ip}/<id>.list resolve below --rules-dir; local DOMAIN-SET files are parsed as domain sets. Missing local subscriptions, absent variants and RULE-SET/DOMAIN-SET format mismatches exit 1; --fail-on-full-shadow exits 2 for proven full subscription shadow.');
     return 0;
   }
   const values: Record<string, string> = {};

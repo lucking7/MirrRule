@@ -18,11 +18,11 @@ Surge 保留 domain ruleset 的 extended-matching 语义；PROCESS-PATH 按平�
 
 ## 分版订阅
 
-每个启用的规则集保留原 flat 合并版，并在其原有 targets 上追加 `domainset`、`non_ip`、`ip` 三类分版，路径为 `List|Clash|Loon|sing-box/<分版>/<basename>.<原扩展名>`。三类互斥，同一平台三者并集等于该平台合并版，需组合使用：`domainset` 只含可无损表达的独立 DOMAIN／DOMAIN-SUFFIX；`non_ip` 是其余不触发 DNS 解析的条件（含 keyword、wildcard、URL-REGEX、UA、进程、源地址 SRC-IP、端口、不含目标 IP 子条件的 logical 规则，以及带 `no-resolve` 的目标 IP 规则）；`ip` 是不带 `no-resolve` 的 IP-CIDR／IP-CIDR6／IP-ASN／GEOIP 及含目标 IP 子条件的完整 logical 规则。2026-10-17 起带 `no-resolve` 的 IP 规则改入 `non_ip`，全部 IP 规则都带 `no-resolve` 的规则集不再发布 `ip` 分版。Surge `List/domainset/` 为 native DOMAIN-SET，须用 `DOMAIN-SET` 引用；Clash 与 Loon 的 domainset 仍是 classical 编码，sing-box 为 JSON v2。
+每个启用的规则集保留原 flat 合并版，并在其原有 targets 上追加 `non_ip`、`ip` 两类分版，路径为 `List|Clash|Loon|sing-box/<分版>/<basename>.<原扩展名>`。两类互斥，同一平台两者并集等于该平台合并版：`non_ip` 是不触发 DNS 解析的条件（含 DOMAIN、DOMAIN-SUFFIX、keyword、wildcard、URL-REGEX、UA、进程、源地址 SRC-IP、端口、不含目标 IP 子条件的 logical 规则，以及带 `no-resolve` 的目标 IP 规则）；`ip` 是不带 `no-resolve` 的 IP-CIDR／IP-CIDR6／IP-ASN／GEOIP 及含目标 IP 子条件的完整 logical 规则。分版沿用各平台合并版的编码，Surge 两类都用 `RULE-SET` 引用。2026-10-17 起带 `no-resolve` 的 IP 规则改入 `non_ip`，全部 IP 规则都带 `no-resolve` 的规则集不再发布 `ip` 分版；同日 `domainset` 分版并入 `non_ip`，旧 `domainset/` 地址返回 404。
 
-含 `extended-matching` 的规则集在 Surge 上例外：DOMAIN-SET 无法携带该标志，域名条件留在 `non_ip`，Surge `domainset` 记为 absent，reason 为 `extended-matching`；同时含域名子条件与目标 IP 条件的 logical 规则也留在 Surge `non_ip`，审计以 `reroutedFromIp` 记录条数，其他平台仍归入 `ip`。转换损失记录在审计的 `outputs[].losses`：sing-box 不能表达 `no-resolve`，Surge 以外的平台忽略 `extended-matching`，Clash 丢弃 TCP、UDP 以外的 `PROTOCOL` 值。
+含 `extended-matching` 的规则集在 Surge 上例外：同时含域名子条件与目标 IP 条件的 logical 规则留在 Surge `non_ip`，以保留文件级标志，审计以 `reroutedFromIp` 记录条数，其他平台仍归入 `ip`。转换损失记录在审计的 `outputs[].losses`：sing-box 不能表达 `no-resolve`，Surge 以外的平台忽略 `extended-matching`，Clash 丢弃 TCP、UDP 以外的 `PROTOCOL` 值。
 
-上游来源目录名（如 Sukka 的 `domainset/apple_cdn`、`non_ip/microsoft_cdn`）只说明来源，不决定本项目分版：分类按处理后的条件语义进行。例如 Apple CDN 的纯后缀条件进入 `domainset`，Microsoft CDN 的 URL-REGEX 留在 `non_ip`。为空或平台全部不支持的分版不发布文件，状态（`absent-empty`／`absent-unsupported`）、格式、有效条数、字节数与 SHA-256 记录在 `Internal/rule-output-audit.json`；上游条件增删相对上一份已验收发布记录在 `Internal/source-delta.json`，首次构建标为 baseline-unavailable，基线中存在但本次不再构建的规则集标为 `removed`。下文各表的输出 basename 同时是分版文件名。
+上游来源目录名（如 Sukka 的 `domainset/apple_cdn`、`non_ip/microsoft_cdn`）只说明来源，不决定本项目分版：分类按处理后的条件语义进行。例如 Apple CDN 的纯后缀条件与 Microsoft CDN 的 URL-REGEX 都在 `non_ip`，两者都没有 `ip` 分版。为空或平台全部不支持的分版不发布文件，状态（`absent-empty`／`absent-unsupported`）、格式、有效条数、字节数与 SHA-256 记录在 `Internal/rule-output-audit.json`；上游条件增删相对上一份已验收发布记录在 `Internal/source-delta.json`，首次构建标为 baseline-unavailable，基线中存在但本次不再构建的规则集标为 `removed`。下文各表的输出 basename 同时是分版文件名。
 
 ## 退休与替代
 
@@ -30,7 +30,7 @@ Surge 保留 domain ruleset 的 extended-matching 语义；PROCESS-PATH 按平�
 
 ## Reject 订阅边界
 
-基础 `reject` 仅合并 Sukka 的 `domainset/reject`、`non_ip/reject` 与 `ip/reject`，覆盖域名、通配规则和恶意 IP。IP 规则按上游逐条保留 `no-resolve`，不再统一添加，因此多数 IP 规则会匹配域名解析后的地址。合并版放在域名规则之前时，客户端应在该规则集行尾加 `no-resolve`，否则每个请求都会先在本地解析。2026-10-13 起，`reject` 的三个分版改为按上游文件原样发布（`sourceVariants`），不再按规则类型从合并结果分类：上游 `non_ip/reject` 中带 `no-resolve` 的 IP 规则留在 `non_ip/reject`，与 `ip/reject` 可以绑定不同策略。Surge 按上游写法使用：`domainset/reject` 与 `non_ip/reject` 绑定 REJECT 并放在其他域名规则之前，`ip/reject` 绑定 REJECT-DROP 并放在所有域名规则之后。`non_ip/my_reject` 移至独立可选订阅 `my_reject`，不再进入基础集合。其个人选择包含金融、视频、推送、软件验证、进程与端口拦截，启用前应核对使用需求。Surge 按上游说明绑定 REJECT-DROP；其他平台仅输出支持的类型，不保证连接处理方式等价。`ads`、`reject_extra`、fmz、drop/no-drop 与 URL 正则订阅保持独立。
+基础 `reject` 仅合并 Sukka 的 `domainset/reject`、`non_ip/reject` 与 `ip/reject`，覆盖域名、通配规则和恶意 IP。IP 规则按上游逐条保留 `no-resolve`，不再统一添加，因此多数 IP 规则会匹配域名解析后的地址。合并版放在域名规则之前时，客户端应在该规则集行尾加 `no-resolve`，否则每个请求都会先在本地解析。2026-10-13 起，`reject` 的分版改为按上游文件发布（`sourceVariants`），不再按规则类型从合并结果分类；2026-10-17 起上游 `domainset/reject` 与 `non_ip/reject` 合并为 `non_ip/reject`，其中带 `no-resolve` 的 IP 规则与 `ip/reject` 可以绑定不同策略。Surge 按上游写法使用：`non_ip/reject` 绑定 REJECT 并放在其他域名规则之前，`ip/reject` 绑定 REJECT-DROP 并放在所有域名规则之后。`non_ip/my_reject` 移至独立可选订阅 `my_reject`，不再进入基础集合。其个人选择包含金融、视频、推送、软件验证、进程与端口拦截，启用前应核对使用需求。Surge 按上游说明绑定 REJECT-DROP；其他平台仅输出支持的类型，不保证连接处理方式等价。`ads`、`reject_extra`、fmz、drop/no-drop 与 URL 正则订阅保持独立。
 
 ## 服务规则
 
@@ -113,7 +113,7 @@ SukkaW/Surge 的源码生成 domainset、non_ip、ip 等类别，发布到 rules
 
 地域集合及总 `stream` 不再启用 `allowEmpty`。所有现役来源都须下载成功且清理后非空；下载、正文或空内容校验失败会停止该集合发布并保留旧产物。共享清理继续识别 Sukka 归属水印并保留合法数字开头域名。source-health 的完整报告与当前 source inventory 核对后才清理退役 ID，状态分支读取失败或无效、不完整报告不会触发清理；下次定时检查不再因退役来源维持告警。
 
-四平台合并版输出为 `List/<basename>.list`、`Clash/<basename>.txt`、`Loon/<basename>.list`、`sing-box/<basename>.json`，分版见[分版订阅](#分版订阅)；两个 Surge 专用集合除外。新增集合清理上游策略字段，IP 规则添加 `no-resolve`。这里的“接入”是生成可订阅产物，不会自动修改客户端配置或启用拦截；来源更新后的公开路径须以对应生产部署为准。
+四平台合并版输出为 `List/<basename>.list`、`Clash/<basename>.txt`、`Loon/<basename>.list`、`sing-box/<basename>.json`，分版见[分版订阅](#分版订阅)；两个 Surge 专用集合除外。新增集合清理上游策略字段，IP 规则按上游逐条保留 `no-resolve`，不再统一添加。这里的“接入”是生成可订阅产物，不会自动修改客户端配置或启用拦截；来源更新后的公开路径须以对应生产部署为准。
 
 `apple` 继续合并 CDN、中国服务、服务规则、服务 IP 和 iCloud Private Relay 五个来源，另提供对应的五个独立文件。`apple_intelligence` 单独保留，不加入 `apple`，需要专用出口时放在通用 Apple/AI 集合之前。其他 Apple 独立策略与 `microsoft_cdn` 也应放在各自聚合规则之前，IP 订阅放在域名规则之后。Microsoft CDN 样本含 URL-REGEX，Clash 与 sing-box 按现有矩阵丢弃该类型；Apple 服务的进程规则也不保证四平台等价。
 
@@ -127,7 +127,7 @@ CloudMounter 的规则包含 AND、`PROCESS-NAME,*CloudMounter`、`SRC-IP` 和�
 
 ### 同类规则的聚合归属
 
-总 `stream` 合并总 non_ip/ip 与六个地域的 non_ip，共 8 个来源，统一去重并给 IP 添加 `no-resolve`。聚合直接复用独立地域订阅的 `sourceFiles`，避免两边换源不同步。2026-10-02 核对的样本中，地域并集比总 non_ip 多 7 条规则（Hulu Japan 三条后缀域名、LiTV 四条精确域名），补入后只订阅总列表也可覆盖这些规则。来源会滚动变化，此差集不是固定产物条数承诺。
+总 `stream` 合并总 non_ip/ip 与六个地域的 non_ip，共 8 个来源，统一去重，IP 规则按上游逐条保留 `no-resolve`（当前上游全部带）。聚合直接复用独立地域订阅的 `sourceFiles`，避免两边换源不同步。2026-10-02 核对的样本中，地域并集比总 non_ip 多 7 条规则（Hulu Japan 三条后缀域名、LiTV 四条精确域名），补入后只订阅总列表也可覆盖这些规则。来源会滚动变化，此差集不是固定产物条数承诺。
 
 `reject_extra` 只包含 Sukka 原扩展集合 `domainset/reject_extra`，绑定 REJECT。2026-10-02 至 2026-10-13 期间它还合并了 `reject_phishing`；现在钓鱼域名只在独立订阅 `reject_phishing` 发布，与上游默认不启用钓鱼拦截的用法一致。需要钓鱼拦截的客户端应另外订阅 `reject_phishing`，否则升级后这部分覆盖会消失。基础 `reject` 不引入钓鱼或搜狗来源。
 

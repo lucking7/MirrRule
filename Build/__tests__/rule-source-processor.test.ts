@@ -193,7 +193,7 @@ describe('RuleSourceProcessor ordinary rules', () => {
       assert.equal(audit.stages.canonicalCount, stats.rulesets[0].ruleCount);
       assert.deepEqual(
         audit.outputs.flatMap(entry => (entry.status === 'published' ? [entry.path] : [])).sort(),
-        ['Clash/domainset/provenance.txt', 'Clash/ip/provenance.txt', 'Clash/provenance.txt', 'List/domainset/provenance.list', 'List/ip/provenance.list', 'List/provenance.list']
+        ['Clash/ip/provenance.txt', 'Clash/non_ip/provenance.txt', 'Clash/provenance.txt', 'List/ip/provenance.list', 'List/non_ip/provenance.list', 'List/provenance.list']
       );
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });

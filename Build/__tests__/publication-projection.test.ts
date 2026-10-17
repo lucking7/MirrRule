@@ -67,9 +67,9 @@ describe('publication lifecycle projection and baseline rebase', () => {
     const result = await stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['rollback'], sourceCommit: SOURCE, baseline: await baseline(env.tree, 2), baselineTreeDir: env.tree, rollbackOf: { receiptId: 1, deployCommit: OLD_COMMIT, sourceCommit: SOURCE }, render: renderPublicInChild });
     const audit = await json<ProjectionAudit>(path.join(env.out, 'Internal/rule-output-audit.json'));
     assert.deepEqual(audit.rulesets.map(record => record.id), ['keep']);
-    assert.equal(audit.retiredOutputs.length, 16);
+    assert.equal(audit.retiredOutputs.length, 12);
     assert.ok(audit.retiredOutputs.every(output => output.lifecycleId === 'ruleset:discord'));
-    assert.ok(result.manifest.retiredRemoved.includes('List/domainset/discord.list'));
+    assert.ok(result.manifest.retiredRemoved.includes('List/non_ip/discord.list'));
     assert.ok(result.manifest.retiredRemoved.includes('sing-box/ip/discord.json'));
     await assert.rejects(fs.access(path.join(env.out, 'Internal/source-snapshots/discord.json.gz')));
     const delta = await json<Delta>(path.join(env.out, 'Internal/source-delta.json'));
@@ -112,7 +112,7 @@ describe('publication lifecycle projection and baseline rebase', () => {
     assert.deepEqual(after.effectiveOutputs.map(output => output.platform).sort(), ['clash', 'loon', 'surge']);
     assert.equal(result.manifest.files.find(file => file.path === 'Internal/source-snapshots/china_asn.json.gz')?.origin, 'generated');
     await fs.access(path.join(env.out, 'List/china_asn.list'));
-    await assert.rejects(fs.access(path.join(env.out, 'sing-box/domainset/china_asn.json')));
+    await assert.rejects(fs.access(path.join(env.out, 'sing-box/non_ip/china_asn.json')));
   });
 
   it('rebases downloaded snapshots and restored optional files to the current accepted tree, without mutating candidate rules', async t => {

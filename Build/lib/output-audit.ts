@@ -79,7 +79,7 @@ export interface RuleOutputFileAudit {
   format: RuleOutputFormat;
   path: string;
   status: RuleOutputStatus;
-  reason?: 'no-conditions' | 'extended-matching' | 'platform-unsupported';
+  reason?: 'no-conditions' | 'platform-unsupported';
   /** Canonical conditions routed to this output before platform support filtering. */
   routedConditionCount: number;
   effectiveConditionCount: number;

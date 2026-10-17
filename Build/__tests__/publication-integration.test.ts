@@ -25,10 +25,10 @@ const BASELINE_COMMIT = 'b'.repeat(40);
 const RETIRED_MODULE = 'Modules/Converted/腾讯视频去广告.sgmodule';
 
 const VARIANT_FILES: Record<string, string> = {
-  'List/domainset/apple_cdn.list': '.apple.com\n',
-  'Clash/domainset/apple_cdn.txt': 'DOMAIN-SUFFIX,apple.com\n',
-  'Loon/domainset/apple_cdn.list': 'DOMAIN-SUFFIX,apple.com\n',
-  'sing-box/domainset/apple_cdn.json': '{"version":2,"rules":[{"domain_suffix":["apple.com"]}]}\n',
+  'List/non_ip/apple_cdn.list': 'DOMAIN-SUFFIX,apple.com\n',
+  'Clash/non_ip/apple_cdn.txt': 'DOMAIN-SUFFIX,apple.com\n',
+  'Loon/non_ip/apple_cdn.list': 'DOMAIN-SUFFIX,apple.com\n',
+  'sing-box/non_ip/apple_cdn.json': '{"version":2,"rules":[{"domain_suffix":["apple.com"]}]}\n',
   'List/ip/telegram.list': 'IP-CIDR,91.108.4.0/22,no-resolve\n',
   'sing-box/ip/telegram.json': '{"version":2,"rules":[{"ip_cidr":["91.108.4.0/22"]}]}\n',
 };
@@ -53,7 +53,7 @@ function audit(rules: Record<string, string>, absent: readonly string[]): string
 const CANDIDATE: Record<string, string> = {
   ...RULE_OUTPUTS,
   'GeoIP/Country.mmdb': 'mmdb',
-  'Internal/rule-output-audit.json': audit(RULE_OUTPUTS, ['Clash/domainset/telegram.txt']),
+  'Internal/rule-output-audit.json': audit(RULE_OUTPUTS, ['Clash/non_ip/telegram.txt']),
   'Internal/source-delta.json': '{"schemaVersion":1,"baseline":{"configured":true,"receiptId":"11"},"sources":[]}\n',
   'Internal/source-snapshots/apple_cdn.json': '{"conditions":["DOMAIN-SUFFIX,apple.com"]}\n',
   'Internal/rule-coverage.json': '{}\n',
