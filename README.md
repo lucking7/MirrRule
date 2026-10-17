@@ -113,6 +113,8 @@ sing-box:
 }
 ```
 
+Whether a ruleset has an `ip` variant follows upstream and can change: if you load only `non_ip/<id>`, a later `ip/<id>` is not loaded, and you cannot reference it in advance because a missing variant returns 404. Check your profile against the current audit with `pnpm run node Build/check-profile-variants.ts --profile <profile.conf>`. It lists published variants your profile does not load and loaded variants that are no longer published, and exits 1 when it finds either; `--audit` takes a local audit file instead of the production one.
+
 A ruleset without an `ip` variant can also stay as the merged subscription in a single line. Equal condition sets do not guarantee the same policy outcome once the variants are rearranged: an `ip` variant can hold logical rules with a domain child, and moving it later delays that domain match. Use the same policy for both variants of a ruleset unless its notes below say otherwise (see `reject`), and review cross-subscription reordering with the coverage audit below.
 
 ## Routing Coverage Audit
