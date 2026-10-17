@@ -136,7 +136,7 @@ The homepage is a native directory tree following the layout and styling of [Suk
 
 The index uses system fonts and follows the system light or dark appearance. Its heading is `NRRule Ruleset Server`, `Made by Luck` links to [lucking7](https://github.com/lucking7), and `Source @ GitHub` links to this repository. Product and styling requirements are recorded in [PRODUCT.md](PRODUCT.md) and [DESIGN.md](DESIGN.md).
 
-Service subscriptions merge [blackmatrix7 Surge rules](https://github.com/blackmatrix7/ios_rule_script/tree/master/rule/Surge) with available [MetaCubeX text geosite rules](https://github.com/MetaCubeX/meta-rules-dat/tree/meta/geo/geosite). Netflix also includes MetaCubeX's IP ranges; WeChat uses blackmatrix7 alone. Existing subscription filenames remain unchanged. See [规则来源与迁移记录](RULE_SOURCES.md) for source mappings, format conversion, CDN/speedtest coverage, and verification limits.
+Netflix, Disney, Spotify, YouTube, Google and GitHub use only [MetaCubeX text geosite rules](https://github.com/MetaCubeX/meta-rules-dat/tree/meta/geo/geosite); Netflix also includes MetaCubeX's IP ranges. Prime Video, BiliBili and TikTok merge [blackmatrix7 Surge rules](https://github.com/blackmatrix7/ios_rule_script/tree/master/rule/Surge) with the MetaCubeX category, because MetaCubeX lacks some of their domains (Prime Video video CDNs, BiliBili PCDN hosts, TikTok/CapCut overseas domains). WeChat uses blackmatrix7 alone, since MetaCubeX has no WeChat category. Existing subscription filenames remain unchanged. See [规则来源与迁移记录](RULE_SOURCES.md) for source mappings, format conversion, CDN/speedtest coverage, and verification limits.
 
 ## Rule Sets
 

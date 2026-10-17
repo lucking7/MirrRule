@@ -56,7 +56,9 @@ async function publishSukkaFixtures(fixtures: Record<string, string | undefined>
 
 describe('service source migration', () => {
   it('keeps service output identities and merges complementary upstreams', () => {
-    const services = ['netflix', 'disney', 'spotify', 'primevideo', 'youtube', 'bilibili', 'tiktok', 'google', 'github'];
+    const metaOnly = ['netflix', 'disney', 'spotify', 'youtube', 'google', 'github'];
+    const merged = new Set(['primevideo', 'bilibili', 'tiktok']);
+    const services = [...metaOnly, ...merged];
     const allPaths = [
       ...ruleGroups.flatMap(group => group.files.map(file => file.path)),
       ...specialRules.map(rule => rule.targetFile),
@@ -65,10 +67,12 @@ describe('service source migration', () => {
     for (const id of services) {
       const rule = specialRules.find(item => item.targetFile === `List/${id}.list`);
       assert.ok(rule, id);
-      assert.ok(rule.sourceFiles.some(url => url.includes('blackmatrix7/ios_rule_script')));
+      // MetaCubeX alone where its category is comparable; blackmatrix7 only where Meta is narrower.
+      assert.equal(rule.sourceFiles.some(url => url.includes('blackmatrix7/ios_rule_script')), merged.has(id), id);
       assert.ok(rule.sourceFiles.some(url => url.includes('meta-rules-dat/meta/geo/geosite/')));
       assert.deepEqual(rule.targets, ['surge', 'clash', 'singbox', 'loon']);
     }
+    assert.deepEqual(specialRules.find(rule => rule.targetFile === 'List/netflix.list')?.sourceFiles.map(url => url.split('/geo/')[1]), ['geosite/netflix.list', 'geoip/netflix.list']);
     const wechat = specialRules.find(rule => rule.targetFile === 'List/wechat.list');
     assert.equal(wechat?.sourceFiles.length, 1, 'do not substitute a broad Tencent category for WeChat');
     const ai = specialRules.find(rule => rule.targetFile === 'List/ai.list');

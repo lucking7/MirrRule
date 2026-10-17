@@ -165,37 +165,35 @@ const BLACKMATRIX_SURGE = 'https://raw.githubusercontent.com/blackmatrix7/ios_ru
 const META_RULES = 'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo';
 
 // Keep service subscriptions separate from the existing regional/aggregate rulesets.
-// `excluded` drops blackmatrix7 suffixes shared by unrelated sites (whole cloud regions,
-// consent and analytics SDKs), which would otherwise route them through the service policy.
+// Services with a MetaCubeX category use only MetaCubeX (geosite, plus geoip where published).
+// blackmatrix7 remains where MetaCubeX has no category (WeChat) or is clearly narrower (Prime Video
+// video CDNs, TikTok/CapCut overseas domains, BiliBili PCDN hosts). `excluded` drops
+// blackmatrix7 entries shared by unrelated sites, which would route them through the service policy.
 const serviceRules: SpecialRuleConfig[] = [
-  {
-    name: 'Netflix', id: 'netflix', blackmatrix: 'Netflix', geosite: 'netflix', geoip: 'netflix',
-    excluded: ['DOMAIN-SUFFIX,us-west-2.amazonaws.com', 'DOMAIN-SUFFIX,cookielaw.org', 'DOMAIN-SUFFIX,onetrust.com'],
-  },
-  {
-    name: 'Disney', id: 'disney', blackmatrix: 'Disney', geosite: 'disney',
-    excluded: ['DOMAIN-SUFFIX,execute-api.us-east-1.amazonaws.com', 'DOMAIN-SUFFIX,braze.com'],
-  },
-  { name: 'Spotify', id: 'spotify', blackmatrix: 'Spotify', geosite: 'spotify' },
+  { name: 'Netflix', id: 'netflix', geosite: 'netflix', geoip: 'netflix' },
+  { name: 'Disney', id: 'disney', geosite: 'disney' },
+  { name: 'Spotify', id: 'spotify', geosite: 'spotify' },
   { name: 'Prime Video', id: 'primevideo', blackmatrix: 'AmazonPrimeVideo', geosite: 'primevideo' },
-  { name: 'YouTube', id: 'youtube', blackmatrix: 'YouTube', geosite: 'youtube' },
+  { name: 'YouTube', id: 'youtube', geosite: 'youtube' },
   { name: 'BiliBili', id: 'bilibili', blackmatrix: 'BiliBili', geosite: 'bilibili' },
   { name: 'TikTok', id: 'tiktok', blackmatrix: 'TikTok', geosite: 'tiktok' },
   // Meta has no dedicated WeChat category; do not merge the broader Tencent category.
   { name: 'WeChat', id: 'wechat', blackmatrix: 'WeChat' },
-  { name: 'Google', id: 'google', blackmatrix: 'Google', geosite: 'google' },
-  { name: 'GitHub', id: 'github', blackmatrix: 'GitHub', geosite: 'github' },
+  { name: 'Google', id: 'google', geosite: 'google' },
+  { name: 'GitHub', id: 'github', geosite: 'github' },
 ].map(({ name, id, blackmatrix, geosite, geoip, excluded }: {
-  name: string, id: string, blackmatrix: string, geosite?: string, geoip?: string, excluded?: string[],
+  name: string, id: string, blackmatrix?: string, geosite?: string, geoip?: string, excluded?: string[],
 }): SpecialRuleConfig => ({
   name,
   targetFile: `List/${id}.list`,
   sourceFiles: [
-    `${BLACKMATRIX_SURGE}/${blackmatrix}/${blackmatrix}.list`,
+    ...(blackmatrix ? [`${BLACKMATRIX_SURGE}/${blackmatrix}/${blackmatrix}.list`] : []),
     ...(geosite ? [`${META_RULES}/geosite/${geosite}.list`] : []),
     ...(geoip ? [`${META_RULES}/geoip/${geoip}.list`] : []),
   ],
-  description: 'Service rules from blackmatrix7, merged with available MetaCubeX domain and IP categories.',
+  description: blackmatrix
+    ? 'Service rules from blackmatrix7, merged with available MetaCubeX domain and IP categories.'
+    : 'Service rules from MetaCubeX domain and IP categories.',
   targets: ['surge', 'clash', 'singbox', 'loon'],
   defaultPolicy: null,
   applyNoResolve: true,
