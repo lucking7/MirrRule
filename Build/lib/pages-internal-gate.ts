@@ -3,14 +3,15 @@ import path from 'node:path';
 import { writeFileAtomic } from './atomic-file';
 import { listTreeFiles } from './publication-manifest';
 import { retiredPublicPaths, retiredPublicPrefixes } from './artifact-lifecycle';
-import { PLATFORM_OUTPUT_LAYOUT } from './rule-output-variants';
+import { PLATFORM_OUTPUT_LAYOUT, RULE_OUTPUT_VARIANTS } from './rule-output-variants';
 
 const INTERNAL_PREFIX = '/Internal/';
 /**
- * ip variants come and go with upstream no-resolve choices, and the edge cache keeps serving a
- * deleted file. The worker serves only the ip files of this tree and answers 404 for the rest.
+ * Variant files come and go with upstream content (an ip variant with no-resolve choices, a
+ * sing-box non_ip when a ruleset turns IP-only), and the edge cache keeps serving a deleted
+ * file. The worker serves only the variant files of this tree and answers 404 for the rest.
  */
-const GATED_VARIANT_PREFIXES = Object.values(PLATFORM_OUTPUT_LAYOUT).map(layout => `/${layout.directory}/ip/`).sort();
+const GATED_VARIANT_PREFIXES = Object.values(PLATFORM_OUTPUT_LAYOUT).flatMap(layout => RULE_OUTPUT_VARIANTS.map(variant => `/${layout.directory}/${variant}/`)).sort();
 
 function encodePublicPath(relative: string): string {
   return relative.split('/').map(segment => encodeURIComponent(segment)).join('/');
@@ -30,8 +31,8 @@ async function treePaths(publicDir: string, prefix: string): Promise<string[]> {
 }
 
 /**
- * Gate Internal inventory, ip variants, and registered retired URLs and directories before the
- * static asset cache.
+ * Gate Internal inventory, split variants, and registered retired URLs and directories before
+ * the static asset cache.
  */
 export async function writePagesInternalGate(publicDir: string): Promise<void> {
   const paths = await treePaths(publicDir, INTERNAL_PREFIX);
