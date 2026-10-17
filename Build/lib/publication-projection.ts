@@ -6,9 +6,12 @@ import { findLifecycleRecord, isRetiredPublicPath } from './artifact-lifecycle';
 import { writeFileAtomic } from './atomic-file';
 import { toSourceId, sourceSnapshotPath, listSourceSnapshotFiles } from './output-audit';
 import { RULE_OUTPUT_AUDIT_FILE } from './publication-outputs';
+import { RULE_OUTPUT_VARIANTS } from './rule-output-variants';
 import type { AuditOutput } from './publication-outputs';
 
-type ProjectionOutput = AuditOutput & Record<string, unknown> & { platform?: string };
+type ProjectionOutput = AuditOutput & Record<string, unknown> & { platform?: string, variant?: string };
+
+const CURRENT_SLOTS: ReadonlySet<string> = new Set(['merged', ...RULE_OUTPUT_VARIANTS]);
 interface ProjectionRuleset extends Record<string, unknown> {
   id: string,
   outputs: ProjectionOutput[],
@@ -34,6 +37,12 @@ export async function projectRetiredRuleOutputs(root: string): Promise<{ changed
     const removed = ruleset.outputs.filter(output => isRetiredPublicPath(output.path));
     if (!removed.length) continue;
     const active = ruleset.outputs.filter(output => !isRetiredPublicPath(output.path));
+    // A retired variant slot (domainset before 2026-10-17) held conditions that the active
+    // historical variants lack; dropping it would publish an incomplete split.
+    const layoutGap = removed.find(output => output.status === 'published' && output.variant !== undefined && !CURRENT_SLOTS.has(output.variant));
+    if (layoutGap && active.some(output => output.platform === layoutGap.platform)) {
+      throw new Error(`Ruleset ${ruleset.id} uses the retired ${layoutGap.variant} variant layout (${layoutGap.path}); its remaining variants do not cover the merged conditions, so it cannot be projected`);
+    }
     for (const output of removed) {
       retiredOutputs.push({ ...output, rulesetId: ruleset.id, lifecycleId: findLifecycleRecord(output.path)!.id });
     }

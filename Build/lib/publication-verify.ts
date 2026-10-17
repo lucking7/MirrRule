@@ -1,4 +1,4 @@
-import { retiredPublicPaths } from './artifact-lifecycle';
+import { retiredPublicPaths, retiredPublicPrefixes } from './artifact-lifecycle';
 import type { GitHubClient } from './publication-github';
 import { NRRULE_REPOSITORY } from './publication-github';
 import type { Clock } from './publication-check';
@@ -9,14 +9,19 @@ import { PUBLICATION_MANIFEST_PATH, comparePaths } from './publication-manifest'
 import type { PublicationManifest } from './publication-manifest';
 import { RULE_OUTPUT_AUDIT_FILE, auditAbsentPaths, readOutputContract } from './publication-outputs';
 
+/** File name probed below every retired directory prefix; no published file uses it. */
+const RETIRED_PREFIX_PROBE = 'nrrule-retired-probe';
+
 /**
  * Paths that must answer 404: outputs the audit declares absent, every retired registry path,
- * and baseline paths this tree no longer publishes (retired removals and stale variants).
+ * one probe below each retired directory prefix, and baseline paths this tree no longer
+ * publishes (retired removals and stale variants).
  */
 export async function collectAbsentPaths(staging: string, manifest: PublicationManifest): Promise<string[]> {
   const { outputs } = await readOutputContract(staging, [RULE_OUTPUT_AUDIT_FILE]);
   const published = new Set(manifest.files.map(file => file.path));
-  const absent = new Set([...auditAbsentPaths(outputs), ...retiredPublicPaths(), ...manifest.removedPaths, ...manifest.retiredRemoved]);
+  const prefixProbes = retiredPublicPrefixes().map(prefix => prefix + RETIRED_PREFIX_PROBE);
+  const absent = new Set([...auditAbsentPaths(outputs), ...retiredPublicPaths(), ...prefixProbes, ...manifest.removedPaths, ...manifest.retiredRemoved]);
   return [...absent].filter(relative => !published.has(relative) && relative !== PUBLICATION_MANIFEST_PATH).sort(comparePaths);
 }
 
