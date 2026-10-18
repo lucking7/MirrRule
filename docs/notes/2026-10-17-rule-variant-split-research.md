@@ -35,7 +35,7 @@
 ### blackmatrix7
 
 - 每个服务一个文件，域名、DOMAIN-KEYWORD、PROCESS-NAME、IP-CIDR、IP-ASN、OR 规则混在一起。整个 RULE-SET 只能放在一个位置，无法把其中的 IP 部分移到最后。
-- 存在过宽条目。仓库的 `serviceRules`（Netflix、Disney、YouTube 等，见 `Build/lib/rule-sources.ts`）曾直接合并 blackmatrix7，因此 NRRule 也输出过这些条目；2026-10-18 起这些服务只用 MetaCubeX。例如 Netflix 有 `DOMAIN-SUFFIX,us-west-2.amazonaws.com`，会把整个 AWS us-west-2 区域的流量导向 Netflix 策略；还有 `onetrust.com`、`cookielaw.org`。
+- 存在过宽条目。仓库的 `serviceRules`（Netflix、Disney、YouTube 等，见 `Build/lib/rule-sources.ts`）曾直接合并 blackmatrix7，因此 NRRule 也输出过这些条目；2026-10-18 起除 WeChat 外的服务只用 MetaCubeX。例如 Netflix 有 `DOMAIN-SUFFIX,us-west-2.amazonaws.com`，会把整个 AWS us-west-2 区域的流量导向 Netflix 策略；还有 `onetrust.com`、`cookielaw.org`。
 - Telegram 使用 `91.108.0.0/16` 等比官方 CIDR 更宽的网段，另加 5 个 ASN。
 - 文件头的 `UPDATED` 每天重新生成，但内容改动不频繁，Telegram 列表内容停在 2025-09-10。
 
@@ -50,4 +50,4 @@
 1. **已删除的 `ip/` 分版文件在正式域名上仍返回 200（已处理）。** PR #429 之后，很多规则集不再生成 `ip` 分版，但 `https://nrrule.pages.dev` 仍从 Cloudflare 边缘缓存返回旧文件（`cf-cache-status: HIT`），定时构建 39029739278 因此以 `production-lagging` 失败，共 78 个 URL。逐条登记会超过 `_routes.json` 的 100 条上限，所以改为由 `_worker.js` 接管 `/<平台目录>/ip/*` 和 `/<平台目录>/non_ip/*` 八条路由，只放行本次 tree 中存在的文件。最初只接管了 `ip/`，随后 sing-box 的 `non_ip/apple_services_ip.json` 在规则集只剩 IP 后消失，同样因缓存导致 run 39049320715 验收失败，于是一并接管。代价是分版的每个请求都计入 Functions 调用次数；生产环境 `fail_open: false`，额度用完时分版订阅会下载失败。
 2. **旧订阅不兼容。** 订阅了 `domainset/` 地址的用户会得到 404。撤销 PR #429 后，只含 `no-resolve` IP 的规则集（如 netflix、telegram、stream）重新发布 `ip/` 文件，`non_ip/` 中不再有这些 IP 规则；只订阅 `non_ip` 的用户需要补上 `ip`。Surge 会报规则集下载失败，Clash 可能报错。如果要照顾旧用户，可以考虑在 README 写明迁移方法。
 3. **Mihomo 性能（2026-10-18 决定暂不做；mihomo 仍在维护，v1.19.32 发布于 2026-09-30）。** Sukka README 指出 Mihomo 只对 `behavior: domain` 和 `behavior: ipcidr` 的规则集做了匹配优化，`classical` 没有。NRRule 的 Clash 分版全部是 classical，并入前的 Clash `domainset` 也是 classical，所以合并没有让 Mihomo 用户损失性能。如果以后要为 Mihomo 提供优化格式，应另外发布 `behavior: domain` 的纯域名文件和 `behavior: ipcidr` 的纯 CIDR 文件。
-4. **blackmatrix7 过宽条目（已处理）。** 2026-10-18 起 Netflix、Disney、Spotify、YouTube、Google、GitHub 只用 MetaCubeX，不再含 blackmatrix7 条目。Prime Video、BiliBili、TikTok、WeChat 仍合并 blackmatrix7；它们出现过宽条目时，在 `serviceRules` 的 `excluded` 中追加（例如 Prime Video 的 `llnwd.net` 是 Limelight CDN 的共用域名，尚未排除）。
+4. **blackmatrix7 过宽条目（已处理）。** 2026-10-18 起除 WeChat 外的服务只用 MetaCubeX，不再含 blackmatrix7 条目（包括 Prime Video 的 `llnwd.net`、BiliBili 的 `smtcdns.net`、TikTok 的 `snssdk.com` 等共用域名）。WeChat 没有 Meta 分类，仍用 blackmatrix7；其中的 `IP-ASN,132203` 是腾讯云整个 ASN，需要时在 `serviceRules` 的 `excluded` 中排除。
