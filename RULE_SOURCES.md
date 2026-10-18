@@ -51,7 +51,7 @@ sing-box 不能表达 `no-resolve`；它的 `non_ip` 不含 `ip_cidr`，可以�
 | tiktok        | tiktok             | 无                | 不含 CapCut、byteoversea 等海外域名                           |
 | wechat        | 无                 | WeChat            | Meta 没有专用 WeChat 分类，不引入更宽的 Tencent               |
 
-AI 保留 Sukka、ConnersHua、dler 来源，用 blackmatrix7 `OpenAI` 替换 Kelee AI，并使用 Meta `category-ai-!cn.list` 文本输入，补充 Sukka `List/ip/ai.conf`。PrimeVideo 不使用整个 Amazon 分类。上述分类与 Kelee 的覆盖范围不完全相同，尤其 WeChat 的 keyword 与 IPv6、不同来源的分类粒度可能影响客户端分流，迁移者应实测自己的应用。
+AI 保留 Sukka、ConnersHua、dler 来源，并使用 Meta `category-ai-!cn.list` 文本输入，补充 Sukka `List/ip/ai.conf`。2026-10-18 起不再合并 blackmatrix7 `OpenAI`（它曾替换 Kelee AI）：其中的 OpenAI 域名都已在 `category-ai-!cn` 中，独有的只是 `stripe.com`、`auth0.com`、`sentry.io` 等多个网站共用的第三方服务、Vultr 的整个 ASN（AS20473）和 2 个 DigitalOcean IP。PrimeVideo 不使用整个 Amazon 分类。上述分类与 Kelee 的覆盖范围不完全相同，尤其 WeChat 的 keyword 与 IPv6、不同来源的分类粒度可能影响客户端分流，迁移者应实测自己的应用。
 
 Surge 与 Loon 保留 `.list`，Clash 输出 classical `.txt`，sing-box 输出 `.json`。转换先处理 `DOMAIN`、`DOMAIN-SUFFIX` 等标准规则，再把裸域名、`+.`、`full:`、`domain:`、`keyword:` 与裸 IPv4/IPv6 CIDR 转成内部规则。数字开头的合法域名（如 `2mdn.net`）不再误删；CIDR 必须通过现有 IP validator。纯数字、无前缀 IP、超出范围的 CIDR 会被丢弃。服务规则移除上游 policy，IP 类添加 `no-resolve`。平台不支持的规则按既有 writer 行为丢弃，不能认为四个平台语义完全相同。
 
