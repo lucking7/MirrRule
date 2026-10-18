@@ -76,6 +76,8 @@ describe('service source migration', () => {
     const ai = specialRules.find(rule => rule.targetFile === 'List/ai.list');
     assert.ok(ai?.sourceFiles.some(url => url.endsWith('/category-ai-!cn.list')));
     assert.equal(ai?.sourceFiles.some(url => url.endsWith('.json')), false);
+    // OpenAI's own domains are all in category-ai-!cn; blackmatrix7 OpenAI only added shared third-party hosts.
+    assert.equal(ai?.sourceFiles.some(url => url.includes('blackmatrix7/ios_rule_script')), false);
   });
 
   it('publishes a mixed Surge/geosite/geoip subscription on all four platforms', async () => {

@@ -272,7 +272,6 @@ export const specialRules: SpecialRuleConfig[] = [
     targetFile: 'List/ai.list',
     sourceFiles: [
       'https://ruleset.skk.moe/List/non_ip/ai.conf',
-      `${BLACKMATRIX_SURGE}/OpenAI/OpenAI.list`,
       'https://ruleset.skk.moe/List/ip/ai.conf',
       'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/AI.list',
       'https://github.com/dler-io/Rules/raw/main/Surge/Surge%203/Provider/AI%20Suite.list',
