@@ -177,11 +177,21 @@ PROXY_BASE='http://127.0.0.1:13193?url=' pnpm run node Build/validate-domain-ali
 
 此前转换运行 [36704699346](https://github.com/lucking7/MirrRule/actions/runs/36704699346) 的插件目录下载失败，新增转换数为 0；后续合并取旧产物可以成功，不能代表重新转换成功。当前实现参考 Mirrored 的下载后转换方法：先刷新并校验目录/插件，再用 loopback 暂存输入调用 Script-Hub，依赖脚本具备可用镜像后才原子发布。下载失败不能被旧缓存标成 fresh；CLI 的非零退出传递到 job，零产物不能用 marker 冒充成功，要求本轮转换时也不能由旧 NRRule 模块兜底。完整实网转换及合并的验证记录将在验收完成后补充，方法接入不等于已经通过。
 
+## GeoIP 国家库
+
+`GeoIP/country.mmdb` 供代理软件的 `GEOIP` 规则使用（Surge 的 `geoip-maxmind-url`、Mihomo、sing-box 等），只含 `country.iso_code`。生成方式见 [build-geoip-country.py](Build/build-geoip-country.py)：
+
+- 全球国家代码取自 [daijro/geoip-all-in-one](https://github.com/daijro/geoip-all-in-one) 最新 Release。它由 IP2Location LITE、GeoLite2、DB-IP Lite、IPinfo、IPlocate 和各地区 IP 登记机构数据投票得出，每周重建；原文件是约 115 MiB 的城市库，超过 Pages 单文件 25 MiB 上限，构建时只保留国家代码，结果约 11 MiB。
+- Sukka `ip/china_ip.conf`（chnroutes2）与 `ip/china_ip_ipv6.conf` 中的段一律标为 `CN`，局域网与保留地址标为 `PRIVATE`，两者覆盖投票结果。geoip-all-in-one 判为中国、但 chnroutes2 没有收录的段仍保留 `CN`，例如 AWS 中国区域的地址。
+- 生成后校验：文件大小在 1 MiB 到 25 MiB 之间、至少 200 个国家代码、每个 china_ip 段的中点都是 `CN`，以及 `114.114.114.114`、`8.8.8.8` 等抽样地址。任一不满足则构建失败。
+
+2026-10-25 用 AWS 与 Google Cloud 公开的 11454 个已知区域 IP 段对比各库的国家判断：geoip-all-in-one 98.4%，本库 98.4%，IPinfo（xream 2026-08-03 版）96.6%，GeoLite2 91.5%，DB-IP Lite 90.0%，ip2（IP2Location LITE，xream 2026-08-03 版）87.8%。这只覆盖云服务商地址段，家庭宽带与移动网络的准确度可能不同。原有 `ip2.mmdb`、`ipinfo.mmdb`、`geoip2-cn.mmdb`、`chnroutes2.mmdb` 不变。
+
 ## 来源、许可证与回滚
 
 核对的 upstream snapshot：blackmatrix7 `c9b2158695596a1ba866adcf74def8d5ab348e25`；Meta `dff97e403383374dbfe39792d3dfdcf6717e385e`；Repcz `a209e056f977bb49f11cab7c13b5393fdbbba053`。配置仍跟随对应分支更新，以上提交只标识调查样本，不是生产锁定。
 
-[blackmatrix7](https://github.com/blackmatrix7/ios_rule_script) 声明 GPL-2.0，[MetaCubeX](https://github.com/MetaCubeX/meta-rules-dat) 声明 GPL-3.0，[SukkaW/Surge](https://github.com/SukkaW/Surge) 主要使用 AGPL-3.0，其 `List/ip/china_ip.conf` 单独采用 CC BY-SA 2.0，[Repcz/Tool](https://github.com/Repcz/Tool/tree/X) 声明 MIT。保留本项目及上游归属、许可证，分发时核对各分类的来源说明。
+[blackmatrix7](https://github.com/blackmatrix7/ios_rule_script) 声明 GPL-2.0，[MetaCubeX](https://github.com/MetaCubeX/meta-rules-dat) 声明 GPL-3.0，[SukkaW/Surge](https://github.com/SukkaW/Surge) 主要使用 AGPL-3.0，其 `List/ip/china_ip.conf` 单独采用 CC BY-SA 2.0，[Repcz/Tool](https://github.com/Repcz/Tool/tree/X) 声明 MIT。`GeoIP/country.mmdb` 衍生自 geoip-all-in-one（GPL-3.0），其中含 IP2Location LITE（CC BY-SA 4.0，This site or product includes IP2Location LITE data available from https://lite.ip2location.com）、GeoLite2（This product includes GeoLite2 data created by MaxMind, available from https://www.maxmind.com）与 DB-IP Lite（IP Geolocation by DB-IP，CC BY 4.0）数据。保留本项目及上游归属、许可证，分发时核对各分类的来源说明。
 
 撤销这次源码提交可以恢复旧来源配置，但不会解除 Kelee 的下载阻塞。生产回滚应恢复经审核的旧产物快照，不要依赖从受阻来源重新构建。功能分支手动执行 `task=build` 只产生验收 artifact；本次不发布 Pages 或 NRRule。
 
