@@ -573,8 +573,12 @@ jobs:
           python3 -m pip install --requirement Build/geoip-requirements.txt
           python3 Build/__tests__/build-geoip-country.test.py
           # Pinned Loyalsoldier/geoip converter; GOTOOLCHAIN=auto fetches the Go version its go.mod requires.
-          GOTOOLCHAIN=auto go install github.com/Loyalsoldier/geoip@084eb113e458b82374919dabefbc49cd2c2dd079
-          echo "GEOIP_CONVERTER=$(go env GOPATH)/bin/geoip" >> "$GITHUB_ENV"
+          if GOTOOLCHAIN=auto go install github.com/Loyalsoldier/geoip@084eb113e458b82374919dabefbc49cd2c2dd079; then
+            echo "GEOIP_CONVERTER=$(go env GOPATH)/bin/geoip" >> "$GITHUB_ENV"
+          else
+            echo "::warning::GeoIP converter installation failed; the country database build will attempt the accepted fallback"
+            echo "GEOIP_CONVERTER=$RUNNER_TEMP/geoip-converter-unavailable" >> "$GITHUB_ENV"
+          fi
 
       - name: Start browser rule gateway
         run: |
@@ -727,10 +731,17 @@ jobs:
           TASKS: ${{ needs.prepare.outputs.tasks }}
 
       - name: Build GeoIP country database
-        run: python3 Build/build-geoip-country.py --public "$PUBLIC_DIR" --tool "$GEOIP_CONVERTER"
+        run: |
+          set -euo pipefail
+          args=(--public "$PUBLIC_DIR" --tool "${GEOIP_CONVERTER:-geoip}")
+          if [ -n "$PUBLICATION_BASELINE_DIR" ]; then
+            args+=(--fallback-tree "$PUBLICATION_BASELINE_DIR")
+          fi
+          python3 Build/build-geoip-country.py "${args[@]}"
         env:
           PUBLIC_DIR: ${{ steps.build-dir.outputs.dir }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLICATION_BASELINE_DIR: ${{ steps.baseline-tree.outcome == 'success' && format('{0}/publication-baseline', runner.temp) || '' }}
 
       # 🔧 步骤 5: 规则构建（始终执行）
       - run: pnpm run build

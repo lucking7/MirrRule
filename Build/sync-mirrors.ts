@@ -39,7 +39,7 @@ export const runMirrorSync = task(
       throw new Error(`Sync completed with ${result.failed.length} errors`);
     }
 
-    if (result.hasChanges) {
+    if (result.newFiles.length > 0 || result.updatedFiles.length > 0) {
       console.log(picocolors.green('\n[OK] Sync completed successfully with changes'));
     } else {
       console.log(picocolors.gray('\n[OK] Sync completed - no changes detected'));

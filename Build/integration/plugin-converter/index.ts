@@ -26,7 +26,6 @@ import {
 } from './script-extractor';
 import { mirrorScripts, printMirrorSummary } from './script-mirror';
 import { convertPluginsLocallyBatch } from './local-converter';
-import { getPluginContent } from './plugin-mirror';
 import { publishPluginArtifacts } from './plugin-artifact';
 import { identifyPluginSource } from './plugin-identity';
 import { loadNativeSurgeModule } from './native-surge';
@@ -130,22 +129,11 @@ export async function convertAndMirrorPlugins(
 
   const dnsPlugins: PluginInfo[] = [];
   const nativePlugins: PluginInfo[] = [];
-  const localOnlyPlugins: PluginInfo[] = [];
   const remotePlugins: PluginInfo[] = [];
   for (const plugin of plugins) {
     if (isDnsPolicyPlugin(plugin)) dnsPlugins.push(plugin);
     else if (plugin.useNativeSurge) nativePlugins.push(plugin);
-    else if (plugin.useLocalOnly) localOnlyPlugins.push(plugin);
     else remotePlugins.push(plugin);
-  }
-
-  if (localOnlyPlugins.length > 0) {
-    console.log(
-      picocolors.cyan(
-        `\n[Local Only] ${localOnlyPlugins.length} plugins marked for local conversion only`
-      )
-    );
-    localOnlyPlugins.forEach(p => console.log(picocolors.gray(`  - ${p.name}`)));
   }
 
   // 2. 转换插件
@@ -162,37 +150,7 @@ export async function convertAndMirrorPlugins(
     conversionResults.push(await loadNativeSurgeModule(plugin));
   }
 
-  // 2a. 本地转换 (useLocalOnly 插件)
-  if (localOnlyPlugins.length > 0) {
-    console.log(
-      picocolors.cyan(
-        `\n[Local Only] Converting ${localOnlyPlugins.length} plugins with local converter...\n`
-      )
-    );
-
-    const freshLocalPlugins: typeof localOnlyPlugins = [];
-    for (const plugin of localOnlyPlugins) {
-      const refreshed = await getPluginContent(plugin, true);
-      if (refreshed.success && refreshed.content && !refreshed.degraded) {
-        freshLocalPlugins.push(plugin);
-      } else {
-        conversionResults.push({
-          pluginName: plugin.name,
-          ...identifyPluginSource(plugin),
-          content: {
-            error: `Plugin download failed: ${refreshed.error ?? 'fresh plugin content unavailable'}`,
-          },
-          failureStage: 'download',
-        });
-      }
-    }
-
-    // 本地转换器从刚刷新并验证过的镜像读取。
-    const localResults = await convertPluginsLocallyBatch(freshLocalPlugins);
-    conversionResults.push(...localResults);
-  }
-
-  // 2b. Script-Hub 转换 (其他插件)
+  // 2a. Script-Hub 转换 (其他插件)
   if (remotePlugins.length > 0) {
     console.log(
       picocolors.cyan(
@@ -203,7 +161,7 @@ export async function convertAndMirrorPlugins(
     conversionResults.push(...remoteResults);
   }
 
-  // 2c. 检查失败的插件，使用本地转换器重试
+  // 2b. 检查失败的插件，使用本地转换器重试
   if (useLocalFallback && remotePlugins.length > 0) {
     const failedPlugins: typeof remotePlugins = [];
     const remotePluginsBySourceKey = new Map(

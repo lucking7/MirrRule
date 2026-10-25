@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -662,6 +662,74 @@ describe('GitHub Actions workflow contract', () => {
     const publishSteps = publish.steps ?? [];
     for (const step of publishSteps) {
       assert.doesNotMatch(step.run ?? '', /\|\| true/, String(step.name));
+    }
+  });
+
+  it('warns on GeoIP converter installation failure but keeps Python tests blocking', () => {
+    const step = getStep(getJob('build'), 'Install GeoIP country builder');
+    assert.equal(step['continue-on-error'], undefined);
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-geoip-install-'));
+    try {
+      fs.writeFileSync(path.join(tempDir, 'python3'), '#!/bin/bash\nif [[ "$1" == *build-geoip-country.test.py ]]; then exit "$TEST_STATUS"; fi\n', { mode: 0o755 });
+      fs.writeFileSync(path.join(tempDir, 'go'), '#!/bin/bash\nif [ "$1" = install ]; then exit "$INSTALL_STATUS"; fi\nprintf "%s\\n" "$RUNNER_TEMP"\n', { mode: 0o755 });
+      const envFile = path.join(tempDir, 'env');
+      const run = (installStatus: string, testStatus: string) => {
+        fs.writeFileSync(envFile, '');
+        const result = spawnSync('/bin/bash', ['-c', String(step.run)], {
+          env: {
+            ...process.env,
+            PATH: `${tempDir}:${process.env.PATH ?? ''}`,
+            RUNNER_TEMP: tempDir,
+            GITHUB_ENV: envFile,
+            INSTALL_STATUS: installStatus,
+            TEST_STATUS: testStatus,
+          },
+          encoding: 'utf8',
+        });
+        return { ...result, env: fs.readFileSync(envFile, 'utf8') };
+      };
+      const installed = run('0', '0');
+      assert.equal(installed.status, 0);
+      assert.equal(installed.env, `GEOIP_CONVERTER=${tempDir}/bin/geoip\n`);
+      const failed = run('1', '0');
+      assert.equal(failed.status, 0);
+      assert.match(failed.stdout, /::warning::GeoIP converter installation failed/);
+      assert.equal(failed.env, `GEOIP_CONVERTER=${tempDir}/geoip-converter-unavailable\n`);
+      const testsFailed = run('0', '23');
+      assert.equal(testsFailed.status, 23);
+      assert.equal(testsFailed.env, '');
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('passes the accepted GeoIP fallback only after baseline checkout succeeds', () => {
+    const step = getStep(getJob('build'), 'Build GeoIP country database');
+    assert.equal(
+      step.env?.PUBLICATION_BASELINE_DIR,
+      githubExpression('steps.baseline-tree.outcome == \'success\' && format(\'{0}/publication-baseline\', runner.temp) || \'\''),
+    );
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-geoip-args-'));
+    try {
+      fs.writeFileSync(path.join(tempDir, 'python3'), '#!/bin/bash\nprintf "%s\\n" "$@"\n', { mode: 0o755 });
+      for (const baseline of ['', path.join(tempDir, 'accepted tree')]) {
+        const output = execFileSync('/bin/bash', ['-c', String(step.run)], {
+          env: {
+            ...process.env,
+            PATH: `${tempDir}:${process.env.PATH ?? ''}`,
+            PUBLIC_DIR: path.join(tempDir, 'candidate tree'),
+            PUBLICATION_BASELINE_DIR: baseline,
+            GEOIP_CONVERTER: '',
+          },
+          encoding: 'utf8',
+        });
+        assert.deepEqual(output.trim().split('\n'), [
+          'Build/build-geoip-country.py', '--public', path.join(tempDir, 'candidate tree'), '--tool', 'geoip',
+          ...(baseline ? ['--fallback-tree', baseline] : []),
+        ]);
+      }
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
 

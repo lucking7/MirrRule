@@ -183,7 +183,11 @@ PROXY_BASE='http://127.0.0.1:13193?url=' pnpm run node Build/validate-domain-ali
 
 - 全球国家代码取自 [daijro/geoip-all-in-one](https://github.com/daijro/geoip-all-in-one) 最新 Release。它由 IP2Location LITE、GeoLite2、DB-IP Lite、IPinfo、IPlocate 和各地区 IP 登记机构数据投票得出，每周重建；原文件是约 115 MiB 的城市库，超过 Pages 单文件 25 MiB 上限，构建时只保留国家代码，结果约 11 MiB。
 - Sukka `ip/china_ip.conf`（chnroutes2）与 `ip/china_ip_ipv6.conf` 中的段一律标为 `CN`，局域网与保留地址标为 `PRIVATE`，两者覆盖投票结果。geoip-all-in-one 判为中国、但 chnroutes2 没有收录的段仍保留 `CN`，例如 AWS 中国区域的地址。
-- 生成后校验：文件大小在 1 MiB 到 25 MiB 之间、至少 200 个国家代码、每个 china_ip 段的中点都是 `CN`，以及 `114.114.114.114`、`8.8.8.8` 等抽样地址。任一不满足则构建失败。
+- 下载 Release API、压缩包和中国列表时，HTTP 408／429／5xx、连接重置、超时、URLError 和响应截断最多尝试 4 次，重试前分别等待 1、2、4 秒；404 等其他 HTTP 错误立即失败。
+- 生成后校验：文件大小在 1 MiB 到 25 MiB 之间、至少 200 个国家代码、每个 china_ip 段的中点都是 `CN`，以及 `114.114.114.114`、`8.8.8.8` 等抽样地址。任一不满足则拒绝新库并进入回退流程。
+- 下载、转换或校验等构建异常不会阻止其他规则更新。CI 仅在已验收基线 tree 恢复成功时传入 `--fallback-tree`；旧 `GeoIP/country.mmdb` 通过大小范围、maxminddb 打开和 `8.8.8.8` 国家代码查询检查后，原子复制到本次输出。没有可用旧库时不写入该文件，本次不发布它。两种情况都输出包含原始错误的 `::warning::` 并退出 0；命令行参数错误仍非零退出。Go 转换器安装失败也只警告并让脚本进入回退，Python 单元测试失败仍阻止 job。
+
+代价是 GeoIP 数据库可能在构建持续成功的情况下悄然陈旧；GitHub Actions run annotations 中的 warning 是回退信号，需要据此排查上游或转换器故障。
 
 2026-10-25 用 AWS 与 Google Cloud 公开的 11454 个已知区域 IP 段对比各库的国家判断：geoip-all-in-one 98.4%，本库 98.4%，IPinfo（xream 2026-08-03 版）96.6%，GeoLite2 91.5%，DB-IP Lite 90.0%，ip2（IP2Location LITE，xream 2026-08-03 版）87.8%。这只覆盖云服务商地址段，家庭宽带与移动网络的准确度可能不同。原有 `ip2.mmdb`、`ipinfo.mmdb`、`geoip2-cn.mmdb`、`chnroutes2.mmdb` 不变。
 
