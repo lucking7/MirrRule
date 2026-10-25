@@ -92,7 +92,7 @@ describe('publication lifecycle projection and baseline rebase', () => {
     assert.ok(worker.includes('keep.json.gz'));
     assert.equal(worker.includes('discord.json.gz'), false);
     const routes = await json<{ include: string[]; exclude: string[] }>(path.join(env.out, '_routes.json'));
-    const routed = ['Clash/ip/', 'Clash/non_ip/', 'List/ip/', 'List/non_ip/', 'Loon/ip/', 'Loon/non_ip/', 'sing-box/ip/', 'sing-box/non_ip/', ...retiredPublicPrefixes().sort()];
+    const routed = ['Clash/ip/', 'Clash/non_ip/', 'List/ip/', 'List/non_ip/', 'Loon/ip/', 'Loon/non_ip/', 'Mirror/', 'sing-box/ip/', 'sing-box/non_ip/', ...retiredPublicPrefixes().sort()];
     assert.deepEqual(routes.include, [
       '/Internal/*',
       ...routed.map(prefix => `/${prefix}*`),

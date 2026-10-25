@@ -8,10 +8,15 @@ import { PLATFORM_OUTPUT_LAYOUT, RULE_OUTPUT_VARIANTS } from './rule-output-vari
 const INTERNAL_PREFIX = '/Internal/';
 /**
  * Variant files come and go with upstream content (an ip variant with no-resolve choices, a
- * sing-box non_ip when a ruleset turns IP-only), and the edge cache keeps serving a deleted
- * file. The worker serves only the variant files of this tree and answers 404 for the rest.
+ * sing-box non_ip when a ruleset turns IP-only), and mirrored modules are renamed or dropped
+ * upstream (fmz200 names each file after its #!name). The edge cache keeps serving a deleted
+ * file, so the worker serves only the files of this tree below these prefixes and answers
+ * 404 for the rest.
  */
-const GATED_VARIANT_PREFIXES = Object.values(PLATFORM_OUTPUT_LAYOUT).flatMap(layout => RULE_OUTPUT_VARIANTS.map(variant => `/${layout.directory}/${variant}/`)).sort();
+const GATED_PREFIXES = [
+  ...Object.values(PLATFORM_OUTPUT_LAYOUT).flatMap(layout => RULE_OUTPUT_VARIANTS.map(variant => `/${layout.directory}/${variant}/`)),
+  '/Mirror/',
+].sort();
 
 function encodePublicPath(relative: string): string {
   return relative.split('/').map(segment => encodeURIComponent(segment)).join('/');
@@ -31,16 +36,16 @@ async function treePaths(publicDir: string, prefix: string): Promise<string[]> {
 }
 
 /**
- * Gate Internal inventory, split variants, and registered retired URLs and directories before
+ * Gate Internal inventory, split variants, mirrors, and registered retired URLs and directories before
  * the static asset cache.
  */
 export async function writePagesInternalGate(publicDir: string): Promise<void> {
   const paths = await treePaths(publicDir, INTERNAL_PREFIX);
-  const published = (await Promise.all(GATED_VARIANT_PREFIXES.map(prefix => treePaths(publicDir, prefix)))).flat();
+  const published = (await Promise.all(GATED_PREFIXES.map(prefix => treePaths(publicDir, prefix)))).flat();
   const retired = [...new Set(retiredPublicPaths().map(relative => `/${relative}`))].sort();
   const retiredPrefixes = [...new Set(retiredPublicPrefixes().map(relative => `/${relative}`))].sort();
   // Exact retired paths inside a routed directory need no route of their own.
-  const routedPrefixes = [...GATED_VARIANT_PREFIXES, ...retiredPrefixes];
+  const routedPrefixes = [...GATED_PREFIXES, ...retiredPrefixes];
   const include = [
     INTERNAL_PREFIX + '*',
     ...routedPrefixes.map(prefix => encodePublicPath(prefix) + '*'),
@@ -49,7 +54,7 @@ export async function writePagesInternalGate(publicDir: string): Promise<void> {
   if (include.length > 100) throw new Error(`Pages gate requires ${include.length} routes; the limit is 100`);
   const worker = String.raw`const prefix = ${JSON.stringify(INTERNAL_PREFIX)};
 const active = new Set(${JSON.stringify(paths)});
-const gatedPrefixes = ${JSON.stringify(GATED_VARIANT_PREFIXES)};
+const gatedPrefixes = ${JSON.stringify(GATED_PREFIXES)};
 const published = new Set(${JSON.stringify(published)});
 const retired = new Set(${JSON.stringify(retired)});
 const retiredPrefixes = ${JSON.stringify(retiredPrefixes)};
@@ -64,7 +69,8 @@ export default {
     if (!isRetired && isGated && published.has(decoded)) {
       const asset = await env.ASSETS.fetch(request);
       const response = new Response(asset.body, asset);
-      // _headers rules do not apply to worker responses; repeat the ruleset directory headers.
+      // _headers rules do not apply to worker responses; repeat the ruleset directory headers, which
+      // build-public also applies to Mirror.
       response.headers.set('cache-control', 'public, max-age=0, must-revalidate');
       response.headers.set('content-type', 'text/plain; charset=utf-8');
       response.headers.set('x-robots-tag', 'noindex');
