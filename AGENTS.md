@@ -99,6 +99,7 @@ Build/
   index.ts                         主构建入口
   build-public.ts                  生成 public 文件索引与部署辅助文件
   download-geoip.ts                GEOIP 数据下载
+  build-geoip-country.py           生成 GeoIP/country.mmdb（geoip-all-in-one 国家代码叠加 chnroutes2 中国段，CI 在规则构建前运行）
   sync-mirrors.ts                  镜像同步 CLI
   convert-plugins.ts               插件转换 CLI
   merge-modules.ts                 模块合并 CLI
@@ -152,7 +153,7 @@ eslint.config.js                   ESLint 配置
 构建大致流程：
 
 1. 删除旧的 `.BUILD_FINISHED` 标记。
-2. 执行 `downloadGEOIP` 下载 GEOIP/GeoSite 等数据。
+2. 执行 `downloadGEOIP` 下载 GEOIP/GeoSite 等数据。`GeoIP/country.mmdb` 不在这里生成：CI 在 `pnpm run build` 之前运行 `Build/build-geoip-country.py`（Python 依赖见 `Build/geoip-requirements.txt`，转换器为固定提交的 Loyalsoldier/geoip），失败时整个构建失败。
 3. 创建 `RuleSourceProcessor`，读取 `ruleGroups` 与 `specialRules`。
 4. 逐个下载上游规则源。
 5. 通过 `EnhancedFileOutput` 清洗、转换、去重、排序、分类规则。
