@@ -102,7 +102,7 @@ test('unknown rewrite fails through fallback rather than producing a MITM-only r
   assert.deepEqual(result.content, { error: 'Unsupported local rewrite: ^https://test/data request-body-unknown del(.ads)' });
 });
 
-test('real conversion entry deduplicates shared scripts and returns interleaved results in order', async t => {
+test('real conversion entry preserves fallback, deduplicates shared scripts and returns ordered results', async t => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-plugin-entry-work-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
   const converterDirectory = path.resolve(__dirname, '../integration/plugin-converter');
@@ -123,21 +123,36 @@ test('real conversion entry deduplicates shared scripts and returns interleaved 
       const filename = require.resolve(path.join(converterDirectory, name));
       replace(filename, { ...require(filename), ...overrides });
     }
-    const names = ['first', 'download-failed', 'collision-a', 'second', 'collision-b', 'missing'];
+    const names = ['first', 'download-failed', 'collision-a', 'second', 'collision-b', 'missing', 'script-hub-failed'];
     const plugins = names.map(name => ({ name, url: 'https://plugins.test/' + name + '.plugin', extension: 'plugin' }));
     const { identifyPluginSource } = require(path.join(converterDirectory, 'plugin-identity.ts'));
     const shared = 'https://scripts.test/shared.js';
     const missing = 'https://scripts.test/missing.js';
     replaceFile('plugin-list.ts', { getPluginList: async () => plugins });
     replaceFile('script-hub-client.ts', {
-      convertPluginsBatchFromLocalMirror: async () => plugins.map(plugin => ({
-        pluginName: plugin.name,
-        ...identifyPluginSource(plugin),
-        content: plugin.name === 'download-failed' ? { error: 'failed input' } :
-          '#!name=' + (plugin.name.startsWith('collision-') ? 'Collision' : plugin.name) +
-          '\n#!desc=' + plugin.name + '\n[Script]\nrun = type=http-response, pattern=^https:, script-path=' +
-          (plugin.name === 'missing' ? missing : shared),
-      })),
+      convertPluginsBatchFromLocalMirror: async requested => {
+        assert.deepEqual(requested, plugins);
+        return plugins.map(plugin => ({
+          pluginName: plugin.name,
+          ...identifyPluginSource(plugin),
+          failureStage: plugin.name === 'download-failed' ? 'download' : 'script-hub',
+          content: plugin.name.endsWith('-failed') ? { error: 'failed input' } :
+            '#!name=' + (plugin.name.startsWith('collision-') ? 'Collision' : plugin.name) +
+            '\n#!desc=' + plugin.name + '\n[Script]\nrun = type=http-response, pattern=^https:, script-path=' +
+            (plugin.name === 'missing' ? missing : shared),
+        }));
+      },
+    });
+    const fallbackRequests = [];
+    replaceFile('local-converter.ts', {
+      convertPluginsLocallyBatch: async requested => {
+        fallbackRequests.push(requested.map(plugin => plugin.name));
+        return requested.map(plugin => ({
+          pluginName: plugin.name,
+          ...identifyPluginSource(plugin),
+          content: '#!name=' + plugin.name + '\n[Rule]\nDOMAIN,ads.test,REJECT',
+        }));
+      },
     });
     let mirrored;
     replaceFile('script-mirror.ts', {
@@ -154,12 +169,18 @@ test('real conversion entry deduplicates shared scripts and returns interleaved 
       const { convertAndMirrorPlugins } = require(path.join(converterDirectory, 'index.ts'));
       const results = await convertAndMirrorPlugins(false, false);
       assert.deepEqual(results.map(result => result.pluginName), names);
-      assert.deepEqual(results.map(result => result.status), ['ready', 'failed', 'failed', 'ready', 'failed', 'failed']);
+      assert.deepEqual(results.map(result => result.status), ['ready', 'failed', 'failed', 'ready', 'failed', 'failed', 'failed']);
+      assert.deepEqual(fallbackRequests, []);
       assert.deepEqual(mirrored, [shared, missing]);
       assert.equal(fs.readFileSync(path.join(output, 'Collision.sgmodule'), 'utf8'), 'known-good');
       assert.equal(fs.existsSync(path.join(output, 'missing.sgmodule')), false);
       assert.match(fs.readFileSync(path.join(output, 'first.sgmodule'), 'utf8'), /script-path=https:\/\/nrrule.pages.dev\/shared.js/);
       assert.match(fs.readFileSync(path.join(output, 'second.sgmodule'), 'utf8'), /script-path=https:\/\/nrrule.pages.dev\/shared.js/);
+      const retried = await convertAndMirrorPlugins();
+      assert.deepEqual(fallbackRequests, [['script-hub-failed']]);
+      assert.deepEqual(retried.map(result => result.pluginName), names);
+      assert.deepEqual(retried.map(result => result.status), ['ready', 'failed', 'failed', 'ready', 'failed', 'failed', 'ready']);
+      assert.match(fs.readFileSync(path.join(output, 'script-hub-failed.sgmodule'), 'utf8'), /DOMAIN,ads.test,REJECT/);
     })().catch(error => { console.error(error); process.exitCode = 1; });
   `;
   const run = spawnSync(process.execPath, ['-r', require.resolve('@swc-node/register'), '-e', program], {

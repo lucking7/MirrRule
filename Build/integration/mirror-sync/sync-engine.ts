@@ -43,7 +43,6 @@ export interface SyncResult {
   succeeded: number,
   failed: PipelineFailure[],
   skipped: number,
-  hasChanges: boolean,
   updatedFiles: string[],
   newFiles: string[]
 }
@@ -68,7 +67,6 @@ export function createPipelineResult(): PipelineResult {
 function createSyncResult(): SyncResult {
   return {
     ...createPipelineResult(),
-    hasChanges: false,
     updatedFiles: [],
     newFiles: []
   };
@@ -322,7 +320,6 @@ export async function syncRepository(
         console.log(picocolors.green(`[Sync] ✓ Updated: ${asset.name}`));
       }
 
-      result.hasChanges = true;
       result.succeeded++;
     } catch (error) {
       console.log(picocolors.red(
@@ -339,9 +336,6 @@ export function mergeSyncResults(results: SyncResult[]): SyncResult {
   const merged = createSyncResult();
 
   for (const result of results) {
-    if (result.hasChanges) {
-      merged.hasChanges = true;
-    }
     merged.updatedFiles.push(...result.updatedFiles);
     merged.newFiles.push(...result.newFiles);
     merged.total += result.total;

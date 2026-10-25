@@ -153,7 +153,7 @@ eslint.config.js                   ESLint 配置
 构建大致流程：
 
 1. 删除旧的 `.BUILD_FINISHED` 标记。
-2. 执行 `downloadGEOIP` 下载 GEOIP/GeoSite 等数据。`GeoIP/country.mmdb` 不在这里生成：CI 在 `pnpm run build` 之前运行 `Build/build-geoip-country.py`（Python 依赖见 `Build/geoip-requirements.txt`，转换器为固定提交的 Loyalsoldier/geoip），失败时整个构建失败。
+2. 执行 `downloadGEOIP` 下载 GEOIP/GeoSite 等数据。`GeoIP/country.mmdb` 不在这里生成：CI 在 `pnpm run build` 之前运行 `Build/build-geoip-country.py`（Python 依赖见 `Build/geoip-requirements.txt`，转换器为固定提交的 Loyalsoldier/geoip）。暂时性下载错误最多尝试 4 次；构建异常时从 `--fallback-tree` 指定的已验收基线校验并原子复用旧库，无可用旧库则不写入该文件，两者都警告并退出 0，让其他规则继续更新。Go 转换器安装失败同样进入回退，Python 单元测试仍须通过。数据库可能悄然陈旧，GitHub Actions run annotations 中的 warning 是回退信号；详细检查条件见 `RULE_SOURCES.md` 的 GeoIP 国家库一节。
 3. 创建 `RuleSourceProcessor`，读取 `ruleGroups` 与 `specialRules`。
 4. 逐个下载上游规则源。
 5. 通过 `EnhancedFileOutput` 清洗、转换、去重、排序、分类规则。

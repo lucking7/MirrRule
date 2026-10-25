@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import argparse
 import collections
+from collections.abc import Callable
+import http.client
 import io
 import ipaddress
 import json
@@ -22,6 +24,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+import urllib.error
 import urllib.request
 import zipfile
 
@@ -51,13 +55,23 @@ SPOT_CHECKS = {
 }
 
 
-def fetch(url: str, token: str | None = None) -> bytes:
+def fetch(url: str, token: str | None = None, *, sleep: Callable[[float], None] = time.sleep) -> bytes:
     headers = {"User-Agent": "MirrRule-geoip-country"}
     if token and url.startswith("https://api.github.com/"):
         headers["Authorization"] = f"Bearer {token}"
     request = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(request, timeout=300) as response:
-        return response.read()
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(request, timeout=300) as response:
+                return response.read()
+        except (urllib.error.URLError, ConnectionResetError, TimeoutError, http.client.IncompleteRead) as error:
+            if isinstance(error, urllib.error.HTTPError):
+                error.close()
+                if error.code not in (408, 429) and not 500 <= error.code < 600:
+                    raise
+            if attempt == 3:
+                raise
+            sleep(2 ** attempt)
 
 
 def resolve_aio_asset(release: dict) -> tuple[str, str]:
@@ -156,6 +170,34 @@ def verify_output(path: Path, china_samples: list[str]) -> dict:
     return {"bytes": size, "countries": len(countries), "chinaSamples": len(china_samples)}
 
 
+def copy_database(source: Path, target: Path) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp", delete=False) as output:
+        temporary = Path(output.name)
+    try:
+        shutil.copyfile(source, temporary)
+        os.replace(temporary, target)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def reuse_database(fallback_tree: Path, public_dir: Path) -> None:
+    source = fallback_tree / OUTPUT_RELATIVE
+    size = source.stat().st_size
+    if not MIN_OUTPUT_BYTES <= size <= MAX_OUTPUT_BYTES:
+        raise RuntimeError(f"{source} is {size} bytes, outside {MIN_OUTPUT_BYTES}..{MAX_OUTPUT_BYTES}")
+    with maxminddb.open_database(str(source)) as reader:
+        if not country_code(reader.get("8.8.8.8")):
+            raise RuntimeError(f"{source}: 8.8.8.8 has no country code")
+    copy_database(source, public_dir / OUTPUT_RELATIVE)
+
+
+def warning(message: str) -> None:
+    # Keep exception text within one GitHub Actions annotation.
+    escaped = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    print(f"::warning::{escaped}")
+
+
 def build(public_dir: Path, tool: str, work_dir: Path, token: str | None) -> dict:
     tag, asset_url = resolve_aio_asset(json.loads(fetch(AIO_RELEASE_API, token)))
     source = work_dir / "geoip-aio-all.mmdb"
@@ -182,11 +224,7 @@ def build(public_dir: Path, tool: str, work_dir: Path, token: str | None) -> dic
 
     built = output_dir / OUTPUT_RELATIVE.name
     report = verify_output(built, china_samples)
-    target = public_dir / OUTPUT_RELATIVE
-    target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_name(f".{target.name}.tmp")
-    shutil.copyfile(built, temporary)
-    os.replace(temporary, target)
+    copy_database(built, public_dir / OUTPUT_RELATIVE)
     return {"source": tag, **report}
 
 
@@ -194,9 +232,23 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--public", type=Path, default=Path("public"))
     parser.add_argument("--tool", default="geoip", help="Loyalsoldier/geoip converter binary")
+    parser.add_argument("--fallback-tree", type=Path, help="accepted publication tree to reuse if the build fails")
     args = parser.parse_args(argv)
-    with tempfile.TemporaryDirectory(prefix="geoip-country-") as work:
-        report = build(args.public, args.tool, Path(work), os.environ.get("GITHUB_TOKEN"))
+    try:
+        with tempfile.TemporaryDirectory(prefix="geoip-country-") as work:
+            report = build(args.public, args.tool, Path(work), os.environ.get("GITHUB_TOKEN"))
+    except Exception as error:
+        message = f"GeoIP country build failed: {type(error).__name__}: {error}"
+        if args.fallback_tree is not None:
+            try:
+                reuse_database(args.fallback_tree, args.public)
+            except Exception as fallback_error:
+                warning(f"{message}; no usable fallback: {type(fallback_error).__name__}: {fallback_error}; country.mmdb was not written")
+            else:
+                warning(f"{message}; previous database is reused from {args.fallback_tree} and may be stale")
+        else:
+            warning(f"{message}; no accepted fallback tree supplied; country.mmdb was not written")
+        return 0
     print(json.dumps({"output": str(args.public / OUTPUT_RELATIVE), **report}))
     return 0
 
