@@ -84,6 +84,32 @@ describe('module merger engine', () => {
 
     assert.deepEqual(hostnames, ['a.com', 'b.com', 'c.com']);
   });
+
+  it('drops rules whose matcher repeats an earlier rule, whatever the policy', () => {
+    const merger = new ModuleMerger(options);
+    merger.addSection({ type: 'Rule', header: 'Module A', content: 'DOMAIN,ads.example,REJECT\nIP-CIDR,192.0.2.0/24,REJECT,no-resolve' });
+    merger.addSection({
+      type: 'Rule',
+      header: 'Module B',
+      content: [
+        'domain, ads.example, REJECT-TINYGIF',
+        'DOMAIN,ads.example,DIRECT',
+        // no-resolve changes how the rule matches, so these are different rules.
+        'IP-CIDR,192.0.2.0/24,REJECT',
+        'DOMAIN,new.example,REJECT',
+      ].join('\n'),
+    });
+    merger.addSection({ type: 'Rule', header: 'Module C', content: 'DOMAIN,new.example,REJECT' });
+
+    const { sections } = merger.merge();
+    assert.equal(sections.get('Rule'), [
+      '# ----------- Module A -----------',
+      'DOMAIN,ads.example,REJECT\nIP-CIDR,192.0.2.0/24,REJECT,no-resolve',
+      '# ----------- Module B -----------',
+      'IP-CIDR,192.0.2.0/24,REJECT\nDOMAIN,new.example,REJECT',
+    ].join('\n\n'), 'a module whose rules all repeat leaves no empty divider');
+    assert.equal(merger.getStats().rulesDeduplicated, 3);
+  });
 });
 
 describe('module merger integration', () => {

@@ -195,6 +195,7 @@ export async function mergeModules(
   console.log(picocolors.gray(`  - Modules failed: ${failures.length}`));
   console.log(picocolors.gray(`  - Sections extracted: ${stats.sectionsExtracted}`));
   console.log(picocolors.gray(`  - Hostnames deduplicated: ${stats.hostnamesDeduplicated}`));
+  console.log(picocolors.gray(`  - Repeated rules removed: ${stats.rulesDeduplicated}`));
 
   return {
     sgmodule,

@@ -145,7 +145,9 @@ interface MergeStats {
   /** 提取的 Section 数量 */
   sectionsExtracted: number,
   /** 去重的 hostname 数量 */
-  hostnamesDeduplicated: number
+  hostnamesDeduplicated: number,
+  /** 因匹配条件与前面规则相同而删除的规则数量 */
+  rulesDeduplicated: number
 }
 
 /**
