@@ -487,6 +487,48 @@ describe('GitHub Actions workflow contract', () => {
     }
   });
 
+  it('keeps publishing when the plugin upstream is down, without retrying', () => {
+    const convertScript = String(getStep(getJob('convert-plugins'), 'Convert plugins').run);
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-convert-outage-'));
+    try {
+      const attemptFile = path.join(tempDir, 'attempts');
+      const outputFile = path.join(tempDir, 'output');
+      fs.writeFileSync(path.join(tempDir, 'pnpm'), '#!/bin/bash\necho run >> "$ATTEMPT_FILE"\nexit 3\n', { mode: 0o755 });
+      const stdout = execFileSync('/bin/bash', ['-c', convertScript], {
+        cwd: tempDir,
+        env: { ...process.env, ATTEMPT_FILE: attemptFile, GITHUB_OUTPUT: outputFile, PATH: `${tempDir}:${process.env.PATH ?? ''}` },
+        encoding: 'utf8',
+      });
+      assert.match(stdout, /::warning::Plugin upstream unavailable/);
+      assert.equal(fs.readFileSync(outputFile, 'utf8'), 'converted=false\n');
+      assert.equal(fs.readFileSync(attemptFile, 'utf8'), 'run\n');
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    assert.match(String(getJob('merge-modules').if), /needs\.convert-plugins\.outputs\.converted != 'false'/);
+    assert.equal(getStep(getJob('convert-plugins'), 'Upload plugin conversion output').if, 'success() && steps.convert.outputs.converted == \'true\'');
+  });
+
+  it('drops conversion tasks from publication only when conversion was skipped for an outage', () => {
+    const step = getStep(getJob('build'), 'Resolve publication tasks');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-publication-tasks-'));
+    try {
+      const outputFile = path.join(tempDir, 'output');
+      const full = '["convert-plugins","merge-modules","mirror-sync","build","deploy"]';
+      for (const [converted, expected] of [['false', '["mirror-sync","build","deploy"]'], ['true', full], ['', full]]) {
+        fs.writeFileSync(outputFile, '');
+        execFileSync('/bin/bash', ['-c', String(step.run)], {
+          env: { ...process.env, CONVERTED: converted, TASKS: full, GITHUB_OUTPUT: outputFile },
+        });
+        assert.equal(fs.readFileSync(outputFile, 'utf8'), `tasks=${expected}\n`);
+      }
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    assert.equal(getStep(getJob('build'), 'Restore preserved directories from accepted baseline').env?.TASKS, githubExpression('steps.publication-tasks.outputs.tasks'));
+    assert.equal(getStep(getJob('publish'), 'Stage complete publication tree').env?.TASKS, githubExpression('needs.build.outputs.tasks || needs.prepare.outputs.tasks'));
+  });
+
   it('rejects zero converted modules before artifact upload', () => {
     const verifyScript = String(
       getStep(getJob('convert-plugins'), 'Verify converted outputs').run,

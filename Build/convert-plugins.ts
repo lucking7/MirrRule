@@ -8,7 +8,12 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { convertAndMirrorPlugins, printConversionSummary } from './integration/plugin-converter';
 import { getErrorMessage, registerGlobalErrorHandlers } from './lib/misc';
-import { verifyRequiredPluginOutputs } from './integration/plugin-converter/readiness';
+import {
+  isUpstreamOutage,
+  PluginCatalogUnavailableError,
+  UPSTREAM_UNAVAILABLE_EXIT_CODE,
+  verifyRequiredPluginOutputs,
+} from './integration/plugin-converter/readiness';
 
 registerGlobalErrorHandlers();
 
@@ -67,7 +72,14 @@ async function main() {
   console.log(`转换统计: 总数=${results.length} 成功=${successCount} 失败=${failedCount} 耗时=${duration}s`);
 
   if (requiredConfig) {
-    const requiredReady = await verifyRequiredPluginOutputs(results, requiredConfig);
+    let requiredReady: number;
+    try {
+      requiredReady = await verifyRequiredPluginOutputs(results, requiredConfig);
+    } catch (error) {
+      if (!isUpstreamOutage(results)) throw error;
+      console.error(`上游不可用，${failedCount} 个插件下载失败: ${getErrorMessage(error)}`);
+      process.exit(UPSTREAM_UNAVAILABLE_EXIT_CODE);
+    }
     report.required = { config: requiredConfig, ready: requiredReady };
     await writeReport();
     console.log(`必需模块验收通过: ${requiredReady} 个模块全部来自本轮 ready 产物`);
@@ -85,6 +97,6 @@ async function main() {
 if (require.main === module) {
   main().catch((error) => {
     console.error('转换失败:', getErrorMessage(error));
-    process.exit(1);
+    process.exit(error instanceof PluginCatalogUnavailableError ? UPSTREAM_UNAVAILABLE_EXIT_CODE : 1);
   });
 }
