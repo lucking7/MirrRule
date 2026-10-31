@@ -5,6 +5,7 @@
 
 import type { ParsedSection, SectionType, MergeOptions } from './types';
 import { SectionParser } from './section-parser';
+import { cleanPolicy } from '../policy-cleaner';
 
 /**
  * 模块合并引擎类
@@ -19,7 +20,12 @@ export class ModuleMerger {
   /** hostnames 去重集合 */
   private readonly hostnameSet = new Set<string>();
 
+  /** Rule 匹配条件（去掉策略后）去重集合 */
+  private readonly ruleMatchers = new Set<string>();
+
   private sectionsExtracted = 0;
+
+  private rulesDeduplicated = 0;
 
   /**
    * 构造函数
@@ -36,7 +42,7 @@ export class ModuleMerger {
 
     // 存储 Section
     const existing = this.sections.get(typeKey) || [];
-    existing.push(section);
+    existing.push(typeKey === 'Rule' ? { ...section, content: this.dropRepeatedRules(section.content) } : section);
     this.sections.set(typeKey, existing);
     this.sectionsExtracted++;
 
@@ -75,6 +81,9 @@ export class ModuleMerger {
     const parts: string[] = [];
 
     for (const section of sections) {
+      // 规则全部重复的模块不留下空分段
+      if (!section.content.trim()) continue;
+
       // 添加分隔符
       if (this.options.addDividers && section.header) {
         const divider = this.createDivider(section.header);
@@ -110,7 +119,31 @@ export class ModuleMerger {
       hostnamesDeduplicated: this.options.deduplicateHostnames
         ? this.hostnameSet.size
         : this.hostnames.length,
+      rulesDeduplicated: this.rulesDeduplicated,
     };
+  }
+
+  /**
+   * Surge 按顺序取第一条匹配的规则，匹配条件与前面某条相同的规则不会生效，不论策略是否相同。
+   * 比较时去掉策略（cleanPolicy 按字段解析，不改动 URL-REGEX 正则内部的空格和逗号），
+   * 保留其他参数。带 no-resolve 的规则不参与：域名尚未解析时它会被跳过，若中间有规则触发
+   * DNS 解析，后面相同的规则仍可能命中。
+   */
+  private dropRepeatedRules(content: string): string {
+    return content.split('\n').filter(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return true;
+      const matcher = cleanPolicy(trimmed);
+      if (/,\s*no-resolve\s*(?:,|\)|$)/i.test(matcher)) return true;
+      const type = matcher.split(',', 1)[0];
+      const key = `${type.toUpperCase()}${matcher.slice(type.length)}`;
+      if (this.ruleMatchers.has(key)) {
+        this.rulesDeduplicated++;
+        return false;
+      }
+      this.ruleMatchers.add(key);
+      return true;
+    }).join('\n');
   }
 
   private collectHostnames(hosts: string[]): void {

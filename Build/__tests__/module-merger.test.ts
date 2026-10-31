@@ -84,6 +84,44 @@ describe('module merger engine', () => {
 
     assert.deepEqual(hostnames, ['a.com', 'b.com', 'c.com']);
   });
+
+  it('drops rules whose matcher repeats an earlier rule, whatever the policy', () => {
+    const merger = new ModuleMerger(options);
+    merger.addSection({
+      type: 'Rule',
+      header: 'Module A',
+      content: 'DOMAIN,ads.example,REJECT\nIP-CIDR,192.0.2.0/24,REJECT,no-resolve\nURL-REGEX,"^https://x\\.test/[a,-z]",REJECT',
+    });
+    merger.addSection({
+      type: 'Rule',
+      header: 'Module B',
+      content: [
+        'domain, ads.example, REJECT-TINYGIF',
+        'DOMAIN,ads.example,DIRECT',
+        // An earlier rule may trigger DNS resolution, after which a repeated no-resolve rule can match.
+        'IP-CIDR,192.0.2.0/24,REJECT,no-resolve',
+        'IP-CIDR,192.0.2.0/24,REJECT',
+        // Spaces inside a regular expression change what it matches.
+        'URL-REGEX,"^https://x\\.test/[a, -z]",REJECT',
+        'DOMAIN,new.example,REJECT',
+      ].join('\n'),
+    });
+    merger.addSection({ type: 'Rule', header: 'Module C', content: 'DOMAIN,new.example,REJECT\nURL-REGEX,"^https://x\\.test/[a,-z]",REJECT-TINYGIF' });
+
+    const { sections } = merger.merge();
+    assert.equal(sections.get('Rule'), [
+      '# ----------- Module A -----------',
+      'DOMAIN,ads.example,REJECT\nIP-CIDR,192.0.2.0/24,REJECT,no-resolve\nURL-REGEX,"^https://x\\.test/[a,-z]",REJECT',
+      '# ----------- Module B -----------',
+      [
+        'IP-CIDR,192.0.2.0/24,REJECT,no-resolve',
+        'IP-CIDR,192.0.2.0/24,REJECT',
+        'URL-REGEX,"^https://x\\.test/[a, -z]",REJECT',
+        'DOMAIN,new.example,REJECT',
+      ].join('\n'),
+    ].join('\n\n'), 'a module whose rules all repeat leaves no empty divider');
+    assert.equal(merger.getStats().rulesDeduplicated, 4);
+  });
 });
 
 describe('module merger integration', () => {
