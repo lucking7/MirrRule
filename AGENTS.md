@@ -249,7 +249,7 @@ flat 合并版 URL 保持不变；分版是追加输出，契约在 `Build/lib/r
 - Surge 的 extended-matching 例外：规则集含 `extended-matching` 时，含域名子条件的目标 IP logical 规则留在 Surge `non_ip` 以保留文件级标志，审计记为 `reroutedFromIp`。其他平台仍归入 `ip`。
 - 转换损失记录在 `outputs[].losses`（`droppedValues`、`ignoredModifiers`）：sing-box 不能表达 `no-resolve`，Surge 以外忽略 `extended-matching`，Clash 丢弃 TCP/UDP 以外的 `PROTOCOL` 值。不要把这些损失写成"保留"。
 - 格式：分版沿用各平台合并版的编码：Surge `List/non_ip`、`List/ip` 与 Loon 为 classical RULE-SET，Clash 为 classical 文本，sing-box 为 JSON v2。消费者格式以审计报告的 `format` 字段为准，不按目录名猜测。
-- 空分版或平台全部不支持的分版不写文件，在审计报告中记为 `absent-empty`／`absent-unsupported`；成功构建会清除以前存在、现已合法消失的分版文件。下载失败属于构建失败，不得解释为空分版。sing-box 仍执行有效匹配条件门槛。
+- 空分版或平台全部不支持的分版不写文件，在审计报告中记为 `absent-empty`／`absent-unsupported`；成功构建会清除以前存在、现已合法消失的分版文件。下载失败不得解释为空分版：规则集的上游下载失败时，用 `PUBLICATION_BASELINE_DIR` 中已验收的来源快照重新发布该规则集（内容不变，`sources[].selection` 记为 `baseline-snapshot`，构建记录中有 `::warning::`），其他规则集照常更新；没有可用快照、设置了 `sourceVariants`，或快照在当前处理选项下不能复现时，才是构建失败。sing-box 仍执行有效匹配条件门槛。
 - 覆盖审查（`Build/audit-rule-coverage.ts`）按引用关键字选择解析器：NRRule 的 flat 与 `List/{non_ip,ip}/<id>.list` 都是 `RULE-SET`；`DOMAIN-SET` 只解析本地文件，指向 NRRule 地址时记为格式不符或未知路径。缺失分版、格式不符、未知路径与远端引用都记为 `reviewStatus: not-covered` 并给出 `notCoveredReason`，不能计为已审查。
 
 ## 8. 规则清洗与转换约定
@@ -535,7 +535,7 @@ pnpm run merge-modules -- --dry-run
 - `DEBUG=domain-alive:dead-domain`：域名可用性检查调试输出。
 - `PLUGIN_LIST_URL`：覆盖插件列表 URL，支持逗号分隔多个源。
 - `PLUGIN_LIST_FORCE_PROXY=false`：关闭插件列表强制代理候选。
-- `PUBLICATION_BASELINE_DIR`：主构建读取的已验收 tree 绝对路径，用其 `Internal/source-snapshots` 计算 source delta；未设置时 delta 为 baseline-unavailable，相对路径报错。
+- `PUBLICATION_BASELINE_DIR`：主构建读取的已验收 tree 绝对路径，用其 `Internal/source-snapshots` 计算 source delta，并在上游下载失败时重新发布对应规则集；未设置时 delta 为 baseline-unavailable，相对路径报错。
 - `PUBLICATION_BASELINE_RECEIPT_ID`：该基线的 receipt id，写入 `source-delta.json` 的 `baseline.receiptId`；stage 用它判断 baseline drift。
 
 部署主要由 GitHub Actions 负责。`package.json` 中 `deploy` 脚本只执行构建并输出提示：

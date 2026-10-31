@@ -1,3 +1,5 @@
+import path from 'node:path';
+import process from 'node:process';
 import type { Span } from '../trace';
 import { boundedMap } from '../utils/concurrency';
 import { PUBLIC_DIR } from '../constants/dir';
@@ -18,7 +20,7 @@ import type { SupportedPlatform } from './platform-config';
 import { getErrorMessage } from './misc';
 import { rulesetIdFromConfigPath } from './rule-output-variants';
 import type { RuleOutputVariant } from './rule-output-variants';
-import { observeSourceDownloads, sha256Hex, toPublicSourceUrl } from './output-audit';
+import { observeSourceDownloads, readBaselineSnapshot, RULE_OUTPUT_CONVERTER_VERSION, sha256Hex, toPublicSourceUrl, toSourceId } from './output-audit';
 import type { RulesetAuditRecord, RulesetOutputAudit, SourceProvenance } from './output-audit';
 
 export interface RulesetSummary {
@@ -212,6 +214,39 @@ export class RuleSourceProcessor {
     };
   }
 
+  /**
+   * When a ruleset cannot be downloaded, republish the conditions stored in the accepted
+   * baseline's source snapshot, so one unreachable upstream does not stop every other ruleset
+   * from updating. The snapshot holds the canonical conditions after processing; running them
+   * through the same options reproduces the accepted outputs. Returns null without a usable
+   * snapshot, and throws when the result differs from the snapshot, because the configuration
+   * then no longer matches what the baseline published.
+   */
+  private async republishBaselineSnapshot(
+    span: Span,
+    publication: Omit<RulesetPublication, 'sources' | 'sourceVariants'>,
+    configured: SourceProvenance[],
+    failure: Error
+  ): Promise<{ summary: RulesetSummary, audit: RulesetAuditRecord } | null> {
+    const baselineDir = process.env.PUBLICATION_BASELINE_DIR?.trim();
+    if (!baselineDir || !path.isAbsolute(baselineDir)) return null;
+    const baseline = await readBaselineSnapshot(baselineDir, toSourceId(publication.id));
+    if (baseline.kind !== 'snapshot' || baseline.snapshot.converterVersion !== RULE_OUTPUT_CONVERTER_VERSION) return null;
+    const { conditions, contextSha256, semanticSha256 } = baseline.snapshot;
+    if (conditions.length === 0) return null;
+    const sources = configured.map((provenance, index) => ({
+      provenance: { ...provenance, selection: 'baseline-snapshot' as const },
+      selection: undefined,
+      rules: index === 0 ? conditions : [],
+    }));
+    const result = await this.publishRuleset(span, conditions, { ...publication, sources });
+    if (result.audit.contextSha256 !== contextSha256 || result.audit.semanticSha256 !== semanticSha256) {
+      throw new Error(`${publication.path}: download failed (${failure.message}) and the accepted baseline snapshot does not reproduce under the current processing options`);
+    }
+    console.warn(`::warning::${publication.path}: download failed (${failure.message}); republished ${conditions.length} conditions from the accepted baseline snapshot, which may be stale`);
+    return result;
+  }
+
   private async processFileConfig(
     groupSpan: Span,
     group: RuleGroup,
@@ -220,6 +255,29 @@ export class RuleSourceProcessor {
     downloadResult: DownloadResult
   ) {
     if (!downloadResult.ok) {
+      try {
+        const reused = await this.republishBaselineSnapshot(groupSpan, {
+          id: rulesetIdFromConfigPath(fileConfig.path),
+          path: fileConfig.path,
+          title: fileConfig.title || group.name,
+          description: [
+            fileConfig.description || group.description || `Rules for ${group.name}`,
+            `Source: ${fileConfig.url}`,
+          ],
+          targets: group.targets,
+          defaultPolicy: group.defaultPolicy === undefined ? null : group.defaultPolicy,
+          options: fileConfig,
+        }, [buildSourceProvenance(fileConfig.url, fileConfig.fallbackUrls, undefined)], downloadResult.error);
+        if (reused) {
+          stats.filesProcessed++;
+          stats.rulesets.push(reused.summary);
+          stats.audits.push(reused.audit);
+          return;
+        }
+      } catch (error) {
+        RuleSourceProcessor.recordError(stats, fileConfig.path, error);
+        return;
+      }
       RuleSourceProcessor.recordError(stats, fileConfig.path, downloadResult.error);
       return;
     }
@@ -360,6 +418,27 @@ export class RuleSourceProcessor {
           }
 
           if (stats.errors.length > errorCountBeforeSources) {
+            // Per-source variants are not recoverable from the merged snapshot conditions.
+            if (ruleConfig.sourceVariants) return;
+            const failures = stats.errors.slice(errorCountBeforeSources);
+            const reused = await this.republishBaselineSnapshot(ruleSpan, {
+              id: rulesetIdFromConfigPath(ruleConfig.targetFile),
+              path: ruleConfig.targetFile,
+              title: ruleConfig.name,
+              description: [
+                ruleConfig.description || `Rules for ${ruleConfig.name}`,
+                `Merged from ${ruleConfig.sourceFiles.length} sources`,
+              ],
+              targets: ruleConfig.targets,
+              defaultPolicy: ruleConfig.defaultPolicy === undefined ? null : ruleConfig.defaultPolicy,
+              options: ruleConfig,
+            }, ruleConfig.sourceFiles.map(source => buildSourceProvenance(source, undefined, undefined)),
+            new Error(failures.map(failure => `${failure.file}: ${failure.error}`).join('; ')));
+            if (!reused) return;
+            stats.errors.splice(errorCountBeforeSources);
+            stats.filesProcessed++;
+            stats.rulesets.push(reused.summary);
+            stats.audits.push(reused.audit);
             return;
           }
 
