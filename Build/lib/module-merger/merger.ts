@@ -125,13 +125,16 @@ export class ModuleMerger {
 
   /**
    * Surge 按顺序取第一条匹配的规则，匹配条件与前面某条相同的规则不会生效，不论策略是否相同。
-   * 比较时去掉策略、保留 no-resolve 等参数，因为参数会改变匹配方式。
+   * 比较时去掉策略（cleanPolicy 按字段解析，不改动 URL-REGEX 正则内部的空格和逗号），
+   * 保留其他参数。带 no-resolve 的规则不参与：域名尚未解析时它会被跳过，若中间有规则触发
+   * DNS 解析，后面相同的规则仍可能命中。
    */
   private dropRepeatedRules(content: string): string {
     return content.split('\n').filter(line => {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('#')) return true;
-      const matcher = cleanPolicy(trimmed).replaceAll(/\s*,\s*/g, ',');
+      const matcher = cleanPolicy(trimmed);
+      if (/,\s*no-resolve\s*(?:,|\)|$)/i.test(matcher)) return true;
       const type = matcher.split(',', 1)[0];
       const key = `${type.toUpperCase()}${matcher.slice(type.length)}`;
       if (this.ruleMatchers.has(key)) {
