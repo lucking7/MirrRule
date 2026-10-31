@@ -317,6 +317,8 @@ iRingo `.sgmodule` 有后处理逻辑，会替换 `#!arguments=` 中的 `Proxy` 
 
 CI 中会启动固定 digest 的 `xream/script-hub` image 用于插件转换。
 
+插件上游不可用时（目录下载失败，或全部未就绪插件都是下载失败），`convert-plugins` 退出码为 3，workflow 不重试，发出 `::warning::`，跳过模块合并，从发布任务中去掉 `convert-plugins` 与 `merge-modules`，`Modules`、`Scripts` 沿用已验收版本，规则照常发布；代价是模块可能变旧。其他转换失败仍让 run 失败。
+
 转换结果在依赖脚本具有镜像或缓存 URL 后才原子发布；插件缓存文件名包含 canonical source URL 的摘要，不能改回仅按插件名称缓存。
 
 `Prevent_DNS_Leaks` 的指定 canonical source 使用严格、只读取 fresh 正文的参数模块适配，不放宽通用 `PROXY` 规则拒绝。腾讯视频的指定上游已停止维护，转换目录与历史产物恢复均排除它。哈罗依赖失败仍应留在报告中。

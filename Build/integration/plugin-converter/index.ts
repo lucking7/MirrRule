@@ -29,6 +29,7 @@ import { convertPluginsLocallyBatch } from './local-converter';
 import { publishPluginArtifacts } from './plugin-artifact';
 import { identifyPluginSource } from './plugin-identity';
 import { loadNativeSurgeModule } from './native-surge';
+import { PluginCatalogUnavailableError } from './readiness';
 import { DNS_POLICY_ARTIFACT, DNS_POLICY_SOURCE_URL, isDnsPolicyPlugin, loadDnsPolicyModule } from './dns-policy-module';
 import type { PendingPluginArtifact, PluginPublicationWork } from './plugin-artifact';
 import type { ConversionResult, PluginInfo } from './types';
@@ -115,8 +116,7 @@ export async function convertAndMirrorPlugins(
   const pluginsResult = await getPluginList();
 
   if ('error' in pluginsResult) {
-    console.log(picocolors.red(`[ERROR] Failed to get plugin list: ${pluginsResult.error}`));
-    return [];
+    throw new PluginCatalogUnavailableError(`Failed to get plugin list: ${pluginsResult.error}`);
   }
 
   const plugins = pluginsResult;

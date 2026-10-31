@@ -28,6 +28,17 @@ async function firstExistingCandidate(
   return undefined;
 }
 
+/** convert-plugins exits with this when upstream is down; the workflow keeps the accepted modules. */
+export const UPSTREAM_UNAVAILABLE_EXIT_CODE = 3;
+
+export class PluginCatalogUnavailableError extends Error {}
+
+/** True when every plugin that is not ready failed to download, so the converter itself is not at fault. */
+export function isUpstreamOutage(results: readonly ConversionResult[]): boolean {
+  const failed = results.filter(result => result.status !== 'ready');
+  return failed.length > 0 && failed.every(result => /download failed/i.test(result.error ?? ''));
+}
+
 export async function verifyRequiredPluginOutputs(
   results: ConversionResult[],
   configPath: string,

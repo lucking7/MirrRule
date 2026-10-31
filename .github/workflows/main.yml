@@ -226,6 +226,8 @@ jobs:
     needs: prepare
     if: contains(fromJSON(needs.prepare.outputs.tasks), 'convert-plugins')
     runs-on: ubuntu-latest
+    outputs:
+      converted: ${{ steps.convert.outputs.converted }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -308,15 +310,23 @@ jobs:
           exit 1
 
       - name: Convert plugins
+        id: convert
         run: |
           set -euo pipefail
           last_status=1
           for attempt in 1 2; do
             if pnpm run convert-plugins --wait-service \
               --required-config Build/lib/module-merger/configs/pro-merge-config.yaml; then
+              echo "converted=true" >> "$GITHUB_OUTPUT"
               exit 0
             else
               last_status=$?
+            fi
+            # Exit 3: plugin upstream is down. Keep the accepted Modules and Scripts and publish the rules.
+            if [ "$last_status" -eq 3 ]; then
+              echo "::warning::Plugin upstream unavailable; keeping the accepted modules, which may be stale"
+              echo "converted=false" >> "$GITHUB_OUTPUT"
+              exit 0
             fi
             if [ "$attempt" -lt 2 ]; then
               echo "⚠️ 首次转换失败，等待 10 秒后重试..."
@@ -331,6 +341,7 @@ jobs:
           PLUGIN_CONVERSION_REPORT: ${{ runner.temp }}/plugin-conversion-report.json
 
       - name: Verify converted outputs
+        if: steps.convert.outputs.converted == 'true'
         run: |
           set -euo pipefail
           converted_count=$(find public/Modules/Converted -type f -name '*.sgmodule' -size +0c | wc -l)
@@ -341,7 +352,7 @@ jobs:
           echo "✅ Plugin conversion produced $converted_count non-empty .sgmodule files"
 
       - name: Upload plugin conversion output
-        if: success()
+        if: success() && steps.convert.outputs.converted == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: plugin-output-${{ github.sha }}-${{ github.run_number }}
@@ -397,6 +408,7 @@ jobs:
       always() &&
       contains(fromJSON(needs.prepare.outputs.tasks), 'merge-modules') &&
       needs.baseline.result == 'success' &&
+      needs.convert-plugins.outputs.converted != 'false' &&
       (needs.convert-plugins.result == 'success' || needs.convert-plugins.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
@@ -541,6 +553,8 @@ jobs:
       contents: read
       deployments: read
       actions: read
+    outputs:
+      tasks: ${{ steps.publication-tasks.outputs.tasks }}
     steps:
       # 🚀 网络性能优化
       - uses: smorimoto/tune-github-hosted-runner-network@bb252dcb5c8609a31087e7993daa086f5a1c0069 # v1.0.0
@@ -672,7 +686,7 @@ jobs:
       - name: Download plugin conversion output
         if: |
           !contains(fromJSON(needs.prepare.outputs.tasks), 'merge-modules') &&
-          needs.convert-plugins.result == 'success'
+          needs.convert-plugins.outputs.converted == 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: plugin-output-${{ github.sha }}-${{ github.run_number }}
@@ -714,6 +728,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RECEIPT_ID: ${{ needs.baseline.outputs.receipt_id }}
 
+      # Without fresh conversion output, Modules and Scripts stay preserved from the accepted baseline.
+      - name: Resolve publication tasks
+        id: publication-tasks
+        run: |
+          set -euo pipefail
+          if [ "$CONVERTED" = "false" ]; then
+            TASKS=$(jq -c 'map(select(. != "convert-plugins" and . != "merge-modules"))' <<<"$TASKS")
+          fi
+          echo "tasks=$TASKS" >> "$GITHUB_OUTPUT"
+        env:
+          CONVERTED: ${{ needs.convert-plugins.outputs.converted }}
+          TASKS: ${{ needs.prepare.outputs.tasks }}
+
       - name: Restore preserved directories from accepted baseline
         run: |
           set -euo pipefail
@@ -728,7 +755,7 @@ jobs:
             --evidence "$RUNNER_TEMP/publication-baseline.json"
         env:
           BASELINE_AVAILABLE: ${{ needs.baseline.outputs.available }}
-          TASKS: ${{ needs.prepare.outputs.tasks }}
+          TASKS: ${{ steps.publication-tasks.outputs.tasks }}
 
       - name: Build GeoIP country database
         run: |
@@ -1025,7 +1052,8 @@ jobs:
           pnpm run node Build/prepare-publication.ts "${args[@]}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TASKS: ${{ needs.prepare.outputs.tasks }}
+          # A rollback skips build, so build has no resolved tasks.
+          TASKS: ${{ needs.build.outputs.tasks || needs.prepare.outputs.tasks }}
           IS_ROLLBACK: ${{ contains(fromJSON(needs.prepare.outputs.tasks), 'rollback') }}
 
       - name: Unarchive NRRule

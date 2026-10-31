@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
-import { verifyRequiredPluginOutputs } from '../integration/plugin-converter/readiness';
+import { isUpstreamOutage, verifyRequiredPluginOutputs } from '../integration/plugin-converter/readiness';
 import type { ConversionResult } from '../integration/plugin-converter/types';
 
 function conversionResult(
@@ -263,5 +263,16 @@ describe('required plugin output readiness', () => {
       outputPaths.map((outputPath) => fs.existsSync(outputPath)),
       [false, false],
     );
+  });
+});
+
+describe('plugin upstream outage', () => {
+  const result = (status: ConversionResult['status'], error?: string): ConversionResult => ({ ...conversionResult('plugin', status), error });
+
+  it('applies only when every unfinished plugin failed to download', () => {
+    assert.equal(isUpstreamOutage([result('ready'), result('failed', 'Plugin download failed: fetch failed'), result('failed', 'DNS policy download failed: fetch failed')]), true);
+    assert.equal(isUpstreamOutage([result('failed', 'Plugin download failed: fetch failed'), result('failed', 'Script-Hub returned 500')]), false);
+    assert.equal(isUpstreamOutage([result('ready')]), false);
+    assert.equal(isUpstreamOutage([]), false);
   });
 });
