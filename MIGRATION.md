@@ -123,7 +123,7 @@ node -e 'const fs=require("node:fs"); for (const p of ["public/status.json","pub
 
 规则源在 [rule-sources.ts](Build/lib/rule-sources.ts) 的 `ruleGroups` 与 `specialRules` 中声明。`url`、`fallbackUrls`、`targets`、`defaultPolicy`、`keepComments`、`formatConversion`、`applyNoResolve`、`validate` 等字段决定处理结果。`allowEmpty`、`keepInlineComments`、`keepEmptyLines` 等字段见 [rule-source-types.ts](Build/lib/rule-source-types.ts)。只选代码支持的 `surge`、`clash`、`loon`、`singbox`，未知平台会失败。规则源没有可用的 `enabled`、`dedup` 或 `sort` 开关；去重和输出顺序由处理器与平台 writer 固定处理。模块 YAML 中的 `enabledByDefault` 是另一套有效配置。
 
-2026-10 的服务规则迁移与下载验证见 [RULE_SOURCES.md](RULE_SOURCES.md)。Netflix、Disney 等独立服务最初使用 blackmatrix7 Surge 规则与 MetaCubeX `meta` 分支的文本 geosite 合并；2026-10-18 起只用 MetaCubeX（Netflix 另含 geoip），WeChat 只有 blackmatrix7 来源。`specialRules.sourceFiles` 中任一必需来源失败会阻止该合并文件发布，不能把它当成备用 URL。裸域名、`+.` 后缀域名、数字开头合法域名和裸 IPv4/IPv6 CIDR 统一转换后再输出四个平台；`.mrs`、`.srs` 不属于文本输入。旧来源健康状态 ID 不沿用到新 URL，应在首次验收后检查历史告警。模块列表、插件和脚本下载仍需单独验收，规则构建成功不代表模块转换恢复。
+2026-10 的服务规则迁移与下载验证见 [RULE_SOURCES.md](RULE_SOURCES.md)。Netflix、Disney 等独立服务最初使用 blackmatrix7 Surge 规则与 MetaCubeX `meta` 分支的文本 geosite 合并；2026-10-18 起只用 MetaCubeX（Netflix 另含 geoip），WeChat 只有 blackmatrix7 来源。`specialRules.sourceFiles` 中任一来源下载失败时，该合并文件沿用上次已验收的来源快照并发出警告，没有快照时构建失败，不能把它当成备用 URL。裸域名、`+.` 后缀域名、数字开头合法域名和裸 IPv4/IPv6 CIDR 统一转换后再输出四个平台；`.mrs`、`.srs` 不属于文本输入。旧来源健康状态 ID 不沿用到新 URL，应在首次验收后检查历史告警。模块列表、插件和脚本下载仍需单独验收，规则构建成功不代表模块转换恢复。
 
 镜像源在 [mirror-config.ts](Build/integration/mirror-sync/mirror-config.ts)；GeoIP URL 在 [download-geoip.ts](Build/download-geoip.ts)。插件列表与额外插件在 [plugin-list.ts](Build/integration/plugin-converter/plugin-list.ts)。模块选择和输出在 [pro-merge-config.yaml](Build/lib/module-merger/configs/pro-merge-config.yaml)。此项目没有一个能覆盖所有设置的 `.env` 文件，也没有统一的部署域名环境变量。
 

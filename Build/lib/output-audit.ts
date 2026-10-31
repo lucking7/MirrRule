@@ -166,7 +166,8 @@ export interface SourceProvenance {
   configuredUrl: string;
   fallbackUrls: string[];
   selectedUrl: string | null;
-  selection: 'primary' | 'fallback' | 'unknown';
+  /** baseline-snapshot: every download failed and the accepted baseline snapshot was republished. */
+  selection: 'primary' | 'fallback' | 'unknown' | 'baseline-snapshot';
   fallbackIndex: number | null;
   viaProxy: boolean | null;
   /** HTTP Age header of the selected response; it may come from the local HTTP cache or a CDN. */
@@ -290,7 +291,7 @@ interface EffectiveOutputDelta {
   samples: { added: string[]; removed: string[] };
 }
 
-type BaselineSnapshot =
+export type BaselineSnapshot =
   | { kind: 'unavailable'; reason: 'baseline-not-configured' | 'snapshot-missing' }
   | { kind: 'unreadable' }
   | { kind: 'snapshot'; snapshot: SourceSnapshot };
@@ -386,7 +387,7 @@ export async function listSourceSnapshotFiles(root: string): Promise<Map<string,
   return files;
 }
 
-async function readBaselineSnapshot(baselineDir: string | null, sourceId: string): Promise<BaselineSnapshot> {
+export async function readBaselineSnapshot(baselineDir: string | null, sourceId: string): Promise<BaselineSnapshot> {
   if (!baselineDir) return { kind: 'unavailable', reason: 'baseline-not-configured' };
   let files: Map<string, string>;
   try {

@@ -26,7 +26,7 @@ Build/index.ts
 
 Canonical rule collections deduplicate through Trie/Set storage, then platform writers apply their fixed output order. Logical output validation rejects a complete expression when a child cannot be represented by its platform. Base/Loon and Surge share recursive validation; Clash keeps its platform conversion and shares the quote-aware field splitter. sing-box rejects unsupported logical output. Rule source configuration does not switch either behavior per source.
 
-Service subscriptions use `specialRules` with MetaCubeX text geosite categories only; Netflix also merges MetaCubeX geoip CIDRs, and BiliBili merges the `bilibili` and `biliintl` categories. WeChat remains a single blackmatrix7 source because MetaCubeX has no WeChat category. `smartConvertRule` normalizes numeric-leading domains and bare IPv4/IPv6 CIDRs before they enter the same canonical collections. A required source failure prevents publishing its merged ruleset; `sourceFiles` are complementary inputs, not fallback URLs.
+Service subscriptions use `specialRules` with MetaCubeX text geosite categories only; Netflix also merges MetaCubeX geoip CIDRs, and BiliBili merges the `bilibili` and `biliintl` categories. WeChat remains a single blackmatrix7 source because MetaCubeX has no WeChat category. `smartConvertRule` normalizes numeric-leading domains and bare IPv4/IPv6 CIDRs before they enter the same canonical collections. `sourceFiles` are complementary inputs, not fallback URLs. When a source cannot be downloaded, the whole ruleset is republished from the accepted baseline's source snapshot with a build warning, so one unreachable upstream does not stop the others; without a usable snapshot the build fails.
 
 ## Upstream artifacts
 
