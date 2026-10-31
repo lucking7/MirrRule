@@ -4,6 +4,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 import { describe, it } from 'node:test';
 
 import { RuleSourceProcessor } from '../lib/rule-source-processor';
@@ -533,5 +534,106 @@ describe('RuleSourceProcessor special rules', () => {
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('RuleSourceProcessor accepted baseline fallback', () => {
+  async function withBaseline(fn: (root: string, baseUrl: string, baselineDir: string) => Promise<void>) {
+    await withRuleServer(async baseUrl => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-baseline-fallback-'));
+      const baselineDir = path.join(root, 'baseline');
+      const previous = process.env.PUBLICATION_BASELINE_DIR;
+      try {
+        const stats = await new RuleSourceProcessor(fakeSpan as any, baselineDir).processRuleGroups([group(`${baseUrl}/rules`)]);
+        await writeRuleOutputReports({ outputRoot: baselineDir, records: stats.audits, generatedAt: 'a', baselineDir: null, baselineReceiptId: null });
+        process.env.PUBLICATION_BASELINE_DIR = baselineDir;
+        await fn(root, baseUrl, baselineDir);
+      } finally {
+        if (previous === undefined) delete process.env.PUBLICATION_BASELINE_DIR;
+        else process.env.PUBLICATION_BASELINE_DIR = previous;
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    });
+  }
+
+  function group(url: string, extra: Partial<RuleGroup['files'][number]> = {}): RuleGroup {
+    return {
+      name: 'Fallback Test',
+      files: [{ path: 'List/fallback.list', url, ...extra }],
+      targets: ['surge', 'clash'],
+      defaultPolicy: null,
+    };
+  }
+
+  it('republishes the accepted snapshot when a download fails and marks its provenance', async () => {
+    await withBaseline(async (root, baseUrl, baselineDir) => {
+      const candidate = path.join(root, 'candidate');
+      const stats = await new RuleSourceProcessor(fakeSpan as any, candidate).processRuleGroups([group(`${baseUrl}/gone`)]);
+
+      assert.deepEqual(stats.errors, []);
+      assert.equal(stats.audits[0].sources[0].selection, 'baseline-snapshot');
+      for (const relative of ['List/fallback.list', 'List/non_ip/fallback.list', 'Clash/fallback.txt']) {
+        const content = (dir: string) => fs.readFileSync(path.join(dir, relative), 'utf8').split('\n').filter(line => !line.startsWith('#'));
+        assert.deepEqual(content(candidate), content(baselineDir), relative);
+      }
+      await writeRuleOutputReports({ outputRoot: candidate, records: stats.audits, generatedAt: 'b', baselineDir, baselineReceiptId: null });
+      const delta = JSON.parse(fs.readFileSync(path.join(candidate, 'Internal/source-delta.json'), 'utf8')) as { sources: Array<{ status: string, semanticChanged: boolean }> };
+      assert.deepEqual(delta.sources.map(({ status, semanticChanged }) => [status, semanticChanged]), [['compared', false]]);
+    });
+  });
+
+  it('still fails without a configured baseline or a snapshot for the ruleset', async () => {
+    await withBaseline(async (root, baseUrl) => {
+      const missing = group(`${baseUrl}/gone`);
+      missing.files[0].path = 'List/unknown.list';
+      const noSnapshot = await new RuleSourceProcessor(fakeSpan as any, path.join(root, 'a')).processRuleGroups([missing]);
+      assert.equal(noSnapshot.errors.length, 1);
+
+      delete process.env.PUBLICATION_BASELINE_DIR;
+      const noBaseline = await new RuleSourceProcessor(fakeSpan as any, path.join(root, 'b')).processRuleGroups([group(`${baseUrl}/gone`)]);
+      assert.equal(noBaseline.errors.length, 1);
+      assert.equal(fs.existsSync(path.join(root, 'b/List/fallback.list')), false);
+    });
+  });
+
+  it('refuses a snapshot that no longer reproduces under the current options', async () => {
+    await withBaseline(async (root, baseUrl) => {
+      const changed = group(`${baseUrl}/gone`, { applyNoResolve: true });
+      const stats = await new RuleSourceProcessor(fakeSpan as any, path.join(root, 'candidate')).processRuleGroups([changed]);
+      assert.equal(stats.errors.length, 1);
+      assert.match(stats.errors[0].error, /does not reproduce/);
+      assert.deepEqual(stats.audits, []);
+    });
+  });
+
+  it('reuses a special rule when one source fails, except for per-source variants', async () => {
+    await withRuleServer(async baseUrl => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-baseline-special-'));
+      const baselineDir = path.join(root, 'baseline');
+      const previous = process.env.PUBLICATION_BASELINE_DIR;
+      const config = (sources: string[], extra: Partial<SpecialRuleConfig> = {}): SpecialRuleConfig => ({
+        name: 'Special', targetFile: 'List/special.list', sourceFiles: sources, targets: ['surge'], defaultPolicy: null, ...extra,
+      });
+      try {
+        const good = createTempSourceModule(root, 'good', ['DOMAIN,second.example']);
+        const accepted = await new RuleSourceProcessor(fakeSpan as any, baselineDir).processSpecialRules([config([`${baseUrl}/rules`, good])]);
+        await writeRuleOutputReports({ outputRoot: baselineDir, records: accepted.audits, generatedAt: 'a', baselineDir: null, baselineReceiptId: null });
+        process.env.PUBLICATION_BASELINE_DIR = baselineDir;
+
+        const reused = await new RuleSourceProcessor(fakeSpan as any, path.join(root, 'candidate')).processSpecialRules([config([`${baseUrl}/gone`, good])]);
+        assert.deepEqual(reused.errors, []);
+        assert.deepEqual(reused.audits[0].sources.map(source => source.selection), ['baseline-snapshot', 'baseline-snapshot']);
+        assert.match(fs.readFileSync(path.join(root, 'candidate/List/special.list'), 'utf8'), /example\.com[\s\S]*second\.example|second\.example[\s\S]*example\.com/);
+
+        const pinned = await new RuleSourceProcessor(fakeSpan as any, path.join(root, 'pinned')).processSpecialRules([
+          config([`${baseUrl}/gone`, good], { sourceVariants: ['non_ip', 'ip'] }),
+        ]);
+        assert.equal(pinned.errors.length, 1);
+      } finally {
+        if (previous === undefined) delete process.env.PUBLICATION_BASELINE_DIR;
+        else process.env.PUBLICATION_BASELINE_DIR = previous;
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    });
   });
 });

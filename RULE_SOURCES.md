@@ -34,7 +34,7 @@ sing-box 不能表达 `no-resolve`；它的 `non_ip` 不含 `ip_cidr`，可以�
 
 ## 服务规则
 
-配置在 [rule-sources.ts](Build/lib/rule-sources.ts)。MetaCubeX 使用 `meta/geo/geosite/<分类>.list`（及 `meta/geo/geoip/<分类>.list`）；blackmatrix7 使用 `master/rule/Surge/<分类>/<分类>.list`。同一 ruleset 的多个来源合并后去重，任一必需来源下载失败会阻止该 ruleset 发布，不是互相替代的 fallback。
+配置在 [rule-sources.ts](Build/lib/rule-sources.ts)。MetaCubeX 使用 `meta/geo/geosite/<分类>.list`（及 `meta/geo/geoip/<分类>.list`）；blackmatrix7 使用 `master/rule/Surge/<分类>/<分类>.list`。同一 ruleset 的多个来源合并后去重，不是互相替代的 fallback。任一来源下载失败时，该 ruleset 整体沿用上次已验收发布的来源快照（内容不变，审计中 `selection` 为 `baseline-snapshot`，构建记录有警告），其他 ruleset 照常更新；代价是上游长期失效时这个 ruleset 会悄悄变旧，构建记录中的警告是信号。没有可用快照时构建失败。
 
 2026-10-18 起，有 MetaCubeX 分类的服务只用 MetaCubeX，只有 WeChat 仍用 blackmatrix7。对比当时上游：blackmatrix7 独有的多是第三方条目，例如 Netflix 的 `us-west-2.amazonaws.com`、`onetrust.com`、`cookielaw.org`，Disney 的 braze、conviva、optimizely 等统计与 CDN 域名，YouTube 的 `gvt1.com`、`gvt2.com`，Prime Video 的 `llnwd.net`（Limelight 共用 CDN）与 `media-amazon.com`，BiliBili 的 `smtcdns.net` 与阿里云 HTTPDNS `203.107.1.0/24`，TikTok 的 `snssdk.com`（字节国内 App 共用）。代价是失去 blackmatrix7 的 PROCESS-NAME、USER-AGENT 与多数 IP 规则，以及 Meta 没有收录的服务域名：Netflix 的 1119 条 IP 段中有 1106 条不在 Meta geoip 内，另有 `netflix.com.au`、`netflixstudios.com` 等 9 个域名未被 Meta 覆盖；Prime Video 缺 `aiv-delivery.net`、`pv-cdn.net` 等视频 CDN；BiliBili 缺 `ourdvsss.com`、`ksyungslb.com` 上的 PCDN 主机；TikTok 缺 CapCut 与 `byteoversea.com`、`isnssdk.com`、`ipstatp.com` 等海外域名。这些服务的部分流量不再命中服务规则，需要时由用户自己补充。
 
