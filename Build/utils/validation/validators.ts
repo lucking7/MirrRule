@@ -88,7 +88,8 @@ export const RuleLineUtils = {
   isSukkaWatermark(line: string): boolean {
     const trimmed = line.trim();
     return (
-      /^(?:(?:domain|domain-suffix),\s*)?\.?7h15\.ru1353t\.1s\.m4d3\.by\.5ukk4w\.skk\.moe(?:\s*,|\s*$)/i.test(trimmed) ||
+      // Sukka joins the watermark words with dots or underscores (domainset/speedtest.conf uses underscores).
+      /^(?:(?:domain|domain-suffix),\s*)?\.?7h15[._]ru1353t[._]1s[._]m4d3[._]by[._]5ukk4w\.skk\.moe(?:\s*,|\s*$)/i.test(trimmed) ||
       trimmed.includes('7h1s_rul35et_i5_mad3_by_5ukk4w') ||
       trimmed.includes('th1s_rule5et_1s_m4d3_by_5ukk4w') ||
       trimmed.includes('this_ruleset_is_made_by_sukkaw') ||
