@@ -775,6 +775,31 @@ describe('GitHub Actions workflow contract', () => {
     }
   });
 
+  it('audits module scripts and edits only the directories the run rebuilt', () => {
+    const step = getStep(getJob('build'), 'Audit module script dependencies');
+    assert.equal(step.env?.TASKS, githubExpression('steps.publication-tasks.outputs.tasks'));
+    assert.equal(step.env?.PUBLICATION_BASELINE_DIR, githubExpression('steps.baseline-tree.outcome == \'success\' && format(\'{0}/publication-baseline\', runner.temp) || \'\''));
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-module-deps-step-'));
+    try {
+      fs.writeFileSync(path.join(tempDir, 'pnpm'), '#!/bin/bash\nprintf "%s\\n" "$@"\n', { mode: 0o755 });
+      for (const [tasks, refreshed] of [
+        ['["mirror-sync","build","deploy"]', 'Mirror'],
+        ['["convert-plugins","merge-modules","build","deploy"]', 'Modules'],
+        ['["convert-plugins","merge-modules","mirror-sync","build","deploy"]', 'Mirror,Modules'],
+        ['["build","deploy"]', ''],
+      ]) {
+        const output = execFileSync('/bin/bash', ['-c', String(step.run)], {
+          env: { ...process.env, PATH: `${tempDir}:${process.env.PATH ?? ''}`, PUBLIC_DIR: 'public', TASKS: tasks },
+          encoding: 'utf8',
+        });
+        assert.deepEqual(output.split('\n').slice(0, 6), ['run', 'node', 'Build/audit-module-dependencies.ts', '--public', 'public', '--refreshed'], tasks);
+        assert.equal(output.split('\n')[6], refreshed, tasks);
+      }
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it('builds against the accepted baseline tree instead of the NRRule HEAD', () => {
     const buildJob = getJob('build');
     assert.ok(getNeeds(buildJob).includes('baseline'));
