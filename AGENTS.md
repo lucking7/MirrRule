@@ -105,6 +105,7 @@ Build/
   merge-modules.ts                 模块合并 CLI
   validate-domain-alive.ts         上游域名可用性检查
   audit-rule-coverage.ts           跨订阅覆盖审查 CLI（解析 RULE-SET／DOMAIN-SET 与分版引用）
+  audit-module-dependencies.ts     检查模块加载的脚本是否失效，连续 3 次失效后从本轮刷新的 Mirror/Modules 中删除对应行
   check-profile-variants.ts        对照输出审计检查 Surge 配置：已发布但未加载的分版（如新出现的 ip）、已加载但不再发布的分版
   prepare-publication.ts           组装完整发布候选、核对保留目录与退休登记、生成 publication manifest
   verify-publication.ts            核对 NRRule commit 的 Cloudflare check、immutable URL 与正式域名内容
@@ -318,6 +319,8 @@ iRingo `.sgmodule` 有后处理逻辑，会替换 `#!arguments=` 中的 `Proxy` 
 CI 中会启动固定 digest 的 `xream/script-hub` image 用于插件转换。
 
 插件上游不可用时（目录下载失败，或全部未就绪插件都是下载失败），`convert-plugins` 退出码为 3，workflow 不重试，发出 `::warning::`，跳过模块合并，从发布任务中去掉 `convert-plugins` 与 `merge-modules`，`Modules`、`Scripts` 沿用已验收版本，规则照常发布；代价是模块可能变旧。其他转换失败仍让 run 失败。
+
+模块脚本依赖：构建 job 每次运行 `Build/audit-module-dependencies.ts`（逻辑在 `Build/lib/module-dependency-audit.ts`），检查 `Mirror/`、`Modules/` 中 Surge 模块 `[Script]` 段生效行的 `script-path`。外部脚本返回 HTTP 404/410、或 NRRule 托管脚本不在 tree 中算一次缺失；网络错误、5xx、限流不计。计数保存在 `Internal/module-dependency-audit.json`，从 `PUBLICATION_BASELINE_DIR` 的已验收报告延续；连续 3 次缺失后，只在本轮刷新的目录（任务含 `mirror-sync` 则 `Mirror`，含 `convert-plugins` 或 `merge-modules` 则 `Modules`）中删除加载该脚本的行，并发出 `::warning::`。`Mirror/` 模块的脚本行全部被删时删除整个文件（该目录由 worker 门控，删后返回 404）；`Modules/` 文件只删行不删文件（合并配置要求这些模块存在，且该目录不受 worker 门控）。未刷新的目录在发布时从已验收 tree 复制，因此只计数不修改；被删过的脚本继续跟踪，上游刷新后再次出现会立即被删，恢复为 2xx 后计数清零、不再删除。
 
 转换结果在依赖脚本具有镜像或缓存 URL 后才原子发布；插件缓存文件名包含 canonical source URL 的摘要，不能改回仅按插件名称缓存。
 

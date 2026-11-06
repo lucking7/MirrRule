@@ -757,6 +757,17 @@ jobs:
           BASELINE_AVAILABLE: ${{ needs.baseline.outputs.available }}
           TASKS: ${{ steps.publication-tasks.outputs.tasks }}
 
+      # Count missing module scripts every run; strip them only from directories this run rebuilt.
+      - name: Audit module script dependencies
+        run: |
+          set -euo pipefail
+          refreshed=$(jq -r '[(if index("mirror-sync") then "Mirror" else empty end), (if index("convert-plugins") or index("merge-modules") then "Modules" else empty end)] | join(",")' <<<"$TASKS")
+          pnpm run node Build/audit-module-dependencies.ts --public "$PUBLIC_DIR" --refreshed "$refreshed"
+        env:
+          PUBLIC_DIR: ${{ steps.build-dir.outputs.dir }}
+          TASKS: ${{ steps.publication-tasks.outputs.tasks }}
+          PUBLICATION_BASELINE_DIR: ${{ steps.baseline-tree.outcome == 'success' && format('{0}/publication-baseline', runner.temp) || '' }}
+
       - name: Build GeoIP country database
         run: |
           set -euo pipefail
