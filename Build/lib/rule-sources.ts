@@ -75,6 +75,8 @@ export const ruleGroups: RuleGroup[] = [
       {
         path: 'List/download_cn.list',
         url: 'https://raw.githubusercontent.com/Repcz/Tool/X/Surge/Rules/DownloadCDN_CN.list',
+        // Covers 16 of the 17 Repcz entries (all but one Steam node) and adds 8 game download hosts.
+        fallbackUrls: ['https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-game-platforms-download@cn.list'],
       },
     ],
   },
@@ -159,6 +161,22 @@ export const ruleGroups: RuleGroup[] = [
       },
     ],
   },
+  {
+    name: 'WeChat without User-Agent bypass',
+    targets: ['surge', 'clash', 'singbox', 'loon'],
+    defaultPolicy: null,
+    files: [
+      {
+        path: 'List/wechat_no_ua.list',
+        url: 'https://raw.githubusercontent.com/NobyDa/Script/master/Surge/WeChat.list',
+        // Repcz WeChat.list matches NobyDa entry for entry and is still maintained.
+        fallbackUrls: ['https://raw.githubusercontent.com/Repcz/Tool/X/Surge/Rules/WeChat.list'],
+        title: 'WeChat without User-Agent bypass',
+        description: 'WeChat domain and IP rules from NobyDa, excluding broad User-Agent bypass conditions.',
+        excludedRuleTypes: ['USER-AGENT'],
+      },
+    ],
+  },
 ];
 
 const BLACKMATRIX_SURGE = 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge';
@@ -235,15 +253,6 @@ const sukkaAdditionalRules: SpecialRuleConfig[] = [
 export const specialRules: SpecialRuleConfig[] = [
   ...sukkaAdditionalRules,
   ...serviceRules,
-  {
-    name: 'WeChat without User-Agent bypass',
-    targetFile: 'List/wechat_no_ua.list',
-    sourceFiles: ['https://raw.githubusercontent.com/NobyDa/Script/master/Surge/WeChat.list'],
-    description: 'WeChat domain and IP rules from NobyDa, excluding broad User-Agent bypass conditions.',
-    targets: ['surge', 'clash', 'singbox', 'loon'],
-    defaultPolicy: null,
-    excludedRuleTypes: ['USER-AGENT'],
-  },
   {
     name: 'Download',
     targetFile: 'List/download.list',

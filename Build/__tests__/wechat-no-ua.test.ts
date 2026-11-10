@@ -7,7 +7,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { EnhancedFileOutput } from '../lib/enhanced-file-output';
 import { RuleSourceProcessor } from '../lib/rule-source-processor';
-import { specialRules } from '../lib/rule-sources';
+import { ruleGroups, specialRules } from '../lib/rule-sources';
 import { createSpan } from '../trace';
 
 const uaExpressions = [
@@ -20,11 +20,14 @@ const uaExpressions = [
 
 describe('WeChat without User-Agent bypass', () => {
   it('adds a continuously generated canonical variant without changing the existing WeChat subscription', () => {
-    const variant = specialRules.find(rule => rule.targetFile === 'List/wechat_no_ua.list');
-    assert.ok(variant);
-    assert.deepEqual(variant.sourceFiles, ['https://raw.githubusercontent.com/NobyDa/Script/master/Surge/WeChat.list']);
-    assert.deepEqual(variant.targets, ['surge', 'clash', 'singbox', 'loon']);
-    assert.equal(variant.defaultPolicy, null);
+    const group = ruleGroups.find(item => item.files.some(file => file.path === 'List/wechat_no_ua.list'));
+    const variant = group?.files.find(file => file.path === 'List/wechat_no_ua.list');
+    assert.ok(group && variant);
+    assert.equal(variant.url, 'https://raw.githubusercontent.com/NobyDa/Script/master/Surge/WeChat.list');
+    // Repcz mirrors NobyDa entry for entry; it only serves when NobyDa cannot be downloaded.
+    assert.deepEqual(variant.fallbackUrls, ['https://raw.githubusercontent.com/Repcz/Tool/X/Surge/Rules/WeChat.list']);
+    assert.deepEqual(group.targets, ['surge', 'clash', 'singbox', 'loon']);
+    assert.equal(group.defaultPolicy, null);
     assert.deepEqual(variant.excludedRuleTypes, ['USER-AGENT']);
     assert.notEqual(variant.allowEmpty, true);
     assert.equal(variant.applyNoResolve, undefined, 'preserve source DNS resolution behavior');
@@ -94,12 +97,13 @@ describe('WeChat without User-Agent bypass', () => {
     const { port } = server.address() as AddressInfo;
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-wechat-no-ua-'));
     try {
-      const variant = specialRules.find(rule => rule.targetFile === 'List/wechat_no_ua.list');
-      assert.ok(variant);
+      const group = ruleGroups.find(item => item.files.some(file => file.path === 'List/wechat_no_ua.list'));
+      assert.ok(group);
       const processor = new RuleSourceProcessor(createSpan('wechat-no-ua-publication'), outputDir);
-      const stats = await processor.processSpecialRules([
-        { ...variant, sourceFiles: [`http://127.0.0.1:${port}/WeChat.list`] },
-      ]);
+      const stats = await processor.processRuleGroups([{
+        ...group,
+        files: group.files.map(file => ({ ...file, url: `http://127.0.0.1:${port}/WeChat.list`, fallbackUrls: [] })),
+      }]);
       assert.deepEqual(stats.errors, []);
       assert.equal(stats.filesProcessed, 1);
       for (const [directory, extension] of [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list']]) {
