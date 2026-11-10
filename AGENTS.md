@@ -328,7 +328,7 @@ CI 中会启动固定 digest 的 `xream/script-hub` image 用于插件转换。
 
 ### 退休登记
 
-`Build/lib/artifact-lifecycle.ts` 是 deprecated／retired 订阅的唯一登记，发布为 `Internal/artifact-lifecycle.json`。每条记录有稳定 id、原公开路径（或以 `/` 结尾的目录前缀 `pathPrefixes`，其下所有文件都视为退休）、原因、依据和可选 replacement。精确路径不能落在其他记录的前缀内。缓存恢复（`restore-optional-artifacts.ts`、`download-previous-build.ts`）、`build-public`、`prepare-publication` 与回滚候选都调用同一登记，retired 文件不能从历史产物、缓存或保留目录复活。退休 ruleset 登记同时覆盖合并版和 `non_ip`、`ip` 分版，旧 `domainset/` 路径由 `variant:domainset` 前缀记录覆盖。清理只作用于已登记的公开路径，拒绝绝对路径和路径穿越；共享 Scripts 需有引用或独占证据才能删除。不要凭一次上游空响应新增退休记录。当前 retired：腾讯视频去广告模块、`container`／`discord`／`scholar` 四平台规则、`sing-box/china_asn.json`（replacement 为 `sing-box/china_ip.json` 与 `china_ip_ipv6.json`，IP 覆盖不等同于 ASN）、四平台 `domainset/` 目录（2026-10-17 并入 `non_ip`，旧文件仍在 Cloudflare 边缘缓存中返回 200，必须由 worker 返回 404）。
+`Build/lib/artifact-lifecycle.ts` 是 deprecated／retired 订阅的唯一登记，发布为 `Internal/artifact-lifecycle.json`。每条记录有稳定 id、原公开路径（或以 `/` 结尾的目录前缀 `pathPrefixes`，其下所有文件都视为退休）、原因、依据和可选 replacement。精确路径不能落在其他记录的前缀内。缓存恢复（`restore-optional-artifacts.ts`、`download-previous-build.ts`）、`build-public`、`prepare-publication` 与回滚候选都调用同一登记，retired 文件不能从历史产物、缓存或保留目录复活。退休 ruleset 登记同时覆盖合并版和 `non_ip`、`ip` 分版，旧 `domainset/` 路径由 `variant:domainset` 前缀记录覆盖。清理只作用于已登记的公开路径，拒绝绝对路径和路径穿越；共享 Scripts 需有引用或独占证据才能删除。不要凭一次上游空响应新增退休记录。当前 retired：腾讯视频去广告模块、`container`／`discord`／`scholar` 四平台规则、`sing-box/china_asn.json`（replacement 为 `sing-box/china_ip.json` 与 `china_ip_ipv6.json`，IP 覆盖不等同于 ASN）、四平台 `domainset/` 目录（2026-10-17 并入 `non_ip`，旧文件仍在 Cloudflare 边缘缓存中返回 200，必须由 worker 返回 404）、`streaming_cn`／`streaming_!cn` 四平台规则（2026-11-10，唯一上游 ConnersHua/RuleGo 已停止维护；`streaming_!cn` 的替代为 Sukka `stream`）。`ads` 同日去掉 RuleGo 的广告、恶意、跟踪三个来源，只剩 AWAvenue。
 
 ### 模块合并
 

@@ -18,14 +18,6 @@ export const ruleGroups: RuleGroup[] = [
         path: 'List/biliintl.list',
         url: 'https://ruleset.skk.moe/List/non_ip/stream_biliintl.conf',
       },
-      {
-        path: 'List/streaming_cn.list',
-        url: 'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Streaming/CN.list',
-      },
-      {
-        path: 'List/streaming_!cn.list',
-        url: 'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Streaming/!CN.list',
-      },
     ],
   },
   {
@@ -282,7 +274,6 @@ export const specialRules: SpecialRuleConfig[] = [
     sourceFiles: [
       'https://ruleset.skk.moe/List/non_ip/ai.conf',
       'https://ruleset.skk.moe/List/ip/ai.conf',
-      'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/AI.list',
       'https://github.com/dler-io/Rules/raw/main/Surge/Surge%203/Provider/AI%20Suite.list',
       // Use Meta's text geosite format; the JSON path cannot preserve every field.
       `${META_RULES}/geosite/category-ai-!cn.list`,
@@ -327,9 +318,6 @@ export const specialRules: SpecialRuleConfig[] = [
     name: 'Reject',
     targetFile: 'List/ads.list',
     sourceFiles: [
-      'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Reject/Advertising.list',
-      'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Reject/Malicious.list',
-      'https://github.com/ConnersHua/RuleGo/raw/master/Surge/Ruleset/Extra/Reject/Tracking.list',
       'https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-Surge.list',
       // 'https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/master/anti-ad-surge.txt',
       // 'https://raw.githubusercontent.com/Cats-Team/AdRules/main/adrules.list',

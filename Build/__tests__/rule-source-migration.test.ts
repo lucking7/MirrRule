@@ -189,6 +189,8 @@ describe('Sukka source migration', () => {
       ...ruleGroups.flatMap(group => group.files.map(file => file.url)),
       ...specialRules.flatMap(rule => rule.sourceFiles),
     ]);
+    // ConnersHua/RuleGo is no longer maintained; its streaming rulesets are retired.
+    assert.equal([...sources].some(url => url.includes('ConnersHua/RuleGo')), false);
     const removedSources = [
       'ip/telegram', 'non_ip/reject_sukka', 'non_ip/global_plus', 'non_ip/apple_cdn', 'ip/stream_biliintl',
       ...regions.map(region => `ip/stream_${region}`),

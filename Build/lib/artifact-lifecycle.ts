@@ -58,6 +58,21 @@ export const ARTIFACT_LIFECYCLE_REGISTRY: readonly ArtifactLifecycleRecord[] = [
     evidence: 'Build/lib/rule-sources.ts no longer configures this ruleset',
   })),
   {
+    id: 'ruleset:streaming_cn',
+    state: 'retired',
+    paths: platformPaths('streaming_cn'),
+    reason: 'Only upstream ConnersHua/RuleGo is no longer maintained; its China streaming list last changed in 2023',
+    evidence: 'Build/lib/rule-sources.ts no longer configures this ruleset',
+  },
+  {
+    id: 'ruleset:streaming_!cn',
+    state: 'retired',
+    paths: platformPaths('streaming_!cn'),
+    reason: 'Only upstream ConnersHua/RuleGo is no longer maintained',
+    evidence: 'Build/lib/rule-sources.ts no longer configures this ruleset',
+    replacement: '<platform>/stream (Sukka; covered 73.7% of the last RuleGo list, missing mostly discontinued HBO GO Asia hosts)',
+  },
+  {
     id: 'ruleset:china_asn:sing-box',
     state: 'retired',
     paths: platformPaths('china_asn').filter(relative => relative.startsWith('sing-box/')),
