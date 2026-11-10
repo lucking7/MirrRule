@@ -4,7 +4,7 @@
 
 ## 无 UA 微信订阅与覆盖检查
 
-`wechat_no_ua` 从 NobyDa 的 `Surge/WeChat.list` 持续构建四平台产物，保留域名、关键词、IP 和上游解析参数。它使用 `excludedRuleTypes: ['USER-AGENT']` 排除宽泛 UA 放行；包含 UA 的复合表达式整体排除，避免删减子条件扩大匹配。原 `wechat` 来源和文件保持不变。下载失败或过滤后无有效规则会阻止发布，保留上一份产物。
+`wechat_no_ua` 从 NobyDa 的 `Surge/WeChat.list` 持续构建四平台产物（NobyDa 下载失败时改用逐条相同、仍在维护的 Repcz/Tool `X/Surge/Rules/WeChat.list`），保留域名、关键词、IP 和上游解析参数。它使用 `excludedRuleTypes: ['USER-AGENT']` 排除宽泛 UA 放行；包含 UA 的复合表达式整体排除，避免删减子条件扩大匹配。原 `wechat` 来源和文件保持不变。下载失败或过滤后无有效规则会阻止发布，保留上一份产物。
 
 Surge 可引用 `https://nrrule.pages.dev/List/wechat_no_ua.list`，无需维护本地过滤快照。它控制的是微信规则的匹配范围，不保证四平台支持相同的全部类型；现有平台转换矩阵继续适用。
 
@@ -63,7 +63,7 @@ Surge 与 Loon 保留 `.list`，Clash 输出 classical `.txt`，sing-box 输出 
 
 | 用途                                         | 采用来源                                           | 选择依据与限制                                                                                 |
 | -------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `download_cn`                                | Repcz/Tool `X/Surge/Rules/DownloadCDN_CN.list`     | 与本次取得的 Kelee 中国下载 CDN 去注释、去空白后集合相同，17 条                                |
+| `download_cn`                                | Repcz/Tool `X/Surge/Rules/DownloadCDN_CN.list`     | 与本次取得的 Kelee 中国下载 CDN 去注释、去空白后集合相同，17 条；Repcz 下载失败时改用 Meta `category-game-platforms-download@cn`（覆盖其中 16 条，另含 8 个游戏下载节点） |
 | `download_global`                            | Repcz/Tool `X/Surge/Rules/DownloadCDN_Global.list` | 与本次取得的 Kelee 国际下载 CDN 集合相同，178 条唯一规则；含 2 条 AND，sing-box 按既有行为丢弃 |
 | `cdn`                                        | Sukka domainset + non_ip + ip CDN                  | 已有聚合源，继续使用；IP 规则按上游不带 `no-resolve`；Repcz 通用 CDN 与其高度重叠，暂不叠加    |
 | `download`                                   | Sukka domainset + non_ip + ip Download             | 补齐 IP 部分；此分类不限于游戏或单个测速服务                                                   |
