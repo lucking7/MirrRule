@@ -46,7 +46,7 @@ https://nrrule.pages.dev/sing-box/direct.json
 
 Full file listing available at: https://nrrule.pages.dev
 
-Use `https://nrrule.pages.dev/List/wechat_no_ua.list` for WeChat-specific routing without letting every request with a WeChat User-Agent bypass earlier service or blocking policies. This subscription follows NobyDa's maintained source during normal builds, retains supported domain/IP conditions, and excludes entire logical expressions containing `USER-AGENT`. The original `wechat` subscription is unchanged. Clash, Loon, and sing-box versions use the same basename and their usual directory/extension; supported rule types still differ by client.
+`wechat` (blackmatrix7 WeChat) is the only WeChat subscription. It includes blackmatrix7's `USER-AGENT` rules, so in-app browser traffic with a WeChat User-Agent matches it as well, and Tencent's AS132203 for connections made directly to IP addresses. `wechat_no_ua` was retired on 2026-11-15 because its NobyDa source had not changed since 2023 and let WeChat connections fall through to `FINAL`; its URLs return 404.
 
 ## Subscription Variants
 
@@ -153,7 +153,6 @@ Netflix, Disney, Spotify, Prime Video, YouTube, BiliBili, TikTok, Google and Git
 | `spotify` | Spotify |
 | `tiktok` | TikTok |
 | `wechat` | WeChat |
-| `wechat_no_ua` | Automatically updated NobyDa WeChat rules without broad User-Agent bypass |
 | `apple` | Combined Apple CDN, China, services, services IP ranges, and iCloud Private Relay |
 | `apple_cdn` | Apple download CDN |
 | `apple_cn` | Apple services available in China |
