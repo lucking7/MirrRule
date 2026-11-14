@@ -800,6 +800,12 @@ describe('GitHub Actions workflow contract', () => {
     }
   });
 
+  it('does not fail the build when runner network tuning is unavailable', () => {
+    const step = (getJob('build').steps ?? []).find(item => (item.uses ?? '').startsWith('smorimoto/tune-github-hosted-runner-network@'));
+    assert.ok(step);
+    assert.equal(step['continue-on-error'], true);
+  });
+
   it('builds against the accepted baseline tree instead of the NRRule HEAD', () => {
     const buildJob = getJob('build');
     assert.ok(getNeeds(buildJob).includes('baseline'));
