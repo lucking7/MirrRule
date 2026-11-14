@@ -557,7 +557,9 @@ jobs:
       tasks: ${{ steps.publication-tasks.outputs.tasks }}
     steps:
       # 🚀 网络性能优化
+      # Optional tuning: some runner images have no eth0, and ethtool then exits 92.
       - uses: smorimoto/tune-github-hosted-runner-network@bb252dcb5c8609a31087e7993daa086f5a1c0069 # v1.0.0
+        continue-on-error: true
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
