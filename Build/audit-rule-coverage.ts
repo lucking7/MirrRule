@@ -9,7 +9,7 @@ import { RULE_OUTPUT_VARIANTS } from './lib/rule-output-variants';
 /** An illustrative order, with distinct policy roles to expose otherwise hidden overlaps. */
 export const exampleRoutingOrder: ReadonlyArray<readonly [string, string]> = [
   ['reject.list', 'REJECT'],
-  ['wechat_no_ua.list', 'DIRECT'],
+  ['wechat.list', 'DIRECT'],
   ['apple_intelligence.list', 'AppleIntelligence'],
   ['ai.list', 'AI'],
   ['emby.list', 'Emby'],

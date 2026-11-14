@@ -73,6 +73,14 @@ export const ARTIFACT_LIFECYCLE_REGISTRY: readonly ArtifactLifecycleRecord[] = [
     replacement: '<platform>/stream (Sukka; covered 73.7% of the last RuleGo list, missing mostly discontinued HBO GO Asia hosts)',
   },
   {
+    id: 'ruleset:wechat_no_ua',
+    state: 'retired',
+    paths: platformPaths('wechat_no_ua'),
+    reason: 'NobyDa WeChat.list has not changed since 2023 and missed WeChat connections that then fell through to FINAL',
+    evidence: 'Build/lib/rule-sources.ts no longer configures this ruleset',
+    replacement: '<platform>/wechat (blackmatrix7 WeChat, including its User-Agent rules and AS132203)',
+  },
+  {
     id: 'ruleset:china_asn:sing-box',
     state: 'retired',
     paths: platformPaths('china_asn').filter(relative => relative.startsWith('sing-box/')),
