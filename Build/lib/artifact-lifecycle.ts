@@ -30,7 +30,7 @@ export const ARTIFACT_LIFECYCLE_VERSION = 3;
 export const ARTIFACT_LIFECYCLE_REPORT_PATH = 'Internal/artifact-lifecycle.json';
 
 /** Top-level publication directories that lifecycle records may address. */
-const LIFECYCLE_ROOTS = new Set(['List', 'Clash', 'Loon', 'sing-box', 'Modules', 'Scripts', 'Mirror', 'Mock']);
+const LIFECYCLE_ROOTS = new Set(['List', 'Clash', 'Loon', 'sing-box', 'GeoIP', 'Modules', 'Scripts', 'Mirror', 'Mock']);
 const SCRIPT_ROOT = 'Scripts';
 const MODULE_SCAN_ROOTS = ['Modules', 'Mirror', SCRIPT_ROOT];
 const MIRRORED_SCRIPT_PREFIX = '/Scripts/';
@@ -122,6 +122,14 @@ export const ARTIFACT_LIFECYCLE_REGISTRY: readonly ArtifactLifecycleRecord[] = [
     reason: 'sing-box rule-set does not support IP-ASN; the artifact had no effective matchers',
     evidence: 'Build/core/output/rule-support-matrix.ts',
     replacement: 'sing-box/china_ip.json and sing-box/china_ip_ipv6.json (IP coverage is not equivalent to ASN matching)',
+  },
+  {
+    id: 'geoip:ip2location',
+    state: 'retired',
+    paths: ['GeoIP/ip2.mmdb'],
+    reason: 'Upstream xream/geoip is archived (last push 2026-08-03), so its IP2Location country database no longer updates',
+    evidence: 'Build/download-geoip.ts no longer downloads it',
+    replacement: 'GeoIP/country.mmdb',
   },
   {
     id: 'variant:domainset',

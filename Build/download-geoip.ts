@@ -30,10 +30,6 @@ export const geoipFiles: GEOIPFile[] = [
     path: 'GeoIP/ipinfo.mmdb',
     url: 'https://github.com/lucking7/ASN-China/raw/main/ipinfo.lite.mmdb',
   },
-  {
-    path: 'GeoIP/ip2.mmdb',
-    url: 'https://github.com/xream/geoip/releases/latest/download/ip2location.country.mmdb',
-  },
 ];
 
 export interface DownloadGeoipOptions {

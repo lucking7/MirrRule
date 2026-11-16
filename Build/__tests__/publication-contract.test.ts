@@ -38,7 +38,7 @@ import {
 import type { ReceiptPayload } from '../lib/publication-receipt';
 import { StageError, checkSuperseded, classifyBaselineDrift, freshDirsForTasks, stagePublication } from '../lib/publication-stage';
 import type { RenderPublic } from '../lib/publication-stage';
-import { collectAbsentPaths, verifyPublication } from '../lib/publication-verify';
+import { collectAbsentPaths, formatVerificationReport, verifyPublication } from '../lib/publication-verify';
 
 const SOURCE = 'a'.repeat(40);
 const DEPLOY = 'b'.repeat(40);
@@ -445,6 +445,29 @@ describe('publication verification', () => {
     assert.equal(production.failures[0].path, 'List/ip/old.list');
     // Not in the lifecycle registry, so it is reported as a stale absent path, not a retired one.
     assert.equal(production.failures[0].reason, 'absent-present');
+  });
+
+  it('accepts cached copies of removed converted modules and scripts on production only', async () => {
+    const removed = ['Modules/Converted/removed.sgmodule', 'Scripts/abc-removed.js'];
+    const cached = { ...site, ...Object.fromEntries(removed.map(relative => [publicPathFor(relative), 'cached'])) };
+    function verify(sites: Record<string, Record<string, string>>) {
+      const github = new FakeGitHub();
+      github.checkRuns = sha => [successRun(sha)];
+      return verifyPublication({
+        client: github, deployCommit: DEPLOY, files, absentPaths: [...absentPaths, ...removed], fetcher: siteFetcher(sites),
+        clock: fakeClock(), timeoutMs: 60000, checkIntervalMs: 5000, retryIntervalMs: 5000,
+      });
+    }
+    const production = await verify({ [IMMUTABLE]: site, 'https://nrrule.pages.dev': cached });
+    assert.equal(production.outcome, 'accepted');
+    assert.deepEqual(production.toleratedAbsent, removed);
+    assert.match(formatVerificationReport(production), /production may serve cached copies\): 2/);
+    // The immutable deployment must not contain them, and a retired module stays strict on production.
+    const immutable = await verify({ [IMMUTABLE]: cached, 'https://nrrule.pages.dev': site });
+    assert.equal(immutable.outcome, 'immutable-mismatch');
+    const retired = await verify({ [IMMUTABLE]: site, 'https://nrrule.pages.dev': { ...cached, [publicPathFor(absentPaths[1])]: 'legacy' } });
+    assert.equal(retired.outcome, 'production-lagging');
+    assert.deepEqual(retired.failures.map(item => item.path), [absentPaths[1]]);
   });
 
   it('starts no request after the deadline, aborts in-flight requests and never accepts late', async () => {
