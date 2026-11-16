@@ -6,6 +6,10 @@
 import type { ParsedSection, SectionType, MergeOptions } from './types';
 import { SectionParser } from './section-parser';
 import { cleanPolicy } from '../policy-cleaner';
+import { isActiveLine } from './module-content';
+
+/** 整模块开关作用的段落：这些段落每行是一条独立条目，在行首加参数即可注释掉该行。 */
+const SWITCHED_SECTIONS = new Set<SectionType>(['Rule', 'URL Rewrite', 'Header Rewrite', 'Body Rewrite', 'Map Local', 'Script']);
 
 /**
  * 模块合并引擎类
@@ -20,8 +24,8 @@ export class ModuleMerger {
   /** hostnames 去重集合 */
   private readonly hostnameSet = new Set<string>();
 
-  /** Rule 匹配条件（去掉策略后）去重集合 */
-  private readonly ruleMatchers = new Set<string>();
+  /** 各模块 Rule 匹配条件（去掉策略后）去重集合，按模块 header 分开 */
+  private readonly ruleMatchers = new Map<string, Set<string>>();
 
   private sectionsExtracted = 0;
 
@@ -36,13 +40,19 @@ export class ModuleMerger {
   /**
    * 添加解析后的 Section
    * @param section 解析后的 Section
+   * @param switchName 整模块开关参数名；在逐行条目段落的每条生效行前加 {{{switchName}}}
    */
-  addSection(section: ParsedSection): void {
+  addSection(section: ParsedSection, switchName?: string): void {
     const typeKey = section.type;
+
+    let content = typeKey === 'Rule' ? this.dropRepeatedRules(section.content, section.header ?? '') : section.content;
+    if (switchName && SWITCHED_SECTIONS.has(typeKey)) {
+      content = content.split('\n').map(line => (isActiveLine(line) ? `{{{${switchName}}}}${line}` : line)).join('\n');
+    }
 
     // 存储 Section
     const existing = this.sections.get(typeKey) || [];
-    existing.push(typeKey === 'Rule' ? { ...section, content: this.dropRepeatedRules(section.content) } : section);
+    existing.push({ ...section, content });
     this.sections.set(typeKey, existing);
     this.sectionsExtracted++;
 
@@ -125,11 +135,15 @@ export class ModuleMerger {
 
   /**
    * Surge 按顺序取第一条匹配的规则，匹配条件与前面某条相同的规则不会生效，不论策略是否相同。
-   * 比较时去掉策略（cleanPolicy 按字段解析，不改动 URL-REGEX 正则内部的空格和逗号），
+   * 比较时去掉策略（cleanPolicy 按字段解析，不改动引号内和 URL-REGEX 正则内部的空格和逗号），
    * 保留其他参数。带 no-resolve 的规则不参与：域名尚未解析时它会被跳过，若中间有规则触发
    * DNS 解析，后面相同的规则仍可能命中。
+   * 只在同一模块内去重：每个模块都能单独关闭，若因前一模块已有相同规则而删掉后一模块的副本，
+   * 关闭前一模块时后一模块就缺了这条规则。
    */
-  private dropRepeatedRules(content: string): string {
+  private dropRepeatedRules(content: string, header: string): string {
+    const ruleMatchers = this.ruleMatchers.get(header) ?? new Set<string>();
+    this.ruleMatchers.set(header, ruleMatchers);
     return content.split('\n').filter(line => {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('#')) return true;
@@ -137,11 +151,11 @@ export class ModuleMerger {
       if (/,\s*no-resolve\s*(?:,|\)|$)/i.test(matcher)) return true;
       const type = matcher.split(',', 1)[0];
       const key = `${type.toUpperCase()}${matcher.slice(type.length)}`;
-      if (this.ruleMatchers.has(key)) {
+      if (ruleMatchers.has(key)) {
         this.rulesDeduplicated++;
         return false;
       }
-      this.ruleMatchers.add(key);
+      ruleMatchers.add(key);
       return true;
     }).join('\n');
   }

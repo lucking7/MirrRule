@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
-import { isUpstreamOutage, verifyRequiredPluginOutputs } from '../integration/plugin-converter/readiness';
+import { RequiredPluginOutputError, verifyRequiredPluginOutputs } from '../integration/plugin-converter/readiness';
 import type { ConversionResult } from '../integration/plugin-converter/types';
 
 function conversionResult(
@@ -26,10 +26,7 @@ function writeFixture(
   directory: string,
   modules: Array<{ url: string; header: string; enabledByDefault?: boolean }>,
 ): { configPath: string; outputPaths: string[] } {
-  const outputPaths = [
-    path.join(directory, 'output.sgmodule'),
-    path.join(directory, 'output.list'),
-  ];
+  const outputPaths = [path.join(directory, 'output.sgmodule')];
   const templatePath = path.join(directory, 'template.sgmodule');
   fs.writeFileSync(templatePath, '{{{header_extra}}}\n{{{sections_body}}}');
 
@@ -42,10 +39,9 @@ function writeFixture(
       description: 'Test',
       category: 'Test',
       author: 'Test',
-      modules,
+      modules: modules.map((module) => ({ ...module, id: module.header.replaceAll(/\W/g, '_') })),
       output: {
         sgmodule: outputPaths[0],
-        rulelist: outputPaths[1],
         template: templatePath,
       },
     }),
@@ -171,7 +167,7 @@ describe('required plugin output readiness', () => {
     assert.equal(requiredCount, 1);
     assert.deepEqual(
       outputPaths.map((outputPath) => fs.existsSync(outputPath)),
-      [false, false],
+      [false],
     );
   });
 
@@ -261,18 +257,69 @@ describe('required plugin output readiness', () => {
     );
     assert.deepEqual(
       outputPaths.map((outputPath) => fs.existsSync(outputPath)),
-      [false, false],
+      [false],
     );
   });
 });
 
-describe('plugin upstream outage', () => {
-  const result = (status: ConversionResult['status'], error?: string): ConversionResult => ({ ...conversionResult('plugin', status), error });
+const failed = (
+  name: string,
+  outputPath: string | undefined,
+  upstreamUnavailable: boolean,
+  status: ConversionResult['status'] = 'failed',
+): ConversionResult => ({ ...conversionResult(name, status, outputPath), error: 'failure', upstreamUnavailable });
 
-  it('applies only when every unfinished plugin failed to download', () => {
-    assert.equal(isUpstreamOutage([result('ready'), result('failed', 'Plugin download failed: fetch failed'), result('failed', 'DNS policy download failed: fetch failed')]), true);
-    assert.equal(isUpstreamOutage([result('failed', 'Plugin download failed: fetch failed'), result('failed', 'Script-Hub returned 500')]), false);
-    assert.equal(isUpstreamOutage([result('ready')]), false);
-    assert.equal(isUpstreamOutage([]), false);
+async function classify(
+  t: { after: (fn: () => void) => void },
+  results: (directory: string) => ConversionResult[],
+  options: { existing?: boolean, content?: string } = {},
+): Promise<RequiredPluginOutputError> {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-plugin-outage-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  if (options.existing) fs.writeFileSync(path.join(directory, 'required.sgmodule'), options.content ?? '[Rule]\nDOMAIN,required.test,REJECT');
+  const { configPath } = writeFixture(directory, [{ url: 'file://required.sgmodule', header: 'Required' }]);
+  try {
+    await verifyRequiredPluginOutputs(results(directory), configPath);
+  } catch (error) {
+    assert.ok(error instanceof RequiredPluginOutputError, String(error));
+    return error;
+  }
+  throw new Error('verification unexpectedly passed');
+}
+
+describe('plugin upstream outage classification', () => {
+  it('is upstream when a missing module matches plugin download failures (network error or 5xx)', async (t) => {
+    const error = await classify(t, () => [failed('Plugin', undefined, true), failed('Other', undefined, true)]);
+    assert.equal(error.upstreamUnavailable, true);
+  });
+
+  it('is upstream when a converted module waits on a script that returned 5xx', async (t) => {
+    const error = await classify(t, directory => [failed('Required', path.join(directory, 'required.sgmodule'), true, 'degraded')], { existing: true });
+    assert.equal(error.upstreamUnavailable, true);
+  });
+
+  it('is not upstream when a required script returned 404', async (t) => {
+    const error = await classify(t, directory => [failed('Required', path.join(directory, 'required.sgmodule'), false)]);
+    assert.equal(error.upstreamUnavailable, false);
+  });
+
+  it('is not upstream when the missing module cannot be matched to a download failure (rename)', async (t) => {
+    const error = await classify(t, directory => [conversionResult('Renamed', 'ready', path.join(directory, 'renamed.sgmodule'))]);
+    assert.equal(error.upstreamUnavailable, false);
+  });
+
+  it('is not upstream when a plugin without output failed in Script-Hub conversion', async (t) => {
+    const error = await classify(t, () => [failed('Plugin', undefined, true), failed('Converter', undefined, false)]);
+    assert.equal(error.upstreamUnavailable, false);
+  });
+
+  it('is not upstream when the merge dry-run fails', async (t) => {
+    const error = await classify(
+      t,
+      directory => [conversionResult('Required', 'ready', path.join(directory, 'required.sgmodule')), failed('Other', undefined, true)],
+      { existing: true, content: '[Script]\ncheck = type=generic, script-path=https://scripts.test/check.js, argument={{{missing}}}' },
+    );
+    assert.equal(error.upstreamUnavailable, false);
+    assert.match(error.message, /dry-run/);
   });
 });

@@ -306,6 +306,7 @@ export async function convertPluginsBatchFromLocalMirror(
             error: `Plugin download failed: ${result.error ?? 'fresh plugin content unavailable'}`,
           },
           failureStage: 'download',
+          ...(result.unavailable ? { upstreamUnavailable: true } : {}),
         });
         return;
       }

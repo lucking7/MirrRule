@@ -27,8 +27,11 @@ async function fileExists(filePath: string | undefined): Promise<boolean> {
 export async function publishPluginArtifacts(
   work: PluginPublicationWork[],
   urlMap: Readonly<Record<string, string>>,
-  degradedUrls: ReadonlySet<string> = new Set()
+  degradedUrls: ReadonlySet<string> = new Set(),
+  /** Script URLs whose download failed only with network errors or HTTP 5xx. */
+  unavailableUrls: ReadonlySet<string> = new Set()
 ): Promise<ConversionResult[]> {
+  const allUnavailable = (scripts: ConversionResult['scripts']) => scripts.every(script => unavailableUrls.has(script.originalUrl));
   const results: ConversionResult[] = [];
   const rendered = new Map<PendingPluginArtifact, string>();
   const contentsByPath = new Map<string, Set<string>>();
@@ -80,6 +83,7 @@ export async function publishPluginArtifacts(
         ...artifact.result,
         status,
         error: `${unresolved.length} required script${unresolved.length === 1 ? '' : 's'} unavailable`,
+        ...(allUnavailable(unresolved) ? { upstreamUnavailable: true } : {}),
       });
       continue;
     }
@@ -106,6 +110,7 @@ export async function publishPluginArtifacts(
           ...artifact.result,
           status: 'degraded',
           error: `${degradedDependencies.length} script${degradedDependencies.length === 1 ? '' : 's'} using cached artifacts`,
+          ...(allUnavailable(degradedDependencies) ? { upstreamUnavailable: true } : {}),
         });
       } else {
         results.push({ ...artifact.result, status: 'ready' });

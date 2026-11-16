@@ -134,24 +134,30 @@ function extractFilename(url: string): string {
   return filename;
 }
 
-/** Apply resolved mirror URLs without mutating script metadata. */
+/**
+ * Apply resolved mirror URLs without mutating script metadata. Each script-path value is replaced
+ * as a whole token, so a URL that is a prefix of another (`a.js` and `a.js?v=2`) leaves the
+ * longer one intact.
+ */
 export function applyScriptMirrorMap(
   content: string,
   scripts: ScriptInfo[],
   urlMap: Readonly<Record<string, string>>
 ): string {
-  let result = content;
-
+  const replacements = new Map<string, string>();
   for (const script of scripts) {
     const mirrorUrl = urlMap[script.originalUrl];
-    if (!mirrorUrl || script.isMirrored) {
-      continue;
-    }
-
-    result = result.replaceAll(script.originalUrl, () => mirrorUrl);
+    if (mirrorUrl && !script.isMirrored) replacements.set(script.originalUrl, mirrorUrl);
   }
+  if (!replacements.size) return content;
 
-  return result;
+  return content.replaceAll(
+    new RegExp(SCRIPT_PATH_REGEX.source, SCRIPT_PATH_REGEX.flags),
+    (match, url: string) => {
+      const mirrorUrl = replacements.get(url);
+      return mirrorUrl ? match.slice(0, match.length - url.length) + mirrorUrl : match;
+    }
+  );
 }
 
 /**

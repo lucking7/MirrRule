@@ -11,7 +11,11 @@ export async function loadNativeSurgeModule(
   const result = await loadContent(plugin, true);
   const base = { pluginName: plugin.name, ...identifyPluginSource(plugin) };
   if (!result.success || !result.content || result.degraded) {
-    return { ...base, content: { error: `Native Surge download failed: ${result.error ?? 'fresh content unavailable'}` } };
+    return {
+      ...base,
+      content: { error: `Native Surge download failed: ${result.error ?? 'fresh content unavailable'}` },
+      ...(result.unavailable ? { upstreamUnavailable: true } : {}),
+    };
   }
   const error = validateScriptPreservation(result.content, result.content);
   return { ...base, content: error ? { error } : result.content };

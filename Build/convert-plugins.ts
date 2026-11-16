@@ -9,8 +9,8 @@ import path from 'node:path';
 import { convertAndMirrorPlugins, printConversionSummary } from './integration/plugin-converter';
 import { getErrorMessage, registerGlobalErrorHandlers } from './lib/misc';
 import {
-  isUpstreamOutage,
   PluginCatalogUnavailableError,
+  RequiredPluginOutputError,
   UPSTREAM_UNAVAILABLE_EXIT_CODE,
   verifyRequiredPluginOutputs,
 } from './integration/plugin-converter/readiness';
@@ -50,6 +50,7 @@ async function main() {
       file: result.outputPath ? path.basename(result.outputPath) : undefined,
       status: result.status,
       error: result.error,
+      upstreamUnavailable: result.upstreamUnavailable,
     })),
   };
   async function writeReport() {
@@ -76,8 +77,9 @@ async function main() {
     try {
       requiredReady = await verifyRequiredPluginOutputs(results, requiredConfig);
     } catch (error) {
-      if (!isUpstreamOutage(results)) throw error;
-      console.error(`上游不可用，${failedCount} 个插件下载失败: ${getErrorMessage(error)}`);
+      // 只有必需模块全部因插件或脚本下载失败（网络错误或 HTTP 5xx）而未就绪时才算上游不可用。
+      if (!(error instanceof RequiredPluginOutputError) || !error.upstreamUnavailable) throw error;
+      console.error(`上游不可用，必需模块的插件或脚本无法下载: ${getErrorMessage(error)}`);
       process.exit(UPSTREAM_UNAVAILABLE_EXIT_CODE);
     }
     report.required = { config: requiredConfig, ready: requiredReady };

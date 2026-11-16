@@ -38,10 +38,9 @@ function fixture() {
       description: 'Test',
       category: 'Test',
       author: 'Test',
-      modules: [{ url: required, header: 'Required' }],
+      modules: [{ url: required, header: 'Required', id: 'required' }],
       output: {
         sgmodule: './merged.sgmodule',
-        rulelist: './merged.list',
         template: './template.txt',
       },
     }),

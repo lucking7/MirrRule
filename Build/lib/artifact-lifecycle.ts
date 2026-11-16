@@ -50,6 +50,14 @@ export const ARTIFACT_LIFECYCLE_REGISTRY: readonly ArtifactLifecycleRecord[] = [
     reason: 'Upstream explicitly no longer maintains Tencent Video ad removal',
     evidence: 'Upstream plugin notice; README plugin conversion section',
   },
+  {
+    id: 'module:reject-pro-rulelist',
+    state: 'retired',
+    paths: ['Modules/Rules/reject-pro.list'],
+    reason: 'Policy-stripped copy of the merged module [Rule] section; it mixed DIRECT exceptions into a block list',
+    evidence: 'Build/lib/module-merger no longer writes a rule list; the merged module [Rule] section is the only rule output',
+    replacement: 'Modules/Merged/All-in-One-Pro.sgmodule',
+  },
   ...(['container', 'discord', 'scholar'] as const).map((id): ArtifactLifecycleRecord => ({
     id: `ruleset:${id}`,
     state: 'retired',

@@ -16,7 +16,7 @@ MirrRule 是构建型规则聚合项目：下载上游成品规则，清洗、�
 | Release 镜像            | [sync-mirrors.ts](Build/sync-mirrors.ts)、[mirror-config.ts](Build/integration/mirror-sync/mirror-config.ts)                                                   | `public/Mirror/{iRingo,DualSubs,BiliUniverse}`                                                                      |
 | Sukka、fmz200 镜像      | [download-mock-modules.ts](Build/download-mock-modules.ts)、[download-fmz200-split.ts](Build/download-fmz200-split.ts)                                         | `public/Mirror/Sukka/{mock,sgmodule}`、`public/Mirror/fmz200/sgmodule`                                              |
 | Loon 插件转换与脚本镜像 | [convert-plugins.ts](Build/convert-plugins.ts)、[plugin-converter](Build/integration/plugin-converter)                                                         | `public/Modules/Converted`、`public/Scripts`；Script-Hub 转换、本地 fallback、依赖脚本发布检查                      |
-| Surge 模块合并          | [merge-modules.ts](Build/merge-modules.ts)、[module-merger](Build/lib/module-merger)                                                                           | `public/Modules/Merged/All-in-One-Pro.sgmodule`、`public/Modules/Rules/reject-pro.list`                             |
+| Surge 模块合并          | [merge-modules.ts](Build/merge-modules.ts)、[module-merger](Build/lib/module-merger)                                                                           | `public/Modules/Merged/All-in-One-Pro.sgmodule`（`Modules/Rules/reject-pro.list` 已于 2026-11-16 退休）               |
 | 静态索引                | [build-public.ts](Build/build-public.ts)、[ruleset-index.css](Build/assets/ruleset-index.css)                                                                   | `public/index.html`、`_headers`、`404.html`、生成的 README；原生折叠目录树与实际文件链接                          |
 | 构建状态                | [status-manifest.ts](Build/lib/status-manifest.ts)                                                                                                             | 成功主构建生成 `public/status.json` 和根目录 `.BUILD_FINISHED`                                                      |
 | 上游健康检查            | [validate-domain-alive.ts](Build/validate-domain-alive.ts)、[check-source-domain.yml](.github/workflows/check-source-domain.yml)                               | JSON 报告、定时状态分支与 Issue 告警；不等于生产构建成功                                                            |
@@ -225,11 +225,11 @@ pnpm run merge-modules
 pnpm run build-web
 ```
 
-首次克隆缺少 `public/Modules/Converted/*.sgmodule` 时，第一条会失败，这是依赖检查生效。`--dry-run` 仍加载和验证所有选中源，只是不发布输出。可用 `--config <path>`、`--only <key1,key2>`、`--enable <keys>`、`--disable <keys>`；没有显式 `key` 时用配置的 `header`。不要为了通过检查静默删掉失败模块。
+首次克隆缺少 `public/Modules/Converted/*.sgmodule` 时，第一条会失败，这是依赖检查生效。`--dry-run` 仍加载和验证所有选中源，只是不发布输出。可用 `--config <path>`、`--only <id1,id2>`、`--enable <ids>`、`--disable <ids>`，取值为配置中每个模块必填的 `id`。不要为了通过检查静默删掉失败模块。
 
-YAML 输出路径以 `./` 或 `../` 开头时相对于配置目录，普通相对路径则相对于进程工作目录。默认 `file://public/...` 依赖根目录执行。两个输出文件必须不同，模板必须保留参数所需的 `header_extra`。
+YAML 输出路径以 `./` 或 `../` 开头时相对于配置目录，普通相对路径则相对于进程工作目录。默认 `file://public/...` 依赖根目录执行。只有 `output.sgmodule` 一个输出，配置中残留 `output.rulelist` 会报错；模板必须保留参数所需的 `header_extra`。
 
-合并器保留并隔离源参数名、重命名脚本并调整 Panel 引用；未定义参数、缺失源、未知 key 等会中止。写入先暂存两份输出，再替换；后续替换失败会尝试恢复，不能理解为断电情况下的跨文件事务。生成模块的脚本开关以空值启用、`#` 禁用，保留源模块自身开关语义。
+合并器保留并隔离源参数名、重命名脚本并调整 Panel 引用；未定义参数、缺失源、未知 id 等会中止。输出先写到同目录临时文件，再改名替换。每个模块有整模块开关 `<id>`，原有脚本开关改名为 `<id>_script`，都以空值启用、`#` 禁用，保留源模块自身开关语义；规则只在同一模块内去重。
 
 ### 5.4 使用既有产物作为迁移输入
 
@@ -371,7 +371,7 @@ Pages 项目的 Functions fallback 应设为 fail-closed（production 和 previe
 | `pnpm run knip`                                                    | 退出 0；12 条配置建议，无失败                                                                                       |
 | `pnpm run build`                                                   | 退出 0；9 个普通规则组、29 个普通源文件、16 组合并规则处理完成，生成四平台规则、4 份 GeoIP、网页、status 和成功标记 |
 | 空输入 `merge-modules --dry-run`                                   | 预期退出 1，缺少转换模块时不发布                                                                                    |
-| 复用固定快照后 `merge-modules --dry-run`、`pnpm run merge-modules` | 均退出 0；47 个模块、145 个 sections、277 个去重 hostnames，生成 sgmodule 与 rulelist                               |
+| 复用固定快照后 `merge-modules --dry-run`、`pnpm run merge-modules` | 均退出 0；47 个模块、145 个 sections、277 个去重 hostnames，生成 sgmodule 与 rulelist（rulelist 已于 2026-11-16 停用）                              |
 | `pnpm run build-web`                                               | 合并和镜像尝试结束后退出 0，索引反映当前实际文件；不表示失败的镜像已补齐                                            |
 | 产物检查与本地 HTTP                                                | 45 个文件/规则平台，4 份 GeoIP；成功标记存在，两个 JSON 可解析；首页、status、reject 规则 HTTP 200 且与磁盘内容一致 |
 | `pnpm run sync-mirrors`                                            | 退出 1；部分文件成功，BiliUniverse 3 个仓库遇到 GitHub API 限流，未认定完整通过                                     |

@@ -148,6 +148,58 @@ describe('plugin artifact lifecycle', () => {
     }
   });
 
+  it('marks a missing required script as upstream unavailable only when its download failed with a network error or 5xx', async () => {
+    const directory = await fsp.mkdtemp(path.join(os.tmpdir(), 'mirrrule-plugin-artifact-'));
+    const work = (name: string, urls: string[]) => ({
+      result: {
+        pluginName: name,
+        ...pluginIdentity(name),
+        outputPath: path.join(directory, `${name}.sgmodule`),
+        scripts: urls.map(url => ({ originalUrl: url, filename: 'main.js', isMirrored: false })),
+      },
+      content: urls.map(url => `script-path=${url}`).join('\n'),
+    });
+
+    try {
+      const [unavailable, notFound, mixed] = await publishPluginArtifacts(
+        [
+          work('unavailable', ['https://upstream.test/down.js']),
+          work('not-found', ['https://upstream.test/gone.js']),
+          work('mixed', ['https://upstream.test/down.js', 'https://upstream.test/gone.js']),
+        ],
+        {},
+        new Set(),
+        new Set(['https://upstream.test/down.js']),
+      );
+      assert.deepEqual([unavailable, notFound, mixed].map(result => [result.status, result.upstreamUnavailable === true]), [
+        ['failed', true],
+        ['failed', false],
+        ['failed', false],
+      ]);
+    } finally {
+      await fsp.rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('records why a plugin refresh failed so only network errors and 5xx count as upstream unavailable', async () => {
+    const directory = await fsp.mkdtemp(path.join(os.tmpdir(), 'mirrrule-plugin-mirror-'));
+    const plugin = { name: 'refresh', url: 'https://plugins.test/refresh.plugin', extension: 'plugin' as const };
+    const load = (fetchFn: () => Promise<Response>) => getPluginContent(plugin, true, { mirrorDirectory: directory, fetchFn });
+    try {
+      assert.equal((await load(() => Promise.resolve(new Response('down', { status: 503 })))).unavailable, true);
+      assert.equal((await load(() => Promise.reject(new TypeError('fetch failed')))).unavailable, true);
+      assert.equal((await load(() => Promise.reject(Object.assign(new Error('HTTP 404'), { statusCode: 404 })))).unavailable, undefined);
+      assert.equal((await load(() => Promise.resolve(new Response('missing', { status: 404 })))).unavailable, undefined);
+      assert.equal((await load(() => Promise.resolve(new Response('<html>not a plugin</html>')))).unavailable, undefined);
+
+      assert.equal((await load(() => Promise.resolve(new Response('[Rule]\nDOMAIN,a.test,REJECT')))).success, true);
+      const cached = await load(() => Promise.resolve(new Response('down', { status: 500 })));
+      assert.deepEqual([cached.success, cached.degraded, cached.unavailable], [true, true, true]);
+    } finally {
+      await fsp.rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it('does not mark an owned mirror dependency ready without current validation', async () => {
     const directory = await fsp.mkdtemp(path.join(os.tmpdir(), 'mirrrule-plugin-artifact-'));
     const outputPath = path.join(directory, 'owned.sgmodule');

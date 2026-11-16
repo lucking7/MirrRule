@@ -11,228 +11,275 @@ author: "@lucking7"
 #
 # 字段说明:
 #   url:              模块文件路径（支持 file:// 本地路径或 http(s):// 远程地址）
-#   header:           模块显示名称（用于分隔符和参数命名）
-#   scriptToggle:     是否为该模块生成脚本开关参数（默认 true，基础过滤模块设为 false）
+#   header:           模块显示名称（用于分隔符和参数说明）
+#   id:               必填且唯一，字母开头，只含字母、数字和下划线。整模块开关参数名为 <id>
+#                     （默认开启，填 # 注释该模块在 Rule、URL Rewrite、Header Rewrite、Body Rewrite、
+#                     Map Local、Script 中的所有行），也是命令行 --only/--enable/--disable 的取值
+#   scriptToggle:     是否为该模块生成脚本开关参数 <id>_script（默认 true，基础过滤模块设为 false）
 #   scriptDefaultOn:  脚本开关是否默认开启（默认 false，用户常用模块设为 true）
 #
 modules:
-  # HTTPDNS拦截器（基础过滤，固定启用）
+  # HTTPDNS拦截器（基础过滤，默认启用，不生成脚本开关）
   - url: "file://public/Modules/Converted/HTTPDNS拦截器.sgmodule"
     header: "HTTPDNS拦截器"
+    id: httpdns
     scriptToggle: false
 
-  # 可莉广告过滤器（基础过滤，固定启用）
+  # 可莉广告过滤器（基础过滤，默认启用，不生成脚本开关）
   - url: "file://public/Modules/Converted/可莉广告过滤器.sgmodule"
     header: "可莉广告过滤器"
+    id: keli_filter
     scriptToggle: false
 
   # 高德地图去广告
   - url: "file://public/Modules/Converted/高德地图去广告.sgmodule"
     header: "高德地图去广告"
+    id: amap
     scriptDefaultOn: true
 
   # 顺丰速运去广告
   - url: "file://public/Modules/Converted/顺丰速运去广告.sgmodule"
     header: "顺丰速运去广告"
+    id: sf_express
 
   # 阿里云盘去广告
   - url: "file://public/Modules/Converted/阿里云盘去广告.sgmodule"
     header: "阿里云盘去广告"
+    id: alipan
     scriptDefaultOn: true
 
   # 闲鱼去广告
   - url: "file://public/Modules/Converted/闲鱼去广告.sgmodule"
     header: "闲鱼去广告"
+    id: xianyu
     scriptDefaultOn: true
 
   # 酷我音乐去广告
   - url: "file://public/Modules/Converted/酷我音乐去广告.sgmodule"
     header: "酷我音乐去广告"
+    id: kuwo
 
   # 酷狗铃声去广告
   - url: "file://public/Modules/Converted/酷狗铃声去广告.sgmodule"
     header: "酷狗铃声去广告"
+    id: kugou_ring
 
   # 酷狗音乐去广告
   - url: "file://public/Modules/Converted/酷狗音乐去广告.sgmodule"
     header: "酷狗音乐去广告"
+    id: kugou
 
   # 金山文档去广告
   - url: "file://public/Modules/Converted/金山文档去广告.sgmodule"
     header: "金山文档去广告"
+    id: kdocs
 
   # 腾讯文档去广告
   - url: "file://public/Modules/Converted/腾讯文档去广告.sgmodule"
     header: "腾讯文档去广告"
+    id: tencent_docs
 
   # 财新去广告
   - url: "file://public/Modules/Converted/财新去广告.sgmodule"
     header: "财新去广告"
+    id: caixin
 
   # 拼多多去广告
   - url: "file://public/Modules/Converted/拼多多去广告.sgmodule"
     header: "拼多多去广告"
+    id: pinduoduo
 
   # 微信公众号去广告
   - url: "file://public/Modules/Converted/微信公众号去广告.sgmodule"
     header: "微信公众号去广告"
+    id: wechat_mp
     scriptDefaultOn: true
 
   # 微信外部链接解锁
   - url: "file://public/Modules/Converted/微信外部链接解锁.sgmodule"
     header: "微信外部链接解锁"
+    id: wechat_link
     scriptDefaultOn: true
 
   # 微信小程序去广告
   - url: "file://public/Modules/Converted/微信小程序去广告.sgmodule"
     header: "微信小程序去广告"
+    id: wechat_miniapp
     scriptDefaultOn: true
 
   # 微博轻享版去广告
   - url: "file://public/Modules/Converted/微博轻享版去广告.sgmodule"
     header: "微博轻享版去广告"
+    id: weibo_lite
 
   # 小黑盒去广告
   - url: "file://public/Modules/Converted/小黑盒去广告.sgmodule"
     header: "小黑盒去广告"
+    id: xiaoheihe
 
   # 12306去广告
   - url: "file://public/Modules/Converted/12306去广告.sgmodule"
     header: "12306去广告"
+    id: rail12306
     scriptDefaultOn: true
 
   # 彩云天气去广告
   - url: "file://public/Modules/Converted/彩云天气去广告.sgmodule"
     header: "彩云天气去广告"
+    id: caiyun
     scriptDefaultOn: true
 
   # 优酷视频去广告
   - url: "file://public/Modules/Converted/优酷视频去广告.sgmodule"
     header: "优酷视频去广告"
+    id: youku
 
   # 中华万年历去广告
   - url: "file://public/Modules/Converted/中华万年历去广告.sgmodule"
     header: "中华万年历去广告"
+    id: wannianli
     scriptDefaultOn: true
 
   # YouTube去广告
   - url: "file://public/Modules/Converted/YouTube去广告.sgmodule"
     header: "YouTube去广告"
+    id: youtube
 
   # QQ音乐去广告
   - url: "file://public/Modules/Converted/QQ音乐去广告.sgmodule"
     header: "QQ音乐去广告"
+    id: qqmusic
     scriptDefaultOn: true
 
   # KOOK去广告
   - url: "file://public/Modules/Converted/KOOK去广告.sgmodule"
     header: "KOOK去广告"
+    id: kook
 
   # 小红书去广告
   - url: "file://public/Modules/Converted/小红书去广告.sgmodule"
     header: "小红书去广告"
+    id: xiaohongshu
     scriptDefaultOn: true
 
   # 大麦去广告
   - url: "file://public/Modules/Converted/大麦去广告.sgmodule"
     header: "大麦去广告"
+    id: damai
 
   # 夸克去广告
   - url: "file://public/Modules/Converted/夸克去广告.sgmodule"
     header: "夸克去广告"
+    id: quark
 
   # 哔哩哔哩漫画去广告
   - url: "file://public/Modules/Converted/哔哩哔哩漫画去广告.sgmodule"
     header: "哔哩哔哩漫画去广告"
+    id: bilibili_manga
     scriptDefaultOn: true
 
   # 喜马拉雅去广告
   - url: "file://public/Modules/Converted/喜马拉雅去广告.sgmodule"
     header: "喜马拉雅去广告"
+    id: ximalaya
     scriptDefaultOn: true
 
   # 芒果TV去广告
   - url: "file://public/Modules/Converted/芒果TV去广告.sgmodule"
     header: "芒果TV去广告"
+    id: mgtv
 
   # 菜鸟去广告
   - url: "file://public/Modules/Converted/菜鸟去广告.sgmodule"
     header: "菜鸟去广告"
+    id: cainiao
 
   # 斗鱼去广告
   - url: "file://public/Modules/Converted/斗鱼去广告.sgmodule"
     header: "斗鱼去广告"
+    id: douyu
 
   # 无他相机去广告
   - url: "file://public/Modules/Converted/无他相机去广告.sgmodule"
     header: "无他相机去广告"
+    id: wuta_camera
 
   # 有道云笔记去广告
   - url: "file://public/Modules/Converted/有道云笔记去广告.sgmodule"
     header: "有道云笔记去广告"
+    id: youdao_note
 
   # 萤石云视频去广告
   - url: "file://public/Modules/Converted/萤石云视频去广告.sgmodule"
     header: "萤石云视频去广告"
+    id: ezviz
     scriptDefaultOn: true
 
   # 薄荷健康去广告
   - url: "file://public/Modules/Converted/薄荷健康去广告.sgmodule"
     header: "薄荷健康去广告"
+    id: boohee
     scriptDefaultOn: true
 
   # 航旅纵横去广告
   - url: "file://public/Modules/Converted/航旅纵横去广告.sgmodule"
     header: "航旅纵横去广告"
+    id: umetrip
     scriptDefaultOn: true
 
   # 美颜相机去广告
   - url: "file://public/Modules/Converted/美颜相机去广告.sgmodule"
     header: "美颜相机去广告"
+    id: meiyan
     scriptDefaultOn: true
 
   # 网易新闻去广告
   - url: "file://public/Modules/Converted/网易新闻去广告.sgmodule"
     header: "网易新闻去广告"
+    id: netease_news
 
   # 知乎去广告
   - url: "file://public/Modules/Converted/知乎去广告.sgmodule"
     header: "知乎去广告"
+    id: zhihu
 
   # 知识星球去水印
   - url: "file://public/Modules/Converted/知识星球去水印.sgmodule"
     header: "知识星球去水印"
+    id: zsxq
 
   # 百度地图去广告
   - url: "file://public/Modules/Converted/百度地图去广告.sgmodule"
     header: "百度地图去广告"
+    id: baidu_map
 
   # 百度网盘去广告
   - url: "file://public/Modules/Converted/百度网盘去广告.sgmodule"
     header: "百度网盘去广告"
+    id: baidu_pan
 
   # 淘宝去广告
   - url: "file://public/Modules/Converted/淘宝去广告.sgmodule"
     header: "淘宝去广告"
+    id: taobao
     scriptDefaultOn: true
 
   # 淘票票去广告
   - url: "file://public/Modules/Converted/淘票票去广告.sgmodule"
     header: "淘票票去广告"
+    id: taopiaopiao
     scriptDefaultOn: true
 
   # 滴滴出行去广告
   - url: "file://public/Modules/Converted/滴滴去广告.sgmodule"
     header: "滴滴出行去广告"
+    id: didi
     scriptDefaultOn: true
 
 # 输出配置
 output:
-  # 合并后的 .sgmodule 文件路径
+  # 合并后的 .sgmodule 文件路径；其 [Rule] 段是唯一的规则输出
   sgmodule: "public/Modules/Merged/All-in-One-Pro.sgmodule"
-
-  # 提取的规则列表文件路径
-  rulelist: "public/Modules/Rules/reject-pro.list"
 
   # 模板文件路径
   template: "Build/lib/module-merger/templates/all-in-one.template"

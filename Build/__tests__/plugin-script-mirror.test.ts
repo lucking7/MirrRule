@@ -17,6 +17,10 @@ function script(url: string) {
   return { originalUrl: url, filename: 'main.js', isMirrored: false };
 }
 
+function statusError(statusCode: number) {
+  return Object.assign(new Error(`HTTP ${statusCode}`), { statusCode });
+}
+
 function response(content: string, status = 200) {
   return Promise.resolve(new Response(content, { status }));
 }
@@ -288,5 +292,45 @@ describe('plugin script mirroring', () => {
 
     assert.match(updated, new RegExp(mirrorUrl));
     assert.match(updated, new RegExp(secondUrl.replaceAll('.', String.raw`\.`)));
+  });
+
+  it('replaces each script-path URL as a whole token, so a prefix URL does not corrupt a longer one', () => {
+    const base = 'https://one.example/a.js';
+    const versioned = `${base}?v=2`;
+    const content = `[Script]\nfirst = type=http-response, script-path=${base}, requires-body=1\nsecond = type=http-response, script-path=${versioned}\nthird = type=generic,script-path=${base}`;
+    const scripts = extractScriptUrls(content);
+    assert.deepEqual(scripts.map(item => item.originalUrl), [base, versioned]);
+
+    const onlyBase = applyScriptMirrorMap(content, scripts, { [base]: 'https://nrrule.pages.dev/Scripts/base.js' });
+    assert.equal(onlyBase, `[Script]\nfirst = type=http-response, script-path=https://nrrule.pages.dev/Scripts/base.js, requires-body=1\nsecond = type=http-response, script-path=${versioned}\nthird = type=generic,script-path=https://nrrule.pages.dev/Scripts/base.js`);
+
+    const both = applyScriptMirrorMap(content, scripts, {
+      [base]: 'https://nrrule.pages.dev/Scripts/base.js',
+      [versioned]: 'https://nrrule.pages.dev/Scripts/versioned.js',
+    });
+    assert.match(both, /^second = type=http-response, script-path=https:\/\/nrrule\.pages\.dev\/Scripts\/versioned\.js$/m);
+  });
+
+  it('marks a failed script unavailable only when every candidate failed with a network error or HTTP 5xx', async () => {
+    for (const [name, fetchFn, unavailable] of [
+      ['5xx response', () => response('unavailable', 503), true],
+      ['thrown 5xx', () => Promise.reject(statusError(502)), true],
+      ['network error', () => Promise.reject(new TypeError('fetch failed')), true],
+      ['404 response', () => response('missing', 404), false],
+      ['thrown 404', () => Promise.reject(statusError(404)), false],
+      ['HTML challenge', () => response('<!doctype html><title>Just a moment</title>'), false],
+    ] as const) {
+      const outputDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-scripts-'));
+      try {
+        const result = await mirrorScripts([script(firstUrl)], 1, {
+          outputDirectory,
+          metadataPath: path.join(outputDirectory, 'metadata.json'),
+          fetchFn,
+        });
+        assert.deepEqual(result.failedScripts, [{ url: firstUrl, error: 'Download failed', unavailable }], name);
+      } finally {
+        fs.rmSync(outputDirectory, { recursive: true, force: true });
+      }
+    }
   });
 });

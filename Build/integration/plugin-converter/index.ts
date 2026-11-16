@@ -210,7 +210,7 @@ export async function convertAndMirrorPlugins(
 
   const work: PluginPublicationWork[] = [];
 
-  for (const { pluginName, sourceId, sourceUrl, content } of conversionResults) {
+  for (const { pluginName, sourceId, sourceUrl, content, upstreamUnavailable } of conversionResults) {
     if (typeof content === 'string') {
       // 提取脚本
       const scripts = extractScriptUrls(content);
@@ -241,6 +241,7 @@ export async function convertAndMirrorPlugins(
         status: 'failed',
         scripts: [],
         error: content.error,
+        ...(upstreamUnavailable ? { upstreamUnavailable: true } : {}),
       });
     }
   }
@@ -258,6 +259,7 @@ export async function convertAndMirrorPlugins(
 
   let scriptUrlMap: Record<string, string> = {};
   let degradedScriptUrls = new Set<string>();
+  let unavailableScriptUrls = new Set<string>();
   let mirroredScriptCount = 0;
 
   if (scriptStats.total > 0) {
@@ -268,6 +270,9 @@ export async function convertAndMirrorPlugins(
     printMirrorSummary(mirrorResult);
     scriptUrlMap = mirrorResult.urlMap;
     degradedScriptUrls = new Set(mirrorResult.degradedUrls);
+    unavailableScriptUrls = new Set(
+      mirrorResult.failedScripts.flatMap(failed => (failed.unavailable ? [failed.url] : []))
+    );
     mirroredScriptCount = mirrorResult.mirrored + mirrorResult.skipped
       + mirrorResult.degradedUrls.length;
   } else {
@@ -277,7 +282,8 @@ export async function convertAndMirrorPlugins(
   const finalizedResults = await publishPluginArtifacts(
     work,
     scriptUrlMap,
-    degradedScriptUrls
+    degradedScriptUrls,
+    unavailableScriptUrls
   );
   for (const published of finalizedResults) {
     if (published.status === 'ready' && published.outputPath) {
