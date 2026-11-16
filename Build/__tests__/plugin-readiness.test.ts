@@ -6,6 +6,7 @@ import { describe, it } from 'node:test';
 
 import { RequiredPluginOutputError, verifyRequiredPluginOutputs } from '../integration/plugin-converter/readiness';
 import type { ConversionResult } from '../integration/plugin-converter/types';
+import { isUnavailableFailure, isUnavailableStatus } from '../integration/plugin-converter/upstream-failure';
 
 function conversionResult(
   pluginName: string,
@@ -321,5 +322,15 @@ describe('plugin upstream outage classification', () => {
     );
     assert.equal(error.upstreamUnavailable, false);
     assert.match(error.message, /dry-run/);
+  });
+});
+
+describe('upstream availability classification', () => {
+  it('treats outages and client refusals as unavailable but a removed file as a defect', () => {
+    for (const status of [401, 403, 408, 429, 500, 502, 503, 530]) assert.equal(isUnavailableStatus(status), true, String(status));
+    for (const status of [400, 404, 410, 451]) assert.equal(isUnavailableStatus(status), false, String(status));
+    assert.equal(isUnavailableFailure(new TypeError('fetch failed')), true);
+    assert.equal(isUnavailableFailure(Object.assign(new Error('gone'), { statusCode: 404 })), false);
+    assert.equal(isUnavailableFailure(Object.assign(new Error('blocked'), { statusCode: 403 })), true);
   });
 });

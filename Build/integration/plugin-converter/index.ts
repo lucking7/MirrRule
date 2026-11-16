@@ -241,7 +241,7 @@ export async function convertAndMirrorPlugins(
         status: 'failed',
         scripts: [],
         error: content.error,
-        ...(upstreamUnavailable ? { upstreamUnavailable: true } : {}),
+        ...(upstreamUnavailable && { upstreamUnavailable: true }),
       });
     }
   }

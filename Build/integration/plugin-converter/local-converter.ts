@@ -44,7 +44,7 @@ async function convertPluginLocally(
         pluginName: plugin.name,
         ...identity,
         content: { error: contentResult.error || 'Failed to get plugin content' },
-        ...(contentResult.unavailable ? { upstreamUnavailable: true } : {}),
+        ...(contentResult.unavailable && { upstreamUnavailable: true }),
       };
     }
 

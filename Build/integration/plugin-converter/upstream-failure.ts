@@ -1,10 +1,13 @@
 /**
- * Classify download failures. Only a network error or an HTTP 5xx means the upstream is
- * temporarily unavailable; a 4xx (for example a removed or renamed file) or invalid content is a
- * real defect that should fail the run.
+ * Classify download failures. A network error, an HTTP 5xx, or a refusal that depends on the
+ * client rather than the file (401/403 from anti-bot protection, 408, 429) means the upstream is
+ * unavailable to this run. Other 4xx statuses such as 404 or 410 (a removed or renamed file) and
+ * invalid content are real defects that should fail the run.
  */
+const CLIENT_REFUSAL_STATUSES = new Set([401, 403, 408, 429]);
+
 export function isUnavailableStatus(status: number): boolean {
-  return status >= 500;
+  return status >= 500 || CLIENT_REFUSAL_STATUSES.has(status);
 }
 
 /** `$$fetch` throws ResponseError with `statusCode` for HTTP errors; anything else is a network error. */

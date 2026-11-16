@@ -80,7 +80,7 @@ export async function loadDnsPolicyModule(
       return {
         ...base,
         content: { error: `DNS policy download failed: ${result.error ?? 'fresh content unavailable'}` },
-        ...(result.unavailable ? { upstreamUnavailable: true } : {}),
+        ...(result.unavailable && { upstreamUnavailable: true }),
       };
     }
     const output = parameterizeDnsSource(result.content);

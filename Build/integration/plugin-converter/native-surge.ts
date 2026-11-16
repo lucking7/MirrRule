@@ -14,7 +14,7 @@ export async function loadNativeSurgeModule(
     return {
       ...base,
       content: { error: `Native Surge download failed: ${result.error ?? 'fresh content unavailable'}` },
-      ...(result.unavailable ? { upstreamUnavailable: true } : {}),
+      ...(result.unavailable && { upstreamUnavailable: true }),
     };
   }
   const error = validateScriptPreservation(result.content, result.content);

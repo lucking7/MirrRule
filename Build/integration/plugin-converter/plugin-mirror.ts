@@ -98,14 +98,14 @@ async function mirrorPlugin(
     if (!response.ok) {
       const error = `HTTP ${response.status}: ${response.statusText}`;
       console.log(picocolors.red(`  [Mirror] ✗ ${plugin.name}: ${error}`));
-      return { success: false, error, ...(isUnavailableStatus(response.status) ? { unavailable: true } : {}) };
+      return { success: false, error, ...(isUnavailableStatus(response.status) && { unavailable: true }) };
     }
 
     content = await response.text();
   } catch (error) {
     const errorMsg = getErrorMessage(error);
     console.log(picocolors.red(`  [Mirror] ✗ ${plugin.name}: ${errorMsg}`));
-    return { success: false, error: errorMsg, ...(isUnavailableFailure(error) ? { unavailable: true } : {}) };
+    return { success: false, error: errorMsg, ...(isUnavailableFailure(error) && { unavailable: true }) };
   }
 
   const validationError = validatePluginContent(content, plugin.useNativeSurge);
@@ -164,7 +164,7 @@ export async function getPluginContent(
     success: true,
     content: cachedContent,
     error: refreshed.error,
-    ...(refreshed.unavailable ? { unavailable: true } : {}),
+    ...(refreshed.unavailable && { unavailable: true }),
     fromCache: true,
     degraded: true,
   };

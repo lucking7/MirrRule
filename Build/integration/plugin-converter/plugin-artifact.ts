@@ -83,7 +83,7 @@ export async function publishPluginArtifacts(
         ...artifact.result,
         status,
         error: `${unresolved.length} required script${unresolved.length === 1 ? '' : 's'} unavailable`,
-        ...(allUnavailable(unresolved) ? { upstreamUnavailable: true } : {}),
+        ...(allUnavailable(unresolved) && { upstreamUnavailable: true }),
       });
       continue;
     }
@@ -110,7 +110,7 @@ export async function publishPluginArtifacts(
           ...artifact.result,
           status: 'degraded',
           error: `${degradedDependencies.length} script${degradedDependencies.length === 1 ? '' : 's'} using cached artifacts`,
-          ...(allUnavailable(degradedDependencies) ? { upstreamUnavailable: true } : {}),
+          ...(allUnavailable(degradedDependencies) && { upstreamUnavailable: true }),
         });
       } else {
         results.push({ ...artifact.result, status: 'ready' });
