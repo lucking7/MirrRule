@@ -17,6 +17,7 @@ import type { DownloadSource } from '../../utils/network/proxy';
 import { updatePluginMetadata } from './provenance';
 import { writeFileAtomic } from '../../lib/atomic-file';
 import { SCRIPT_MIRROR_LOCATION } from './script-location';
+import { isUnavailableFailure, isUnavailableStatus } from './upstream-failure';
 
 // CommonJS 中的 __dirname 直接可用
 
@@ -64,7 +65,9 @@ export interface ScriptMirrorResult extends MirrorResult {
 
 interface ScriptDownloadResult {
   status: 'mirrored' | 'unchanged' | 'failed-cached' | 'failed';
-  provenance?: { source: DownloadSource; bytes: number; sha256: string }
+  provenance?: { source: DownloadSource; bytes: number; sha256: string },
+  /** Set on failure: every candidate failed with a network error or HTTP 5xx. */
+  unavailable?: boolean
 }
 
 /**
@@ -145,7 +148,10 @@ async function downloadScript(
   const source = new URL(script.originalUrl);
   console.log(picocolors.gray(`  From: ${source.hostname}${source.pathname}`));
 
+  // Stays true only while every candidate fails with a network error or HTTP 5xx.
+  let unavailable = true;
   for (const candidate of buildClassifiedProxyUrlCandidates(script.originalUrl, { preferDirect: true })) {
+    let content: Buffer;
     try {
       const response = await fetchFn(candidate.url, {
         ...defaultRequestInit,
@@ -157,40 +163,51 @@ async function downloadScript(
 
       if (!response.ok) {
         console.log(picocolors.red(`[Mirror] ✗ ${candidate.source} HTTP ${response.status}: ${response.statusText}`));
+        unavailable &&= isUnavailableStatus(response.status);
         continue;
       }
 
-      const content = Buffer.from(await response.arrayBuffer());
-
-      // 验证文件大小
-      if (content.byteLength < MIN_FILE_SIZE) {
-        console.log(picocolors.yellow(`[Mirror] File too small: ${content.length} bytes`));
-        continue;
-      }
-
-      if (!validateScriptContent(content)) {
-        console.log(picocolors.red(`[Mirror] ✗ ${candidate.source}: Invalid JavaScript response`));
-        continue;
-      }
-
-      const digest = createHash('sha256').update(content).digest('hex');
-      const provenance = { source: candidate.source, bytes: content.length, sha256: digest };
-      console.log(picocolors.green(`[Mirror] ✓ asset=${filename} source=${candidate.source} bytes=${content.length} sha256=${digest}`));
-
-      if (existing?.equals(content)) {
-        console.log(picocolors.gray(`[Mirror] ○ Unchanged: ${filename}`));
-        return { status: 'unchanged', provenance };
-      }
-
-      await writeFileAtomic(filePath, content);
-
-      return { status: 'mirrored', provenance };
+      content = Buffer.from(await response.arrayBuffer());
     } catch (error) {
       const errorMsg = candidate.source === 'proxy' ? 'Proxy request failed' : getErrorMessage(error);
       console.log(picocolors.red(`[Mirror] ✗ ${candidate.source}: ${errorMsg}`));
+      unavailable &&= isUnavailableFailure(error);
+      continue;
     }
+
+    // 验证文件大小
+    if (content.byteLength < MIN_FILE_SIZE) {
+      console.log(picocolors.yellow(`[Mirror] File too small: ${content.length} bytes`));
+      unavailable = false;
+      continue;
+    }
+
+    if (!validateScriptContent(content)) {
+      console.log(picocolors.red(`[Mirror] ✗ ${candidate.source}: Invalid JavaScript response`));
+      unavailable = false;
+      continue;
+    }
+
+    const digest = createHash('sha256').update(content).digest('hex');
+    const provenance = { source: candidate.source, bytes: content.length, sha256: digest };
+    console.log(picocolors.green(`[Mirror] ✓ asset=${filename} source=${candidate.source} bytes=${content.length} sha256=${digest}`));
+
+    if (existing?.equals(content)) {
+      console.log(picocolors.gray(`[Mirror] ○ Unchanged: ${filename}`));
+      return { status: 'unchanged', provenance };
+    }
+
+    try {
+      await writeFileAtomic(filePath, content);
+    } catch (error) {
+      console.log(picocolors.red(`[Mirror] ✗ ${filename}: ${getErrorMessage(error)}`));
+      unavailable = false;
+      continue;
+    }
+
+    return { status: 'mirrored', provenance };
   }
-  return { status: existing && validateScriptContent(existing) ? 'failed-cached' : 'failed' };
+  return { status: existing && validateScriptContent(existing) ? 'failed-cached' : 'failed', unavailable };
 }
 
 /**
@@ -257,7 +274,8 @@ export async function mirrorScripts(
         result.failed++;
         result.failedScripts.push({
           url: script.originalUrl,
-          error: 'Download failed'
+          error: 'Download failed',
+          unavailable: download.unavailable === true
         });
         if (status === 'failed-cached' && await fileExists(
           path.join(outputDirectory, getMirrorFilename(script))

@@ -26,7 +26,9 @@ export interface PluginSourceIdentity {
 
 export interface PluginConversionResult extends PluginSourceIdentity {
   pluginName: string,
-  content: string | { error: string }
+  content: string | { error: string },
+  /** The error means the plugin could not be fetched (network error or HTTP 5xx). */
+  upstreamUnavailable?: boolean
 }
 
 /**
@@ -68,7 +70,12 @@ export interface ConversionResult extends PluginSourceIdentity {
   /** 提取的脚本列表 */
   scripts: ScriptInfo[],
   /** 错误信息 */
-  error?: string
+  error?: string,
+  /**
+   * 未就绪的原因只是上游暂时不可用：插件或其必需脚本因网络错误或 HTTP 5xx 无法下载。
+   * 转换错误、4xx、内容无效、本地写入失败都不算。
+   */
+  upstreamUnavailable?: boolean
 }
 
 /**
@@ -86,6 +93,8 @@ export interface MirrorResult {
   /** 失败的脚本列表 */
   failedScripts: Array<{
     url: string,
-    error: string
+    error: string,
+    /** Every download candidate failed with a network error or HTTP 5xx. */
+    unavailable: boolean
   }>
 }

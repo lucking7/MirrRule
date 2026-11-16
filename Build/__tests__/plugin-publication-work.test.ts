@@ -158,7 +158,7 @@ test('real conversion entry preserves fallback, deduplicates shared scripts and 
     replaceFile('script-mirror.ts', {
       mirrorScripts: async scripts => {
         mirrored = scripts.map(script => script.originalUrl);
-        return { urlMap: { [shared]: 'https://nrrule.pages.dev/shared.js' }, degradedUrls: [], mirrored: 1, skipped: 0 };
+        return { urlMap: { [shared]: 'https://nrrule.pages.dev/shared.js' }, degradedUrls: [], failedScripts: [], mirrored: 1, skipped: 0 };
       },
       printMirrorSummary: () => {},
     });

@@ -77,7 +77,11 @@ export async function loadDnsPolicyModule(
   try {
     const result = await loadContent(plugin, true);
     if (!result.success || !result.content || result.degraded) {
-      return { ...base, content: { error: `DNS policy download failed: ${result.error ?? 'fresh content unavailable'}` } };
+      return {
+        ...base,
+        content: { error: `DNS policy download failed: ${result.error ?? 'fresh content unavailable'}` },
+        ...(result.unavailable && { upstreamUnavailable: true }),
+      };
     }
     const output = parameterizeDnsSource(result.content);
     const error = validateScriptPreservation(result.content, output);

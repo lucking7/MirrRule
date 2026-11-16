@@ -37,61 +37,71 @@ const SURGE_BUILTIN_POLICIES = new Set([
 /** 模块规则中缺失策略时的默认策略 */
 const DEFAULT_MODULE_POLICY = 'REJECT';
 
-/** URL 正则中的转义逗号、字符类、分组和量词不属于策略分隔符。 */
+/**
+ * 按逗号拆分规则字段。字段开头的双引号包住的内容属于同一字段；未加引号的 URL-REGEX 正则中，
+ * 转义逗号以及字符类、分组和量词里的逗号也不是分隔符。
+ */
 function splitRuleFields(rule: string): string[] {
   const firstComma = rule.indexOf(',');
-  if (firstComma === -1 || rule.slice(0, firstComma).trim().toUpperCase() !== 'URL-REGEX') {
-    return rule.split(',').map(part => part.trim());
-  }
-
+  const isUrlRegex = firstComma !== -1 && rule.slice(0, firstComma).trim().toUpperCase() === 'URL-REGEX';
+  const fields: string[] = [];
+  let start = 0;
+  let quoted = false;
   let escaped = false;
   let inCharacterClass = false;
   let groupDepth = 0;
   let quantifierDepth = 0;
-  for (let i = firstComma + 1; i < rule.length; i++) {
+  for (let i = 0; i < rule.length; i++) {
     const character = rule[i];
     if (escaped) {
       escaped = false;
       continue;
     }
-    if (character === '\\') {
-      escaped = true;
+    if (quoted) {
+      if (character === '\\') escaped = true;
+      else if (character === '"') quoted = false;
       continue;
     }
-    if (inCharacterClass) {
-      if (character === ']') inCharacterClass = false;
+    if (character === '"' && !rule.slice(start, i).trim()) {
+      quoted = true;
       continue;
     }
-    switch (character) {
-      case '[':
-        inCharacterClass = true;
-        break;
-      case '(':
-        groupDepth++;
-        break;
-      case ')':
-        groupDepth = Math.max(0, groupDepth - 1);
-        break;
-      case '{':
-        quantifierDepth++;
-        break;
-      case '}':
-        quantifierDepth = Math.max(0, quantifierDepth - 1);
-        break;
-      case ',':
-        if (groupDepth === 0 && quantifierDepth === 0) {
-          return [
-            rule.slice(0, firstComma).trim(),
-            rule.slice(firstComma + 1, i).trim(),
-            ...rule.slice(i + 1).split(',').map(part => part.trim())
-          ];
-        }
-        break;
-      default:
-        break;
+    if (isUrlRegex && fields.length === 1) {
+      if (character === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (inCharacterClass) {
+        if (character === ']') inCharacterClass = false;
+        continue;
+      }
+      switch (character) {
+        case '[':
+          inCharacterClass = true;
+          break;
+        case '(':
+          groupDepth++;
+          break;
+        case ')':
+          groupDepth = Math.max(0, groupDepth - 1);
+          break;
+        case '{':
+          quantifierDepth++;
+          break;
+        case '}':
+          quantifierDepth = Math.max(0, quantifierDepth - 1);
+          break;
+        default:
+          break;
+      }
+    }
+    if (character === ',' && groupDepth === 0 && quantifierDepth === 0) {
+      fields.push(rule.slice(start, i).trim());
+      start = i + 1;
     }
   }
-  return [rule.slice(0, firstComma).trim(), rule.slice(firstComma + 1).trim()];
+  fields.push(rule.slice(start).trim());
+  return fields;
 }
 
 /**
@@ -197,21 +207,27 @@ export function cleanPolicy(rule: string): string {
   return result.join(',');
 }
 
+/** 源模块参数（如 {{{policy}}}）由用户在 Surge 中填写，原样保留。 */
+const PARAMETER_PATTERN = /{{{[^{}]+}}}/;
+
 /**
  * 为模块输出清理规则策略
  *
  * 与 cleanPolicy 不同，此函数：
- * 1. 保留 Surge 内置策略（REJECT、REJECT-DROP、DIRECT 等）
- * 2. 将自定义策略组替换为 REJECT（模块不应引用外部策略组）
+ * 1. 保留 Surge 内置策略（REJECT、REJECT-DROP、DIRECT 等），规范为大写
+ * 2. 保留含参数的策略（如 {{{policy}}}）
  * 3. 为缺失策略的规则补充默认 REJECT 策略
  * 4. 始终保留允许的参数（no-resolve、pre-matching、extended-matching）
  *
+ * 模块规则只能使用内置策略或用户配置中存在的策略，未知策略会让 Surge 报错。
+ * 因此字面量的非内置策略（PROXY、策略组名）返回 null，由调用方删除该规则并警告。
+ *
  * @param rule - 原始规则字符串
- * @returns 清理后的规则（保留内置策略 + 参数）
+ * @returns 清理后的规则；策略不是内置策略也不是参数时返回 null
  *
  * @example
  * cleanPolicyForModule('DOMAIN-SUFFIX,ad.com,MyProxy')
- * // => 'DOMAIN-SUFFIX,ad.com,REJECT'
+ * // => null
  *
  * @example
  * cleanPolicyForModule('DOMAIN-SUFFIX,ad.com,REJECT-DROP,no-resolve')
@@ -225,7 +241,7 @@ export function cleanPolicy(rule: string): string {
  * cleanPolicyForModule('IP-CIDR,1.2.3.0/24,no-resolve')
  * // => 'IP-CIDR,1.2.3.0/24,REJECT,no-resolve'
  */
-export function cleanPolicyForModule(rule: string): string {
+export function cleanPolicyForModule(rule: string): string | null {
   const trimmed = rule.trim();
 
   // 跳过注释和空行
@@ -248,43 +264,14 @@ export function cleanPolicyForModule(rule: string): string {
     return rule;
   }
 
-  const result = [parts[0], parts[1]];
-  let foundPolicy = false;
-  const params: string[] = [];
-
-  for (let i = 2; i < parts.length; i++) {
-    const part = parts[i];
-    const partLower = part.toLowerCase();
-
-    if (!foundPolicy && SURGE_BUILTIN_POLICIES.has(partLower)) {
-      // 保留 Surge 内置策略，规范大小写
-      result.push(part.toUpperCase());
-      foundPolicy = true;
-    } else if (ALLOWED_PARAMETERS.includes(partLower as any)) {
-      // 收集允许的参数，最后统一追加
-      params.push(part);
-    } else if (!foundPolicy) {
-      // 自定义策略组 → 替换为默认 REJECT
-      result.push(DEFAULT_MODULE_POLICY);
-      foundPolicy = true;
-    }
-    // 其他内容（重复策略、未知参数）直接忽略
-  }
-
-  // 如果没有找到任何策略，补充默认 REJECT
-  if (!foundPolicy) {
-    result.push(DEFAULT_MODULE_POLICY);
-  }
-
-  // 参数追加在策略之后
-  result.push(...params);
-  return result.join(',');
+  const policyAndParams = _modulePolicyFields(parts.slice(2));
+  return policyAndParams && [parts[0], parts[1], ...policyAndParams].join(',');
 }
 
 /**
  * 清理逻辑规则（AND, OR, NOT）的策略，保留内置策略
  */
-function _cleanLogicalRuleForModule(rule: string): string {
+function _cleanLogicalRuleForModule(rule: string): string | null {
   const lastDoubleParen = rule.lastIndexOf('))');
   if (lastDoubleParen === -1) {
     return rule;
@@ -298,30 +285,29 @@ function _cleanLogicalRuleForModule(rule: string): string {
     return `${logicalPart},${DEFAULT_MODULE_POLICY}`;
   }
 
-  const remaining = afterParens.slice(1).trim();
-  const remainingParts = remaining.split(',').map(p => p.trim());
+  const policyAndParams = _modulePolicyFields(afterParens.slice(1).split(',').map(p => p.trim()));
+  return policyAndParams && `${logicalPart},${policyAndParams.join(',')}`;
+}
 
-  let foundPolicy = false;
-  const kept: string[] = [];
+/** 返回策略和允许的参数；第一个非参数字段是未知字面量策略时返回 null。 */
+function _modulePolicyFields(fields: string[]): string[] | null {
+  let policy: string | undefined;
   const params: string[] = [];
 
-  for (const part of remainingParts) {
+  for (const part of fields) {
     const partLower = part.toLowerCase();
-    if (!foundPolicy && SURGE_BUILTIN_POLICIES.has(partLower)) {
-      kept.push(part.toUpperCase());
-      foundPolicy = true;
-    } else if (ALLOWED_PARAMETERS.includes(partLower as any)) {
+    if (ALLOWED_PARAMETERS.includes(partLower as any)) {
       params.push(part);
-    } else if (!foundPolicy) {
-      kept.push(DEFAULT_MODULE_POLICY);
-      foundPolicy = true;
+    } else if (!part || policy !== undefined) {
+      // 空字段、重复策略、未知参数直接忽略
+    } else if (SURGE_BUILTIN_POLICIES.has(partLower)) {
+      policy = part.toUpperCase();
+    } else if (PARAMETER_PATTERN.test(part)) {
+      policy = part;
+    } else {
+      return null;
     }
   }
 
-  if (!foundPolicy) {
-    kept.push(DEFAULT_MODULE_POLICY);
-  }
-
-  kept.push(...params);
-  return `${logicalPart},${kept.join(',')}`;
+  return [policy ?? DEFAULT_MODULE_POLICY, ...params];
 }

@@ -318,7 +318,7 @@ iRingo `.sgmodule` 有后处理逻辑，会替换 `#!arguments=` 中的 `Proxy` 
 
 CI 中会启动固定 digest 的 `xream/script-hub` image 用于插件转换。
 
-插件上游不可用时（目录下载失败，或全部未就绪插件都是下载失败），`convert-plugins` 退出码为 3，workflow 不重试，发出 `::warning::`，跳过模块合并，从发布任务中去掉 `convert-plugins` 与 `merge-modules`，`Modules`、`Scripts` 沿用已验收版本，规则照常发布；代价是模块可能变旧。其他转换失败仍让 run 失败。
+插件上游不可用时，`convert-plugins` 退出码为 3。只有两种情况算上游不可用：插件目录下载失败；或每个缺失、未就绪的必需模块，都是因为它的插件或某个必需脚本因网络错误、HTTP 5xx，或与客户端有关的拒绝（401、403、408、429，例如上游的反爬拦截）下载失败；404、410 等表示文件被删除或改名，算真实故障。原因记录在结果的 `upstreamUnavailable` 字段（分类逻辑在 `Build/integration/plugin-converter/upstream-failure.ts` 与 `readiness.ts`），不按错误文本匹配。插件下载失败时还没有输出文件名，这类缺失模块只能按数量对应到无输出路径的下载失败，所以无输出路径的失败里只要有一个不是上游原因，就退出 1。合并 dry-run 出错、模块因改名缺失、Script-Hub 转换错误、必需脚本 404 都退出 1。退出码 3 时 workflow 不重试，发出 `::warning::`，跳过模块合并，从发布任务中去掉 `convert-plugins` 与 `merge-modules`，`Modules`、`Scripts` 沿用已验收版本，规则照常发布；代价是模块可能变旧。其他失败仍让 run 失败。
 
 模块脚本依赖：构建 job 每次运行 `Build/audit-module-dependencies.ts`（逻辑在 `Build/lib/module-dependency-audit.ts`），检查 `Mirror/`、`Modules/` 中 Surge 模块 `[Script]` 段生效行的 `script-path`。外部脚本返回 HTTP 404/410、或 NRRule 托管脚本不在 tree 中算一次缺失；网络错误、5xx、限流不计。计数保存在 `Internal/module-dependency-audit.json`，从 `PUBLICATION_BASELINE_DIR` 的已验收报告延续；连续 3 次缺失后，只在本轮刷新的目录（任务含 `mirror-sync` 则 `Mirror`，含 `convert-plugins` 或 `merge-modules` 则 `Modules`）中删除加载该脚本的行，并发出 `::warning::`。`Mirror/` 模块的脚本行全部被删时删除整个文件（该目录由 worker 门控，删后返回 404）；`Modules/` 文件只删行不删文件（合并配置要求这些模块存在，且该目录不受 worker 门控）。未刷新的目录在发布时从已验收 tree 复制，因此只计数不修改；被删过的脚本继续跟踪，上游刷新后再次出现会立即被删，恢复为 2xx 后计数清零、不再删除。
 
@@ -328,7 +328,7 @@ CI 中会启动固定 digest 的 `xream/script-hub` image 用于插件转换。
 
 ### 退休登记
 
-`Build/lib/artifact-lifecycle.ts` 是 deprecated／retired 订阅的唯一登记，发布为 `Internal/artifact-lifecycle.json`。每条记录有稳定 id、原公开路径（或以 `/` 结尾的目录前缀 `pathPrefixes`，其下所有文件都视为退休）、原因、依据和可选 replacement。精确路径不能落在其他记录的前缀内。缓存恢复（`restore-optional-artifacts.ts`、`download-previous-build.ts`）、`build-public`、`prepare-publication` 与回滚候选都调用同一登记，retired 文件不能从历史产物、缓存或保留目录复活。退休 ruleset 登记同时覆盖合并版和 `non_ip`、`ip` 分版，旧 `domainset/` 路径由 `variant:domainset` 前缀记录覆盖。清理只作用于已登记的公开路径，拒绝绝对路径和路径穿越；共享 Scripts 需有引用或独占证据才能删除。不要凭一次上游空响应新增退休记录。当前 retired：腾讯视频去广告模块、`wechat_no_ua` 四平台规则（2026-11-15，replacement 为 `wechat`）、`container`／`discord`／`scholar` 四平台规则、`sing-box/china_asn.json`（replacement 为 `sing-box/china_ip.json` 与 `china_ip_ipv6.json`，IP 覆盖不等同于 ASN）、四平台 `domainset/` 目录（2026-10-17 并入 `non_ip`，旧文件仍在 Cloudflare 边缘缓存中返回 200，必须由 worker 返回 404）、`streaming_cn`／`streaming_!cn` 四平台规则（2026-11-10，唯一上游 ConnersHua/RuleGo 已停止维护；`streaming_!cn` 的替代为 Sukka `stream`）、iRingo 地图／TestFlight／Siri／Search／Spotlight 镜像（2026-11-16，证书固定导致失效）。`ads` 同日去掉 RuleGo 的广告、恶意、跟踪三个来源，只剩 AWAvenue。
+`Build/lib/artifact-lifecycle.ts` 是 deprecated／retired 订阅的唯一登记，发布为 `Internal/artifact-lifecycle.json`。每条记录有稳定 id、原公开路径（或以 `/` 结尾的目录前缀 `pathPrefixes`，其下所有文件都视为退休）、原因、依据和可选 replacement。精确路径不能落在其他记录的前缀内。缓存恢复（`restore-optional-artifacts.ts`、`download-previous-build.ts`）、`build-public`、`prepare-publication` 与回滚候选都调用同一登记，retired 文件不能从历史产物、缓存或保留目录复活。退休 ruleset 登记同时覆盖合并版和 `non_ip`、`ip` 分版，旧 `domainset/` 路径由 `variant:domainset` 前缀记录覆盖。清理只作用于已登记的公开路径，拒绝绝对路径和路径穿越；共享 Scripts 需有引用或独占证据才能删除。不要凭一次上游空响应新增退休记录。当前 retired：腾讯视频去广告模块、`Modules/Rules/reject-pro.list`（2026-11-16，去掉策略的合并模块 [Rule] 副本，把 DIRECT 例外混进了拦截列表；replacement 为 `Modules/Merged/All-in-One-Pro.sgmodule`，不在 worker 门控目录内，因此占一条精确路由）、`wechat_no_ua` 四平台规则（2026-11-15，replacement 为 `wechat`）、`container`／`discord`／`scholar` 四平台规则、`sing-box/china_asn.json`（replacement 为 `sing-box/china_ip.json` 与 `china_ip_ipv6.json`，IP 覆盖不等同于 ASN）、四平台 `domainset/` 目录（2026-10-17 并入 `non_ip`，旧文件仍在 Cloudflare 边缘缓存中返回 200，必须由 worker 返回 404）、`streaming_cn`／`streaming_!cn` 四平台规则（2026-11-10，唯一上游 ConnersHua/RuleGo 已停止维护；`streaming_!cn` 的替代为 Sukka `stream`）、iRingo 地图／TestFlight／Siri／Search／Spotlight 镜像（2026-11-16，证书固定导致失效）。`ads` 同日去掉 RuleGo 的广告、恶意、跟踪三个来源，只剩 AWAvenue。
 
 ### 模块合并
 
@@ -348,6 +348,14 @@ pnpm run node ./Build/merge-modules.ts --disable a,b
 ```
 
 默认配置路径在 `Build/merge-modules.ts` 中为 `Build/lib/module-merger/configs/pro-merge-config.yaml`。修改该区域前请确认配置文件是否存在且被纳入仓库。
+
+合并只输出一个文件 `Modules/Merged/All-in-One-Pro.sgmodule`，原子写入；它的 `[Rule]` 段是唯一的规则输出，不再生成去掉策略的规则列表，配置中出现 `output.rulelist` 会报错。
+
+- 每个模块必须有唯一的 `id`（字母开头，只含字母、数字和下划线，因为 Surge 参数名只能用这些字符），也是 `--only`／`--enable`／`--disable` 的取值。
+- 整模块开关：每个模块一个参数 `<id>`，默认留空（启用）；填 `#` 时注释该模块在 `[Rule]`、`[URL Rewrite]`、`[Header Rewrite]`、`[Body Rewrite]`、`[Map Local]`、`[Script]` 中的每条生效行。脚本开关 `<id>_script` 只给原来就有脚本开关的模块（有 `[Script]` 段且未设 `scriptToggle: false`），默认值来自 `scriptDefaultOn`；脚本行前缀为 `{{{<id>}}}{{{<id>_script}}}`，任一为 `#` 时脚本行被注释。开关名不能与另一模块的 `<id>_script` 或命名空间化的源参数重名。`#!arguments-desc` 先说明一次用法，再列出 `id: 中文模块名`。
+- MITM 主机名是所有模块去重后的并集，始终生效，不随模块开关变化。不要尝试按模块切换 MITM：Surge 只能用 `-host` 排除主机名，而同一主机名可能被其他模块共用，排除后会破坏仍在启用的模块。
+- 规则只在同一模块内按匹配条件去重。跨模块去重会让模块之间相互依赖：后一模块的副本因前一模块已有而被删除，关闭前一模块时这条规则就丢了。
+- 规则策略：内置策略（DIRECT、REJECT 系列）规范为大写保留；含参数的策略（如命名空间化后的 `{{{m_<hash>_policy}}}`）原样保留；缺少策略时补 REJECT；字面量的非内置策略（如 `PROXY`、策略组名）会让 Surge 报错，因此删除该规则并输出 `::warning::<模块名>: ...`。字段拆分识别双引号，引号内的逗号属于同一字段。
 
 ## 10. GitHub Actions / CI 行为
 

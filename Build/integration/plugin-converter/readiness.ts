@@ -5,6 +5,7 @@ import process from 'node:process';
 import { loadMergeConfig } from '../../lib/module-merger/config-loader';
 import { mergeModules, selectModuleSources } from '../../lib/module-merger';
 import { resolveLocalModuleCandidates } from '../../lib/module-merger/module-loader';
+import { getErrorMessage } from '../../lib/misc';
 import type { ConversionResult } from './types';
 
 interface ExistingCandidate {
@@ -35,10 +36,19 @@ export class PluginCatalogUnavailableError extends Error {
   override name = 'PluginCatalogUnavailableError';
 }
 
-/** True when every plugin that is not ready failed to download, so the converter itself is not at fault. */
-export function isUpstreamOutage(results: readonly ConversionResult[]): boolean {
-  const failed = results.filter(result => result.status !== 'ready');
-  return failed.length > 0 && failed.every(result => /download failed/i.test(result.error ?? ''));
+/**
+ * A required module is missing or not ready. `upstreamUnavailable` is true only when every such
+ * module failed because its plugin or a required script could not be downloaded (network error or
+ * HTTP 5xx); convert-plugins then exits with UPSTREAM_UNAVAILABLE_EXIT_CODE instead of 1.
+ */
+export class RequiredPluginOutputError extends Error {
+  override name = 'RequiredPluginOutputError';
+  readonly upstreamUnavailable: boolean;
+
+  constructor(message: string, options: ErrorOptions & { upstreamUnavailable: boolean }) {
+    super(message, options);
+    this.upstreamUnavailable = options.upstreamUnavailable;
+  }
 }
 
 export async function verifyRequiredPluginOutputs(
@@ -49,41 +59,70 @@ export async function verifyRequiredPluginOutputs(
   const selected = selectModuleSources(config.modules, {});
   if (!selected.length) throw new Error('Required plugin selection is empty');
 
-  await Promise.all(
-    selected.map(async (source) => {
+  // `unmatched`: no current result names this output. A plugin that failed before conversion has
+  // no output path, so such modules can only be matched to download failures by count.
+  const checks = await Promise.all(
+    selected.map(async (source): Promise<{ problem: string, cause: 'upstream' | 'unmatched' | 'other' } | undefined> => {
       if (
         source.url.startsWith('http://') ||
         source.url.startsWith('https://')
       ) {
-        throw new Error(`Required module ${source.header} uses a remote source`);
+        return { problem: `Required module ${source.header} uses a remote source`, cause: 'other' };
       }
 
       const candidates = resolveLocalModuleCandidates(source.url, [
         baseDir,
         process.cwd(),
-      ]);
+      ]).map(candidate => path.resolve(candidate));
       const actual = await firstExistingCandidate(candidates);
-      if (!actual) {
-        throw new Error(`Required plugin output is missing: ${source.header}`);
-      }
-      if (!actual.content.trim()) {
-        throw new Error(`Required plugin output is empty: ${source.header}`);
+      if (actual && !actual.content.trim()) {
+        return { problem: `Required plugin output is empty: ${source.header}`, cause: 'other' };
       }
 
-      const normalizedPath = path.resolve(actual.path);
+      const expectedPaths = actual ? [path.resolve(actual.path)] : candidates;
       const matching = results.filter(
         (result) =>
-          result.outputPath && path.resolve(result.outputPath) === normalizedPath,
+          result.outputPath && expectedPaths.includes(path.resolve(result.outputPath)),
       );
-      if (
-        !matching.length ||
-        matching.some((result) => result.status !== 'ready')
-      ) {
-        throw new Error(`Required plugin output is not ready: ${source.header}`);
+      const notReady = matching.filter((result) => result.status !== 'ready');
+      if (actual && matching.length && !notReady.length) return undefined;
+
+      if (!matching.length) {
+        return {
+          problem: actual
+            ? `Required plugin output is not ready: ${source.header} (no current conversion result)`
+            : `Required plugin output is missing: ${source.header}`,
+          cause: 'unmatched',
+        };
       }
+      if (!notReady.length) {
+        return { problem: `Required plugin output is missing: ${source.header} (current result is ready)`, cause: 'other' };
+      }
+      return {
+        problem: `Required plugin output is not ready: ${source.header} (${notReady.map((result) => result.error ?? result.status).join('; ')})`,
+        cause: notReady.every((result) => result.upstreamUnavailable) ? 'upstream' : 'other',
+      };
     }),
   );
 
-  await mergeModules(configPath, { dryRun: true });
+  const problems = checks.filter((check) => check !== undefined);
+  if (problems.length) {
+    const unmatched = problems.filter((check) => check.cause === 'unmatched').length;
+    const withoutOutput = results.filter((result) => result.status !== 'ready' && !result.outputPath);
+    const upstreamUnavailable = problems.every((check) => check.cause !== 'other') && (
+      unmatched === 0
+      || (withoutOutput.length >= unmatched && withoutOutput.every((result) => result.upstreamUnavailable))
+    );
+    throw new RequiredPluginOutputError(problems.map((check) => check.problem).sort().join('; '), { upstreamUnavailable });
+  }
+
+  try {
+    await mergeModules(configPath, { dryRun: true });
+  } catch (error) {
+    throw new RequiredPluginOutputError(`Merge dry-run failed: ${getErrorMessage(error)}`, {
+      upstreamUnavailable: false,
+      cause: error,
+    });
+  }
   return selected.length;
 }

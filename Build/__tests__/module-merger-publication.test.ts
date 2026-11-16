@@ -1,14 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { createHash } from 'node:crypto';
 import { describe, it } from 'node:test';
 import { mergeModules } from '../lib/module-merger';
 import { prepareModuleContent } from '../lib/module-merger/module-content';
-import { writeModuleOutputs } from '../lib/module-merger/output-writer';
 import { TemplateEngine } from '../lib/module-merger/template-engine';
 
 const templatePath = path.resolve(__dirname, '../lib/module-merger/templates/all-in-one.template');
@@ -17,13 +16,12 @@ function fixture(directory: string, contents: Array<string | null>) {
   const modules = contents.map((content, index) => {
     const url = path.join(directory, `module-${index}.sgmodule`);
     if (content !== null) fs.writeFileSync(url, content);
-    return { url, header: `Module ${index}`, scriptDefaultOn: true };
+    return { url, header: `Module ${index}`, id: `mod${index}`, scriptDefaultOn: true };
   });
   const config = {
     name: 'Test', version: '1', description: 'Test', category: 'Test', author: 'Test', modules,
     output: {
       sgmodule: path.join(directory, 'merged/output.sgmodule'),
-      rulelist: path.join(directory, 'rules/output.list'),
       template: templatePath,
     },
   };
@@ -38,21 +36,19 @@ function source(header: string, content: string) {
 
 describe('module merger publication contracts', () => {
   for (const contents of [[null], ['[Rule]\nDOMAIN,ads.example,REJECT', null]]) {
-    it(`fails the CLI and preserves both old files when ${contents.length === 1 ? 'all' : 'some'} inputs are missing`, t => {
+    it(`fails the CLI and preserves the old output when ${contents.length === 1 ? 'all' : 'some'} inputs are missing`, t => {
       const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-merge-failure-'));
       t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
       const { config, configPath } = fixture(directory, contents);
-      for (const destination of [config.output.sgmodule, config.output.rulelist]) {
-        fs.mkdirSync(path.dirname(destination), { recursive: true });
-        fs.writeFileSync(destination, 'previous');
-      }
+      fs.mkdirSync(path.dirname(config.output.sgmodule), { recursive: true });
+      fs.writeFileSync(config.output.sgmodule, 'previous');
       const result = spawnSync(process.execPath, [
         '-r', '@swc-node/register', path.resolve(__dirname, '../merge-modules.ts'), '--config', configPath,
       ], { cwd: path.resolve(__dirname, '../..'), encoding: 'utf8', env: { ...process.env, SWC_NODE_IGNORE_DYNAMIC: 'true' } });
       assert.equal(result.status, 1, result.stderr);
       assert.match(result.stderr, /模块加载失败/);
       assert.equal(fs.readFileSync(config.output.sgmodule, 'utf8'), 'previous');
-      assert.equal(fs.readFileSync(config.output.rulelist, 'utf8'), 'previous');
+      assert.deepEqual(fs.readdirSync(path.dirname(config.output.sgmodule)), ['output.sgmodule']);
     });
   }
 
@@ -61,12 +57,12 @@ describe('module merger publication contracts', () => {
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
     const { configPath, config } = fixture(directory, ['<html>Service unavailable</html>']);
     await assert.rejects(mergeModules(configPath, { only: ['typo'], dryRun: true }), /未知模块/);
-    await assert.rejects(mergeModules(configPath, { disable: ['Module 0'] }), /没有选中/);
+    await assert.rejects(mergeModules(configPath, { disable: ['mod0'] }), /没有选中/);
     await assert.rejects(mergeModules(configPath, { dryRun: true }), /没有可合并/);
     assert.equal(fs.existsSync(config.output.sgmodule), false);
   });
 
-  it('creates separate output directories and preserves source defaults and unique script names', async t => {
+  it('creates the output directory and preserves source defaults and unique script names', async t => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-merge-output-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
     const { configPath, config } = fixture(directory, [
@@ -76,14 +72,13 @@ describe('module merger publication contracts', () => {
     const result = await mergeModules(configPath);
     assert.equal(result.stats.modulesProcessed, 2);
     assert.equal(fs.readFileSync(config.output.sgmodule, 'utf8'), result.sgmodule);
-    assert.equal(fs.readFileSync(config.output.rulelist, 'utf8'), result.rulelist);
     assert.match(result.sgmodule, /m_[\da-f]+_debug:false/);
     assert.match(result.sgmodule, /m_[\da-f]+_debug:true/);
     assert.match(result.sgmodule, /m_[\da-f]+_captionLang:"zh-Hans,en"/);
     assert.match(result.sgmodule, /m_[\da-f]+_debug: Debug mode/);
-    assert.match(result.sgmodule, /{{{Module 0}}}{{{m_[\da-f]+_enable}}}m_/);
-    assert.match(result.sgmodule, /#!arguments = Module 0:,Module 1:,/);
-    const withDefaults = result.sgmodule.replaceAll(/{{{Module [01]}}}/g, '').replaceAll(/{{{m_[\da-f]+_enable}}}/g, '#');
+    assert.match(result.sgmodule, /{{{mod0}}}{{{mod0_script}}}{{{m_[\da-f]+_enable}}}m_/);
+    assert.match(result.sgmodule, /#!arguments = mod0:,mod1:,mod0_script:,mod1_script:,/);
+    const withDefaults = result.sgmodule.replaceAll(/{{{mod[01](?:_script)?}}}/g, '').replaceAll(/{{{m_[\da-f]+_enable}}}/g, '#');
     assert.match(withDefaults, /^#m_[\da-f]+_1_rewrite = type=/m);
     const scripts = Array.from(result.sgmodule.matchAll(/^(.*?) = type=/gm), match => match[1].replaceAll(/{{{[^{}]+}}}/g, '1'));
     assert.equal(scripts.length, 3);
@@ -93,22 +88,40 @@ describe('module merger publication contracts', () => {
       assert.ok(declared.has(match[1]), `Undefined parameter ${match[1]}`);
     }
     assert.deepEqual(fs.readdirSync(path.dirname(config.output.sgmodule)), ['output.sgmodule']);
-    assert.deepEqual(fs.readdirSync(path.dirname(config.output.rulelist)), ['output.list']);
     const dryRun = await mergeModules(configPath, { dryRun: true });
     assert.equal(dryRun.sgmodule, result.sgmodule);
   });
 
-  it('rejects duplicate module identities and identical output paths', async t => {
+  it('rejects duplicate, missing or non-ASCII ids, script switch collisions and a leftover rule list output', async t => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-merge-config-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-    const { configPath, config } = fixture(directory, ['[Rule]\nDOMAIN,a.example,REJECT']);
-    config.modules.push(config.modules[0]);
+    const { configPath, config } = fixture(directory, ['[Rule]\nDOMAIN,a.example,REJECT', '[Rule]\nDOMAIN,b.example,REJECT']);
+    const attempt = async (mutate: (modules: Array<Record<string, unknown>>) => void, pattern: RegExp) => {
+      const copy = structuredClone(config);
+      mutate(copy.modules);
+      fs.writeFileSync(configPath, JSON.stringify(copy));
+      await assert.rejects(mergeModules(configPath, { dryRun: true }), pattern);
+    };
+    await attempt(modules => { modules[1].header = modules[0].header; }, /必须唯一/);
+    await attempt(modules => { modules[1].id = modules[0].id; }, /必须唯一/);
+    await attempt(modules => { delete modules[0].id; }, /id 必须以字母开头/);
+    for (const id of ['高德', '1abc', '_x', 'a-b', 'a b', '']) {
+      await attempt(modules => { modules[0].id = id; }, /id 必须以字母开头/);
+    }
+    await attempt(modules => { modules[1].id = `${String(modules[0].id)}_script`; }, /脚本开关同名/);
+
+    fs.writeFileSync(configPath, JSON.stringify({ ...config, output: { ...config.output, rulelist: path.join(directory, 'rules.list') } }));
+    await assert.rejects(mergeModules(configPath, { dryRun: true }), /output\.rulelist 已停用/);
+  });
+
+  it('rejects a module switch that collides with a namespaced source argument', async t => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-merge-collision-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const { configPath, config } = fixture(directory, ['#!arguments=debug:false\n[Rule]\nDOMAIN,a.example,REJECT', '[Rule]\nDOMAIN,b.example,REJECT']);
+    const namespace = `m_${createHash('sha256').update('Module 0').digest('hex').slice(0, 16)}`;
+    config.modules[1].id = `${namespace}_debug`;
     fs.writeFileSync(configPath, JSON.stringify(config));
-    await assert.rejects(mergeModules(configPath), /必须唯一/);
-    config.modules.pop();
-    config.output.rulelist = config.output.sgmodule;
-    fs.writeFileSync(configPath, JSON.stringify(config));
-    await assert.rejects(mergeModules(configPath), /必须是不同文件/);
+    await assert.rejects(mergeModules(configPath, { dryRun: true }), /模块开关与源参数名称冲突/);
   });
 });
 
@@ -149,39 +162,4 @@ DOMAIN,a.example,REJECT`), true);
     assert.equal(TemplateEngine.render('{{{sections_body}}} {{name}}', { sections_body: body, name: 'Title' }), `${body} Title`);
     assert.equal(TemplateEngine.render('{{a.b}} {{axb}}', { 'a.b': '$&' }), '$& {{axb}}');
   });
-});
-
-describe('module output publication', () => {
-  it('preserves earlier files when preparing the second output fails', async t => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-merge-stage-'));
-    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-    const first = path.join(directory, 'first');
-    const blocked = path.join(directory, 'blocked');
-    fs.writeFileSync(first, 'old');
-    fs.writeFileSync(blocked, 'not a directory');
-    await assert.rejects(writeModuleOutputs([{ path: first, content: 'new' }, { path: `${blocked}/second`, content: 'new' }]));
-    assert.equal(fs.readFileSync(first, 'utf8'), 'old');
-    assert.deepEqual(fs.readdirSync(directory).sort(), ['blocked', 'first']);
-  });
-
-  for (const existed of [true, false]) {
-    it(`rolls back the first replacement when the second rename fails (existing=${existed})`, async t => {
-      const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-merge-rollback-'));
-      t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-      const first = path.join(directory, 'first');
-      const second = path.join(directory, 'second');
-      if (existed) fs.writeFileSync(first, 'old first');
-      fs.writeFileSync(second, 'old second');
-      const rename = fsp.rename.bind(fsp);
-      t.mock.method(fsp, 'rename', async (from: string, to: string) => {
-        if (to === second && from.endsWith('.tmp')) throw new Error('simulated rename failure');
-        await rename(from, to);
-      });
-      await assert.rejects(writeModuleOutputs([{ path: first, content: 'new' }, { path: second, content: 'new' }]), /simulated/);
-      if (existed) assert.equal(fs.readFileSync(first, 'utf8'), 'old first');
-      else assert.equal(fs.existsSync(first), false);
-      assert.equal(fs.readFileSync(second, 'utf8'), 'old second');
-      assert.deepEqual(fs.readdirSync(directory).sort(), existed ? ['first', 'second'] : ['second']);
-    });
-  }
 });

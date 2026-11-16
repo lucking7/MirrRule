@@ -39,13 +39,16 @@ export interface MergeConfigFile extends Omit<MergeConfig, 'modules' | 'output' 
 export interface ModuleSource {
   /** 模块的 URL 地址 */
   url: string,
-  /** 模块的显示名称(用于分隔符) */
+  /** 模块的显示名称(用于分隔符和参数说明) */
   header: string,
-  /** 可选的模块唯一键（用于命令行筛选和参数命名） */
-  key?: string,
+  /**
+   * 模块唯一 id：整模块开关参数名、脚本开关 <id>_script 的前缀，也是命令行 --only/--enable/--disable 的取值。
+   * Surge 参数名只能用字母、数字和下划线，因此必须以字母开头且只含这些字符。
+   */
+  id: string,
   /** 是否默认启用此模块（未指定时默认为 true） */
   enabledByDefault?: boolean,
-  /** 是否为该模块生成脚本开关参数（未指定时默认为 true） */
+  /** 是否为该模块生成 <id>_script 脚本开关参数（未指定时默认为 true） */
   scriptToggle?: boolean,
   /** 脚本开关参数是否默认开启（未指定时默认为 false，即默认关闭） */
   scriptDefaultOn?: boolean
@@ -57,8 +60,6 @@ export interface ModuleSource {
 export interface OutputConfig {
   /** 合并后的 .sgmodule 文件路径 */
   sgmodule: string,
-  /** 提取的规则列表文件路径 */
-  rulelist: string,
   /** 模板文件路径 */
   template: string
 }
@@ -130,8 +131,6 @@ export interface ModuleLoadError {
 export interface MergeResult {
   /** 合并后的 sgmodule 内容 */
   sgmodule: string,
-  /** 提取的规则列表内容 */
-  rulelist: string,
   /** 统计信息 */
   stats: MergeStats,
 }
@@ -146,8 +145,10 @@ interface MergeStats {
   sectionsExtracted: number,
   /** 去重的 hostname 数量 */
   hostnamesDeduplicated: number,
-  /** 因匹配条件与前面规则相同而删除的规则数量 */
-  rulesDeduplicated: number
+  /** 因匹配条件与同一模块前面规则相同而删除的规则数量 */
+  rulesDeduplicated: number,
+  /** 因策略不是内置策略也不是参数而删除的规则数量 */
+  rulesDroppedForPolicy: number
 }
 
 /**

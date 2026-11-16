@@ -18,6 +18,8 @@ export interface LoadedMergeConfig {
   baseDir: string
 }
 
+const MODULE_ID_PATTERN = /^[a-z]\w*$/i;
+
 const DEFAULT_MERGE_OPTIONS: MergeOptions = {
   deduplicateHostnames: true,
   stripComments: true,
@@ -46,12 +48,8 @@ export async function loadMergeConfig(configPath: string): Promise<LoadedMergeCo
 
   const normalizedOutput: OutputConfig = {
     sgmodule: resolveRelative(parsed.output.sgmodule, baseDir),
-    rulelist: resolveRelative(parsed.output.rulelist, baseDir),
     template: resolveRelative(parsed.output.template, baseDir)
   };
-  if (normalizedOutput.sgmodule === normalizedOutput.rulelist) {
-    throw new Error('output.sgmodule 和 output.rulelist 必须是不同文件');
-  }
 
   const config: MergeConfig = {
     ...parsed,
@@ -92,8 +90,11 @@ function validateBasicFields(config: MergeConfigFile): asserts config is Validat
   }
 
   const output = config.output;
-  if (!output?.sgmodule || !output.rulelist || !output.template) {
-    throw new Error('output.sgmodule、output.rulelist、output.template 不能为空');
+  if (!output?.sgmodule || !output.template) {
+    throw new Error('output.sgmodule、output.template 不能为空');
+  }
+  if ('rulelist' in output) {
+    throw new Error('output.rulelist 已停用：合并模块的 [Rule] 段是唯一的规则输出');
   }
 
   const invalidSource = modules.find(source => !source.url || !source.header);
@@ -102,17 +103,25 @@ function validateBasicFields(config: MergeConfigFile): asserts config is Validat
   }
 
   const headers = new Set<string>();
-  const keys = new Set<string>();
+  const ids = new Set<string>();
   for (const source of modules) {
     const header = source.header.trim();
-    const key = (source.key ?? source.header).trim();
-    if (!header || !key || /[\n\r,:{}]/.test(header)) {
-      throw new Error(`模块名称或 key 无效: ${source.header}`);
+    if (!header || /[\n\r,:{}]/.test(header)) {
+      throw new Error(`模块名称无效: ${source.header}`);
     }
-    if (headers.has(header) || keys.has(key)) {
-      throw new Error(`模块 header 和 key 必须唯一: ${source.header}`);
+    // id 直接用作 Surge 参数名，参数名只能用字母、数字和下划线。
+    if (typeof source.id !== 'string' || !MODULE_ID_PATTERN.test(source.id)) {
+      throw new Error(`模块 ${source.header} 的 id 必须以字母开头，只含字母、数字和下划线: ${source.id}`);
+    }
+    if (headers.has(header) || ids.has(source.id)) {
+      throw new Error(`模块 header 和 id 必须唯一: ${source.header}`);
     }
     headers.add(header);
-    keys.add(key);
+    ids.add(source.id);
+  }
+  // 脚本开关名为 <id>_script，不能与另一个模块的整模块开关同名。
+  const collision = [...ids].find(id => ids.has(`${id}_script`));
+  if (collision) {
+    throw new Error(`模块 id ${collision}_script 与模块 ${collision} 的脚本开关同名`);
   }
 }

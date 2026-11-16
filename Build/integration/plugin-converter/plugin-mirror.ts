@@ -13,6 +13,7 @@ import { getErrorMessage } from '../../lib/misc';
 import { writeFileAtomic } from '../../lib/atomic-file';
 import { identifyPluginSource } from './plugin-identity';
 import { validateScriptPreservation } from './script-extractor';
+import { isUnavailableFailure, isUnavailableStatus } from './upstream-failure';
 
 /**
  * 镜像目录（放在 .cache 目录下，不部署到生产环境）
@@ -55,6 +56,8 @@ export interface PluginContentResult {
   success: boolean,
   content?: string,
   error?: string,
+  /** The refresh failed because the source could not be fetched (network error or HTTP 5xx). */
+  unavailable?: boolean,
   fromCache?: boolean,
   degraded?: boolean
 }
@@ -79,6 +82,7 @@ async function mirrorPlugin(
 ): Promise<PluginContentResult> {
   console.log(picocolors.gray(`  [Mirror] Downloading ${plugin.name}...`));
 
+  let content: string;
   try {
     // 下载插件内容（必要时通过代理）
     const url = applyProxyIfNeeded(plugin.url);
@@ -94,27 +98,32 @@ async function mirrorPlugin(
     if (!response.ok) {
       const error = `HTTP ${response.status}: ${response.statusText}`;
       console.log(picocolors.red(`  [Mirror] ✗ ${plugin.name}: ${error}`));
-      return { success: false, error };
+      return { success: false, error, ...(isUnavailableStatus(response.status) && { unavailable: true }) };
     }
 
-    const content = await response.text();
+    content = await response.text();
+  } catch (error) {
+    const errorMsg = getErrorMessage(error);
+    console.log(picocolors.red(`  [Mirror] ✗ ${plugin.name}: ${errorMsg}`));
+    return { success: false, error: errorMsg, ...(isUnavailableFailure(error) && { unavailable: true }) };
+  }
 
-    const validationError = validatePluginContent(content, plugin.useNativeSurge);
-    if (validationError) {
-      console.log(picocolors.red(`  [Mirror] ✗ ${plugin.name}: ${validationError}`));
-      return { success: false, error: validationError };
-    }
+  const validationError = validatePluginContent(content, plugin.useNativeSurge);
+  if (validationError) {
+    console.log(picocolors.red(`  [Mirror] ✗ ${plugin.name}: ${validationError}`));
+    return { success: false, error: validationError };
+  }
 
-    const mirrorPath = getPluginMirrorPath(plugin, options.mirrorDirectory);
-    await writeFileAtomic(mirrorPath, content);
-
-    console.log(picocolors.green(`  [Mirror] ✓ ${plugin.name} mirrored successfully`));
-    return { success: true, content };
+  try {
+    await writeFileAtomic(getPluginMirrorPath(plugin, options.mirrorDirectory), content);
   } catch (error) {
     const errorMsg = getErrorMessage(error);
     console.log(picocolors.red(`  [Mirror] ✗ ${plugin.name}: ${errorMsg}`));
     return { success: false, error: errorMsg };
   }
+
+  console.log(picocolors.green(`  [Mirror] ✓ ${plugin.name} mirrored successfully`));
+  return { success: true, content };
 }
 
 /**
@@ -155,6 +164,7 @@ export async function getPluginContent(
     success: true,
     content: cachedContent,
     error: refreshed.error,
+    ...(refreshed.unavailable && { unavailable: true }),
     fromCache: true,
     degraded: true,
   };

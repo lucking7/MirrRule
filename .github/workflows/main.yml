@@ -431,7 +431,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Setup module output directories
-        run: mkdir -p public/Modules/Converted public/Modules/Merged public/Modules/Rules public/Scripts
+        run: mkdir -p public/Modules/Converted public/Modules/Merged public/Scripts
 
       - name: Check out accepted baseline tree
         if: needs.baseline.outputs.available == 'true'
@@ -493,7 +493,6 @@ jobs:
 
       - name: Merge modules
         run: |
-          mkdir -p public/Modules/Rules
           pnpm run node ./Build/merge-modules.ts --config Build/lib/module-merger/configs/pro-merge-config.yaml
         env:
           CI: true
@@ -715,7 +714,7 @@ jobs:
             fi
           fi
           # 确保新目录结构存在
-          mkdir -p public/Modules/Converted public/Modules/Merged public/Modules/Rules
+          mkdir -p public/Modules/Converted public/Modules/Merged
 
       # 🔧 步骤 4.5: 未在本次刷新的 Mirror/Modules/Scripts 取自已验收基线，而非 NRRule HEAD
       - name: Check out accepted baseline tree

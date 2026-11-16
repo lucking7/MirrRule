@@ -3,7 +3,7 @@ import type { LoadedModule, ParsedSection } from './types';
 import { SectionParser } from './section-parser';
 
 /** Import source-local parameters and script identifiers into a shared module. */
-export function prepareModuleContent(module: LoadedModule, stripComments: boolean, toggleName?: string) {
+export function prepareModuleContent(module: LoadedModule, stripComments: boolean, scriptSwitch?: string) {
   const namespace = `m_${createHash('sha256').update(module.header).digest('hex').slice(0, 16)}`;
   const defaults = new Map<string, string>();
   const names = new Map<string, string>();
@@ -38,7 +38,7 @@ export function prepareModuleContent(module: LoadedModule, stripComments: boolea
     }).join('\n');
   }
 
-  renameScripts(sections, namespace, module.header, toggleName);
+  renameScripts(sections, namespace, module.header, scriptSwitch);
 
   const description = /^#!arguments-desc[\t ]*=(.*)$/m.exec(preamble)?.[1].trim();
   const argumentsDesc = description
@@ -51,7 +51,7 @@ export function prepareModuleContent(module: LoadedModule, stripComments: boolea
   return { sections, defaults, argumentsDesc };
 }
 
-function isActiveLine(line: string): boolean {
+export function isActiveLine(line: string): boolean {
   const trimmed = line.trim();
   return Boolean(trimmed) && !/^(?:#|\/\/|!)/.test(trimmed);
 }
@@ -82,7 +82,7 @@ function splitArguments(raw: string): string[] {
   return entries.filter(entry => entry.trim());
 }
 
-function renameScripts(sections: ParsedSection[], namespace: string, header: string, toggleName?: string): void {
+function renameScripts(sections: ParsedSection[], namespace: string, header: string, scriptSwitch?: string): void {
   const scriptsByName = new Map<string, string[]>();
   const sequence = { value: 0 };
   for (const section of sections) {
@@ -102,7 +102,7 @@ function renameScripts(sections: ParsedSection[], namespace: string, header: str
       const existing = scriptsByName.get(originalName) ?? [];
       existing.push(renamed);
       scriptsByName.set(originalName, existing);
-      return `${toggleName ? `{{{${toggleName}}}}` : ''}${toggles}${renamed} = ${definition}`;
+      return `${scriptSwitch ? `{{{${scriptSwitch}}}}` : ''}${toggles}${renamed} = ${definition}`;
     }).join('\n');
   }
 
