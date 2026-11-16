@@ -65,7 +65,6 @@ export async function mergeModules(
   }
 
   const merger = new ModuleMerger(config.options);
-  const scriptHeaders = new Set<string>();
   const sourceByHeader = new Map(selectedModules.map(source => [source.header, source]));
   const sourceArguments = new Map<string, string>();
   const sourceDescriptions: string[] = [];
@@ -73,17 +72,13 @@ export async function mergeModules(
 
   loaded.forEach(module => {
     const source = sourceByHeader.get(module.header)!;
-    const scriptSwitch = source.scriptToggle === false ? undefined : `${source.id}_script`;
-    const { sections, defaults, argumentsDesc } = prepareModuleContent(module, config.options.stripComments, scriptSwitch);
+    const { sections, defaults, argumentsDesc } = prepareModuleContent(module, config.options.stripComments);
     for (const [name, value] of defaults) {
       if (sourceArguments.has(name)) throw new Error(`参数名称冲突: ${name}`);
       sourceArguments.set(name, value);
     }
     if (argumentsDesc) sourceDescriptions.push(String.raw`${module.header} 源参数\n${argumentsDesc}`);
     sections.forEach(section => {
-      if (section.type.toLowerCase() === 'script') {
-        scriptHeaders.add(module.header);
-      }
       if (section.type === 'Rule') {
         const cleaned = _cleanModuleRules(section.content, module.header);
         section.content = cleaned.content;
@@ -93,7 +88,7 @@ export async function mergeModules(
     });
   });
 
-  const switches = _buildSwitchInfo(selectedModules, scriptHeaders);
+  const switches = _buildSwitchInfo(selectedModules);
 
   // 3. 合并
   console.log(picocolors.cyan('\nMerging sections...'));
@@ -196,9 +191,7 @@ export async function mergeModules(
 interface SwitchInfo {
   header: string,
   argumentName: string,
-  defaultOn: boolean,
-  /** 只控制 [Script] 行的第二个开关 */
-  scriptOnly: boolean
+  defaultOn: boolean
 }
 
 /* eslint-disable sukka/no-single-return -- helper functions use explicit early returns for readability */
@@ -273,29 +266,9 @@ function _cleanModuleRules(content: string, header: string): { content: string, 
   return { content: lines.join('\n'), dropped };
 }
 
-/**
- * 按配置中模块顺序生成开关：先列出每个模块的整模块开关（默认开启），
- * 再列出今天已有脚本开关的模块的 <id>_script 开关（默认值来自 scriptDefaultOn）。
- */
-function _buildSwitchInfo(
-  modules: ModuleSource[],
-  scriptHeaders: Set<string>
-): SwitchInfo[] {
-  const moduleSwitches = modules.map(source => ({
-    header: source.header,
-    argumentName: source.id,
-    defaultOn: true,
-    scriptOnly: false,
-  }));
-  const scriptSwitches = modules.flatMap(source => (source.scriptToggle !== false && scriptHeaders.has(source.header)
-    ? [{
-      header: source.header,
-      argumentName: `${source.id}_script`,
-      defaultOn: source.scriptDefaultOn ?? false,
-      scriptOnly: true,
-    }]
-    : []));
-  return [...moduleSwitches, ...scriptSwitches];
+/** 按配置中模块顺序为每个模块生成一个整模块开关；设了 defaultOff 的默认填 #，其余默认开启。 */
+function _buildSwitchInfo(modules: ModuleSource[]): SwitchInfo[] {
+  return modules.map(source => ({ header: source.header, argumentName: source.id, defaultOn: source.defaultOff !== true }));
 }
 
 /**
@@ -304,19 +277,13 @@ function _buildSwitchInfo(
  */
 function _buildSwitchDescription(switches: SwitchInfo[]): string {
   const usage = [
-    '模块开关：留空表示启用，填 # 表示停用。',
+    '模块开关：留空表示启用，填 # 表示停用。不常用的模块默认填 #，需要时清空即可启用。',
     '停用后，该模块在 Rule、URL Rewrite、Header Rewrite、Body Rewrite、Map Local、Script 中的所有行都会被注释掉。',
     'MITM 主机名不随开关变化，始终包含全部模块的主机名。',
-    '以 _script 结尾的开关只控制该模块的 Script 行，模块开关或脚本开关任一填 # 时脚本都不运行。',
     '源模块自带的参数仍然有效。',
   ].join(String.raw`\n`);
-  const moduleLines: string[] = [];
-  const scriptLines: string[] = [];
-  for (const info of switches) {
-    if (info.scriptOnly) scriptLines.push(`${info.argumentName}: ${info.header}的脚本`);
-    else moduleLines.push(`${info.argumentName}: ${info.header}`);
-  }
-  return [usage, moduleLines.join(String.raw`\n`), scriptLines.join(String.raw`\n`)].filter(Boolean).join(String.raw`\n\n`);
+  const moduleLines = switches.map(info => `${info.argumentName}: ${info.header}`);
+  return [usage, moduleLines.join(String.raw`\n`)].join(String.raw`\n\n`);
 }
 
 /* eslint-enable sukka/no-single-return */

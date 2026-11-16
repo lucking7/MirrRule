@@ -16,7 +16,7 @@ function fixture(directory: string, contents: Array<string | null>) {
   const modules = contents.map((content, index) => {
     const url = path.join(directory, `module-${index}.sgmodule`);
     if (content !== null) fs.writeFileSync(url, content);
-    return { url, header: `Module ${index}`, id: `mod${index}`, scriptDefaultOn: true };
+    return { url, header: `Module ${index}`, id: `mod${index}` };
   });
   const config = {
     name: 'Test', version: '1', description: 'Test', category: 'Test', author: 'Test', modules,
@@ -76,9 +76,15 @@ describe('module merger publication contracts', () => {
     assert.match(result.sgmodule, /m_[\da-f]+_debug:true/);
     assert.match(result.sgmodule, /m_[\da-f]+_captionLang:"zh-Hans,en"/);
     assert.match(result.sgmodule, /m_[\da-f]+_debug: Debug mode/);
-    assert.match(result.sgmodule, /{{{mod0}}}{{{mod0_script}}}{{{m_[\da-f]+_enable}}}m_/);
-    assert.match(result.sgmodule, /#!arguments = mod0:,mod1:,mod0_script:,mod1_script:,/);
-    const withDefaults = result.sgmodule.replaceAll(/{{{mod[01](?:_script)?}}}/g, '').replaceAll(/{{{m_[\da-f]+_enable}}}/g, '#');
+    assert.match(result.sgmodule, /{{{mod0}}}{{{m_[\da-f]+_enable}}}m_/);
+    assert.match(result.sgmodule, /#!arguments = mod0:,mod1:,m_/);
+    assert.equal(result.sgmodule.includes('_script'), false);
+    const offByDefault = structuredClone(config);
+    Object.assign(offByDefault.modules[1], { defaultOff: true });
+    fs.writeFileSync(configPath, JSON.stringify(offByDefault));
+    assert.match((await mergeModules(configPath, { dryRun: true })).sgmodule, /#!arguments = mod0:,mod1:#,m_/);
+    fs.writeFileSync(configPath, JSON.stringify(config));
+    const withDefaults = result.sgmodule.replaceAll(/{{{mod[01]}}}/g, '').replaceAll(/{{{m_[\da-f]+_enable}}}/g, '#');
     assert.match(withDefaults, /^#m_[\da-f]+_1_rewrite = type=/m);
     const scripts = Array.from(result.sgmodule.matchAll(/^(.*?) = type=/gm), match => match[1].replaceAll(/{{{[^{}]+}}}/g, '1'));
     assert.equal(scripts.length, 3);
@@ -92,7 +98,7 @@ describe('module merger publication contracts', () => {
     assert.equal(dryRun.sgmodule, result.sgmodule);
   });
 
-  it('rejects duplicate, missing or non-ASCII ids, script switch collisions and a leftover rule list output', async t => {
+  it('rejects duplicate, missing or non-ASCII ids, legacy script switch fields and a leftover rule list output', async t => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-merge-config-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
     const { configPath, config } = fixture(directory, ['[Rule]\nDOMAIN,a.example,REJECT', '[Rule]\nDOMAIN,b.example,REJECT']);
@@ -108,7 +114,10 @@ describe('module merger publication contracts', () => {
     for (const id of ['高德', '1abc', '_x', 'a-b', 'a b', '']) {
       await attempt(modules => { modules[0].id = id; }, /id 必须以字母开头/);
     }
-    await attempt(modules => { modules[1].id = `${String(modules[0].id)}_script`; }, /脚本开关同名/);
+    await attempt(modules => { modules[0].defaultOff = 'yes'; }, /defaultOff 必须是布尔值/);
+    for (const field of ['scriptToggle', 'scriptDefaultOn']) {
+      await attempt(modules => { modules[0][field] = true; }, new RegExp(`${field} 已停用`));
+    }
 
     fs.writeFileSync(configPath, JSON.stringify({ ...config, output: { ...config.output, rulelist: path.join(directory, 'rules.list') } }));
     await assert.rejects(mergeModules(configPath, { dryRun: true }), /output\.rulelist 已停用/);
@@ -126,13 +135,11 @@ describe('module merger publication contracts', () => {
 });
 
 describe('module content import', () => {
-  it('adds the module toggle while renaming scripts, preserving comments and source toggles', () => {
+  it('renames scripts while preserving comments and source toggles', () => {
     const module = source('Demo', '#!arguments=enable:#\n[Script]\n# comment = preserved\n\n{{{enable}}}response = type=http-response, script-path=https://example/script.js');
-    const enabled = prepareModuleContent(module, false, 'Demo');
-    const fixed = prepareModuleContent(module, false);
-    assert.match(enabled.sections[0].content, /^# comment = preserved\n\n{{{Demo}}}{{{m_[\da-f]+_enable}}}m_/);
-    assert.equal(enabled.sections[0].content.replace('{{{Demo}}}', ''), fixed.sections[0].content);
-    assert.deepEqual(enabled.defaults, fixed.defaults);
+    const prepared = prepareModuleContent(module, false);
+    assert.match(prepared.sections[0].content, /^# comment = preserved\n\n{{{m_[\da-f]+_enable}}}m_[\da-f]+_1_response = type=http-response/);
+    assert.deepEqual([...prepared.defaults.values()], ['#']);
   });
 
   it('rewrites Panel references and keeps the script definition unchanged', () => {

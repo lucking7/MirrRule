@@ -266,21 +266,22 @@ describe('module merger integration', () => {
     assert.equal(/^\[MITM]\nhostname = %APPEND% (.*)$/m.exec(result.sgmodule)?.[1], 'a.com, b.com, c.com');
   });
 
-  it('gives every module one switch for all its per-line sections and keeps the script switch as a second prefix', async (t) => {
+  it('gives every module one switch for all its per-line sections, scripts included', async (t) => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-module-switch-'));
     t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }));
     t.mock.method(console, 'warn', (message: string) => ignoredWarnings.push(message));
     const { sgmodule } = await mergeModules(writeFixture(tempDir));
 
-    assert.match(sgmodule, /^#!arguments = fixture_a:,fixture_b:,fixture_a_script:#,m_[\da-f]{16}_policy:REJECT$/m);
+    assert.match(sgmodule, /^#!arguments = fixture_a:,fixture_b:,m_[\da-f]{16}_policy:REJECT$/m);
     const description = /^#!arguments-desc = (.*)$/m.exec(sgmodule)![1];
-    for (const entry of ['fixture_a: Fixture A', 'fixture_b: Fixture B', 'fixture_a_script: Fixture A的脚本']) {
+    assert.equal(sgmodule.includes('_script'), false);
+    for (const entry of ['fixture_a: Fixture A', 'fixture_b: Fixture B']) {
       assert.ok(description.includes(entry), entry);
     }
-    assert.match(sgmodule, /^{{{fixture_a}}}{{{fixture_a_script}}}m_[\da-f]{16}_1_a = type=http-response/m);
+    assert.match(sgmodule, /^{{{fixture_a}}}m_[\da-f]{16}_1_a = type=http-response/m);
 
-    const scriptOn = activeLinesBySection(applyArguments(sgmodule, { fixture_a_script: '' }));
-    const fixtureAOff = activeLinesBySection(applyArguments(sgmodule, { fixture_a: '#', fixture_a_script: '' }));
+    const scriptOn = activeLinesBySection(applyArguments(sgmodule));
+    const fixtureAOff = activeLinesBySection(applyArguments(sgmodule, { fixture_a: '#' }));
     for (const section of sectionTypes) {
       assert.ok(scriptOn.get(section)!.length > fixtureAOff.get(section)!.length, `Fixture A switch covers ${section}`);
     }
@@ -292,9 +293,7 @@ describe('module merger integration', () => {
     assert.deepEqual(fixtureAOff.get('Body Rewrite'), ['http-response-jq ^https://example.com/b \'.enabled=true\'']);
     assert.equal(fixtureAOff.get('MITM')!.length, 1, 'MITM stays one always-on union');
 
-    // Either switch set to # leaves the script commented.
-    assert.deepEqual(activeLinesBySection(applyArguments(sgmodule)).get('Script'), []);
-    assert.deepEqual(activeLinesBySection(applyArguments(sgmodule, { fixture_a: '#', fixture_a_script: '#' })).get('Script'), []);
+    // The script runs by default and follows the module switch.
     assert.equal(scriptOn.get('Script')!.length, 1);
   });
 

@@ -42,16 +42,14 @@ export interface ModuleSource {
   /** 模块的显示名称(用于分隔符和参数说明) */
   header: string,
   /**
-   * 模块唯一 id：整模块开关参数名、脚本开关 <id>_script 的前缀，也是命令行 --only/--enable/--disable 的取值。
+   * 模块唯一 id：整模块开关参数名，也是命令行 --only/--enable/--disable 的取值。
    * Surge 参数名只能用字母、数字和下划线，因此必须以字母开头且只含这些字符。
    */
   id: string,
   /** 是否默认启用此模块（未指定时默认为 true） */
   enabledByDefault?: boolean,
-  /** 是否为该模块生成 <id>_script 脚本开关参数（未指定时默认为 true） */
-  scriptToggle?: boolean,
-  /** 脚本开关参数是否默认开启（未指定时默认为 false，即默认关闭） */
-  scriptDefaultOn?: boolean
+  /** 整模块开关默认填 #（停用），用户在 Surge 中清空即启用；未指定时默认启用 */
+  defaultOff?: boolean
 }
 
 /**
