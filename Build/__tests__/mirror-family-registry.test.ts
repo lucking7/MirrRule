@@ -9,6 +9,7 @@ import {
   MIRROR_GROUPS,
   getGenericMirrorFamilies
 } from '../integration/mirror-sync/mirror-config';
+import { ARTIFACT_LIFECYCLE_REGISTRY } from '../lib/artifact-lifecycle';
 
 interface PackageJson {
   scripts?: Record<string, string>;
@@ -86,19 +87,16 @@ describe('mirror family registry contract', () => {
     assert.match(EXTERNAL_MIRROR_FAMILIES.fmz200, /download-fmz200-split\.ts/);
   });
 
-  it('discovers current Siri release assets without stale debug downloads', () => {
+  it('syncs only the iRingo modules that still work and retires the certificate-pinned ones', () => {
     const iRingo = MIRROR_GROUPS.find(group => group.name === 'iRingo');
-    const siri = iRingo?.repositories.find(repository => repository.repo === 'NSRingo/Siri');
+    assert.deepEqual(iRingo?.repositories.map(repository => repository.repo), ['NSRingo/WeatherKit', 'NSRingo/News', 'NSRingo/TV']);
 
-    assert.ok(siri?.assetNamePattern);
-    for (const name of [
-      'iRingo.Siri.sgmodule',
-      'iRingo.Search.plugin',
-      'iRingo.Spotlight.stoverride',
-    ]) {
-      assert.match(name, siri.assetNamePattern);
+    const retired = ARTIFACT_LIFECYCLE_REGISTRY.find(record => record.id === 'mirror:iringo-certificate-pinned');
+    assert.equal(retired?.state, 'retired');
+    for (const name of ['Maps', 'Siri', 'Search', 'Spotlight', 'TestFlight']) {
+      assert.ok(retired.paths.includes(`Mirror/iRingo/sgmodule/iRingo.${name}.sgmodule`), name);
     }
-    assert.doesNotMatch('Siri.V2.beta.sgmodule', siri.assetNamePattern);
+    assert.equal(retired.paths.some(relative => /iRingo\.(?:WeatherKit|News|TV)\./.test(relative)), false);
   });
 
   it('keeps package convenience scripts aligned with eligible registry families', () => {
