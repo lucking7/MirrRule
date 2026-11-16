@@ -97,6 +97,17 @@ describe('plugin script mirroring', () => {
     }]);
   });
 
+  it('extracts scripts whose URL has no .js extension and mirrors them under a .js name', () => {
+    const url = 'https://example.test/api/script?name=main';
+    const content = `[Script]\nrun=type=http-response, pattern=^https://a, script-path=${url}, requires-body=true`;
+    assert.deepEqual(extractScriptUrls(content), [{ originalUrl: url, filename: 'script.js', isMirrored: false }]);
+    const mirrored = 'https://nrrule.pages.dev/Scripts/abc-script.js';
+    assert.equal(
+      applyScriptMirrorMap(content, extractScriptUrls(content), { [url]: mirrored }),
+      `[Script]\nrun=type=http-response, pattern=^https://a, script-path=${mirrored}, requires-body=true`,
+    );
+  });
+
   it('recognizes only exact HTTPS owned mirror URLs', () => {
     const [owned] = extractScriptUrls('script-path=https://nrrule.pages.dev/Scripts/main.js');
     assert.equal(owned.isMirrored, true);

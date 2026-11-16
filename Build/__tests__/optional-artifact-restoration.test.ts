@@ -45,7 +45,18 @@ function fixture() {
       },
     }),
   );
-  return { directory, current, previous, required, config };
+  // An unnamed failure explains every missing module, so the generic cases restore them all.
+  const report = path.join(directory, 'plugin-conversion-report.json');
+  writeReport(report, [{ status: 'failed' }]);
+  return { directory, current, previous, required, config, report };
+}
+
+function writeReport(file: string, results: Array<{ file?: string, status: string }>) {
+  fs.writeFileSync(file, JSON.stringify({ schemaVersion: 1, results }));
+}
+
+function restore(data: ReturnType<typeof fixture>, options: { fromCommit?: string } = {}) {
+  return restorePreviousOptionalArtifacts(data.config, data.previous, data.current, { conversionReport: data.report, ...options });
 }
 
 test('optional restoration never substitutes a missing required current input', async (t) => {
@@ -60,7 +71,7 @@ test('optional restoration never substitutes a missing required current input', 
     'const old = true;',
   );
   await assert.rejects(
-    restorePreviousOptionalArtifacts(data.config, data.previous, data.current),
+    restore(data),
     /Required current output is missing/,
   );
   assert.equal(fs.existsSync(data.required), false);
@@ -89,11 +100,7 @@ test('optional restoration preserves missing subscriptions and scripts without o
     path.join(data.previous, 'Scripts', 'old.js'),
     'const old = true;',
   );
-  const result = await restorePreviousOptionalArtifacts(
-    data.config,
-    data.previous,
-    data.current,
-  );
+  const result = await restore(data);
   assert.deepEqual(result, { modules: 1, scripts: 1 });
   assert.equal(fs.readFileSync(data.required, 'utf8'), fresh);
   assert.equal(
@@ -104,11 +111,7 @@ test('optional restoration preserves missing subscriptions and scripts without o
     optional,
   );
   assert.deepEqual(
-    await restorePreviousOptionalArtifacts(
-      data.config,
-      data.previous,
-      data.current,
-    ),
+    await restore(data),
     { modules: 0, scripts: 0 },
   );
 });
@@ -122,11 +125,7 @@ test('optional restoration skips broken previous artifacts without publishing th
     '[Script]\nrun=type=http-response, script-path=https://nrrule.pages.dev/Scripts/missing.js',
   );
   assert.deepEqual(
-    await restorePreviousOptionalArtifacts(
-      data.config,
-      data.previous,
-      data.current,
-    ),
+    await restore(data),
     { modules: 0, scripts: 0 },
   );
   assert.equal(
@@ -140,11 +139,7 @@ test('optional restoration skips broken previous artifacts without publishing th
     '<html>challenge</html>',
   );
   assert.deepEqual(
-    await restorePreviousOptionalArtifacts(
-      data.config,
-      data.previous,
-      data.current,
-    ),
+    await restore(data),
     { modules: 0, scripts: 0 },
   );
   assert.equal(
@@ -164,7 +159,7 @@ test('optional restoration skips malformed script URLs and keeps restoring healt
   const healthy = '[Rule]\nDOMAIN,healthy.test,REJECT';
   fs.writeFileSync(path.join(oldRoot, 'healthy.sgmodule'), healthy);
 
-  assert.deepEqual(await restorePreviousOptionalArtifacts(data.config, data.previous, data.current),
+  assert.deepEqual(await restore(data),
     { modules: 1, scripts: 0 });
   const currentRoot = path.join(data.current, 'Modules', 'Converted');
   assert.equal(fs.existsSync(path.join(currentRoot, 'malformed.sgmodule')), false);
@@ -182,7 +177,7 @@ test('optional restoration does not revive retired Tencent subscriptions', async
     fs.writeFileSync(path.join(previous, name), '[Rule]\nDOMAIN,retired.test,REJECT');
   }
   fs.writeFileSync(path.join(previous, '哈罗去广告.sgmodule'), '[Rule]\nDOMAIN,optional.test,REJECT');
-  assert.deepEqual(await restorePreviousOptionalArtifacts(data.config, data.previous, data.current),
+  assert.deepEqual(await restore(data),
     { modules: 1, scripts: 0 });
   const current = path.join(data.current, 'Modules', 'Converted');
   for (const name of names) assert.equal(fs.existsSync(path.join(current, name)), false);
@@ -203,7 +198,7 @@ test('optional restoration skips scripts owned only by retired modules and keeps
   fs.writeFileSync(path.join(previous, '哈罗去广告.sgmodule'), script('shared.js'));
   fs.writeFileSync(path.join(data.previous, 'Scripts', 'tencent.js'), 'const tencent = true;');
   fs.writeFileSync(path.join(data.previous, 'Scripts', 'shared.js'), 'const shared = true;');
-  assert.deepEqual(await restorePreviousOptionalArtifacts(data.config, data.previous, data.current),
+  assert.deepEqual(await restore(data),
     { modules: 1, scripts: 1 });
   assert.equal(fs.existsSync(path.join(data.current, 'Scripts', 'tencent.js')), false);
   assert.equal(fs.readFileSync(path.join(data.current, 'Scripts', 'shared.js'), 'utf8'), 'const shared = true;');
@@ -230,7 +225,7 @@ test('optional restoration records sorted per-file provenance and merges later r
   fs.writeFileSync(path.join(previous, 'Nested', 'b.sgmodule'), nested);
   fs.writeFileSync(path.join(data.previous, 'Scripts', 'old.js'), 'const old = true;');
   const commit = 'a'.repeat(40);
-  assert.deepEqual(await restorePreviousOptionalArtifacts(data.config, data.previous, data.current, { fromCommit: commit }),
+  assert.deepEqual(await restore(data, { fromCommit: commit }),
     { modules: 2, scripts: 1 });
   const expected = [
     { path: 'Modules/Converted/Nested/b.sgmodule', sha256: digest(nested), bytes: Buffer.byteLength(nested) },
@@ -244,7 +239,7 @@ test('optional restoration records sorted per-file provenance and merges later r
   const changed = `${optional}\n# changed`;
   fs.writeFileSync(path.join(previous, 'optional.sgmodule'), changed);
   fs.writeFileSync(path.join(previous, 'later.sgmodule'), nested);
-  assert.deepEqual(await restorePreviousOptionalArtifacts(data.config, data.previous, data.current),
+  assert.deepEqual(await restore(data),
     { modules: 2, scripts: 0 });
   const merged = await readPreservedArtifacts(data.current);
   assert.ok(merged);
@@ -256,11 +251,11 @@ test('optional restoration records sorted per-file provenance and merges later r
   assert.equal(merged.files.find(entry => entry.path === 'Modules/Converted/optional.sgmodule')?.sha256, digest(changed));
 
   await assert.rejects(
-    restorePreviousOptionalArtifacts(data.config, data.previous, data.current, { fromCommit: 'b'.repeat(40) }),
+    restore(data, { fromCommit: 'b'.repeat(40) }),
     /refusing to mix/,
   );
   await assert.rejects(
-    restorePreviousOptionalArtifacts(data.config, data.previous, data.current, { fromCommit: 'not-a-sha' }),
+    restore(data, { fromCommit: 'not-a-sha' }),
     /Invalid fromCommit/,
   );
 });
@@ -272,7 +267,7 @@ test('optional restoration provenance excludes skipped retired modules and scrip
   const previous = path.join(data.previous, 'Modules', 'Converted');
   fs.writeFileSync(path.join(previous, '腾讯视频去广告.sgmodule'), script('tencent.js'));
   fs.writeFileSync(path.join(data.previous, 'Scripts', 'tencent.js'), 'const tencent = true;');
-  assert.deepEqual(await restorePreviousOptionalArtifacts(data.config, data.previous, data.current),
+  assert.deepEqual(await restore(data),
     { modules: 0, scripts: 0 });
   assert.deepEqual(await readPreservedArtifacts(data.current), { schemaVersion: 1, fromCommit: null, files: [] });
 });
@@ -294,18 +289,56 @@ test('preserved artifact reader rejects malformed provenance', async (t) => {
   }
 });
 
-test('restore CLI arguments keep positional usage and accept --from-commit anywhere', () => {
-  assert.deepEqual(parseRestoreArgs(['config.yaml', 'previous']), { configPath: 'config.yaml', previousRoot: 'previous' });
+test('restore CLI arguments keep positional usage and accept the flags anywhere', () => {
+  const report = 'report.json';
+  assert.deepEqual(parseRestoreArgs(['config.yaml', 'previous', '--conversion-report', report]),
+    { configPath: 'config.yaml', previousRoot: 'previous', conversionReport: report });
   const sha = 'abc1234';
   for (const argv of [
-    ['config.yaml', 'previous', '--from-commit', sha],
-    ['--from-commit', sha, 'config.yaml', 'previous'],
-    ['config.yaml', `--from-commit=${sha}`, 'previous'],
+    ['config.yaml', 'previous', '--from-commit', sha, '--conversion-report', report],
+    ['--from-commit', sha, `--conversion-report=${report}`, 'config.yaml', 'previous'],
+    ['config.yaml', `--from-commit=${sha}`, 'previous', '--conversion-report', report],
   ]) {
-    assert.deepEqual(parseRestoreArgs(argv), { configPath: 'config.yaml', previousRoot: 'previous', fromCommit: sha });
+    assert.deepEqual(parseRestoreArgs(argv), { configPath: 'config.yaml', previousRoot: 'previous', conversionReport: report, fromCommit: sha });
   }
-  assert.throws(() => parseRestoreArgs(['config.yaml']), /Usage/);
-  assert.throws(() => parseRestoreArgs(['config.yaml', 'previous', 'extra']), /Usage/);
-  assert.throws(() => parseRestoreArgs(['config.yaml', 'previous', '--from-commit']), /requires a commit/);
-  assert.throws(() => parseRestoreArgs(['config.yaml', 'previous', '--from-commit', 'xyz']), /Invalid --from-commit/);
+  assert.throws(() => parseRestoreArgs(['config.yaml', 'previous']), /Usage/);
+  assert.throws(() => parseRestoreArgs(['config.yaml', '--conversion-report', report]), /Usage/);
+  assert.throws(() => parseRestoreArgs(['config.yaml', 'previous', 'extra', '--conversion-report', report]), /Usage/);
+  assert.throws(() => parseRestoreArgs(['config.yaml', 'previous', '--conversion-report', report, '--from-commit']), /requires a commit/);
+  assert.throws(() => parseRestoreArgs(['config.yaml', 'previous', '--conversion-report']), /requires a path/);
+  assert.throws(() => parseRestoreArgs(['config.yaml', 'previous', '--conversion-report', report, '--from-commit', 'xyz']), /Invalid --from-commit/);
+});
+
+test('optional restoration drops modules no current plugin produces and scripts no module loads', async (t) => {
+  const data = fixture();
+  t.after(() => fs.rmSync(data.directory, { recursive: true, force: true }));
+  fs.writeFileSync(data.required, '[Rule]\nDOMAIN,fresh.test,REJECT');
+  writeReport(data.report, [
+    { file: 'required.sgmodule', status: 'ready' },
+    { file: 'failed.sgmodule', status: 'failed' },
+    { file: 'renamed-new.sgmodule', status: 'ready' },
+  ]);
+  const previous = path.join(data.previous, 'Modules', 'Converted');
+  fs.writeFileSync(path.join(previous, 'failed.sgmodule'), script('kept.js'));
+  // Removed from the catalog, or renamed: no result names it and no plugin failed unnamed.
+  fs.writeFileSync(path.join(previous, 'removed.sgmodule'), script('removed.js'));
+  fs.writeFileSync(path.join(previous, 'renamed-old.sgmodule'), '[Rule]\nDOMAIN,old.test,REJECT');
+  for (const name of ['kept.js', 'removed.js', 'orphan.js']) {
+    fs.writeFileSync(path.join(data.previous, 'Scripts', name), `const name = '${name}';`);
+  }
+  assert.deepEqual(await restore(data), { modules: 1, scripts: 1 });
+  const converted = path.join(data.current, 'Modules', 'Converted');
+  assert.equal(fs.existsSync(path.join(converted, 'failed.sgmodule')), true);
+  assert.equal(fs.existsSync(path.join(converted, 'removed.sgmodule')), false);
+  assert.equal(fs.existsSync(path.join(converted, 'renamed-old.sgmodule')), false);
+  assert.equal(fs.existsSync(path.join(data.current, 'Scripts', 'kept.js')), true);
+  for (const name of ['removed.js', 'orphan.js']) assert.equal(fs.existsSync(path.join(data.current, 'Scripts', name)), false);
+
+  // A fresh module that loads a script this run could not mirror gets the previous copy.
+  fs.writeFileSync(data.required, script('cached.js'));
+  fs.writeFileSync(path.join(data.previous, 'Scripts', 'cached.js'), 'const cached = true;');
+  assert.deepEqual(await restore(data), { modules: 0, scripts: 1 });
+  assert.equal(fs.existsSync(path.join(data.current, 'Scripts', 'cached.js')), true);
+  await assert.rejects(restorePreviousOptionalArtifacts(data.config, data.previous, data.current,
+    { conversionReport: path.join(data.directory, 'missing.json') }), /ENOENT/);
 });

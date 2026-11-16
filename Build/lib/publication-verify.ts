@@ -1,4 +1,4 @@
-import { retiredPublicPaths, retiredPublicPrefixes } from './artifact-lifecycle';
+import { isRetiredPublicPath, retiredPublicPaths, retiredPublicPrefixes } from './artifact-lifecycle';
 import type { GitHubClient } from './publication-github';
 import { NRRULE_REPOSITORY } from './publication-github';
 import type { Clock } from './publication-check';
@@ -23,6 +23,19 @@ export async function collectAbsentPaths(staging: string, manifest: PublicationM
   const prefixProbes = retiredPublicPrefixes().map(prefix => prefix + RETIRED_PREFIX_PROBE);
   const absent = new Set([...auditAbsentPaths(outputs), ...retiredPublicPaths(), ...prefixProbes, ...manifest.removedPaths, ...manifest.retiredRemoved]);
   return [...absent].filter(relative => !published.has(relative) && relative !== PUBLICATION_MANIFEST_PATH).sort(comparePaths);
+}
+
+/**
+ * Converted plugins and their scripts leave the tree when a plugin leaves the catalog, and the
+ * production edge cache can keep serving the deleted copy. Routing these directories through the
+ * worker would cost a Functions invocation per download, so only the immutable deployment must
+ * answer 404 for them; production may serve the cached copy. Retired paths stay strict because
+ * the worker answers them.
+ */
+const CACHE_TOLERATED_PREFIXES = ['Modules/Converted/', 'Scripts/'];
+
+function isCacheToleratedAbsence(relative: string): boolean {
+  return CACHE_TOLERATED_PREFIXES.some(prefix => relative.startsWith(prefix)) && !isRetiredPublicPath(relative);
 }
 
 export type VerificationOutcome =
@@ -56,6 +69,8 @@ export interface VerificationReport {
   immutableUrl: string | null,
   productionOrigin: string,
   checkedFiles: number,
+  /** Removed paths checked only on the immutable deployment; production may serve cached copies. */
+  toleratedAbsent: string[],
   failures: Array<OriginFailure & { origin: string }>
 }
 
@@ -88,6 +103,7 @@ export async function verifyPublication(options: VerifyPublicationOptions): Prom
     deployCommit: options.deployCommit,
     productionOrigin,
     checkedFiles: options.files.length,
+    toleratedAbsent: options.absentPaths.filter(isCacheToleratedAbsence),
   };
   const check = await pollCloudflareCheck({
     client: options.client,
@@ -139,7 +155,11 @@ export async function verifyPublication(options: VerifyPublicationOptions): Prom
       failures: immutableFailures.map(item => ({ ...item, origin: check.immutableUrl })),
     };
   }
-  const productionFailures = await checkOriginUntil({ ...common, origin: productionOrigin });
+  const productionFailures = await checkOriginUntil({
+    ...common,
+    absentPaths: options.absentPaths.filter(relative => !isCacheToleratedAbsence(relative)),
+    origin: productionOrigin,
+  });
   if (productionFailures.length) {
     return {
       ...base,
@@ -170,6 +190,9 @@ export function formatVerificationReport(report: VerificationReport, limit = 50)
   if (report.check.reason) lines.push(`Check reason: ${report.check.reason}`);
   for (const rejected of report.check.rejected) lines.push(`Rejected check evidence: ${rejected}`);
   if (report.immutableUrl) lines.push(`Immutable URL: ${report.immutableUrl}`);
+  if (report.toleratedAbsent.length) {
+    lines.push(`Removed converted modules or scripts checked only on the immutable deployment (production may serve cached copies): ${report.toleratedAbsent.length}`);
+  }
   if (report.failures.length) {
     lines.push(`Failing URLs (${report.failures.length}):`);
     for (const failure of report.failures.slice(0, limit)) lines.push(`  ${failure.url} [${failure.reason}] ${failure.detail}`);

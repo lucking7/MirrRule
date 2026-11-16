@@ -31,7 +31,9 @@ export interface PreservedArtifacts {
 
 export interface RestoreOptions {
   /** Commit of the previous tree the optional artifacts are copied from. */
-  fromCommit?: string
+  fromCommit?: string,
+  /** `PLUGIN_CONVERSION_REPORT` of the current conversion run. */
+  conversionReport: string
 }
 
 function parsePreservedArtifacts(value: unknown, source: string): PreservedArtifacts {
@@ -98,29 +100,64 @@ function provenance(relative: string, content: string | Uint8Array): PreservedAr
   };
 }
 
-/** Parse `<merge-config> <previous-root> [--from-commit <sha>]`, accepting the flag anywhere. */
-export function parseRestoreArgs(argv: readonly string[]): { configPath: string, previousRoot: string, fromCommit?: string } {
+const USAGE = 'Usage: restore-optional-artifacts.ts <merge-config> <previous-root> --conversion-report <path> [--from-commit <sha>]';
+
+/** Parse the CLI arguments, accepting the flags anywhere. */
+export function parseRestoreArgs(argv: readonly string[]): { configPath: string, previousRoot: string, conversionReport: string, fromCommit?: string } {
   const positional: string[] = [];
-  let fromCommit: string | undefined;
+  const flags = new Map<string, string>();
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
-    if (arg === '--from-commit') {
-      fromCommit = argv[++index];
-      if (!fromCommit) throw new Error('--from-commit requires a commit');
-    } else if (arg.startsWith('--from-commit=')) {
-      fromCommit = arg.slice('--from-commit='.length);
-    } else {
+    const flag = ['--from-commit', '--conversion-report'].find(name => arg === name || arg.startsWith(`${name}=`));
+    if (!flag) {
       positional.push(arg);
+      continue;
     }
+    const value = arg === flag ? argv[++index] : arg.slice(flag.length + 1);
+    if (!value) throw new Error(`${flag} requires ${flag === '--from-commit' ? 'a commit' : 'a path'}`);
+    flags.set(flag, value);
   }
   const [configPath, previousRoot] = positional;
-  if (!configPath || !previousRoot || positional.length > 2) {
-    throw new Error(
-      'Usage: restore-optional-artifacts.ts <merge-config> <previous-root> [--from-commit <sha>]',
-    );
-  }
+  const conversionReport = flags.get('--conversion-report');
+  if (!configPath || !previousRoot || !conversionReport || positional.length > 2) throw new Error(USAGE);
+  const fromCommit = flags.get('--from-commit');
   if (fromCommit !== undefined && !COMMIT_PATTERN.test(fromCommit)) throw new Error(`Invalid --from-commit: ${fromCommit}`);
-  return { configPath, previousRoot, ...(fromCommit !== undefined && { fromCommit }) };
+  return { configPath, previousRoot, conversionReport, ...(fromCommit !== undefined && { fromCommit }) };
+}
+
+/**
+ * Decide which converted modules missing from this run may be restored. A previous module is kept
+ * only while the current run explains its absence: its plugin failed this run, or a plugin failed
+ * before conversion, when the output name is unknown. A module that no current plugin produces,
+ * because the plugin was removed from the catalog or renamed, is dropped.
+ */
+export async function readConversionReport(file: string): Promise<(relativeModule: string) => boolean> {
+  const report = JSON.parse(await fs.readFile(file, 'utf8')) as { schemaVersion?: unknown, results?: unknown };
+  if (report.schemaVersion !== 1 || !Array.isArray(report.results)) throw new Error(`Unsupported plugin conversion report: ${file}`);
+  const claimed = new Set<string>();
+  const notReady = new Set<string>();
+  let unnamedFailures = 0;
+  for (const entry of report.results as Array<{ file?: unknown, status?: unknown }>) {
+    if (typeof entry.file === 'string') {
+      claimed.add(entry.file);
+      if (entry.status !== 'ready') notReady.add(entry.file);
+    } else if (entry.status !== 'ready') {
+      unnamedFailures++;
+    }
+  }
+  return relativeModule => notReady.has(relativeModule) || (!claimed.has(relativeModule) && unnamedFailures > 0);
+}
+
+/** Path below Scripts/ of a mirrored script URL, or undefined when it cannot be decoded or escapes the directory. */
+function mirroredScriptPath(url: string): string | undefined {
+  let relative: string;
+  try {
+    relative = decodeURIComponent(new URL(url).pathname.slice('/Scripts/'.length));
+  } catch {
+    return undefined;
+  }
+  const normalized = path.posix.normalize(relative);
+  return normalized && normalized !== '.' && !normalized.startsWith('../') && !path.posix.isAbsolute(normalized) ? normalized : undefined;
 }
 
 function publicRelative(root: string, file: string, prefix: string): string {
@@ -158,8 +195,8 @@ async function filesUnder(directory: string): Promise<string[]> {
 export async function restorePreviousOptionalArtifacts(
   configPath: string,
   previousRoot: string,
-  publicRoot = path.resolve('public'),
-  options: RestoreOptions = {},
+  publicRoot: string,
+  options: RestoreOptions,
 ): Promise<{ modules: number; scripts: number }> {
   if (options.fromCommit !== undefined && !COMMIT_PATTERN.test(options.fromCommit)) {
     throw new Error(`Invalid fromCommit: ${options.fromCommit}`);
@@ -195,29 +232,19 @@ export async function restorePreviousOptionalArtifacts(
   }
 
   const restored: PreservedArtifactFile[] = [];
-  let scripts = 0;
   const previousScripts = path.join(previousRoot, 'Scripts');
   const retiredExclusiveScripts = new Set(await findRetiredExclusiveScripts(previousRoot));
-  for (const file of await filesUnder(previousScripts)) {
-    if (!file.endsWith('.js')) continue;
-    const relativeScript = publicRelative(previousScripts, file, 'Scripts');
-    if (isRetiredPublicPath(relativeScript) || retiredExclusiveScripts.has(relativeScript)) {
-      console.warn(`Skipped retired previous script: ${path.basename(file)}`);
-      continue;
+  const explainsMissingModule = await readConversionReport(options.conversionReport);
+
+  /** Current or previous copy of a mirrored script, if valid; the current copy wins. */
+  async function availableScript(relative: string): Promise<boolean> {
+    for (const root of [scriptsRoot, previousScripts]) {
+      const target = path.resolve(root, ...relative.split('/'));
+      if (!target.startsWith(`${path.resolve(root)}${path.sep}`)) return false;
+      // eslint-disable-next-line no-await-in-loop -- the current copy is checked before the previous one
+      if (await exists(target)) return validateScriptContent(await fs.readFile(target));
     }
-    const destination = path.join(
-      scriptsRoot,
-      path.relative(previousScripts, file),
-    );
-    if (await exists(destination)) continue;
-    const content = await fs.readFile(file);
-    if (!validateScriptContent(content)) {
-      console.warn(`Skipped invalid previous script: ${path.basename(file)}`);
-      continue;
-    }
-    await writeFileAtomic(destination, content);
-    restored.push(provenance(relativeScript, content));
-    scripts++;
+    return false;
   }
 
   let modules = 0;
@@ -234,6 +261,10 @@ export async function restorePreviousOptionalArtifacts(
       path.relative(previousConverted, file),
     );
     if (required.has(destination) || (await exists(destination))) continue;
+    if (!explainsMissingModule(path.relative(previousConverted, file).split(path.sep).join('/'))) {
+      console.warn(`Dropped previous optional module that no current plugin produces: ${path.basename(file)}`);
+      continue;
+    }
     const content = await fs.readFile(file, 'utf8');
     if (validateScriptPreservation('', content)) {
       console.warn(
@@ -242,27 +273,10 @@ export async function restorePreviousOptionalArtifacts(
       continue;
     }
     let validDependencies = true;
-    for (const script of extractScriptUrls(content).filter(
-      (item) => item.isMirrored,
-    )) {
-      let relative: string;
-      try {
-        relative = decodeURIComponent(
-          new URL(script.originalUrl).pathname.slice('/Scripts/'.length),
-        );
-      } catch {
-        console.warn(
-          `Skipped previous optional module with invalid script URL: ${path.basename(file)}`,
-        );
-        validDependencies = false;
-        break;
-      }
-      const target = path.resolve(scriptsRoot, relative);
-      if (
-        !target.startsWith(`${scriptsRoot}${path.sep}`) ||
-        !(await exists(target)) ||
-        !validateScriptContent(await fs.readFile(target))
-      ) {
+    for (const script of extractScriptUrls(content).filter(item => item.isMirrored)) {
+      const relative = mirroredScriptPath(script.originalUrl);
+      // eslint-disable-next-line no-await-in-loop -- stops at the first missing dependency
+      if (relative === undefined || !(await availableScript(relative))) {
         console.warn(
           `Skipped previous optional module with missing or invalid script: ${path.basename(file)}`,
         );
@@ -275,13 +289,43 @@ export async function restorePreviousOptionalArtifacts(
     restored.push(provenance(relativeModule, content));
     modules++;
   }
+
+  // Restore only the scripts that a module of this tree loads; an unreferenced script is dropped.
+  const referenced = new Set<string>();
+  for (const file of await filesUnder(path.join(publicRoot, 'Modules'))) {
+    if (!file.endsWith('.sgmodule')) continue;
+    for (const script of extractScriptUrls(await fs.readFile(file, 'utf8'))) {
+      const relative = script.isMirrored ? mirroredScriptPath(script.originalUrl) : undefined;
+      if (relative !== undefined) referenced.add(relative);
+    }
+  }
+  let scripts = 0;
+  for (const relative of [...referenced].sort()) {
+    const relativeScript = `Scripts/${relative}`;
+    if (isRetiredPublicPath(relativeScript) || retiredExclusiveScripts.has(relativeScript)) {
+      console.warn(`Skipped retired previous script: ${path.basename(relative)}`);
+      continue;
+    }
+    const destination = path.resolve(scriptsRoot, ...relative.split('/'));
+    const source = path.resolve(previousScripts, ...relative.split('/'));
+    if (!source.startsWith(`${path.resolve(previousScripts)}${path.sep}`)) continue;
+    if (await exists(destination) || !(await exists(source))) continue;
+    const content = await fs.readFile(source);
+    if (!validateScriptContent(content)) {
+      console.warn(`Skipped invalid previous script: ${path.basename(relative)}`);
+      continue;
+    }
+    await writeFileAtomic(destination, content);
+    restored.push(provenance(relativeScript, content));
+    scripts++;
+  }
   await writePreservedArtifacts(publicRoot, existingProvenance, options.fromCommit ?? null, restored);
   return { modules, scripts };
 }
 
 if (require.main === module) {
-  const { configPath, previousRoot, fromCommit } = parseRestoreArgs(process.argv.slice(2));
-  restorePreviousOptionalArtifacts(configPath, previousRoot, undefined, { fromCommit })
+  const { configPath, previousRoot, conversionReport, fromCommit } = parseRestoreArgs(process.argv.slice(2));
+  restorePreviousOptionalArtifacts(configPath, previousRoot, path.resolve('public'), { conversionReport, ...(fromCommit !== undefined && { fromCommit }) })
     .then((result) => {
       console.log(
         `Preserved previous optional artifacts: modules=${result.modules}, scripts=${result.scripts}; not fresh conversion results`,

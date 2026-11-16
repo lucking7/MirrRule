@@ -8,9 +8,10 @@ import type { ScriptInfo } from './types';
 import { SCRIPT_MIRROR_LOCATION } from './script-location';
 
 /**
- * 正则表达式：匹配 script-path
+ * Matches every remote script-path value. Scripts are not required to end in `.js`: a URL such as
+ * `https://example.com/api/script?name=x` is still a script and must be mirrored.
  */
-const SCRIPT_PATH_REGEX = /script-path\s*=\s*(https?:\/\/[^\s",]+\.js[^\s",]*)/gi;
+const SCRIPT_PATH_REGEX = /script-path\s*=\s*(https?:\/\/[^\s",]+)/gi;
 const SCRIPT_MIRROR_BASE_URL = new URL(`https://${SCRIPT_MIRROR_LOCATION}/`);
 const SUPPORTED_FUNCTIONAL_SECTIONS = new Set([
   'general',
