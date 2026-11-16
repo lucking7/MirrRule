@@ -40,29 +40,12 @@ export const MIRROR_GROUPS: MirrorGroup[] = [
         allowedTypes: [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE],
         postProcess: postProcessIRingo
       },
+      // MapKit (formerly GeoServices), TestFlight and Siri are retired: Apple pins their
+      // certificates, so the official site marks the modules as no longer working.
       {
         repo: 'NSRingo/News',
         outputDir: path.join(OUTPUT_ROOT, 'iRingo'),
         allowedTypes: [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE],
-        postProcess: postProcessIRingo
-      },
-      {
-        repo: 'NSRingo/Testflight',
-        outputDir: path.join(OUTPUT_ROOT, 'iRingo'),
-        allowedTypes: [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE],
-        postProcess: postProcessIRingo
-      },
-      {
-        repo: 'NSRingo/GeoServices',
-        outputDir: path.join(OUTPUT_ROOT, 'iRingo'),
-        allowedTypes: [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE],
-        postProcess: postProcessIRingo
-      },
-      {
-        repo: 'NSRingo/Siri',
-        outputDir: path.join(OUTPUT_ROOT, 'iRingo'),
-        allowedTypes: [FileType.PLUGIN, FileType.SGMODULE, FileType.SNIPPET, FileType.STOVERRIDE],
-        assetNamePattern: /^iRingo\.(?:Siri|Search|Spotlight)\.(?:plugin|sgmodule|snippet|stoverride)$/,
         postProcess: postProcessIRingo
       },
       {

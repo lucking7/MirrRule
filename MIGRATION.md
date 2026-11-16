@@ -176,7 +176,7 @@ pnpm run download-fmz200-split
 pnpm run build-web
 ```
 
-第一条只同步 Release 镜像组，不包括后两条。也可用 `pnpm run mirror:iringo`、`mirror:dualsubs`、`mirror:biliuniverse` 分组运行。iRingo 模块会将 `Proxy` 参数改为 `🇺🇸`，迁移时确认这是否符合自己的策略组命名。Siri 读取 Release 中 `iRingo.Siri`、`iRingo.Search`、`iRingo.Spotlight` 资产，不构建上游 dev 分支。
+第一条只同步 Release 镜像组，不包括后两条。也可用 `pnpm run mirror:iringo`、`mirror:dualsubs`、`mirror:biliuniverse` 分组运行。iRingo 模块会将 `Proxy` 参数改为 `🇺🇸`，迁移时确认这是否符合自己的策略组命名。地图、TestFlight、Siri 模块已因苹果证书固定失效，2026-11-16 起不再镜像，旧地址返回 404。
 
 遇到限流或上游失效，保留日志和已下载的文件，停止把本次输出视为完整快照。Release 下载具备校验与保留旧文件逻辑，但第一次运行没有旧文件可以兜底。
 

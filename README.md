@@ -197,6 +197,7 @@ Deprecated and retired files are recorded in one registry, `Build/lib/artifact-l
 | Tencent Video ad-removal plugin modules (`Modules/Converted/腾讯视频去广告.sgmodule`, `Tencent_Video_remove_ads.sgmodule`) | None; the upstream stopped maintenance |
 | `container`, `discord` and `scholar` rulesets on all four platforms | None; removed from rule sources |
 | `sing-box/china_asn.json` | `sing-box/china_ip.json` and `sing-box/china_ip_ipv6.json`; IP coverage is not equivalent to ASN matching |
+| iRingo Maps, TestFlight, Siri, Search and Spotlight mirrors under `Mirror/iRingo/` (2026-11-16; Apple pins the certificates they rewrite and NSRingo marks them as no longer working) | None |
 | `streaming_cn` and `streaming_!cn` rulesets on all four platforms (2026-11-10; their only upstream, ConnersHua/RuleGo, is no longer maintained) | `streaming_!cn`: `stream` (Sukka), which covered 73.7% of it; `streaming_cn`: none |
 
 ## Update Schedule
