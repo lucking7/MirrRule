@@ -140,11 +140,6 @@ modules:
     id: wannianli
     scriptDefaultOn: true
 
-  # YouTube去广告
-  - url: "file://public/Modules/Converted/YouTube去广告.sgmodule"
-    header: "YouTube去广告"
-    id: youtube
-
   # QQ音乐去广告
   - url: "file://public/Modules/Converted/QQ音乐去广告.sgmodule"
     header: "QQ音乐去广告"
