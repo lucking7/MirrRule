@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: '执行任务 (all/build/convert-plugins/merge-modules/mirror-sync/deploy/bootstrap-baseline/rollback)'
+        description: '执行任务 (deploy-modules 使用已验收模块源重新合并并发布)'
         required: false
         default: 'all'
         type: choice
@@ -36,6 +36,7 @@ on:
           - merge-modules
           - mirror-sync
           - deploy
+          - deploy-modules
           - bootstrap-baseline
           - rollback
       deploy_target:
@@ -133,6 +134,10 @@ jobs:
                 deploy)
                   # 部署 job 只接受本次 run 的已验收 artifact，先构建再部署。
                   TASKS='["build","deploy"]'
+                  ;;
+                deploy-modules)
+                  # 使用已验收的转换模块重新合并；不依赖插件目录或 Script-Hub。
+                  TASKS='["merge-modules","build","deploy"]'
                   ;;
                 bootstrap-baseline)
                   # 只核验固定的旧版 NRRule revision 并写入 legacy-bootstrap receipt，不发布。

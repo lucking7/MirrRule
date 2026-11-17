@@ -234,6 +234,11 @@ describe('GitHub Actions workflow contract', () => {
         ['build', 'deploy'],
       ],
       [
+        'manual module deploy',
+        { eventName: 'workflow_dispatch', task: 'deploy-modules' },
+        ['merge-modules', 'build', 'deploy'],
+      ],
+      [
         'manual bootstrap',
         { eventName: 'workflow_dispatch', task: 'bootstrap-baseline' },
         ['bootstrap-baseline'],
@@ -578,6 +583,27 @@ describe('GitHub Actions workflow contract', () => {
 
     assert.equal(hasStep(mergeJob, 'Merge modules'), true);
     assert.equal(hasStep(mergeJob, 'Upload module output'), true);
+  });
+
+  it('publishes remerged baseline modules while preserving scripts and mirrors', () => {
+    assert.ok(workflow.on?.workflow_dispatch?.inputs?.task?.options?.includes('deploy-modules'));
+    const { tasks } = evaluateTaskPlan({ eventName: 'workflow_dispatch', task: 'deploy-modules' });
+    const fresh = freshDirsForTasks(tasks);
+    assert.ok(fresh.includes('Modules'));
+    assert.ok(!fresh.includes('Scripts'));
+    assert.ok(!fresh.includes('Mirror'));
+    assert.ok(!tasks.includes('convert-plugins'));
+    const step = getStep(getJob('build'), 'Resolve publication tasks');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-module-publish-'));
+    try {
+      const outputFile = path.join(tempDir, 'output');
+      execFileSync('bash', ['-c', String(step.run)], {
+        env: { ...process.env, CONVERTED: '', TASKS: JSON.stringify(tasks), GITHUB_OUTPUT: outputFile },
+      });
+      assert.equal(fs.readFileSync(outputFile, 'utf8').trim(), `tasks=${JSON.stringify(tasks)}`);
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   it('preserves previous optional subscriptions from the accepted baseline only after fresh required modules have merged', () => {

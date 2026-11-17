@@ -170,6 +170,49 @@ async function verifiedRestorationProvenance(out: string, baseline: ResolvedBase
   return result;
 }
 
+/** A merge without conversion imports unchanged inputs from one pinned accepted tree. */
+async function recordMergeInputProvenance(out: string, baseline: ResolvedBaseline, baselineTree: string): Promise<void> {
+  await verifiedRestorationProvenance(out, baseline);
+  const existing = await readPreservedArtifacts(out);
+  if (existing?.files.some(file => file.path.startsWith('Modules/Merged/'))) {
+    throw new StageError('provenance-mismatch', 'merge-only publication must generate merged modules, not preserve them; rebuild the merged module');
+  }
+  const accepted = new Map(baseline.files.map(file => [file.path, file.sha256]));
+  const converted = path.join(out, 'Modules/Converted');
+  const scanned = await scanTree(converted).catch((error: unknown) => {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  });
+  const files = scanned.flatMap(file => {
+    const relative = `Modules/Converted/${file.path}`;
+    return isRetiredPublicPath(relative) ? [] : [{ ...file, path: relative }];
+  });
+  for (const file of files) {
+    if (accepted.get(file.path) !== file.sha256) {
+      throw new StageError('provenance-mismatch', `merge-only input ${file.path} is not the accepted baseline version; rebuild from the accepted modules or run fresh plugin conversion`);
+    }
+    let original;
+    try {
+      // eslint-disable-next-line no-await-in-loop -- compare each copied input with its verified baseline bytes
+      original = await hashFile(path.join(baselineTree, ...file.path.split('/')));
+    } catch (error) {
+      throw new StageError('provenance-mismatch', `cannot verify merge-only input ${file.path}; resolve the baseline and rebuild: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (original.sha256 !== file.sha256 || original.bytes !== file.bytes) {
+      throw new StageError('provenance-mismatch', `merge-only input ${file.path} differs from the accepted baseline tree; resolve the baseline and rebuild`);
+    }
+  }
+  const byPath = new Map<string, (typeof files)[number]>();
+  for (const file of [...(existing?.files ?? []), ...files]) {
+    if (!isRetiredPublicPath(file.path)) byPath.set(file.path, file);
+  }
+  await writeFileAtomic(path.join(out, PRESERVED_ARTIFACTS_PATH), `${JSON.stringify({
+    schemaVersion: 1,
+    fromCommit: baseline.deployCommit,
+    files: [...byPath.values()].sort((a, b) => comparePaths(a.path, b.path)),
+  }, null, 2)}\n`);
+}
+
 /** Replace only previously restored optional files; fresh outputs remain unchanged. */
 async function rebaseRestoredArtifacts(out: string, baseline: ResolvedBaseline, baselineTree: string, freshDirs: readonly string[]): Promise<string[]> {
   const provenance = await readPreservedArtifacts(out);
@@ -432,6 +475,10 @@ export async function stagePublication(options: StageOptions): Promise<StageResu
   const candidateContract = await readOutputContract(candidate).catch(stageContractError);
   const originalMismatches = await findOutputMismatches(candidate, candidateContract.outputs);
   if (originalMismatches.length) throw new StageError('output-mismatch', `candidate rule outputs disagree with ${RULE_OUTPUT_AUDIT_FILE}: ${originalMismatches.join('; ')}`);
+  const mergeOnly = !rollback && options.tasks.includes('merge-modules') && !options.tasks.includes('convert-plugins');
+  if (mergeOnly && (!options.baseline || !options.baselineTreeDir)) {
+    throw new StageError('baseline-unavailable', 'merge-only publication requires the accepted baseline used to build the merged module');
+  }
   let rebasing = false;
   if (!rollback) {
     const drift = await classifyBaselineDrift({ candidateDir: candidate, baseline: options.baseline, sourceCommit: options.sourceCommit, builtAt });
@@ -439,6 +486,9 @@ export async function stagePublication(options: StageOptions): Promise<StageResu
       throw new StageError('already-accepted', `this candidate is already accepted as receipt ${drift.receiptId} (NRRule ${drift.deployCommit}); nothing to publish`);
     }
     if (drift.state === 'drift') {
+      if (mergeOnly) {
+        throw new StageError('baseline-drift', `merge-only candidate used receipt ${drift.declared ?? 'none'}, but accepted receipt is ${drift.current}; rerun deploy-modules to rebuild against the current modules and scripts`);
+      }
       if (!options.baseline || !options.baselineTreeDir) {
         throw new StageError('baseline-unavailable', 'cannot rebase source delta without a verified accepted tree');
       }
@@ -495,6 +545,7 @@ export async function stagePublication(options: StageOptions): Promise<StageResu
   let rebaseRemoved: string[] = [];
   if (!rollback) {
     if (rebasing) rebaseRemoved = await rebaseRestoredArtifacts(out, options.baseline!, options.baselineTreeDir!, fresh);
+    if (mergeOnly) await recordMergeInputProvenance(out, options.baseline!, options.baselineTreeDir!);
     for (const [relative, commit] of await verifiedRestorationProvenance(out, options.baseline)) preservedFrom.set(relative, commit);
   }
 

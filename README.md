@@ -232,6 +232,8 @@ Production has one publication path. The workflow pushes the complete candidate 
 
 A run that pushed to NRRule but whose website check failed or timed out reports "Git published, website not accepted" and is not a successful publication. Each accepted publication is recorded as a GitHub Deployment in MirrRule (a receipt binding the source commit, NRRule commit, candidate, manifest SHA-256 and immutable URL). Builds compare source changes against the latest accepted receipt, not against the NRRule branch head. If a different receipt is accepted between the build and publication, staging recomputes source deltas from the candidate snapshots against that baseline, verifies and refreshes preserved assets, and regenerates the index and manifest without redownloading upstream sources. Invalid snapshots or restoration digests fail staging. If the newer receipt already accepted this same candidate, the run ends as a no-op.
 
+To publish merge configuration or merger code changes while the plugin catalog is unavailable, run `workflow_dispatch` with task `deploy-modules`. It remerges the converted modules from the accepted baseline, builds the rules, and uses the normal production publication and verification chain. Converted modules and scripts retain their accepted provenance; the merged module is generated anew. This task does not refresh plugin sources. If the accepted receipt changes before staging, or the copied converted modules change during the build, staging rejects the candidate before pushing; rebuild against the current baseline.
+
 First rollout:
 
 1. Merge the change.
