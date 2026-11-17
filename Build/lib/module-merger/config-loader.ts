@@ -116,12 +116,15 @@ function validateBasicFields(config: MergeConfigFile): asserts config is Validat
     if (headers.has(header) || ids.has(source.id)) {
       throw new Error(`模块 header 和 id 必须唯一: ${source.header}`);
     }
+    // 每个模块只有一个整模块开关；遗留的脚本开关字段会被忽略，因此直接报错。
+    const legacy = ['scriptToggle', 'scriptDefaultOn'].find(field => field in source);
+    if (legacy) {
+      throw new Error(`模块 ${source.header} 的 ${legacy} 已停用：每个模块只有一个整模块开关 <id>`);
+    }
+    if (source.defaultOff !== undefined && typeof source.defaultOff !== 'boolean') {
+      throw new Error(`模块 ${source.header} 的 defaultOff 必须是布尔值`);
+    }
     headers.add(header);
     ids.add(source.id);
-  }
-  // 脚本开关名为 <id>_script，不能与另一个模块的整模块开关同名。
-  const collision = [...ids].find(id => ids.has(`${id}_script`));
-  if (collision) {
-    throw new Error(`模块 id ${collision}_script 与模块 ${collision} 的脚本开关同名`);
   }
 }

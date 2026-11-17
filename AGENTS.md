@@ -354,7 +354,7 @@ pnpm run node ./Build/merge-modules.ts --disable a,b
 合并只输出一个文件 `Modules/Merged/All-in-One-Pro.sgmodule`，原子写入；它的 `[Rule]` 段是唯一的规则输出，不再生成去掉策略的规则列表，配置中出现 `output.rulelist` 会报错。
 
 - 每个模块必须有唯一的 `id`（字母开头，只含字母、数字和下划线，因为 Surge 参数名只能用这些字符），也是 `--only`／`--enable`／`--disable` 的取值。
-- 整模块开关：每个模块一个参数 `<id>`，默认留空（启用）；填 `#` 时注释该模块在 `[Rule]`、`[URL Rewrite]`、`[Header Rewrite]`、`[Body Rewrite]`、`[Map Local]`、`[Script]` 中的每条生效行。脚本开关 `<id>_script` 只给原来就有脚本开关的模块（有 `[Script]` 段且未设 `scriptToggle: false`），默认值来自 `scriptDefaultOn`；脚本行前缀为 `{{{<id>}}}{{{<id>_script}}}`，任一为 `#` 时脚本行被注释。开关名不能与另一模块的 `<id>_script` 或命名空间化的源参数重名。`#!arguments-desc` 先说明一次用法，再列出 `id: 中文模块名`。
+- 整模块开关：每个模块一个参数 `<id>`，默认留空（启用），配置中设 `defaultOff: true` 的模块默认填 `#`（2026-11-16 起为用户不常用的 19 个模块）；填 `#` 时注释该模块在 `[Rule]`、`[URL Rewrite]`、`[Header Rewrite]`、`[Body Rewrite]`、`[Map Local]`、`[Script]` 中的每条生效行。每个模块只有这一个开关（2026-11-16 起去掉了只控制脚本的 `<id>_script`，原来默认关闭脚本的财新、拼多多、斗鱼、网易新闻改为随模块默认开启）；配置中出现 `scriptToggle`、`scriptDefaultOn` 会报错。开关名不能与命名空间化的源参数重名。`#!arguments-desc` 先说明一次用法，再列出 `id: 中文模块名`。
 - MITM 主机名是所有模块去重后的并集，始终生效，不随模块开关变化。不要尝试按模块切换 MITM：Surge 只能用 `-host` 排除主机名，而同一主机名可能被其他模块共用，排除后会破坏仍在启用的模块。
 - 规则只在同一模块内按匹配条件去重。跨模块去重会让模块之间相互依赖：后一模块的副本因前一模块已有而被删除，关闭前一模块时这条规则就丢了。
 - 规则策略：内置策略（DIRECT、REJECT 系列）规范为大写保留；含参数的策略（如命名空间化后的 `{{{m_<hash>_policy}}}`）原样保留；缺少策略时补 REJECT；字面量的非内置策略（如 `PROXY`、策略组名）会让 Surge 报错，因此删除该规则并输出 `::warning::<模块名>: ...`。字段拆分识别双引号，引号内的逗号属于同一字段。
