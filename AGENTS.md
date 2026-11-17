@@ -368,7 +368,7 @@ pnpm run node ./Build/merge-modules.ts --disable a,b
 - push 到 `main` / `master`：完整流程；只有 `main` 发布。
 - pull_request：执行构建，不发布。
 - schedule：按不同 cron 执行快速更新、完整构建、镜像同步、插件转换等。
-- workflow_dispatch：可选择任务 `all`、`build`、`convert-plugins`、`merge-modules`、`mirror-sync`、`deploy`、`bootstrap-baseline`、`rollback`。`build`、镜像和插件单独任务不自动发布；`deploy` 由本次 run 重新构建候选后发布。`deploy_target` 的 `all`、`github`、`cloudflare` 是兼容旧值，统一规范化为 production 并输出迁移说明。
+- workflow_dispatch：可选择任务 `all`、`build`、`convert-plugins`、`merge-modules`、`mirror-sync`、`deploy`、`deploy-modules`、`bootstrap-baseline`、`rollback`。`build`、镜像和插件单独任务不自动发布；`deploy` 由本次 run 重新构建候选后发布。`deploy-modules` 使用已验收的 `Modules/Converted` 重新合并，再构建规则并发布，适用于插件上游不可用时发布合并配置或代码变更；不刷新插件源。其复制的模块必须与基线摘要一致并记为 preserved，合并产物记为 generated；构建后基线 receipt 变化或复制模块被修改（包括依赖审计删行）时，stage 在 push 前失败，需重新构建。`deploy_target` 的 `all`、`github`、`cloudflare` 是兼容旧值，统一规范化为 production 并输出迁移说明。
 
 主构建 job 会：
 

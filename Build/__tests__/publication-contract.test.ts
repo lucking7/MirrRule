@@ -777,6 +777,70 @@ describe('publication staging', () => {
     await assert.rejects(make(DEPLOY, '#!name=tampered\n'), stageError('provenance-mismatch', /changed after restoration/));
   });
 
+  it('publishes a new merge with converted inputs and scripts preserved from its pinned baseline', async (t) => {
+    const converted = 'Modules/Converted/input.sgmodule';
+    const merged = 'Modules/Merged/All-in-One-Pro.sgmodule';
+    const script = 'Scripts/input.js';
+    const retired = 'Modules/Converted/腾讯视频去广告.sgmodule';
+    const env = await setup(t, {
+      ...candidateFixture({ receiptId: 7 }),
+      [converted]: 'accepted input',
+      [merged]: 'new merged module',
+      [retired]: 'retired input',
+      [script]: 'untrusted candidate script',
+      'Internal/preserved-artifacts.json': JSON.stringify({ schemaVersion: 1, fromCommit: DEPLOY, files: [{ path: script, bytes: Buffer.byteLength('accepted script'), sha256: sha256Hex('accepted script') }] }),
+    }, { [converted]: 'accepted input', [merged]: 'old merged module', [script]: 'accepted script' });
+    const result = await stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['merge-modules', 'build', 'deploy'], sourceCommit: SOURCE, baseline: await baselineFrom(env.tree, 7), baselineTreeDir: env.tree, render: fakeRender });
+    for (const relative of [converted, script]) {
+      const file = result.manifest.files.find(entry => entry.path === relative);
+      assert.equal(file?.origin, 'preserved');
+      assert.equal(file.preservedFromCommit, DEPLOY);
+    }
+    assert.equal(result.manifest.files.find(file => file.path === merged)?.origin, 'generated');
+    assert.equal(result.manifest.files.find(file => file.path === merged)?.sha256, sha256Hex('new merged module'));
+    assert.equal(await fs.readFile(path.join(env.out, script), 'utf8'), 'accepted script');
+    assert.ok(!result.manifest.files.some(file => file.path === retired));
+    const provenance = JSON.parse(await fs.readFile(path.join(env.out, 'Internal/preserved-artifacts.json'), 'utf8')) as { fromCommit: string, files: Array<{ path: string, bytes: number, sha256: string }> };
+    assert.equal(provenance.fromCommit, DEPLOY);
+    assert.deepEqual(provenance.files, [
+      { path: converted, bytes: Buffer.byteLength('accepted input'), sha256: sha256Hex('accepted input') },
+      { path: script, bytes: Buffer.byteLength('accepted script'), sha256: sha256Hex('accepted script') },
+    ]);
+    const ownAccepted = { ...(await baselineFrom(env.out, 8)), parentReceiptId: 7, generatedAt: '2026-10-10T00:00:00.000Z' };
+    await assert.rejects(
+      stagePublication({ candidateDir: env.candidate, outDir: path.join(env.out, '..', 'retry'), tasks: ['merge-modules', 'build', 'deploy'], sourceCommit: SOURCE, baseline: ownAccepted, baselineTreeDir: env.out, render: fakeRender }),
+      stageError('already-accepted'),
+    );
+  });
+
+  it('rejects merge-only inputs changed by an audit or absent from the accepted baseline', async (t) => {
+    await Promise.all([['Modules/Converted/input.sgmodule', 'audit removed a line'], ['Modules/Converted/unknown.sgmodule', 'unknown']].map(async ([relative, content]) => {
+      const env = await setup(t, {
+        ...candidateFixture({ receiptId: 7 }),
+        [relative]: content,
+        'Modules/Merged/All-in-One-Pro.sgmodule': 'new merge',
+      }, { 'Modules/Converted/input.sgmodule': 'accepted input' });
+      await assert.rejects(
+        stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['merge-modules', 'build', 'deploy'], sourceCommit: SOURCE, baseline: await baselineFrom(env.tree, 7), baselineTreeDir: env.tree, render: fakeRender }),
+        stageError('provenance-mismatch', /merge-only input .* is not the accepted baseline version/),
+      );
+      await assert.rejects(fs.access(path.join(env.out, PUBLICATION_MANIFEST_PATH)));
+    }));
+  });
+
+  it('rejects missing or changed merge-only baselines before rebasing modules and scripts', async (t) => {
+    const env = await setup(t, {
+      ...candidateFixture({ receiptId: 5 }),
+      'Modules/Converted/input.sgmodule': 'old input references Scripts/old.js',
+      'Modules/Merged/All-in-One-Pro.sgmodule': 'old input freshly merged',
+    }, { 'Modules/Converted/input.sgmodule': 'new input references Scripts/new.js', 'Scripts/new.js': 'new script' });
+    const run = (baseline: ResolvedBaseline | null) => stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['merge-modules', 'build', 'deploy'], sourceCommit: SOURCE, baseline, baselineTreeDir: baseline ? env.tree : null, render: fakeRender });
+    await assert.rejects(run(null), stageError('baseline-unavailable', /merge-only publication requires/));
+    await assert.rejects(run(await baselineFrom(env.tree, 7)), stageError('baseline-drift', /rerun deploy-modules/));
+    await assert.rejects(fs.access(path.join(env.out, PUBLICATION_MANIFEST_PATH)));
+    assert.match(await fs.readFile(path.join(env.candidate, 'Internal/source-delta.json'), 'utf8'), /"receiptId":"5"/);
+  });
+
   it('purges retired modules copied into a directory through the purge subcommand', async (t) => {
     const root = await tempDir(t, 'mirrrule-purge-');
     await writeTree(root, { 'Modules/Converted/腾讯视频去广告.sgmodule': 'retired', 'Modules/Converted/active.sgmodule': 'active' });
