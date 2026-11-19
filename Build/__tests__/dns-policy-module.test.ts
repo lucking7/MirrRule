@@ -183,7 +183,8 @@ describe('designated DNS policy module', () => {
           requests.push(url);
           let body;
           if (url === 'https://hub.kelee.one/list.json') {
-            assert.match(init.headers['User-Agent'], /^MirrRule\//);
+            assert.match(init.headers['User-Agent'], /^Surge Mac\/\d+/);
+            assert.match(init.headers['User-Agent'], /MirrRule\/1\.0/);
             body = JSON.stringify({ lists: catalog });
           }
           else if (url === dnsUrl) body = dnsResponse;

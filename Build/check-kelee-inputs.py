@@ -8,6 +8,10 @@ from pathlib import Path
 
 import requests
 
+# kelee.one 的 WAF 只放行以 `Surge Mac/` 开头的 UA；应用标识放在括号内。
+USER_AGENT = "Surge Mac/8380 (MirrRule/1.0; +https://github.com/lucking7/MirrRule)"
+AMAP_JQ_URL = "https://kelee.one/Resource/JQLang/Amap/updatable.jq"
+
 
 def probe(session, url, validator, read_body, destination=None):
     result = {"source": url, "route": "direct", "valid": False}
@@ -39,27 +43,20 @@ def main():
     spec = importlib.util.spec_from_file_location("gateway", Path(__file__).with_name("browser-rule-gateway.py"))
     gateway = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(gateway)
-    amap_script = "https://kelee.one/Resource/JavaScript/Amap/Amap_remove_ads.js"
     inputs = (
         ("catalog", "https://hub.kelee.one/list.json", gateway.is_plugin_catalog),
         ("china", "https://kelee.one/Tool/Loon/Lsr/SpeedtestChina.lsr", gateway.is_rule_text),
         ("international", "https://kelee.one/Tool/Loon/Lsr/SpeedtestInternational.lsr", gateway.is_rule_text),
         ("plugin", "https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx", gateway.is_plugin_text),
-        ("script", amap_script, gateway.is_script_text),
+        ("script", AMAP_JQ_URL, gateway.is_script_text),
     )
     with requests.Session() as session:
-        session.headers["User-Agent"] = "MirrRule/1.0 (+https://github.com/lucking7/MirrRule)"
+        session.headers["User-Agent"] = USER_AGENT
         results = {}
         runner_dir = os.environ.get("RUNNER_TEMP")
         for name, url, check in inputs:
             destination = Path(runner_dir, "kelee-catalog.json") if runner_dir and name == "catalog" else None
             results[name] = probe(session, url, check, gateway.read_limited_response, destination)
-        if not results["script"]["valid"]:
-            # A third-party native module may be available while its required script still fails.
-            native_url = "https://raw.githubusercontent.com/QingRex/LoonKissSurge/main/Surge/高德地图去广告.sgmodule"
-            native = probe(session, native_url, lambda body: gateway.is_plugin_text(body) and amap_script.encode() in body,
-                           gateway.read_limited_response)
-            print(json.dumps({"comparison": "native-amap", "referencesCanonicalScript": native["valid"]}))
     if output := os.environ.get("GITHUB_OUTPUT"):
         with open(output, "a", encoding="utf-8") as stream:
             for name, result in results.items():

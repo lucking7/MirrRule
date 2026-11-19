@@ -6,6 +6,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import picocolors from 'picocolors';
+import { UA_SURGE_MAC } from '../../constants/user-agents';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry.ts';
 import type { PluginInfo } from './types.ts';
 import { applyProxyIfNeeded } from '../../utils/network/proxy';
@@ -19,12 +20,6 @@ import { isUnavailableFailure, isUnavailableStatus } from './upstream-failure';
  * 镜像目录（放在 .cache 目录下，不部署到生产环境）
  */
 const MIRROR_DIR = path.join(__dirname, '../../../.cache/plugins');
-
-/**
- * 用户代理
- */
-const USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 /**
  * 获取插件镜像路径
@@ -90,7 +85,7 @@ async function mirrorPlugin(
     const response = await (options.fetchFn ?? $$fetch)(url, {
       ...defaultRequestInit,
       headers: {
-        'User-Agent': USER_AGENT,
+        'User-Agent': UA_SURGE_MAC,
         Accept: '*/*',
       },
     });

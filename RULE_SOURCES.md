@@ -149,15 +149,15 @@ CloudMounter 的规则包含 AND、`PROCESS-NAME,*CloudMounter`、`SRC-IP` 和�
 
 ## TutuBetterRules 的方法与本项目接入
 
-[TutuBetterRules](https://github.com/bunizao/TutuBetterRules) 主要从 GitHub 同步 [Mirrored](https://github.com/bunizao/Mirrored) 的成品，不是直接用 Surge UA 下载 Kelee 规则。Mirrored 使用 `cloudscraper` 模拟 Chrome/Windows，通过配置的 Worker 下载，再把插件暂存到本地 HTTP 服务交给 Script-Hub。Worker 服务实现没有在这两个仓库内提供，不能据此声称复制一个 UA 就能恢复。
+[TutuBetterRules](https://github.com/bunizao/TutuBetterRules) 主要从 GitHub 同步 [Mirrored](https://github.com/bunizao/Mirrored) 的成品。Mirrored 直连时使用 `Surge Mac/2985` 等 UA，命中 `proxy_hosts` 后再走配置的 Worker；目录由 cloudscraper 经 Worker 获取。它当前也经常拿到 403 并跳过插件转换、保留旧文件，不能作为 Kelee 可用的证明。
 
-在本仓 GitHub runner 的受控实验中，普通 requests、Node、Surge/CFNetwork UA 对照仍返回 403；本项目自己的 Worker 配合 cloudscraper 成功下载 15/15 个规则。随后经现有 fetchAssets 与四平台 writer 生成 60 个文件并检查 JSON。实验运行：[36756620028](https://github.com/lucking7/MirrRule/actions/runs/36756620028)、[36756838931](https://github.com/lucking7/MirrRule/actions/runs/36756838931)、[36757060330](https://github.com/lucking7/MirrRule/actions/runs/36757060330)。第二轮失败是 Node 对照失败，不能记作成功构建。实验不能证明 origin 最新性，Worker 可能缓存；TLS 指纹、headers 顺序等具体原因也未单独隔离。
+kelee.one 的 Cloudflare WAF 只放行以 `Surge Mac/` 开头的 UA（大小写不敏感，前导空格可忽略）。2026-11-19 在同一出口 IP 对照：`Surge Mac/8380` 对 `.lsr`、`.lpx`、`.jq` 返回 200；`MirrRule/1.0`、Chrome 131、`Surge/3070 CFNetwork/...` 返回 403。真实 Chrome headless 与 curl_cffi 的 Chrome TLS 指纹同样 403，因此不是 TLS 或 IP 封锁。`hub.kelee.one` 不受这条 UA 规则限制。早期实验只比较 requests、Node 和 iOS Surge UA，没有试 `Surge Mac/`，把 403 归因为网络层并不准确。Worker 配合 cloudscraper 仍可作为边缘 502 或限流时的兜底。
 
-插件转换器使用 MirrRule 应用标识，优先直连官方目录 `https://hub.kelee.one/list.json`。每次目录尝试的途径、响应状态、正文校验结果和取得目录的 SHA-256 记在转换报告的 `catalog` 中。目录不可用时报告为 `status: catalog-unavailable`，没有 `results`，退出码 3 仍触发既有基线保留流程。
+插件转换器使用 `Surge Mac/8380 (MirrRule/1.0; +https://github.com/lucking7/MirrRule)`，保留应用标识的同时满足 Kelee 的 UA 规则；优先直连官方目录 `https://hub.kelee.one/list.json`。每次目录尝试的途径、响应状态、正文校验结果和取得目录的 SHA-256 记在转换报告的 `catalog` 中。目录不可用时报告为 `status: catalog-unavailable`，没有 `results`，退出码 3 仍触发既有基线保留流程。
 
-手动任务 `verify-kelee` 在全新 Runner 上独立检查目录、两份 Speedtest、必需的 HTTPDNS 插件和高德脚本。转换器在 Runner 临时目录读取本次取得的目录字节，按下载步骤的 SHA-256 复核后解析。规则可达时运行四平台 writer 并比对摘要，插件可达时执行转换、必需项检查、脚本校验和合并。它只在日志中保留元数据，不上传规则、模块或脚本，也不触发部署。目录可用、规则源可用、模块源可用在日志中分别显示。任一必需输入获取失败，任务失败。
+手动任务 `verify-kelee` 在全新 Runner 上独立检查目录、两份 Speedtest、必需的 HTTPDNS 插件和高德 JQ 资源。转换器在 Runner 临时目录读取本次取得的目录字节，按下载步骤的 SHA-256 复核后解析。规则可达时运行四平台 writer 并比对摘要，插件可达时执行转换、必需项检查、脚本校验和合并。它只在日志中保留元数据，不上传规则、模块或脚本，也不触发部署。目录可用、规则源可用、模块源可用在日志中分别显示。任一必需输入获取失败，任务失败。
 
-规则构建、source-health 与插件转换均接入 [browser-rule-gateway.py](Build/browser-rule-gateway.py)。它只接受 Kelee HTTPS `.lsr`、`.plugin`、`.lpx`、`.js` 及固定目录 `https://hub.kelee.one/list.json`。它固定监听 `127.0.0.1`，每请求创建独立 browser session，要求 HTTP 200，限制 8 MiB，关闭 redirect 并设置超时。HEAD 健康探针在上游使用 GET 并校验正文；`/health` 仅表示本地服务已启动。目录用 browser session 直连并校验 JSON（包括 `loon://` 安装链接）；其他资源经自有 Worker 下载，规则要求非空 UTF-8 规则正文且拒绝 HTML/JSON，插件要求名称和有效 section，脚本拒绝 HTML/challenge 正文。它不是通用代理。
+规则构建、source-health 与插件转换均接入 [browser-rule-gateway.py](Build/browser-rule-gateway.py)。它只接受 Kelee HTTPS `.lsr`、`.plugin`、`.lpx`、`.js`、`.jq` 及固定目录 `https://hub.kelee.one/list.json`。它固定监听 `127.0.0.1`，每请求创建独立 browser session，要求 HTTP 200，限制 8 MiB，关闭 redirect 并设置超时。HEAD 健康探针在上游使用 GET 并校验正文；`/health` 仅表示本地服务已启动。目录用 browser session 直连并校验 JSON（包括 `loon://` 安装链接）；其他资源经自有 Worker 下载，规则要求非空 UTF-8 规则正文且拒绝 HTML/JSON，插件要求名称和有效 section，脚本拒绝 HTML/challenge 正文。它不是通用代理。
 
 使用 Python 3.11，并安装精确锁定的 [requirements](Build/browser-rule-requirements.txt)。本地直连规则源可用时不必设置 gateway；需要复现 CI 的路径时，在仓库根目录运行：
 
