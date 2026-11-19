@@ -52,7 +52,11 @@ export async function checkKeleeRules(directory: string, groups: RuleGroup[] = r
   }
   const processor = new RuleSourceProcessor(createSpan('verify-kelee'), directory);
   const stats = await processor.processRuleGroups(selected);
-  assert.equal(stats.errors.length, 0, 'One or more Speedtest inputs could not be built');
+  assert.equal(
+    stats.errors.length,
+    0,
+    `One or more Speedtest inputs could not be built: ${JSON.stringify(stats.errors)}`
+  );
   return verifyKeleeRuleAudits(directory, stats.audits);
 }
 
