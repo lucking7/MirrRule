@@ -477,6 +477,18 @@ jobs:
             printf 'gateway probe: status=%s bytes=%s target=%s\n' \
               "$status" "$(wc -c < "$RUNNER_TEMP/gateway-probe.bin")" "$target"
           done
+          worker_url='https://cloudflare-proxy.lucking.workers.dev?url=https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx'
+          root_status=$(curl -sS -o /dev/null -w '%{http_code}' https://cloudflare-proxy.lucking.workers.dev/ || true)
+          printf 'worker probe: root status=%s\n' "$root_status"
+          for agent in 'curl-probe' 'Surge Mac/8380' 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'; do
+            status=$(curl -sS -o "$RUNNER_TEMP/worker-probe.bin" -w '%{http_code}' -A "$agent" "$worker_url" || true)
+            printf 'worker probe: ua=%s status=%s bytes=%s\n' \
+              "$agent" "$status" "$(wc -c < "$RUNNER_TEMP/worker-probe.bin")"
+            if [ "$status" != '200' ]; then
+              head -c 200 "$RUNNER_TEMP/worker-probe.bin" || true
+              echo
+            fi
+          done
           echo '--- browser rule gateway log ---'
           cat "$RUNNER_TEMP/browser-rule-gateway.log" || true
       - name: Verify both rules from download through all four writers
