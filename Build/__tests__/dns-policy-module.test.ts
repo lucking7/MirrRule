@@ -190,7 +190,7 @@ describe('designated DNS policy module', () => {
           else if (url === 'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/blockAds.module') {
             body = '#!name=Native fixture\n[Rule]\nDOMAIN,native.example,REJECT\n';
           } else throw new Error('Unexpected network request: ' + url);
-          return { ok: body !== null, status: body === null ? 404 : 200, statusText: 'fixture', text: async () => body ?? 'Not Found' };
+          return new Response(body ?? 'Not Found', { status: body === null ? 404 : 200, statusText: 'fixture' });
         },
       });
       const mirrorPath = require.resolve(path.join(converterDirectory, 'plugin-mirror.ts'));
