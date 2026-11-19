@@ -36,7 +36,7 @@ import {
   validateReceiptPayload,
 } from '../lib/publication-receipt';
 import type { ReceiptPayload } from '../lib/publication-receipt';
-import { StageError, checkSuperseded, classifyBaselineDrift, freshDirsForTasks, stagePublication } from '../lib/publication-stage';
+import { StageError, checkSuperseded, freshDirsForTasks, stagePublication } from '../lib/publication-stage';
 import type { RenderPublic } from '../lib/publication-stage';
 import { collectAbsentPaths, formatVerificationReport, verifyPublication } from '../lib/publication-verify';
 
@@ -262,7 +262,7 @@ async function baselineFrom(root: string, receiptId: number, deployCommit = DEPL
     sourceCommit: SOURCE,
     candidateId: computeCandidateId(files),
     generatedAt: '2026-10-09T00:00:00.000Z',
-    parentReceiptId: null,
+    originalCandidateId: null,
     files: files.map(file => ({ path: file.path, sha256: file.sha256 })),
   };
 }
@@ -300,6 +300,10 @@ describe('publication manifest', () => {
     const tampered = JSON.parse(text) as { files: Array<{ sha256: string }> };
     tampered.files[1].sha256 = '9'.repeat(64);
     assert.throws(() => parseManifest(JSON.stringify(tampered)), /candidateId does not match/);
+    assert.throws(() => parseManifest(JSON.stringify({ ...manifest, originalCandidateId: 'sha256:invalid' })), /originalCandidateId/);
+    const legacy = { ...manifest };
+    delete legacy.originalCandidateId;
+    assert.equal(parseManifest(JSON.stringify(legacy)).originalCandidateId, undefined);
   });
 });
 
@@ -723,32 +727,54 @@ describe('publication staging', () => {
     assert.ok(!absent.includes('List/ai.list'));
   });
 
-  it('rebases receipt drift and recognizes this same candidate already accepted', async (t) => {
+  it('recognizes the original candidate after a rebased publication is accepted', async (t) => {
     const env = await setup(t, candidateFixture({ receiptId: 5 }), { 'Mirror/a.sgmodule': 'a' });
-    const drifted = await baselineFrom(env.tree, 7);
-    const run = (baseline: ResolvedBaseline) => stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['build', 'deploy'], sourceCommit: SOURCE, baseline, baselineTreeDir: env.tree, render: fakeRender });
-    const rebased = await run(drifted);
+    const options = { candidateDir: env.candidate, outDir: env.out, tasks: ['build', 'deploy'], sourceCommit: SOURCE, baseline: await baselineFrom(env.tree, 7), baselineTreeDir: env.tree, render: fakeRender };
+    const rebased = await stagePublication(options);
     assert.equal(rebased.manifest.baselineReceiptId, 7);
     const rebasedDelta = JSON.parse(await fs.readFile(path.join(env.out, 'Internal/source-delta.json'), 'utf8')) as { baseline: { receiptId: number } };
     assert.equal(rebasedDelta.baseline.receiptId, 7);
     assert.match(await fs.readFile(path.join(env.candidate, 'Internal/source-delta.json'), 'utf8'), /"receiptId":"5"/);
-    const same = await baselineFrom(env.tree, 5);
-    const result = await run(same);
-    assert.equal(result.manifest.baselineReceiptId, 5);
+    const accepted = await resolveBaselineEvidence({
+      client: new FakeGitHub(), repository: REPO, treeDir: env.out,
+      receipt: { id: 8, createdAt: '', payload: manifestPayload({ candidateId: rebased.manifest.candidateId, manifestSha256: rebased.manifestSha256 }) },
+    });
+    assert.equal(accepted.originalCandidateId, rebased.manifest.originalCandidateId);
+    const retry = { ...options, outDir: path.join(env.out, '..', 'retry'), baseline: accepted, baselineTreeDir: env.out };
+    await assert.rejects(stagePublication(retry), stageError('already-accepted', /receipt 8/));
+    await assert.rejects(stagePublication({ ...retry, tasks: ['deploy', 'build', 'build'] }), stageError('already-accepted'));
+    const changedTime = await stagePublication({ ...retry, builtAt: '2026-10-10T01:00:00.000Z' });
+    assert.notEqual(changedTime.manifest.originalCandidateId, accepted.originalCandidateId);
+    const changedSource = await stagePublication({ ...retry, sourceCommit: OTHER });
+    assert.notEqual(changedSource.manifest.originalCandidateId, accepted.originalCandidateId);
+    const changedTasks = await stagePublication({ ...retry, tasks: ['build'] });
+    assert.notEqual(changedTasks.manifest.originalCandidateId, accepted.originalCandidateId);
+    const legacyRetry = await stagePublication({ ...retry, baseline: { ...accepted, originalCandidateId: null } });
+    assert.equal(legacyRetry.manifest.baselineReceiptId, 8);
+  });
 
-    // The staged tree is what receipt 7 accepted; a retry inside the lock must be a no-op.
-    const ownAccepted: ResolvedBaseline = {
-      ...(await baselineFrom(env.out, 7)),
-      parentReceiptId: 5,
-      generatedAt: '2026-10-10T00:00:00.000Z',
+  it('does not skip changed module, script, report or rule inputs on a publication retry', async (t) => {
+    const original = {
+      ...candidateFixture({ receiptId: 5 }),
+      'Modules/Converted/input.sgmodule': '#!name=input\n',
+      'Scripts/input.js': 'original script',
     };
-    const drift = await classifyBaselineDrift({ candidateDir: env.candidate, baseline: ownAccepted, sourceCommit: SOURCE, builtAt: '2026-10-10T00:00:00.000Z' });
-    assert.deepEqual(drift, { state: 'already-accepted', receiptId: 7, deployCommit: DEPLOY });
-    await assert.rejects(run(ownAccepted), stageError('already-accepted'));
-    const otherBuild = await classifyBaselineDrift({ candidateDir: env.candidate, baseline: { ...ownAccepted, generatedAt: '2026-10-10T01:00:00.000Z' }, sourceCommit: SOURCE, builtAt: '2026-10-10T00:00:00.000Z' });
-    assert.equal(otherBuild.state, 'drift');
-    await writeTree(env.candidate, { 'List/ai.list': 'DOMAIN-SUFFIX,changed.example\n' });
-    assert.equal((await classifyBaselineDrift({ candidateDir: env.candidate, baseline: ownAccepted, sourceCommit: SOURCE, builtAt: '2026-10-10T00:00:00.000Z' })).state, 'drift');
+    const env = await setup(t, original, { 'Mirror/a.sgmodule': 'a' });
+    const options = { candidateDir: env.candidate, outDir: env.out, tasks: ['convert-plugins', 'build', 'deploy'], sourceCommit: SOURCE, baseline: await baselineFrom(env.tree, 7), baselineTreeDir: env.tree, render: fakeRender };
+    const result = await stagePublication(options);
+    const accepted = { ...(await baselineFrom(env.out, 8)), originalCandidateId: result.manifest.originalCandidateId! };
+    const retry = { ...options, outDir: path.join(env.out, '..', 'retry'), baseline: accepted, baselineTreeDir: env.out };
+    for (const relative of ['Modules/Converted/input.sgmodule', 'Scripts/input.js', 'Internal/rule-coverage.json']) {
+      // eslint-disable-next-line no-await-in-loop -- each mutation is restored before the next independent retry
+      await writeTree(env.candidate, { [relative]: relative.endsWith('.json') ? '{"changed":true}\n' : 'changed content' });
+      // eslint-disable-next-line no-await-in-loop -- exercise staging against the same accepted evidence
+      const changed = await stagePublication(retry);
+      assert.notEqual(changed.manifest.originalCandidateId, accepted.originalCandidateId, relative);
+      // eslint-disable-next-line no-await-in-loop -- restore this input rather than accumulating changes
+      await writeTree(env.candidate, { [relative]: original[relative as keyof typeof original] });
+    }
+    await writeTree(env.candidate, { 'List/ai.list': 'DOMAIN,changed.example\n' });
+    await assert.rejects(stagePublication(retry), stageError('output-mismatch'));
   });
 
   it('marks restored optional artifacts as preserved only when their provenance verifies', async (t) => {
@@ -806,7 +832,7 @@ describe('publication staging', () => {
       { path: converted, bytes: Buffer.byteLength('accepted input'), sha256: sha256Hex('accepted input') },
       { path: script, bytes: Buffer.byteLength('accepted script'), sha256: sha256Hex('accepted script') },
     ]);
-    const ownAccepted = { ...(await baselineFrom(env.out, 8)), parentReceiptId: 7, generatedAt: '2026-10-10T00:00:00.000Z' };
+    const ownAccepted = { ...(await baselineFrom(env.out, 8)), originalCandidateId: result.manifest.originalCandidateId! };
     await assert.rejects(
       stagePublication({ candidateDir: env.candidate, outDir: path.join(env.out, '..', 'retry'), tasks: ['merge-modules', 'build', 'deploy'], sourceCommit: SOURCE, baseline: ownAccepted, baselineTreeDir: env.out, render: fakeRender }),
       stageError('already-accepted'),
@@ -873,6 +899,7 @@ describe('publication staging', () => {
     });
     const paths = result.manifest.files.map(file => file.path);
     assert.equal(result.manifest.kind, 'rollback');
+    assert.equal(result.manifest.originalCandidateId, null);
     assert.deepEqual(result.manifest.rollbackOf, { receiptId: 42, deployCommit: OTHER, sourceCommit: SOURCE });
     assert.ok(result.manifest.retiredRemoved.includes('Modules/Converted/腾讯视频去广告.sgmodule'));
     assert.ok(result.manifest.retiredRemoved.includes('List/discord.list'));
@@ -886,7 +913,7 @@ describe('publication staging', () => {
 
   it('treats a candidate as superseded only when the accepted baseline carries newer source or build time', async () => {
     const github = new FakeGitHub();
-    const baseline: ResolvedBaseline = { receiptId: 1, kind: 'manifest', deployCommit: DEPLOY, sourceCommit: SOURCE, candidateId: 'sha256:x', generatedAt: '2026-10-10T02:00:00.000Z', parentReceiptId: null, files: [] };
+    const baseline: ResolvedBaseline = { receiptId: 1, kind: 'manifest', deployCommit: DEPLOY, sourceCommit: SOURCE, candidateId: 'sha256:x', generatedAt: '2026-10-10T02:00:00.000Z', originalCandidateId: null, files: [] };
     assert.equal((await checkSuperseded({ client: github, repository: REPO, sourceCommit: SOURCE, builtAt: '2026-10-10T01:00:00.000Z', baseline })).superseded, true);
     assert.equal((await checkSuperseded({ client: github, repository: REPO, sourceCommit: SOURCE, builtAt: '2026-10-10T03:00:00.000Z', baseline })).superseded, false);
     github.compareStatus = 'behind';

@@ -44,6 +44,7 @@ test('native-only sections pass the actual mirror validator while Loon format st
       ['Body Rewrite', 'http-response-jq ^https://test/ del(.ads)'],
       ['URL Rewrite', '^https://test/ - reject'],
       ['Panel', 'status=script-name=status'],
+      ['Map Local', '^https://example.test/plain data="script(\'https://example.test/a.js\')"'],
     ]) {
       const content = `#!name=Native\n[${section}]\n${entry}\n`;
       const result = await loadNativeSurgeModule(plugin, (input, forceUpdate) => getPluginContent(input, forceUpdate, {

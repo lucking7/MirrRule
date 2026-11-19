@@ -2,7 +2,9 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
+import type { Buffer } from 'node:buffer';
 import picocolors from 'picocolors';
+import { Reader } from 'mmdb-lib';
 import type { Span } from './trace';
 import { task } from './trace';
 import { $$fetch } from './utils/network/fetch-retry';
@@ -11,6 +13,29 @@ import { getErrorMessage, mkdirp } from './lib/misc';
 // Checked 2026-07-24: upstream files ranged from 84,062 to 13,167,087 bytes.
 // Keep enough headroom below the smallest source while rejecting truncated responses.
 const MIN_MMDB_SIZE = 64 * 1024;
+
+function validateMmdb(bytes: Buffer): void {
+  const reader = new Reader(bytes);
+  const metadata = reader.metadata;
+  if (metadata.binaryFormatMajorVersion !== 2
+    || ![4, 6].includes(metadata.ipVersion)
+    || !Number.isSafeInteger(metadata.nodeCount)
+    || metadata.nodeCount <= 0
+    || metadata.searchTreeSize + 16 >= bytes.length) {
+    throw new Error('Downloaded MMDB has invalid metadata or a truncated search tree');
+  }
+
+  const samples = ['0.0.0.0', '4.0.0.1', '114.114.114.114', '255.255.255.255'];
+  if (metadata.ipVersion === 6) {
+    samples.push('::', 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff');
+  }
+  // These samples cover the configured CN and global databases without assuming their schema.
+  // mmdb-lib may return null for a broken tree, so successful metadata parsing is insufficient.
+  const records = samples.map(address => reader.get(address));
+  if (records.every(record => record === null)) {
+    throw new Error('Downloaded MMDB has no readable records at the verification addresses');
+  }
+}
 
 export interface GEOIPFile {
   path: string;
@@ -79,6 +104,8 @@ export async function downloadGEOIPFiles(
             `Downloaded MMDB is undersized: ${temporarySize} bytes (minimum ${MIN_MMDB_SIZE})`
           );
         }
+
+        validateMmdb(fs.readFileSync(temporaryPath));
 
         fs.renameSync(temporaryPath, outputPath);
         committed = true;

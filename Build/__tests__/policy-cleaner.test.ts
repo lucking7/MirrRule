@@ -74,6 +74,17 @@ describe('policy-cleaner', () => {
     assert.equal(cleanPolicyForModule('# DOMAIN,a.com,PROXY'), '# DOMAIN,a.com,PROXY');
   });
 
+  it('preserves source switch prefixes when cleaning logical and regex rules', () => {
+    const prefix = '{{{Enable}}}{{{nested}}}';
+    const logical = 'AND,((DOMAIN,foo.com),(DEST-PORT,443))';
+    assert.equal(cleanPolicyForModule(`${prefix}${logical},direct`), `${prefix}${logical},DIRECT`);
+    assert.equal(cleanPolicy(`${prefix}${logical},DIRECT`), `${prefix}${logical}`);
+    assert.equal(cleanPolicyForModule(`${prefix}${logical},PROXY`), null);
+    const regex = String.raw`URL-REGEX,"^https://a\.com/b,c"`;
+    assert.equal(cleanPolicy(`${prefix}${regex},DIRECT`), `${prefix}${regex}`);
+    assert.equal(cleanPolicyForModule(`${prefix}${regex},DIRECT`), `${prefix}${regex},DIRECT`);
+  });
+
   it('normalizes module policies to built-ins or the default reject policy', () => {
     assert.equal(
       cleanPolicyForModule('DOMAIN-SUFFIX,ad.com,REJECT-DROP,no-resolve'),

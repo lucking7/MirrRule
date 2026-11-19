@@ -92,6 +92,42 @@ test('local fallback retains every request and response jq action through public
   ]);
 });
 
+for (const expression of ['0 8 * * *', '0 0,30 8 * * *', '0 */15 8-17 * JAN-MAR MON-FRI', '0 0 0 1 1 0', '59 59 23 31 12 7']) {
+  test(`local cron schedule ${expression} survives conversion and publication`, async t => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-cron-publication-'));
+    t.after(() => fs.rm(directory, { recursive: true, force: true }));
+    t.after(() => setLocalConverterContentLoader(null));
+    setLocalConverterContentLoader(() => Promise.resolve({
+      success: true,
+      content: `#!name=Daily\n[Script]\ncron "${expression}" script-path=https://scripts.test/daily.js, tag=Daily`,
+    }));
+    const [conversion] = await convertPluginsLocallyBatch([plugin('Daily')]);
+    if (typeof conversion.content !== 'string') throw new Error(conversion.content.error);
+    const outputPath = path.join(directory, 'Daily.sgmodule');
+    const [result] = await publishPluginArtifacts([{
+      content: conversion.content,
+      result: { pluginName: conversion.pluginName, sourceId: conversion.sourceId, sourceUrl: conversion.sourceUrl, outputPath, scripts: extractScriptUrls(conversion.content) },
+    }], { 'https://scripts.test/daily.js': 'https://nrrule.pages.dev/Scripts/daily.js' });
+    assert.equal(result.status, 'ready');
+    const emitted = await fs.readFile(outputPath, 'utf8');
+    assert.ok(emitted.includes(`type=cron, cronexp="${expression}"`));
+    assert.ok(emitted.includes('script-path=https://nrrule.pages.dev/Scripts/daily.js'));
+  });
+}
+
+test('local cron with a missing or unsupported schedule fails conversion', async t => {
+  t.after(() => setLocalConverterContentLoader(null));
+  for (const expression of ['', '"@daily"', '"0 8 * *"', '"0 0 8 * * *', '"EVERY SINGLE DAY AT NOON"', '"99 99 99 99 99"', '"*/0 * * * *"', '"0 0 24 * * *"', '"0 0 0 * 13 *"', '"H * * * *"', '"0 0 L * *"', '"0 0 * * FOO"']) {
+    setLocalConverterContentLoader(() => Promise.resolve({
+      success: true,
+      content: `#!name=Daily\n[Script]\ncron ${expression} script-path=https://scripts.test/daily.js, tag=Daily\n[MITM]\nhostname=example.test`,
+    }));
+    const [result] = await convertPluginsLocallyBatch([plugin('Daily')]);
+    assert.notEqual(typeof result.content, 'string');
+    if (typeof result.content !== 'string') assert.match(result.content.error, /Unsupported local cron expression/);
+  }
+});
+
 test('unknown rewrite fails through fallback rather than producing a MITM-only ready artifact', async t => {
   t.after(() => setLocalConverterContentLoader(null));
   setLocalConverterContentLoader(() => Promise.resolve({

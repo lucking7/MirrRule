@@ -41,7 +41,7 @@ async function fixture(root: string, records: Array<[string, string[]]>, receipt
 
 async function baseline(tree: string, id: number): Promise<ResolvedBaseline> {
   const files = await scanTree(tree);
-  return { receiptId: id, kind: 'manifest', deployCommit: NEW_COMMIT, sourceCommit: SOURCE, candidateId: computeCandidateId(files), generatedAt: '2026-10-10T00:00:00.000Z', parentReceiptId: null, files: files.map(file => ({ path: file.path, sha256: file.sha256 })) };
+  return { receiptId: id, kind: 'manifest', deployCommit: NEW_COMMIT, sourceCommit: SOURCE, candidateId: computeCandidateId(files), generatedAt: '2026-10-10T00:00:00.000Z', originalCandidateId: null, files: files.map(file => ({ path: file.path, sha256: file.sha256 })) };
 }
 
 async function environment(t: { after: (fn: () => Promise<void>) => void }) {

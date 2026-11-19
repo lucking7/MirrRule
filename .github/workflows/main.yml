@@ -233,6 +233,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       converted: ${{ steps.convert.outputs.converted }}
+      artifact_id: ${{ steps.upload-output.outputs.artifact-id }}
+      report_artifact_id: ${{ steps.upload-report.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -357,10 +359,11 @@ jobs:
           echo "✅ Plugin conversion produced $converted_count non-empty .sgmodule files"
 
       - name: Upload plugin conversion output
+        id: upload-output
         if: success() && steps.convert.outputs.converted == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: plugin-output-${{ github.sha }}-${{ github.run_number }}
+          name: plugin-output-${{ github.sha }}-${{ github.run_number }}-${{ github.run_attempt }}
           path: |
             public/Modules/Converted
             public/Scripts
@@ -369,10 +372,11 @@ jobs:
           if-no-files-found: error
 
       - name: Upload plugin conversion report
+        id: upload-report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: plugin-conversion-report-${{ github.sha }}-${{ github.run_number }}
+          name: plugin-conversion-report-${{ github.sha }}-${{ github.run_number }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/plugin-conversion-report.json
           retention-days: 7
           if-no-files-found: ignore
@@ -398,7 +402,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: plugin-browser-rule-gateway-log-${{ github.sha }}-${{ github.run_number }}
+          name: plugin-browser-rule-gateway-log-${{ github.sha }}-${{ github.run_number }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/browser-rule-gateway.log
           retention-days: 7
           if-no-files-found: ignore
@@ -408,6 +412,8 @@ jobs:
   # ============================================
   merge-modules:
     name: Merge Modules
+    outputs:
+      artifact_id: ${{ steps.upload-output.outputs.artifact-id }}
     needs: [prepare, baseline, convert-plugins]
     if: |
       always() &&
@@ -453,7 +459,7 @@ jobs:
         if: contains(fromJSON(needs.prepare.outputs.tasks), 'convert-plugins')
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: plugin-output-${{ github.sha }}-${{ github.run_number }}
+          artifact-ids: ${{ needs.convert-plugins.outputs.artifact_id || '0' }}
           path: public
 
       - name: Ensure converted modules exist
@@ -508,7 +514,7 @@ jobs:
           needs.baseline.outputs.available == 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: plugin-conversion-report-${{ github.sha }}-${{ github.run_number }}
+          artifact-ids: ${{ needs.convert-plugins.outputs.report_artifact_id || '0' }}
           path: ${{ runner.temp }}/plugin-conversion-report
 
       - name: Preserve previous optional modules and scripts
@@ -539,9 +545,10 @@ jobs:
         run: echo "::notice::No accepted baseline receipt; previous optional modules and scripts are not restored. This build cannot be published until the bootstrap-baseline task has run."
 
       - name: Upload module output
+        id: upload-output
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: module-output-${{ github.sha }}-${{ github.run_number }}
+          name: module-output-${{ github.sha }}-${{ github.run_number }}-${{ github.run_attempt }}
           path: |
             public/Modules
             public/Scripts
@@ -569,6 +576,7 @@ jobs:
       actions: read
     outputs:
       tasks: ${{ steps.publication-tasks.outputs.tasks }}
+      artifact_id: ${{ steps.upload-output.outputs.artifact-id }}
     steps:
       # 🚀 网络性能优化
       # Optional tuning: some runner images have no eth0, and ethtool then exits 92.
@@ -705,14 +713,14 @@ jobs:
           needs.convert-plugins.outputs.converted == 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: plugin-output-${{ github.sha }}-${{ github.run_number }}
+          artifact-ids: ${{ needs.convert-plugins.outputs.artifact_id || '0' }}
           path: public
 
       - name: Download module output
         if: needs.merge-modules.result == 'success'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: module-output-${{ github.sha }}-${{ github.run_number }}
+          artifact-ids: ${{ needs.merge-modules.outputs.artifact_id || '0' }}
           path: public
 
       # 🔧 步骤 4.2: 清理 Modules 根目录中的历史 .sgmodule 文件
@@ -873,9 +881,11 @@ jobs:
           echo ""
           echo "✅ Build output verified"
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - name: Upload build output
+        id: upload-output
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
+          name: build-artifact-${{ github.sha }}-${{ github.run_number }}-${{ github.run_attempt }}
           path: ${{ steps.build-dir.outputs.dir }}
           retention-days: 1
           compression-level: 4
@@ -907,7 +917,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: browser-rule-gateway-log-${{ github.sha }}-${{ github.run_number }}
+          name: browser-rule-gateway-log-${{ github.sha }}-${{ github.run_number }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/browser-rule-gateway.log
           retention-days: 7
           if-no-files-found: ignore
@@ -928,7 +938,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
+          artifact-ids: ${{ needs.build.outputs.artifact_id || '0' }}
           path: public
 
       - name: Compare with production
@@ -1027,7 +1037,7 @@ jobs:
           contains(fromJSON(needs.prepare.outputs.tasks), 'deploy')
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
+          artifact-ids: ${{ needs.build.outputs.artifact_id || '0' }}
           path: ${{ runner.temp }}/candidate
 
       - name: Resolve accepted baseline inside the production lock
@@ -1243,7 +1253,7 @@ jobs:
         id: upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: publication-bootstrap-${{ github.event.inputs.bootstrap_revision }}-${{ github.run_number }}
+          name: publication-bootstrap-${{ github.event.inputs.bootstrap_revision }}-${{ github.run_number }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/bootstrap
           retention-days: 90
           if-no-files-found: error

@@ -95,7 +95,7 @@ async function fixture(t: { after: (fn: () => Promise<void>) => void }, candidat
     sourceCommit: SOURCE,
     candidateId: computeCandidateId(files),
     generatedAt: '2026-10-09T00:00:00.000Z',
-    parentReceiptId: null,
+    originalCandidateId: null,
     files: files.map(file => ({ path: file.path, sha256: file.sha256 })),
   };
   return { root, candidate, baselineTree, baseline };

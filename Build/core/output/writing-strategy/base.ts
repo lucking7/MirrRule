@@ -2,7 +2,7 @@ import { splitLogicalFields } from './logical-fields';
 import { smartConvertRule } from '../../../lib/misc';
 import { cleanPolicy } from '../../../lib/policy-cleaner';
 import type { CanonicalRuleType, RulePlatform } from '../rule-support-matrix';
-import { MALFORMED_RULE_POLICY, RULE_SUPPORT_MATRIX } from '../rule-support-matrix';
+import { MALFORMED_RULE_POLICY, normalizeRuleType, RULE_SUPPORT_MATRIX } from '../rule-support-matrix';
 import { RuleLineUtils } from '../../../utils/validation/validators';
 
 export interface RuleDropSummary {
@@ -179,7 +179,7 @@ export abstract class BaseWriteStrategy {
       }
       return `${type},(${converted.join(',')})${fields.length > 2 ? ',' + fields.slice(2).join(',') : ''}`;
     }
-    const canonicalType = ({ 'SRC-IP': 'SRC-IP-CIDR', 'SRC-IP-CIDR6': 'SRC-IP-CIDR', 'DST-PORT': 'DEST-PORT', NETWORK: 'PROTOCOL' } as Record<string, string>)[type] ?? type;
+    const canonicalType = normalizeRuleType(type) ?? type;
     const accounted = this.accountOtherRule(`${canonicalType},${fields.slice(1).join(',')}`);
     if (accounted === 'skip' || accounted === 'unknown' || !this.accepts(accounted)) return null;
     const outputType = this.platform === 'surge'

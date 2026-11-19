@@ -59,7 +59,7 @@ describe('artifact synchronization', () => {
         }),
         download(url: string) {
           downloaded.push(url);
-          return Promise.resolve(Buffer.from('#!name=iRingo Siri'));
+          return Promise.resolve(Buffer.from('#!name=iRingo Siri\n[Rule]\nDOMAIN,example.test,REJECT'));
         },
       });
 
@@ -68,7 +68,7 @@ describe('artifact synchronization', () => {
       assert.equal(result.skipped, 1);
       assert.equal(
         await fsp.readFile(path.join(directory, 'sgmodule', 'iRingo.Siri.sgmodule'), 'utf8'),
-        '#!name=iRingo Siri'
+        '#!name=iRingo Siri\n[Rule]\nDOMAIN,example.test,REJECT'
       );
     } finally {
       await fsp.rm(directory, { recursive: true, force: true });

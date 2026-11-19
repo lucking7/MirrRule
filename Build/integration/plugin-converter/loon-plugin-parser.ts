@@ -1,5 +1,6 @@
 /* eslint-disable regexp/no-super-linear-backtracking, regexp/optimal-quantifier-concatenation -- legacy Loon regex patterns are intentionally kept as-is for compatibility */
 
+import { CronExpressionParser } from 'cron-parser';
 import { parseLoonRewrite } from './loon-rewrite-parser';
 import type {
   Argument,
@@ -199,7 +200,23 @@ export class LoonPluginParser {
       Number.parseInt(LoonPluginParser.extractParam(line, 'timeout') || '0', 10) || undefined;
     const maxSize =
       Number.parseInt(LoonPluginParser.extractParam(line, 'max-size') || '0', 10) || undefined;
-    const cronExpression = LoonPluginParser.extractParam(line, 'cron');
+    let cronExpression = '';
+    if (type === 'cron') {
+      if (!scriptPath) throw new Error('Cron script is missing script-path');
+      const beforePath = rest.slice(0, rest.indexOf('script-path')).trim().replace(/,$/, '').trim();
+      const named = /,\s*cron\s*=\s*(?:"([^"]*)"|([^,]*))/.exec(line);
+      cronExpression = (named?.[1] ?? named?.[2] ?? beforePath).replace(/^"([^"]*)"$/, '$1');
+      // Local fallback accepts standard fields and named aliases, not hashed or last-day extensions.
+      if (!/^[\d*?,/A-Z-]+(?:\s+[\d*?,/A-Z-]+){4,5}$/i.test(cronExpression)
+        || (cronExpression.match(/[a-z]+/gi) ?? []).some(name => name.length !== 3)) {
+        throw new Error(`Unsupported local cron expression: ${cronExpression || '(missing)'}`);
+      }
+      try {
+        CronExpressionParser.parse(cronExpression);
+      } catch {
+        throw new Error(`Unsupported local cron expression: ${cronExpression}`);
+      }
+    }
     const engine = LoonPluginParser.extractParam(line, 'engine');
 
     const enableMatch = /enable\s*=\s*{([^}]+)}/.exec(line);

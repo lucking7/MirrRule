@@ -4,7 +4,8 @@
  */
 
 import fs from 'node:fs/promises';
-import { Buffer, isUtf8 } from 'node:buffer';
+import { Buffer } from 'node:buffer';
+import { isNonHtmlText } from '../../lib/downloaded-text';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import picocolors from 'picocolors';
@@ -34,9 +35,7 @@ const MIRROR_BASE_URL = `https://${SCRIPT_MIRROR_LOCATION}`;
 const MIRROR_BASE = new URL(`${MIRROR_BASE_URL}/`);
 
 export function validateScriptContent(content: Buffer): boolean {
-  if (content.length < MIN_FILE_SIZE || !isUtf8(content)) return false;
-  const prefix = content.toString('utf8').trimStart().slice(0, 8192).toLowerCase();
-  return !/^(?:<!doctype\s+html\b|<(?:html|head|body|script)\b|just a moment\b|attention required\b|enable javascript and cookies to continue\b|window\.location\s*=\s*['"][^'"]*\/cdn-cgi\/challenge-platform\/)/.test(prefix);
+  return content.length >= MIN_FILE_SIZE && isNonHtmlText(content);
 }
 
 interface FetchResponse {

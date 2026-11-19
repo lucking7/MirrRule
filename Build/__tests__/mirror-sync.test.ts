@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
+import { FileType, syncRepository } from '../integration/mirror-sync/sync-engine';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -10,8 +12,8 @@ const repository = path.resolve(__dirname, '../..');
 const changedMessage = '[OK] Sync completed successfully with changes';
 const unchangedMessage = '[OK] Sync completed - no changes detected';
 const failedMessage = '[WARN] Sync completed with errors';
-const content = '#!name=Current module';
-const previousContent = '#!name=Previous module';
+const content = '#!name=Current module\n[Rule]\nDOMAIN,current.test,REJECT';
+const previousContent = '#!name=Previous module\n[Rule]\nDOMAIN,previous.test,REJECT';
 
 const scenarios = [
   { name: 'new', states: ['new'], message: changedMessage },
@@ -106,3 +108,66 @@ replace('Build/integration/mirror-sync/github-api.ts', {
     });
   }
 }
+
+for (const [extension, type, valid] of [
+  ['sgmodule', FileType.SGMODULE, content],
+  ['plugin', FileType.PLUGIN, '#!name=Plugin\n[Rewrite]\n^https://ads.test/ reject'],
+  ['snippet', FileType.SNIPPET, '#[rewrite_local]\n^https://ads.test/ url reject'],
+  ['stoverride', FileType.STOVERRIDE, 'name: Override\nhttp:\n  mitm: [ads.test]'],
+] as const) {
+  it(`validates ${extension} before replacing an existing release artifact`, async t => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-mirror-format-'));
+    t.after(() => fs.rm(directory, { recursive: true, force: true }));
+    const outputDirectory = path.join(directory, extension);
+    await fs.mkdir(outputDirectory);
+    const filename = `sample.${extension}`;
+    const outputPath = path.join(outputDirectory, filename);
+    const repository = { repo: 'fixture/release', outputDir: directory, allowedTypes: [type] };
+    const release = { tag_name: 'v1', name: 'v1', html_url: 'https://example.test/release', assets: [
+      { name: filename, url: 'fixture', browser_download_url: 'fixture', size: 100 },
+    ] };
+    await fs.writeFile(outputPath, valid);
+    for (const invalid of ['<!DOCTYPE html><html>Service unavailable</html>', '#!name=metadata only', '[Script]\n# no actions']) {
+      const result = await syncRepository(repository, {
+        fetchRelease: () => Promise.resolve(release),
+        download: () => Promise.resolve(Buffer.from(invalid)),
+      });
+      assert.equal(result.succeeded, 0);
+      assert.equal(result.failed.length, 1);
+      assert.equal(result.failed[0].required, true);
+      assert.equal(await fs.readFile(outputPath, 'utf8'), valid);
+      assert.deepEqual(await fs.readdir(outputDirectory), [filename]);
+    }
+    const result = await syncRepository(repository, {
+      fetchRelease: () => Promise.resolve(release),
+      download: () => Promise.resolve(Buffer.from(valid)),
+    });
+    assert.equal(result.succeeded, 1);
+    assert.deepEqual(result.failed, []);
+    const postprocessed = await syncRepository({ ...repository, postProcess: () => '<html>broken processor</html>' }, {
+      fetchRelease: () => Promise.resolve(release),
+      download: () => Promise.resolve(Buffer.from(valid)),
+    });
+    assert.equal(postprocessed.failed.length, 1);
+    assert.equal(await fs.readFile(outputPath, 'utf8'), valid);
+  });
+}
+
+it('mirrors literal Map Local data without inventing a conversion dependency', async t => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-mirror-literal-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const content = '[Map Local]\n^https://example.test/plain data="script(\'https://example.test/a.js\')"';
+  const result = await syncRepository({
+    repo: 'fixture/literal', outputDir: directory, allowedTypes: [FileType.SGMODULE],
+  }, {
+    fetchRelease: () => Promise.resolve({
+      tag_name: 'v1', name: 'v1', html_url: 'https://example.test/release', assets: [
+        { name: 'literal.sgmodule', url: 'fixture', browser_download_url: 'fixture', size: content.length },
+      ],
+    }),
+    download: () => Promise.resolve(Buffer.from(content)),
+  });
+  assert.equal(result.succeeded, 1);
+  assert.deepEqual(result.failed, []);
+  assert.equal(await fs.readFile(path.join(directory, 'sgmodule/literal.sgmodule'), 'utf8'), content);
+});

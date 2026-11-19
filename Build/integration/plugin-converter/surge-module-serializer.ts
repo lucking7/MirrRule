@@ -150,9 +150,8 @@ export function generateSurgeOutput(surge: SurgeModule): string {
 
       // cron 类型使用 cronexp，event/generic 可能不需要 pattern
       if (script.type === 'cron') {
-        if (script.cronExpression) {
-          parts.push(`cronexp="${script.cronExpression}"`);
-        }
+        if (!script.cronExpression) throw new Error(`Missing cron expression for script: ${script.name}`);
+        parts.push(`cronexp="${script.cronExpression}"`);
       } else if (script.type === 'event' || script.type === 'generic') {
         if (script.pattern && script.pattern !== '-') {
           parts.push(`pattern=${script.pattern}`);

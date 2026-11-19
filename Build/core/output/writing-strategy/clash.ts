@@ -4,6 +4,7 @@ import { withBannerArray } from '../../../lib/misc';
 import { fastIpVersion } from 'foxts/fast-ip-version';
 import { splitLogicalFields } from './logical-fields';
 import { cleanPolicy } from '../../../lib/policy-cleaner';
+import { normalizeRuleType } from '../rule-support-matrix';
 
 export class ClashClassicRuleSet extends BaseWriteStrategy {
   public readonly platform = 'clash' as const;
@@ -141,7 +142,7 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
       return `${type},(${converted.join(',')})`;
     }
 
-    const canonicalType = ({ NETWORK: 'PROTOCOL', 'DST-PORT': 'DEST-PORT', 'SRC-IP': 'SRC-IP-CIDR', 'SRC-IP-CIDR6': 'SRC-IP-CIDR' } as Record<string, string>)[type] ?? type;
+    const canonicalType = normalizeRuleType(type) ?? type;
     const accounted = this.accountOtherRule(`${canonicalType},${fields.slice(1).join(',')}`);
     if (accounted === 'skip' || accounted === 'unknown' || !this.accepts(accounted)) return null;
     const value = fields[1];

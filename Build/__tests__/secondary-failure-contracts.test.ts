@@ -34,7 +34,7 @@ describe('shared secondary pipeline failure contract', () => {
         tag_name: 'v1', name: 'v1', html_url: 'https://example.test',
         assets: [{ name: 'asset.sgmodule', url: 'asset-url', browser_download_url: 'asset-url', size: 20 }],
       }),
-      download: () => Promise.resolve(Buffer.from('different raw content')),
+      download: () => Promise.resolve(Buffer.from('[Rule]\nDOMAIN,example.test,REJECT')),
     });
     assert.deepEqual(result.failed, [{ asset: 'asset.sgmodule', error: 'processor failed', required: true }]);
     assert.equal(await fsp.readFile(destination, 'utf8'), 'valid-existing-content');

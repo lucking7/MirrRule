@@ -27,6 +27,7 @@ import {
   PUBLICATION_MANIFEST_PATH,
   buildManifest,
   comparePaths,
+  computeCandidateId,
   hashFile,
   listTreeFiles,
   scanTree,
@@ -348,48 +349,16 @@ export async function readCandidateBuiltAt(candidateDir: string): Promise<string
   return typeof status?.buildTime === 'string' && !Number.isNaN(Date.parse(status.buildTime)) ? status.buildTime : null;
 }
 
-export type BaselineDrift =
-  | { state: 'none' }
-  | { state: 'already-accepted', receiptId: number, deployCommit: string }
-  | { state: 'drift', declared: number | null, current: number | null };
-
-const RULE_DIRS = ['List', 'Clash', 'Loon', 'sing-box', 'GeoIP'] as const;
-
-/**
- * Compare the receipt the candidate's source delta was computed against with the accepted
- * baseline seen inside the production lock. When they differ only because this same candidate
- * was already accepted (for example a lost response after the receipt was written), the
- * publication is an idempotent retry. Other differences require staging to recompute the
- * source delta from downloaded snapshots against the newly accepted baseline.
- */
-export async function classifyBaselineDrift(options: {
-  candidateDir: string,
-  baseline: ResolvedBaseline | null,
-  sourceCommit: string,
-  builtAt: string | null
-}): Promise<BaselineDrift> {
-  const { deltaBaselineReceiptId: declared } = await readOutputContract(options.candidateDir, [SOURCE_DELTA_FILE]);
-  const { baseline } = options;
-  const current = baseline?.receiptId ?? null;
-  if (declared === current) return { state: 'none' };
-  if (
-    baseline?.kind === 'manifest'
-    && baseline.parentReceiptId === declared
-    && baseline.sourceCommit === options.sourceCommit
-    && baseline.generatedAt !== null
-    && baseline.generatedAt === options.builtAt
-  ) {
-    const compared = new Set<string>(RULE_DIRS);
-    const isCompared = (relative: string) => compared.has(relative.split('/')[0]) || relative === RULE_OUTPUT_AUDIT_FILE || relative === SOURCE_DELTA_FILE;
-    const accepted = new Map<string, string>();
-    for (const file of baseline.files) {
-      if (isCompared(file.path)) accepted.set(file.path, file.sha256);
-    }
-    const candidateFiles = (await scanTree(options.candidateDir)).filter(file => isCompared(file.path) && !isRetiredPublicPath(file.path));
-    const same = candidateFiles.length === accepted.size && candidateFiles.every(file => accepted.get(file.path) === file.sha256);
-    if (same) return { state: 'already-accepted', receiptId: baseline.receiptId, deployCommit: baseline.deployCommit };
-  }
-  return { state: 'drift', declared, current };
+/** The pre-staging identity survives source-delta rebasing and optional-file restoration. */
+async function originalCandidateId(candidateDir: string, sourceCommit: string, builtAt: string, tasks: readonly string[]): Promise<string> {
+  return `sha256:${sha256Hex(JSON.stringify({
+    version: 1,
+    sourceCommit,
+    builtAt,
+    tasks: [...new Set(tasks)].sort(comparePaths),
+    lifecycleVersion: ARTIFACT_LIFECYCLE_VERSION,
+    files: computeCandidateId(await scanTree(candidateDir)),
+  }))}`;
 }
 
 function stageContractError(error: unknown): never {
@@ -475,25 +444,27 @@ export async function stagePublication(options: StageOptions): Promise<StageResu
   const candidateContract = await readOutputContract(candidate).catch(stageContractError);
   const originalMismatches = await findOutputMismatches(candidate, candidateContract.outputs);
   if (originalMismatches.length) throw new StageError('output-mismatch', `candidate rule outputs disagree with ${RULE_OUTPUT_AUDIT_FILE}: ${originalMismatches.join('; ')}`);
+  const inputId = rollback ? null : await originalCandidateId(candidate, options.sourceCommit, builtAt, options.tasks);
   const mergeOnly = !rollback && options.tasks.includes('merge-modules') && !options.tasks.includes('convert-plugins');
   if (mergeOnly && (!options.baseline || !options.baselineTreeDir)) {
     throw new StageError('baseline-unavailable', 'merge-only publication requires the accepted baseline used to build the merged module');
   }
   let rebasing = false;
   if (!rollback) {
-    const drift = await classifyBaselineDrift({ candidateDir: candidate, baseline: options.baseline, sourceCommit: options.sourceCommit, builtAt });
-    if (drift.state === 'already-accepted') {
-      throw new StageError('already-accepted', `this candidate is already accepted as receipt ${drift.receiptId} (NRRule ${drift.deployCommit}); nothing to publish`);
+    const declared = candidateContract.deltaBaselineReceiptId;
+    const current = options.baseline?.receiptId ?? null;
+    if (options.baseline?.kind === 'manifest' && options.baseline.originalCandidateId === inputId) {
+      throw new StageError('already-accepted', `this candidate is already accepted as receipt ${options.baseline.receiptId} (NRRule ${options.baseline.deployCommit}); nothing to publish`);
     }
-    if (drift.state === 'drift') {
+    if (declared !== current) {
       if (mergeOnly) {
-        throw new StageError('baseline-drift', `merge-only candidate used receipt ${drift.declared ?? 'none'}, but accepted receipt is ${drift.current}; rerun deploy-modules to rebuild against the current modules and scripts`);
+        throw new StageError('baseline-drift', `merge-only candidate used receipt ${declared ?? 'none'}, but accepted receipt is ${current}; rerun deploy-modules to rebuild against the current modules and scripts`);
       }
       if (!options.baseline || !options.baselineTreeDir) {
         throw new StageError('baseline-unavailable', 'cannot rebase source delta without a verified accepted tree');
       }
       rebasing = true;
-      options.log?.(`Rebasing candidate from receipt ${drift.declared ?? 'none'} to accepted receipt ${drift.current}`);
+      options.log?.(`Rebasing candidate from receipt ${declared ?? 'none'} to accepted receipt ${current}`);
     }
   }
 
@@ -613,6 +584,7 @@ export async function stagePublication(options: StageOptions): Promise<StageResu
   }
   const manifest = buildManifest({
     kind: rollback ? 'rollback' : 'build',
+    originalCandidateId: inputId,
     sourceCommit: options.sourceCommit,
     baselineReceiptId: options.baseline?.receiptId ?? null,
     baselineDeployCommit: options.baseline?.deployCommit ?? null,

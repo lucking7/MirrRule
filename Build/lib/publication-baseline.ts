@@ -25,8 +25,8 @@ export interface ResolvedBaseline {
   candidateId: string,
   /** Manifest generation time; null for legacy bootstrap baselines. */
   generatedAt: string | null,
-  /** Receipt the baseline's own manifest was staged against; null for bootstrap baselines. */
-  parentReceiptId: number | null,
+  /** Original build identity, verified through the accepted manifest; null for older baselines. */
+  originalCandidateId: string | null,
   /** Files of the baseline tree that later candidates may preserve, with verified digests. */
   files: BaselineFile[]
 }
@@ -88,7 +88,7 @@ export async function resolveBaselineEvidence(options: {
       sourceCommit: payload.sourceCommit,
       candidateId: payload.candidateId,
       generatedAt: read.manifest.generatedAt,
-      parentReceiptId: read.manifest.baselineReceiptId,
+      originalCandidateId: read.manifest.originalCandidateId ?? null,
       files: read.manifest.files.map(file => ({ path: file.path, sha256: file.sha256 })),
     };
   }
@@ -132,7 +132,7 @@ export async function resolveBaselineEvidence(options: {
       sourceCommit: payload.sourceCommit,
       candidateId: payload.candidateId,
       generatedAt: null,
-      parentReceiptId: null,
+      originalCandidateId: null,
       files: inventory.files.map(file => ({ path: file.path, sha256: file.sha256 })),
     };
   } finally {
@@ -149,5 +149,5 @@ export async function readBaselineEvidence(file: string): Promise<ResolvedBaseli
   if (typeof value.receiptId !== 'number' || typeof value.deployCommit !== 'string' || !Array.isArray(value.files)) {
     throw new TypeError(`Invalid baseline evidence file: ${file}`);
   }
-  return { ...value, parentReceiptId: value.parentReceiptId ?? null };
+  return { ...value, originalCandidateId: value.originalCandidateId ?? null };
 }

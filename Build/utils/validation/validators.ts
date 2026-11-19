@@ -1,4 +1,5 @@
 import { isIP } from 'node:net';
+import { normalizeRuleType } from '../../core/output/rule-support-matrix';
 
 export class IPValidator {
   private static isCidr(this: void, text: string, family: 4 | 6, maxPrefix: number): boolean {
@@ -123,14 +124,6 @@ export const RuleLineUtils = {
     const parsed = this.parseRule(trimmed);
     if (!parsed) return false;
 
-    const validTypes = [
-      'DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN-WILDCARD',
-      'IP-CIDR', 'IP-CIDR6', 'GEOIP', 'IP-ASN',
-      'USER-AGENT', 'URL-REGEX', 'PROCESS-NAME', 'PROCESS-PATH',
-      'SRC-IP-CIDR', 'SRC-PORT', 'DST-PORT', 'DEST-PORT',
-      'PROTOCOL', 'NETWORK', 'AND', 'OR', 'NOT',
-    ];
-
-    return validTypes.includes(parsed.type) && Boolean(parsed.value?.length);
+    return normalizeRuleType(parsed.type) !== null && Boolean(parsed.value?.length);
   },
 };

@@ -62,6 +62,26 @@ describe('module merger publication contracts', () => {
     assert.equal(fs.existsSync(config.output.sgmodule), false);
   });
 
+  it('keeps source-switched logical rules and their independent matching conditions', async t => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-logical-switch-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const logical = 'AND,((DOMAIN,example.test),(DEST-PORT,443))';
+    const other = 'AND,((DOMAIN,example.test),(DEST-PORT,8443))';
+    const { configPath, config } = fixture(directory, [
+      `#!arguments=Enable:,enable:#\n[Rule]\n{{{Enable}}}${logical},DIRECT\n{{{Enable}}}${logical},REJECT\n{{{enable}}}${logical},DIRECT\n${logical},DIRECT\n{{{Enable}}}${other},DIRECT`,
+    ]);
+    const result = await mergeModules(configPath);
+    assert.equal(result.stats.rulesDroppedForPolicy, 0);
+    assert.equal(result.stats.rulesDeduplicated, 1);
+    const output = fs.readFileSync(config.output.sgmodule, 'utf8');
+    const rules = output.split('\n').filter(line => line.startsWith('{{{mod0}}}'));
+    assert.equal(rules.length, 4);
+    assert.ok(rules.some(line => line.includes(`_Enable}}}${logical},DIRECT`)));
+    assert.ok(rules.some(line => line.includes(`_enable}}}${logical},DIRECT`)));
+    assert.ok(rules.includes(`{{{mod0}}}${logical},DIRECT`));
+    assert.ok(rules.some(line => line.includes(`_Enable}}}${other},DIRECT`)));
+  });
+
   it('creates the output directory and preserves source defaults and unique script names', async t => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-merge-output-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));

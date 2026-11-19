@@ -10,6 +10,7 @@ import { parse } from 'yaml';
 import { freshDirsForTasks } from '../lib/publication-stage';
 
 interface WorkflowStep {
+  id?: string;
   name?: string;
   uses?: string;
   if?: string;
@@ -287,6 +288,51 @@ describe('GitHub Actions workflow contract', () => {
           String(step.with?.name).startsWith('build-artifact-'),
       ) ?? -1;
     assert.ok(verifyIndex >= 0 && uploadIndex > verifyIndex);
+  });
+
+  it('keeps artifacts from different attempts without overwriting bootstrap evidence', () => {
+    const uploadNames = new Set<string>();
+    assert.ok(workflow.jobs);
+    for (const job of Object.values(workflow.jobs)) {
+      if (!job.steps) continue;
+      for (const step of job.steps) {
+        if (!step.uses?.startsWith('actions/upload-artifact@')) continue;
+        const name = String(step.with?.name);
+        assert.ok(name.includes(githubExpression('github.run_attempt')), name);
+        assert.notEqual(step.with?.overwrite, true, name);
+        const first = name.replace(githubExpression('github.run_attempt'), '1');
+        const retry = name.replace(githubExpression('github.run_attempt'), '2');
+        assert.notEqual(first, retry);
+        for (const attemptName of [first, retry]) {
+          assert.ok(!uploadNames.has(attemptName), `artifact collision: ${attemptName}`);
+          uploadNames.add(attemptName);
+        }
+      }
+    }
+  });
+
+  it('downloads immutable artifact IDs from the producing job across partial reruns', () => {
+    const dependencies: Array<[string, string, string, string, string]> = [
+      ['merge-modules', 'Download plugin conversion output', 'convert-plugins', 'artifact_id', 'Upload plugin conversion output'],
+      ['merge-modules', 'Download plugin conversion report', 'convert-plugins', 'report_artifact_id', 'Upload plugin conversion report'],
+      ['build', 'Download plugin conversion output', 'convert-plugins', 'artifact_id', 'Upload plugin conversion output'],
+      ['build', 'Download module output', 'merge-modules', 'artifact_id', 'Upload module output'],
+      ['publish', 'Download build artifact', 'build', 'artifact_id', 'Upload build output'],
+      ['diff-deployment-on-pr', '', 'build', 'artifact_id', 'Upload build output'],
+    ];
+    for (const [consumerId, stepName, producerId, output, uploadName] of dependencies) {
+      const consumer = getJob(consumerId);
+      const download = stepName ? getStep(consumer, stepName) : consumer.steps?.find(step => step.uses?.startsWith('actions/download-artifact@'));
+      assert.ok(download);
+      assert.ok(getNeeds(consumer).includes(producerId));
+      const reference = `needs.${producerId}.outputs.${output}`;
+      assert.equal(download.with?.['artifact-ids'], githubExpression(`${reference} || '0'`));
+      assert.equal(download.with?.name, undefined);
+      const producer = getJob(producerId);
+      const upload = getStep(producer, uploadName);
+      assert.ok(upload.id);
+      assert.equal(producer.outputs?.[output], githubExpression(`steps.${upload.id}.outputs.artifact-id`));
+    }
   });
 
   it('runs the pinned Python browser gateway before the Node build', () => {
@@ -936,7 +982,7 @@ describe('GitHub Actions workflow contract', () => {
       deployJob.steps?.some(
         (step) =>
           step.uses?.startsWith('actions/download-artifact@') &&
-          String(step.with?.name).startsWith('build-artifact-'),
+          step.with?.['artifact-ids'] === githubExpression('needs.build.outputs.artifact_id || \'0\''),
       ),
     );
 

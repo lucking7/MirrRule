@@ -5,7 +5,7 @@
 
 import type { ParsedSection, SectionType, MergeOptions } from './types';
 import { SectionParser } from './section-parser';
-import { cleanPolicy } from '../policy-cleaner';
+import { cleanPolicy, splitRulePrefix } from '../policy-cleaner';
 import { isActiveLine } from './module-content';
 
 /** 整模块开关作用的段落：这些段落每行是一条独立条目，在行首加参数即可注释掉该行。 */
@@ -149,8 +149,9 @@ export class ModuleMerger {
       if (!trimmed || trimmed.startsWith('#')) return true;
       const matcher = cleanPolicy(trimmed);
       if (/,\s*no-resolve\s*(?:,|\)|$)/i.test(matcher)) return true;
-      const type = matcher.split(',', 1)[0];
-      const key = `${type.toUpperCase()}${matcher.slice(type.length)}`;
+      const { prefix, body } = splitRulePrefix(matcher);
+      const type = body.split(',', 1)[0];
+      const key = `${prefix}${type.toUpperCase()}${body.slice(type.length)}`;
       if (ruleMatchers.has(key)) {
         this.rulesDeduplicated++;
         return false;

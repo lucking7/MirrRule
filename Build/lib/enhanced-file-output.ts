@@ -9,6 +9,7 @@ import { nullthrow } from 'foxts/guard';
 import { createRetrieKeywordFilter as createKeywordFilter } from 'foxts/retrie';
 import type { BaseWriteStrategy, RuleConversionLosses, RuleDropSummary } from '../core/output/writing-strategy/base';
 import type { RulePlatform } from '../core/output/rule-support-matrix';
+import { normalizeRuleType } from '../core/output/rule-support-matrix';
 import { compareAndWriteFile } from './create-file';
 import { createWriter, normalizeTargets } from './platform-config';
 import type { SupportedPlatform } from './platform-config';
@@ -21,29 +22,6 @@ import { cleanPolicy } from './policy-cleaner';
 import { smartConvertRule } from './misc';
 import { RuleLineUtils } from '../utils/validation/validators';
 import { merge as mergeCidr } from 'fast-cidr-tools';
-
-const RULE_TYPE_MAP: Record<string, string> = {
-  DOMAIN: 'domain',
-  'DOMAIN-SUFFIX': 'domain-suffix',
-  'DOMAIN-KEYWORD': 'domain-keyword',
-  'DOMAIN-WILDCARD': 'domain-wildcard',
-  'IP-CIDR': 'ip-cidr',
-  'IP-CIDR6': 'ip-cidr6',
-  'IP-ASN': 'ip-asn',
-  'USER-AGENT': 'user-agent',
-  'PROCESS-NAME': 'process-name',
-  'PROCESS-PATH': 'process-path',
-  'URL-REGEX': 'url-regex',
-  GEOIP: 'geoip',
-  'SRC-IP': 'source-ip-cidr',
-  'SRC-IP-CIDR': 'source-ip-cidr',
-  'SRC-IP-CIDR6': 'source-ip-cidr',
-  'SRC-PORT': 'source-port',
-  'DEST-PORT': 'destination-port',
-  'DST-PORT': 'destination-port',
-  PROTOCOL: 'protocol',
-  NETWORK: 'protocol',
-};
 
 /** One platform's merged writer plus the mutually exclusive variant writers. */
 interface PlatformOutputs {
@@ -269,13 +247,7 @@ export class EnhancedFileOutput {
         const suffix = this.extractDomain(processedRule);
 
         if (suffix && !RuleLineUtils.isSukkaWatermark(suffix)) {
-          const lineFromDot = suffix.startsWith('.');
-          this.domainTrie.add(
-            lineFromDot ? suffix.slice(1) : suffix,
-            true,
-            null,
-            lineFromDot ? 1 : 0
-          );
+          this.domainTrie.add(suffix.startsWith('.') ? suffix.slice(1) : suffix, true);
           if (process.env.DEBUG) this.stats.inputDomains++;
         }
         break;
@@ -427,8 +399,13 @@ export class EnhancedFileOutput {
   private detectRuleType(rule: string): string {
     const comma = rule.indexOf(',');
     if (comma === -1) return 'other';
-    const type = rule.slice(0, comma).toUpperCase().trim();
-    return RULE_TYPE_MAP[type] || 'other';
+    const type = normalizeRuleType(rule.slice(0, comma));
+    switch (type) {
+      case 'SRC-IP-CIDR': return 'source-ip-cidr';
+      case 'SRC-PORT': return 'source-port';
+      case 'DEST-PORT': return 'destination-port';
+      default: return type?.toLowerCase() ?? 'other';
+    }
   }
 
   /**

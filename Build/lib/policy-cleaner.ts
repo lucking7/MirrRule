@@ -104,6 +104,12 @@ function splitRuleFields(rule: string): string[] {
   return fields;
 }
 
+/** Preserve source switches separately from the case-insensitive rule type. */
+export function splitRulePrefix(rule: string): { prefix: string, body: string } {
+  const prefix = /^(?:{{{[^{}]+}}}\s*)+/.exec(rule)?.[0] ?? '';
+  return { prefix, body: rule.slice(prefix.length) };
+}
+
 /**
  * 清理单条 Surge 规则的策略组
  *
@@ -129,6 +135,8 @@ function splitRuleFields(rule: string): string[] {
  */
 export function cleanPolicy(rule: string): string {
   const trimmed = rule.trim();
+  const { prefix, body } = splitRulePrefix(trimmed);
+  if (prefix) return prefix + cleanPolicy(body);
 
   // 跳过注释和空行
   if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.startsWith('!')) {
@@ -243,6 +251,11 @@ const PARAMETER_PATTERN = /{{{[^{}]+}}}/;
  */
 export function cleanPolicyForModule(rule: string): string | null {
   const trimmed = rule.trim();
+  const { prefix, body } = splitRulePrefix(trimmed);
+  if (prefix) {
+    const cleaned = cleanPolicyForModule(body);
+    return cleaned === null ? null : prefix + cleaned;
+  }
 
   // 跳过注释和空行
   if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.startsWith('!')) {

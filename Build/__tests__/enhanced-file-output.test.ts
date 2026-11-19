@@ -21,6 +21,40 @@ function parseSingboxContent(content: string[] | null) {
 }
 
 describe('EnhancedFileOutput', () => {
+  it('normalizes leading-dot suffixes once without absorbing unrelated domains', async () => {
+    await Promise.all(['DOMAIN-SUFFIX,.example.com', 'DOMAIN-SUFFIX,example.com', '.example.com', 'host-suffix,.example.com,reject'].map(async suffix => {
+      const output = new EnhancedFileOutput(
+        createSpan('suffix-normalization'), 'suffix', ['surge', 'clash', 'singbox', 'loon'], null, { validate: true }
+      );
+      output.addRules([suffix, 'DOMAIN,unrelated.com', 'DOMAIN-SUFFIX,.co.uk', 'DOMAIN,unrelated.uk']);
+      const [surge, clash, singbox, loon] = await output.compile();
+      for (const text of [surge, clash, loon]) {
+        assert.deepEqual(new Set(text), new Set([
+          'DOMAIN,unrelated.com', 'DOMAIN,unrelated.uk', 'DOMAIN-SUFFIX,example.com', 'DOMAIN-SUFFIX,co.uk',
+        ]), suffix);
+      }
+      const json = parseSingboxContent(singbox).rules[0];
+      assert.deepEqual(new Set(json.domain), new Set(['unrelated.com', 'unrelated.uk']), suffix);
+      assert.deepEqual(new Set(json.domain_suffix), new Set(['example.com', 'co.uk']), suffix);
+    }));
+  });
+
+  it('keeps validated source-address aliases and accounts platform limitations', async () => {
+    const output = new EnhancedFileOutput(
+      createSpan('source-aliases'), 'source', ['surge', 'clash', 'singbox', 'loon'], null, { validate: true }
+    );
+    output.addRules(['DOMAIN,control.example', 'SRC-IP,192.168.1.1', 'SRC-IP-CIDR6,2001:db8::/64']);
+    const [surge, clash, singbox, loon] = await output.compile();
+    assert.ok(surge.includes('SRC-IP,192.168.1.1'));
+    assert.ok(surge.includes('SRC-IP,2001:db8::/64'));
+    assert.ok(clash.includes('SRC-IP-CIDR,192.168.1.1/32'));
+    assert.ok(clash.includes('SRC-IP-CIDR,2001:db8::/64'));
+    assert.deepEqual(loon, ['DOMAIN,control.example']);
+    assert.deepEqual(parseSingboxContent(singbox).rules[0].domain, ['control.example']);
+    assert.deepEqual(output.getRuleDropSummaries().loon?.unsupported, { 'SRC-IP-CIDR': 2 });
+    assert.deepEqual(output.getRuleDropSummaries().singbox?.unsupported, { 'SRC-IP-CIDR': 2 });
+  });
+
   it('classifies raw rules and compiles equivalent multi-platform outputs', async () => {
     const output = new EnhancedFileOutput(
       createSpan('test'),

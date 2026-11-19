@@ -2,6 +2,8 @@ import { Buffer } from 'node:buffer';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import picocolors from 'picocolors';
+import { parse } from 'yaml';
+import { hasActiveSectionEntry, hasActiveSurgeEntry, isNonHtmlText } from '../../lib/downloaded-text';
 import { fetchLatestRelease, downloadAsset } from './github-api';
 import type { GitHubAsset } from './github-api';
 import { getErrorMessage } from '../../lib/misc';
@@ -33,8 +35,6 @@ type ArtifactPublicationStatus = 'new' | 'updated' | 'unchanged';
 interface ArtifactPublication {
   outputPath: string,
   buffer: Buffer,
-  minSize?: number,
-  maxSize?: number,
   postProcess?: MirrorRepository['postProcess']
 }
 
@@ -83,10 +83,6 @@ export async function shouldUpdateFile(filePath: string, newBuffer: Buffer): Pro
   } catch {
     return true;
   }
-}
-
-function isValidFileSize(size: number, minSize = 10, maxSize = 100 * 1024 * 1024): boolean {
-  return size >= minSize && size <= maxSize;
 }
 
 function getFileExtension(filename: string): string {
@@ -198,31 +194,45 @@ function getFileTypeStats(classifiedAssets: ClassifiedAsset[]): FileTypeStats {
   return stats;
 }
 
+const LOON_SECTIONS = new Set(['general', 'host', 'rule', 'rewrite', 'script', 'mitm', 'map local']);
+
+function validateArtifactContent(outputPath: string, buffer: Buffer): void {
+  if (buffer.length < 10 || buffer.length > 100 * 1024 * 1024) {
+    throw new Error(`Invalid release asset size: ${buffer.length} bytes`);
+  }
+  if (!isNonHtmlText(buffer)) throw new Error('Release asset is not valid non-HTML text');
+  const content = buffer.toString('utf8');
+  const type = extensionToFileType(getFileExtension(outputPath));
+  if (type === FileType.SGMODULE) {
+    if (!hasActiveSurgeEntry(content)) throw new Error('Surge module has no active supported functional entries');
+  } else if (type === FileType.PLUGIN) {
+    if (!hasActiveSectionEntry(content, LOON_SECTIONS)) throw new Error('Loon plugin has no active supported entries');
+  } else if (type === FileType.SNIPPET) {
+    // QX release snippets use commented section markers and standalone actions.
+    if (!content.split(/\r?\n/).some(line => /^(?:[a-z][\w-]*\s*,|[\w-]+\s*=|\S+\s+url\s+)/i.test(line.trim()))) {
+      throw new Error('Quantumult X snippet has no supported entries');
+    }
+  } else if (type === FileType.STOVERRIDE) {
+    const value: unknown = parse(content);
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+      || Object.keys(value).length === 0) {
+      throw new Error('Stash override must be a nonempty YAML mapping');
+    }
+  }
+}
+
 async function publishArtifactAtomic(
   publication: ArtifactPublication
 ): Promise<ArtifactPublicationStatus> {
   let content = publication.buffer;
-  if (!isValidFileSize(
-    content.length,
-    publication.minSize,
-    publication.maxSize
-  )) {
-    throw new Error(`Invalid file size: ${content.length} bytes`);
-  }
+  validateArtifactContent(publication.outputPath, content);
 
   if (publication.postProcess) {
     content = Buffer.from(await publication.postProcess(
       publication.outputPath,
       content.toString('utf8')
     ));
-  }
-
-  if (!isValidFileSize(
-    content.length,
-    publication.minSize,
-    publication.maxSize
-  )) {
-    throw new Error(`Invalid processed file size: ${content.length} bytes`);
+    validateArtifactContent(publication.outputPath, content);
   }
 
   const existed = await fs.access(publication.outputPath).then(() => true).catch(() => false);

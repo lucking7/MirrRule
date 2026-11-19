@@ -12,7 +12,7 @@ import { applyProxyIfNeeded } from '../../utils/network/proxy';
 import { getErrorMessage } from '../../lib/misc';
 import { writeFileAtomic } from '../../lib/atomic-file';
 import { identifyPluginSource } from './plugin-identity';
-import { validateScriptPreservation } from './script-extractor';
+import { hasActiveSurgeEntry } from '../../lib/downloaded-text';
 import { isUnavailableFailure, isUnavailableStatus } from './upstream-failure';
 
 /**
@@ -64,7 +64,7 @@ export interface PluginContentResult {
 
 function validatePluginContent(content: string, useNativeSurge = false): string | null {
   if (content.trim().length === 0) return 'Empty plugin response';
-  if (useNativeSurge) return validateScriptPreservation(content, content) ?? null;
+  if (useNativeSurge) return hasActiveSurgeEntry(content) ? null : 'Native Surge module has no active supported functional entries';
 
   const hasPluginSection = /^\s*\[(?:Argument|General|Host|Map Local|MITM|Rewrite|Rule|Script)\]\s*$/imu
     .test(content);

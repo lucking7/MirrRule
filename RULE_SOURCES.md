@@ -53,7 +53,7 @@ AI 保留 Sukka、dler 来源（2026-11-10 起不再合并已停止维护的 Con
 
 Surge 与 Loon 保留 `.list`，Clash 输出 classical `.txt`，sing-box 输出 `.json`。转换先处理 `DOMAIN`、`DOMAIN-SUFFIX` 等标准规则，再把裸域名、`+.`、`full:`、`domain:`、`keyword:` 与裸 IPv4/IPv6 CIDR 转成内部规则。数字开头的合法域名（如 `2mdn.net`）不再误删；CIDR 必须通过现有 IP validator。纯数字、无前缀 IP、超出范围的 CIDR 会被丢弃。服务规则移除上游 policy，IP 类添加 `no-resolve`。平台不支持的规则按既有 writer 行为丢弃，不能认为四个平台语义完全相同。
 
-不读取二进制 `.mrs`、`.srs`。这次绕开旧 sing-box JSON 输入路径，没有修复其所有字段解析能力，也没有改变既有平台支持矩阵。
+不读取二进制 `.mrs`、`.srs`。当前配置使用文本来源。sing-box JSON 输入接受 version 1/2 的 `domain`、`domain_suffix`、`domain_keyword` 和 `ip_cidr` 字符串或数组，以及 `type: "default"`、`invert: false`。遇到端口、logical、`invert: true`、正则等未支持字段时拒绝整个来源，不能通过丢弃字段扩大匹配范围。空 `rules` 数组受 `allowEmpty` 控制，空规则对象始终拒绝。
 
 现有 `ai` 已覆盖 2026-10-08 的 OpenAI 22、Anthropic 9、Google Gemini 46、Cursor 4 条样本，无需重复加入同一数据。规则覆盖比较不代表客户端的实际出口或地区解锁已经验证。
 
@@ -174,6 +174,10 @@ PROXY_BASE='http://127.0.0.1:13193?url=' pnpm run node Build/validate-domain-ali
 403/502 表示上游下载或正文验证失败，504 表示超时；`/health` 成功不能解除这个故障。检查 gateway 日志中的公开 source URL/status、Worker 可用性和新账号权限，不要仅改 UA。gateway 不提供无限重试，Node 保留原有候选、重试与缓存行为。外部防护或 Worker 失效仍可能阻塞两个地域测速文件，需要由新账号再次验收。
 
 此前转换运行 [36704699346](https://github.com/lucking7/MirrRule/actions/runs/36704699346) 的插件目录下载失败，新增转换数为 0；后续合并取旧产物可以成功，不能代表重新转换成功。当前实现参考 Mirrored 的下载后转换方法：先刷新并校验目录/插件，再用 loopback 暂存输入调用 Script-Hub，依赖脚本具备可用镜像后才原子发布。下载失败不能被旧缓存标成 fresh；CLI 的非零退出传递到 job，零产物不能用 marker 冒充成功，要求本轮转换时也不能由旧 NRRule 模块兜底。完整实网转换及合并的验证记录将在验收完成后补充，方法接入不等于已经通过。
+
+## 下载的 GeoIP 库
+
+`GeoIP/geoip2-cn.mmdb`、`GeoIP/chnroutes2.mmdb` 和 `GeoIP/ipinfo.mmdb` 由 [download-geoip.ts](Build/download-geoip.ts) 下载。新文件在原子替换前必须达到 64 KiB、能够解析 MMDB 元数据，并通过代表地址的树与记录解码检查；至少一个代表地址必须返回记录，不能仅凭元数据和全部为空的查询通过。抽样包含用于当前中国库和全球库的 `114.114.114.114`、`4.0.0.1`；新增覆盖其他范围的库时需重新选择抽样地址。校验失败计入下载失败并保留已有文件。这是抽样可读性检查，不遍历全部记录，也不证明地理信息正确。
 
 ## GeoIP 国家库
 

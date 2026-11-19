@@ -33,6 +33,8 @@ export interface PublicationManifest {
   sourceCommit: string,
   /** Content address of every listed file; identical trees share one candidate id. */
   candidateId: string,
+  /** Identity of the original build inputs before staging; absent in legacy manifests. */
+  originalCandidateId?: string | null,
   baselineReceiptId: number | null,
   /** NRRule revision of the accepted baseline; never the unverified remote HEAD. */
   baselineDeployCommit: string | null,
@@ -119,6 +121,7 @@ export function computeCandidateId(files: ReadonlyArray<Pick<TreeFileDigest, 'pa
 }
 
 export interface BuildManifestInput {
+  originalCandidateId?: string | null,
   kind: PublicationKind,
   sourceCommit: string,
   baselineReceiptId: number | null,
@@ -150,6 +153,7 @@ export function buildManifest(input: BuildManifestInput): PublicationManifest {
     kind: input.kind,
     sourceCommit: input.sourceCommit,
     candidateId: computeCandidateId(files),
+    originalCandidateId: input.originalCandidateId ?? null,
     baselineReceiptId: input.baselineReceiptId,
     baselineDeployCommit: input.baselineDeployCommit,
     lifecycleVersion: input.lifecycleVersion,
@@ -191,6 +195,7 @@ export function parseManifest(text: string): PublicationManifest {
   if (manifest.kind !== 'build' && manifest.kind !== 'rollback') fail('kind');
   if (typeof manifest.sourceCommit !== 'string' || !COMMIT_PATTERN.test(manifest.sourceCommit)) fail('sourceCommit');
   if (typeof manifest.candidateId !== 'string' || !manifest.candidateId.startsWith('sha256:')) fail('candidateId');
+  if (manifest.originalCandidateId != null && (typeof manifest.originalCandidateId !== 'string' || !/^sha256:[\da-f]{64}$/.test(manifest.originalCandidateId))) fail('originalCandidateId');
   if (manifest.baselineReceiptId !== null && typeof manifest.baselineReceiptId !== 'number') fail('baselineReceiptId');
   if (manifest.baselineDeployCommit !== null && (typeof manifest.baselineDeployCommit !== 'string' || !COMMIT_PATTERN.test(manifest.baselineDeployCommit))) fail('baselineDeployCommit');
   if (typeof manifest.lifecycleVersion !== 'number') fail('lifecycleVersion');

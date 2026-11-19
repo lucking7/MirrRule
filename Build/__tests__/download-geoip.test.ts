@@ -16,7 +16,7 @@ const fakeSpan = {
   }
 };
 
-const validMmdbBytes = Buffer.alloc(64 * 1024, 0x5A);
+const validMmdbBytes = fs.readFileSync(path.join(__dirname, 'fixtures/mmdb/GeoIP2-ISP-Test.mmdb'));
 
 function assertNoTemporarySiblings(outputPath: string) {
   const prefix = `${path.basename(outputPath)}.`;
@@ -109,7 +109,7 @@ describe('downloadGEOIPFiles', () => {
     assertNoTemporarySiblings(outputPath);
   });
 
-  it('replaces an existing final file with a valid-size download', async () => {
+  it('replaces an existing final file with a readable MMDB download', async () => {
     const outputRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-geoip-'));
     const file = { path: 'GeoIP/valid.mmdb', url: 'https://example.com/valid.mmdb' };
     const outputPath = path.join(outputRoot, file.path);
@@ -143,4 +143,30 @@ describe('downloadGEOIPFiles', () => {
     assert.deepEqual(fs.readFileSync(outputPath), sentinel);
     assertNoTemporarySiblings(outputPath);
   });
+
+  for (const [name, payload] of [
+    ['HTML error page', Buffer.from('<!doctype html><html>' + 'Upstream unavailable. '.repeat(4000) + '</html>')],
+    ['padding', Buffer.alloc(64 * 1024, 0x5A)],
+    ['truncated database', validMmdbBytes.subarray(0, -100)],
+    ['invalid tree pointer', Buffer.concat([Buffer.alloc(7, 0xFF), validMmdbBytes.subarray(7)])],
+    ['cyclic search tree', Buffer.concat([Buffer.alloc(7), validMmdbBytes.subarray(7)])],
+  ] as const) {
+    it(`rejects a large ${name} and retains the previous database`, async t => {
+      const outputRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-geoip-format-'));
+      t.after(() => fs.rmSync(outputRoot, { recursive: true, force: true }));
+      const file = { path: 'GeoIP/test.mmdb', url: 'https://example.com/test.mmdb' };
+      const outputPath = path.join(outputRoot, file.path);
+      fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+      fs.writeFileSync(outputPath, validMmdbBytes);
+
+      const stats = await downloadGEOIPFiles(fakeSpan as Span, [file], {
+        outputRoot,
+        fetchFn: () => Promise.resolve(new Response(payload)),
+      });
+
+      assert.deepEqual(stats, { success: 0, failed: 1, total: 1 });
+      assert.deepEqual(fs.readFileSync(outputPath), validMmdbBytes);
+      assertNoTemporarySiblings(outputPath);
+    });
+  }
 });

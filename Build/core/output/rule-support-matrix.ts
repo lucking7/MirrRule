@@ -7,6 +7,20 @@ export const CANONICAL_RULE_TYPES = [
 ] as const;
 
 export type CanonicalRuleType = typeof CANONICAL_RULE_TYPES[number];
+const canonicalRuleTypes = new Set<string>(CANONICAL_RULE_TYPES);
+const ruleTypeAliases: Readonly<Record<string, CanonicalRuleType>> = {
+  'SRC-IP': 'SRC-IP-CIDR',
+  'SRC-IP-CIDR6': 'SRC-IP-CIDR',
+  'DST-PORT': 'DEST-PORT',
+  NETWORK: 'PROTOCOL',
+};
+
+export function normalizeRuleType(type: string): CanonicalRuleType | null {
+  const upper = type.trim().toUpperCase();
+  if (Object.hasOwn(ruleTypeAliases, upper)) return ruleTypeAliases[upper];
+  return canonicalRuleTypes.has(upper) ? upper as CanonicalRuleType : null;
+}
+
 export type RulePlatform = 'surge' | 'clash' | 'loon' | 'singbox';
 export type RuleSupport =
   | { status: 'supported' }

@@ -3,8 +3,10 @@
  */
 
 import picocolors from 'picocolors';
+import { castArray } from 'foxts/cast-array';
 import { fetchAssets } from './network/fetch-assets';
 import { $$fetch, defaultRequestInit } from './network/fetch-retry';
+import { IPValidator } from './validation/validators';
 
 interface LoadRulesOptions {
   throwOnError?: boolean;
@@ -18,19 +20,56 @@ function isUrl(source: string): boolean {
   return source.startsWith('http://') || source.startsWith('https://');
 }
 
-/**
- * sing-box rule-set JSON 格式 (version 1 & 2)
- * @see https://sing-box.sagernet.org/configuration/rule-set/source-format/
- */
-interface SingboxRuleSet {
-  version?: number;
-  rules: Array<{
-    domain?: string[];
-    domain_suffix?: string[];
-    domain_keyword?: string[];
-    domain_regex?: string | string[];
-    ip_cidr?: string[];
-  }>;
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+// These matchers share an OR group; extra AND predicates must not be discarded.
+const singboxMatchers: Readonly<Record<string, string>> = {
+  domain: 'DOMAIN',
+  domain_suffix: 'DOMAIN-SUFFIX',
+  domain_keyword: 'DOMAIN-KEYWORD',
+  ip_cidr: 'IP-CIDR',
+};
+
+function convertSingboxRules(json: unknown, allowEmpty: boolean): string[] {
+  if (!isObject(json) || (json.version !== 1 && json.version !== 2) || !Array.isArray(json.rules)) {
+    throw new Error('Expected a sing-box rule-set with version 1 or 2 and a rules array');
+  }
+  if (Object.keys(json).some(key => key !== 'version' && key !== 'rules')) {
+    throw new Error('Unsupported sing-box rule-set fields');
+  }
+
+  const rules: string[] = [];
+  for (const [index, rule] of json.rules.entries()) {
+    if (!isObject(rule)) throw new Error(`Invalid sing-box rule at index ${index}`);
+    const before = rules.length;
+    for (const [field, value] of Object.entries(rule)) {
+      if (field === 'type' && value === 'default') continue;
+      if (field === 'invert' && value === false) continue;
+      if (!Object.hasOwn(singboxMatchers, field)) {
+        throw new Error(`Unsupported sing-box rule field ${field} at index ${index}`);
+      }
+      if (typeof value !== 'string' && !Array.isArray(value)) {
+        throw new TypeError(`Invalid sing-box ${field} value at index ${index}`);
+      }
+      for (const item of castArray(value)) {
+        if (typeof item !== 'string' || !item.trim() || /[,\r\n]/.test(item)) {
+          throw new Error(`Invalid sing-box ${field} value at index ${index}`);
+        }
+        const text = item.trim();
+        if (field === 'ip_cidr') {
+          if (!IPValidator.isIpCidr(text)) throw new Error(`Invalid sing-box ip_cidr at index ${index}: ${text}`);
+          rules.push(`${text.includes(':') ? 'IP-CIDR6' : 'IP-CIDR'},${text},no-resolve`);
+        } else {
+          rules.push(`${singboxMatchers[field]},${text}`);
+        }
+      }
+    }
+    if (rules.length === before) throw new Error(`Sing-box rule at index ${index} has no supported matchers`);
+  }
+  if (!allowEmpty && !rules.length) throw new Error('Empty sing-box rule-set is not allowed');
+  return rules;
 }
 
 /**
@@ -56,39 +95,7 @@ async function loadFromSingboxJson(
 
   try {
     const response = await $$fetch(url, defaultRequestInit);
-    const json: SingboxRuleSet = await response.json() as SingboxRuleSet;
-
-    const rules: string[] = [];
-
-    for (const rule of json.rules) {
-      if (rule.domain) {
-        for (const d of rule.domain) {
-          rules.push(`DOMAIN,${d}`);
-        }
-      }
-
-      if (rule.domain_suffix) {
-        for (const d of rule.domain_suffix) {
-          rules.push(`DOMAIN-SUFFIX,${d}`);
-        }
-      }
-
-      if (rule.domain_keyword) {
-        for (const k of rule.domain_keyword) {
-          rules.push(`DOMAIN-KEYWORD,${k}`);
-        }
-      }
-
-      if (rule.ip_cidr) {
-        for (const cidr of rule.ip_cidr) {
-          if (cidr.includes(':')) {
-            rules.push(`IP-CIDR6,${cidr},no-resolve`);
-          } else {
-            rules.push(`IP-CIDR,${cidr},no-resolve`);
-          }
-        }
-      }
-    }
+    const rules = convertSingboxRules(await response.json(), options.allowEmpty ?? false);
 
     console.log(picocolors.green(`[rule-loader] Loaded ${rules.length} rules from sing-box JSON`));
     return rules;

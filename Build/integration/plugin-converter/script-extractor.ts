@@ -4,6 +4,7 @@
  */
 
 import path from 'node:path';
+import { hasActiveSurgeEntry } from '../../lib/downloaded-text';
 import type { ScriptInfo } from './types';
 import { SCRIPT_MIRROR_LOCATION } from './script-location';
 
@@ -13,40 +14,6 @@ import { SCRIPT_MIRROR_LOCATION } from './script-location';
  */
 const SCRIPT_PATH_REGEX = /script-path\s*=\s*(https?:\/\/[^\s",]+)/gi;
 const SCRIPT_MIRROR_BASE_URL = new URL(`https://${SCRIPT_MIRROR_LOCATION}/`);
-const SUPPORTED_FUNCTIONAL_SECTIONS = new Set([
-  'general',
-  'host',
-  'rule',
-  'url rewrite',
-  'map local',
-  'script',
-  'panel',
-  'mitm',
-  'header rewrite',
-  'body rewrite',
-]);
-
-/** Reject metadata and empty sections without discarding valid standalone actions. */
-function hasActiveFunctionalEntry(content: string): boolean {
-  let section: string | undefined;
-
-  for (const line of content.split(/\r?\n/)) {
-    const sectionMatch = line.trim().match(/^\[([^\]]+)\]$/);
-    if (sectionMatch) {
-      section = sectionMatch[1].trim().toLowerCase();
-      continue;
-    }
-
-    const trimmed = line.trim();
-    if (!section || !trimmed || !SUPPORTED_FUNCTIONAL_SECTIONS.has(section) || /^[#;]/.test(trimmed)) {
-      continue;
-    }
-
-    return true;
-  }
-
-  return false;
-}
 
 function isOwnedScriptMirrorUrl(value: string): boolean {
   try {
@@ -71,7 +38,7 @@ export function validateScriptPreservation(source: string, converted: string): s
   const actual = new Set(extractScriptUrls(converted).map(script => script.originalUrl));
   const missing = [...expected].filter(url => !actual.has(url));
   if (missing.length) return `Conversion dropped ${missing.length} source script dependencies`;
-  if (!hasActiveFunctionalEntry(converted)) return 'Converted module has no active supported functional entries';
+  if (!hasActiveSurgeEntry(converted)) return 'Converted module has no active supported functional entries';
   return undefined;
 }
 

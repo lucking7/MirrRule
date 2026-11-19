@@ -82,6 +82,16 @@ describe('writing strategies', () => {
     ]);
   });
 
+  it('normalizes source, port and protocol aliases inside logical rules', () => {
+    const surge = new SurgeRuleSet();
+    const clash = new ClashClassicRuleSet();
+    const rule = 'AND,((SRC-IP-CIDR6,2001:db8::/64),(DST-PORT,443),(NETWORK,TCP))';
+    surge.writeOtherRules([rule]);
+    clash.writeOtherRules([rule]);
+    assert.deepEqual(surge.content, ['AND,((SRC-IP,2001:db8::/64),(DEST-PORT,443),(PROTOCOL,TCP))']);
+    assert.deepEqual(clash.content, ['AND,((SRC-IP-CIDR6,2001:db8::/64),(DST-PORT,443),(NETWORK,TCP))']);
+  });
+
   it('writes sing-box JSON rule-set fields', () => {
     const strategy = new SingboxSource();
 

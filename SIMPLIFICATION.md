@@ -188,3 +188,20 @@ DNS 解除步骤补充：Surge module Rule 不接受 Loon 的 PROXY，也不能�
 
 
 最终 feature [37083987931](https://github.com/lucking7/MirrRule/actions/runs/37083987931) 整体 success，Convert Plugins、Merge Modules、Build 均 success；两部署 job 按 feature 限制 skipped。main 并发提交 `0b15b46` 已整合，其生产变动仅更明确的 DNS 错误文本及对应 assertion，定向 local-converter characterization 通过；新增的 mirror own-section 校验、MIME own-key、脚本长度和坏 optional URL 隔离均保留。整合提交的 Build 与 main 的全任务发布分别验收，不把 skipped 写成部署成功。
+
+## 2026-11-17 审计修复中的简化
+
+本轮以 `141cfdb` 为基线，修复规则、下载与发布重试契约。以下结论针对本轮调用路径；前文的历史验收不作为当前版本的验收证据。
+
+| 候选与 owner                                    | 生产消费者及减少的维护项                                                                                                                                       | 保留的契约与取舍                                                                                                                                     |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rule-support-matrix.ts` 的 `normalizeRuleType` | validator、EnhancedFileOutput、基础 writer 和 Clash logical 转换共用 canonical 类型与别名，移除各自的类型／别名清单                                            | 平台支持矩阵仍单独判断可表达能力；识别类型不等于每个平台都支持它                                                                                     |
+| `downloaded-text.ts` 的文本与活动 section 检查  | 脚本下载、原生模块、转换结果及 release mirror 复用已有检查；移除镜像无消费者的私有 min/max 配置                                                                | Surge、Loon、QX、Stash 的格式仍分别检查。结构检查不推断转换前后的脚本依赖；独立复核发现原生 Map Local 字面正文会被依赖比较误拒绝后，已拆清这两个职责 |
+| `policy-cleaner.ts` 的源参数前缀拆分            | 模块策略清洗与去重共用前缀解析，避免同一 logical rule 在两个环节被不同解释                                                                                     | 前缀名区分大小写且参与去重，独立开关不合并；跨模块副本仍保留                                                                                         |
+| `publication-stage.ts` 的原始候选摘要           | 以 manifest 中的 `originalCandidateId` 取代父 receipt 加部分目录摘要的重试推断；删除 `classifyBaselineDrift`、重复目录清单及仅供该推断使用的 baseline 投影字段 | 最终 tree 的 `candidateId` 仍供 manifest／receipt 使用，不能与原始输入身份合并。旧 manifest 可读，没有原始身份时重新 staging                         |
+
+MMDB 与 cron 使用现成解析器，新增 `mmdb-lib` 和 `cron-parser`（后者依赖 `luxon`）。前者避免维护二进制解码器，后者避免用字段数量正则冒充语法和范围验证；代价是增加依赖升级责任。MMDB 只证明元数据和代表地址可读，至少读到一条记录；不证明全部树分支或地理信息。cron 保留本地支持的五／六字段标准子集，不因解析库支持更多扩展就全部放行。
+
+本轮拒绝删除当前未配置 JSON 来源的 loader：它仍是已有输入能力，当前问题可通过拒绝无法保真的字段解决。也不把四个平台能力、各格式镜像验证、HTTP 重试／缓存、来源 fallback、退休登记及最终发布摘要合并掉；这些区别仍影响消费者行为。
+
+最终组合检查通过：529 个 Node 测试、22 个 GeoIP Python 测试、14 个浏览器网关 Python 测试；`validate`、Knip 与生产依赖审计通过，依赖审计为 0 告警。独立复核后补修了无效 cron 放行、原生结构检查误用转换依赖检查、MMDB 循环树被读为空三项问题，并通过针对性复审。客户端运行和生产发布不在本轮本地验收范围内。

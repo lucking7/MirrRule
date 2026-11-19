@@ -1,6 +1,6 @@
 import { getPluginContent } from './plugin-mirror';
 import { identifyPluginSource } from './plugin-identity';
-import { validateScriptPreservation } from './script-extractor';
+import { hasActiveSurgeEntry } from '../../lib/downloaded-text';
 import type { PluginInfo, PluginConversionResult } from './types';
 
 /** Preserve native upstream sections, then use the same dependency publication checks. */
@@ -17,6 +17,6 @@ export async function loadNativeSurgeModule(
       ...(result.unavailable && { upstreamUnavailable: true }),
     };
   }
-  const error = validateScriptPreservation(result.content, result.content);
+  const error = hasActiveSurgeEntry(result.content) ? undefined : 'Native Surge module has no active supported functional entries';
   return { ...base, content: error ? { error } : result.content };
 }

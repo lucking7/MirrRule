@@ -272,6 +272,8 @@ flat 合并版 URL 保持不变；分版是追加输出，契约在 `Build/lib/r
 - 当 `defaultPolicy === null` 时通过 `cleanPolicy` 移除策略字段。
 - 将规则分发到 domain trie、wildcard trie、CIDR set、ASN set、process/user-agent/url-regex/other 等结构。
 
+规则类型与别名由 `rule-support-matrix.ts` 的 `normalizeRuleType` 统一识别，平台支持能力单独判断。sing-box JSON 输入只接受可保真的 version 1/2 域名与 IP 字段；未支持的约束拒绝整个来源，详细子集见 `RULE_SOURCES.md`。
+
 测试中已覆盖复合规则、MetaCubeX geosite 语法等场景，见 `Build/__tests__/reliability.test.ts`。
 
 修改转换逻辑时必须补充或更新测试，并运行：
@@ -299,7 +301,7 @@ pnpm run typecheck
 - BiliUniverse
 - fmz200（split 目录由专用脚本处理）
 
-Mirror sync 只处理有生产配置的 release adapter，使用 `Build/lib/atomic-file.ts` 完成原子替换并保留 last-known-good。iRingo 只同步仍可用的 WeatherKit、News、TV；地图（MapKit，原 GeoServices）、TestFlight、Siri（含 Search、Spotlight）因苹果启用证书固定，官方网站标为失效，2026-11-16 起不再同步，19 个镜像文件由 `mirror:iringo-certificate-pinned` 退休登记。新增 adapter 前必须先有真实生产 source。
+Mirror sync 只处理有生产配置的 release adapter，使用 `Build/lib/atomic-file.ts` 完成原子替换并保留 last-known-good。下载内容及后处理结果须通过 UTF-8、非 HTML 和对应平台的结构检查；native 镜像不执行仅适用于格式转换的脚本依赖比较。iRingo 只同步仍可用的 WeatherKit、News、TV；地图（MapKit，原 GeoServices）、TestFlight、Siri（含 Search、Spotlight）因苹果启用证书固定，官方网站标为失效，2026-11-16 起不再同步，19 个镜像文件由 `mirror:iringo-certificate-pinned` 退休登记。新增 adapter 前必须先有真实生产 source。
 
 iRingo `.sgmodule` 有后处理逻辑，会替换 `#!arguments=` 中的 `Proxy` 参数为 `🇺🇸`。
 
@@ -321,6 +323,8 @@ CI 中会启动固定 digest 的 `xream/script-hub` image 用于插件转换。
 插件上游不可用时，`convert-plugins` 退出码为 3。只有两种情况算上游不可用：插件目录下载失败；或每个缺失、未就绪的必需模块，都是因为它的插件或某个必需脚本因网络错误、HTTP 5xx，或与客户端有关的拒绝（401、403、408、429，例如上游的反爬拦截）下载失败；404、410 等表示文件被删除或改名，算真实故障。原因记录在结果的 `upstreamUnavailable` 字段（分类逻辑在 `Build/integration/plugin-converter/upstream-failure.ts` 与 `readiness.ts`），不按错误文本匹配。插件下载失败时还没有输出文件名，这类缺失模块只能按数量对应到无输出路径的下载失败，所以无输出路径的失败里只要有一个不是上游原因，就退出 1。合并 dry-run 出错、模块因改名缺失、Script-Hub 转换错误、必需脚本 404 都退出 1。退出码 3 时 workflow 不重试，发出 `::warning::`，跳过模块合并，从发布任务中去掉 `convert-plugins` 与 `merge-modules`，`Modules`、`Scripts` 沿用已验收版本，规则照常发布；代价是模块可能变旧。其他失败仍让 run 失败。
 
 模块脚本依赖：构建 job 每次运行 `Build/audit-module-dependencies.ts`（逻辑在 `Build/lib/module-dependency-audit.ts`），检查 `Mirror/`、`Modules/` 中 Surge 模块 `[Script]` 段生效行的 `script-path`。外部脚本返回 HTTP 404/410、或 NRRule 托管脚本不在 tree 中算一次缺失；网络错误、5xx、限流不计。计数保存在 `Internal/module-dependency-audit.json`，从 `PUBLICATION_BASELINE_DIR` 的已验收报告延续；连续 3 次缺失后，只在本轮刷新的目录（任务含 `mirror-sync` 则 `Mirror`，含 `convert-plugins` 或 `merge-modules` 则 `Modules`）中删除加载该脚本的行，并发出 `::warning::`。`Mirror/` 模块的脚本行全部被删时删除整个文件（该目录由 worker 门控，删后返回 404）；`Modules/` 文件只删行不删文件（合并配置要求这些模块存在，且该目录不受 worker 门控）。未刷新的目录在发布时从已验收 tree 复制，因此只计数不修改；被删过的脚本继续跟踪，上游刷新后再次出现会立即被删，恢复为 2xx 后计数清零、不再删除。
+
+本地 Loon 转换保留五／六字段 cron 的列表、范围、步长和月份／星期别名，并验证字段范围；缺失、越界或本地不支持的表达式会使转换失败。
 
 转换结果在依赖脚本具有镜像或缓存 URL 后才原子发布；插件缓存文件名包含 canonical source URL 的摘要，不能改回仅按插件名称缓存。`script-path` 的地址不要求以 `.js` 结尾，所有远程脚本都会镜像，镜像文件名补 `.js`。
 
@@ -387,7 +391,8 @@ pnpm run node ./Build/merge-modules.ts --disable a,b
 
 - stage 要求 `Internal/rule-output-audit.json`、`source-delta.json`、`rule-coverage.json`、`status.json` 与 `Internal/artifact-lifecycle.json`，且每个 published 输出的 bytes 与 sha256 必须和审计一致；核心目录（List、Clash、Loon、sing-box、GeoIP、Internal）缺失或复制失败直接失败。未运行任务的 Mirror、Modules、Scripts 从已验收 baseline 按摘要复制；恢复进新鲜目录的可选文件记录在 `Internal/preserved-artifacts.json`，manifest 中标为 `preserved`。
 - 验收要求两个 origin 都按 manifest sha256 返回每个文件，并对审计 absent 的分版、退休登记路径和基线中已不再发布的路径返回 404；例外是 `Modules/Converted/` 与 `Scripts/` 下被删除、未退休的文件，只在 immutable URL 检查（见第 9 节可选产物恢复）。push 成功但验收失败报告“Git published, website not accepted”。
-- 基线是最近一个 success 状态的 GitHub Deployments receipt（`publication-receipt.ts`），不是 NRRule HEAD。生产锁内重新解析基线：若与构建时 source-delta 记录的 receiptId 不同，stage 使用候选的标准化快照重算 delta，重新核对保留目录和历史恢复文件，生成 index 与 manifest；不重新下载上游。快照或恢复摘要不满足校验时失败。若新 receipt 正是本候选已验收的结果，则 no-op。
+- 基线是最近一个 success 状态的 GitHub Deployments receipt（`publication-receipt.ts`），不是 NRRule HEAD。生产锁内重新解析基线：若与构建时 source-delta 记录的 receiptId 不同，stage 使用候选的标准化快照重算 delta，重新核对保留目录和历史恢复文件，生成 index 与 manifest；不重新下载上游。快照或恢复摘要不满足校验时失败。manifest 的 `originalCandidateId` 保留原始候选文件及任务上下文的摘要，经过 rebase 后仍能识别同一候选的重试并 no-op；旧 manifest 缺少该字段时保守地重新 stage。
+- workflow artifact 名称区分 `run_attempt`，跨 job 使用生产 job 输出的 artifact ID 下载；仅重跑失败 job 时沿用成功生产 job 的 ID，历史诊断与 bootstrap 证据不覆盖。
 - receipt 写入幂等：相同证据复用已有 deployment；写入失败退出码 14（网站已验收，验收记录未持久化）。
 - 上线顺序：合并后，自动 push/schedule 构建但以 `publication skipped: bootstrap required` 警告跳过发布，手动 deploy/rollback 直接失败；运行 `workflow_dispatch` task=`bootstrap-baseline`，填当前 NRRule commit（`bootstrap_revision`）与其 immutable URL（`bootstrap_immutable_url`），写入 `legacy-bootstrap` receipt；下一次 run 正常发布。bootstrap artifact 保留 90 天，过期后重新运行 bootstrap-baseline 会生成替代旧 receipt 的新 receipt。
 - 回滚：task=`rollback` 加 `rollback_receipt_id`（必须是 manifest receipt，不能是 bootstrap）。以该 tree 为候选，stage 应用当前退休登记，投影历史输出审计到当前退休登记清理后的 tree，作为新 commit 沿同一链发布并验收；不得复活 retired 文件。
