@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import ipaddress
 import json
 import logging
 import os
 import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Callable
+from typing import Callable, NamedTuple
 from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
 import cloudscraper
@@ -36,6 +37,11 @@ RESOURCE_PLUGIN_CATALOG = "plugin-catalog"
 RESOURCE_PLUGIN = "plugin"
 RESOURCE_SCRIPT = "script"
 RESOURCE_JQ = "jq"
+ROUTE_DIRECT = "direct"
+ROUTE_CONFIGURED_FORWARDER = "configured_forwarder"
+MEDIA_TYPE_PATTERN = re.compile(
+    r"^[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+$",
+)
 PLUGIN_SECTION_PATTERN = re.compile(
     r"^[ \t]*\[(?:argument|general|rewrite|script|mitm|rule)\][ \t]*\r?$",
     re.IGNORECASE | re.MULTILINE,
@@ -245,12 +251,40 @@ def is_script_text(body: bytes) -> bool:
     )
 
 
-def read_limited_response(response: requests.Response) -> bytes | None:
+class FetchObservation(NamedTuple):
+    route: str
+    responder_status: int | None
+    validation: str
+    media_type: str
+    body_bytes: int | None = None
+    body_sha256: str | None = None
+
+
+def extract_media_type(headers: object) -> str:
+    raw = None
+    if hasattr(headers, "get"):
+        raw = headers.get("Content-Type")
+    if raw is None and hasattr(headers, "items"):
+        for key, value in headers.items():
+            if isinstance(key, str) and key.lower() == "content-type":
+                raw = value
+                break
+    if not isinstance(raw, str):
+        return "none"
+    candidate = raw.split(";", 1)[0].strip().lower()
+    if not candidate:
+        return "none"
+    if not MEDIA_TYPE_PATTERN.match(candidate):
+        return "invalid"
+    return candidate
+
+
+def read_limited_response_with_reason(response: requests.Response) -> tuple[bytes | None, str]:
     content_length = response.headers.get("Content-Length")
     if content_length:
         try:
             if int(content_length) > MAX_RESPONSE_BYTES:
-                return None
+                return None, "body_too_large"
         except ValueError:
             pass
 
@@ -259,21 +293,37 @@ def read_limited_response(response: requests.Response) -> bytes | None:
         if not chunk:
             continue
         if not isinstance(chunk, bytes):
-            return None
+            return None, "invalid_stream"
         body.extend(chunk)
         if len(body) > MAX_RESPONSE_BYTES:
-            return None
-    return bytes(body)
+            return None, "body_too_large"
+    return bytes(body), "ok"
 
 
-def fetch_resource(
+def read_limited_response(response: requests.Response) -> bytes | None:
+    body, _ = read_limited_response_with_reason(response)
+    return body
+
+
+def fetch_resource_with_observation(
     request_url: str,
     browser_factory: BrowserFactory,
     validator: BodyValidator,
     invalid_message: bytes,
-) -> tuple[int, bytes]:
-    session = None
-    response = None
+    *,
+    route: str,
+) -> tuple[int, bytes, FetchObservation]:
+    session = response = None
+    media_type = "none"
+    responder_status = None
+
+    def observation(validation: str, body: bytes | None = None) -> FetchObservation:
+        return FetchObservation(
+            route, responder_status, validation, media_type,
+            len(body) if body is not None else None,
+            hashlib.sha256(body).hexdigest() if body is not None else None,
+        )
+
     try:
         session = browser_factory()
         response = session.get(
@@ -282,17 +332,20 @@ def fetch_resource(
             stream=True,
             allow_redirects=False,
         )
-        if response.status_code != 200:
-            return 502, b"upstream request failed\n"
-
-        body = read_limited_response(response)
-        if body is None or not validator(body):
-            return 502, invalid_message
-        return 200, body
+        responder_status = response.status_code
+        media_type = extract_media_type(response.headers)
+        if responder_status != 200:
+            return 502, b"upstream request failed\n", observation("skipped_non_200")
+        body, reason = read_limited_response_with_reason(response)
+        if body is None:
+            return 502, invalid_message, observation(reason)
+        if not validator(body):
+            return 502, invalid_message, observation("invalid_body", body)
+        return 200, body, observation("valid", body)
     except requests.exceptions.Timeout:
-        return 504, b"upstream request timed out\n"
+        return 504, b"upstream request timed out\n", observation("timeout")
     except Exception:
-        return 502, b"upstream request failed\n"
+        return 502, b"upstream request failed\n", observation("request_error")
     finally:
         if response is not None:
             response.close()
@@ -300,60 +353,22 @@ def fetch_resource(
             session.close()
 
 
-def fetch_rule(
-    upstream_base: str,
-    target_url: str,
-    browser_factory: BrowserFactory,
-) -> tuple[int, bytes]:
-    return fetch_resource(
-        build_upstream_url(upstream_base, target_url),
-        browser_factory,
-        is_rule_text,
-        b"upstream response is not a valid rule file\n",
-    )
-
-
-def fetch_plugin(
-    upstream_base: str,
-    target_url: str,
-    browser_factory: BrowserFactory,
-) -> tuple[int, bytes]:
-    return fetch_resource(
-        build_upstream_url(upstream_base, target_url),
-        browser_factory,
-        is_plugin_text,
-        b"upstream response is not a valid plugin file\n",
-    )
-
-
-def fetch_script(
-    upstream_base: str,
-    target_url: str,
-    browser_factory: BrowserFactory,
-) -> tuple[int, bytes]:
-    return fetch_resource(
-        build_upstream_url(upstream_base, target_url),
-        browser_factory,
-        is_script_text,
-        b"upstream response is not valid JavaScript\n",
-    )
-
-
-def fetch_plugin_catalog(
-    target_url: str,
-    browser_factory: BrowserFactory,
-) -> tuple[int, bytes]:
-    return fetch_resource(
-        target_url,
-        browser_factory,
-        is_plugin_catalog,
-        b"upstream response is not a valid plugin catalog\n",
-    )
-
-
 def public_source_url(target_url: str) -> str:
     parsed = urlsplit(target_url)
-    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+    return urlunsplit((parsed.scheme, parsed.hostname or "", parsed.path, "", ""))
+
+
+def format_fetch_log(target_url: str, status: int, observation: FetchObservation) -> str:
+    immediate = observation.responder_status if observation.responder_status is not None else "none"
+    origin = immediate if observation.route == ROUTE_DIRECT else "unobserved"
+    fields = [
+        f"source={public_source_url(target_url)}", f"status={status}", f"route={observation.route}",
+        f"responder_status={immediate}", f"origin_status={origin}", f"validation={observation.validation}",
+        f"media_type={observation.media_type}",
+    ]
+    if observation.body_bytes is not None:
+        fields.extend((f"body_bytes={observation.body_bytes}", f"body_sha256={observation.body_sha256}"))
+    return " ".join(fields)
 
 
 def create_server(
@@ -364,6 +379,17 @@ def create_server(
 ) -> ThreadingHTTPServer:
     normalized_upstream = normalize_upstream_base(upstream_base)
     gateway_logger = logger or logging.getLogger("browser-rule-gateway")
+
+    text_type = "text/plain; charset=utf-8"
+    script = (is_script_text, b"upstream response is not valid JavaScript\n")
+    resource_formats = {
+        RESOURCE_RULE: (is_rule_text, b"upstream response is not a valid rule file\n", text_type),
+        RESOURCE_PLUGIN: (is_plugin_text, b"upstream response is not a valid plugin file\n", text_type),
+        RESOURCE_PLUGIN_CATALOG: (is_plugin_catalog, b"upstream response is not a valid plugin catalog\n",
+                                  "application/json; charset=utf-8"),
+        RESOURCE_SCRIPT: (*script, "application/javascript; charset=utf-8"),
+        RESOURCE_JQ: (*script, text_type),
+    }
 
     class GatewayHandler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -428,23 +454,14 @@ def create_server(
                 urlsplit(target_url).hostname or "",
                 urlsplit(target_url).path,
             )
-            if resource_type == RESOURCE_PLUGIN_CATALOG:
-                status, body = fetch_plugin_catalog(target_url, browser_factory)
-                content_type = "application/json; charset=utf-8"
-            elif resource_type == RESOURCE_PLUGIN:
-                status, body = fetch_plugin(normalized_upstream, target_url, browser_factory)
-                content_type = "text/plain; charset=utf-8"
-            elif resource_type in (RESOURCE_SCRIPT, RESOURCE_JQ):
-                status, body = fetch_script(normalized_upstream, target_url, browser_factory)
-                content_type = (
-                    "application/javascript; charset=utf-8"
-                    if resource_type == RESOURCE_SCRIPT
-                    else "text/plain; charset=utf-8"
-                )
-            else:
-                status, body = fetch_rule(normalized_upstream, target_url, browser_factory)
-                content_type = "text/plain; charset=utf-8"
-            gateway_logger.info("source=%s status=%d", public_source_url(target_url), status)
+            validator, invalid_message, content_type = resource_formats[resource_type]
+            direct = resource_type == RESOURCE_PLUGIN_CATALOG
+            status, body, observation = fetch_resource_with_observation(
+                target_url if direct else build_upstream_url(normalized_upstream, target_url),
+                browser_factory, validator, invalid_message,
+                route=ROUTE_DIRECT if direct else ROUTE_CONFIGURED_FORWARDER,
+            )
+            gateway_logger.info("%s", format_fetch_log(target_url, status, observation))
             self.send_body(
                 status,
                 body,

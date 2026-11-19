@@ -1,3 +1,4 @@
+import hashlib
 import http.client
 import importlib.util
 import io
@@ -407,6 +408,114 @@ class BrowserRuleGatewayTest(unittest.TestCase):
             browser={"browser": "chrome", "platform": "windows", "mobile": False},
             interpreter="nodejs",
             delay=10,
+        )
+
+    def test_logs_distinguish_direct_origin_from_configured_forwarder_and_redact_sensitive_data(self):
+        catalog_body = json.dumps(
+            {"plugins": [{"url": "https://kelee.one/Tool/Loon/Plugin/Bilibili.plugin"}]}
+        ).encode()
+        rule_body = b"DOMAIN,example.com\n"
+        challenge_body = b"<!doctype html><html>SECRET-CHALLENGE-BODY</html>"
+        outcomes = [
+            FakeResponse(
+                status_code=200,
+                body=catalog_body,
+                headers={"Content-Type": "application/json; charset=utf-8"},
+            ),
+            FakeResponse(
+                status_code=403,
+                body=b"SECRET-DIRECT-403-BODY",
+                headers={"content-type": "text/html; charset=utf-8"},
+            ),
+            FakeResponse(
+                status_code=200,
+                body=rule_body,
+                headers={"Content-Type": "text/plain; charset=utf-8"},
+            ),
+            FakeResponse(
+                status_code=403,
+                body=b"SECRET-FORWARDER-403-BODY",
+                headers={"Content-Type": "text/html; charset=utf-8"},
+            ),
+            FakeResponse(
+                status_code=200,
+                body=challenge_body,
+                headers={"Content-Type": "text/html; charset=utf-8"},
+            ),
+            FakeResponse(
+                status_code=200,
+                body=b"{}",
+                headers={
+                    "Content-Type": "text/plain; charset=utf-8",
+                    "Content-Length": str(gateway.MAX_RESPONSE_BYTES + 1),
+                },
+            ),
+            requests.exceptions.Timeout(
+                "SECRET-TIMEOUT https://user:pass@worker.example/proxy?token=do-not-log"
+            ),
+            RuntimeError(
+                "SECRET-EXCEPTION https://user:pass@worker.example/proxy?token=do-not-log"
+            ),
+            FakeResponse(
+                status_code=200,
+                body=rule_body,
+                headers={"Content-Type": "text/plain\r\nSECRET-HEADER"},
+            ),
+        ]
+        factory = FakeBrowserFactory(outcomes)
+
+        with GatewayHarness(factory) as harness:
+            catalog = "https://hub.kelee.one/list.json"
+            rule = "https://rule.kelee.one/path/test.lsr?secret=query-secret"
+            urls = [catalog, catalog] + [rule] * 7
+            statuses = [harness.request("GET", rule_path(url))[0] for url in urls]
+            logs = harness.log_stream.getvalue()
+
+        self.assertEqual(statuses, [200, 502, 200, 502, 502, 502, 504, 502, 200])
+        rows = [dict(field.split("=", 1) for field in line.split()) for line in logs.splitlines()]
+        self.assertEqual(len(rows), len(urls))
+        expected = [
+            ("200", "valid", "application/json", catalog_body),
+            ("403", "skipped_non_200", "text/html", None),
+            ("200", "valid", "text/plain", rule_body),
+            ("403", "skipped_non_200", "text/html", None),
+            ("200", "invalid_body", "text/html", challenge_body),
+            ("200", "body_too_large", "text/plain", None),
+            ("none", "timeout", "none", None),
+            ("none", "request_error", "none", None),
+            ("200", "valid", "invalid", rule_body),
+        ]
+        for row, url, status, (responder, validation, media, body) in zip(rows, urls, statuses, expected):
+            with self.subTest(url=url, validation=validation):
+                self.assertEqual(row["source"], url.split("?")[0])
+                self.assertEqual(row["status"], str(status))
+                self.assertEqual(row["route"], "direct" if url == catalog else "configured_forwarder")
+                self.assertEqual(row["responder_status"], responder)
+                self.assertEqual(row["origin_status"], responder if url == catalog else "unobserved")
+                self.assertEqual(row["validation"], validation)
+                self.assertEqual(row["media_type"], media)
+                self.assertEqual(row.get("body_bytes"), str(len(body)) if body is not None else None)
+                self.assertEqual(row.get("body_sha256"), hashlib.sha256(body).hexdigest() if body is not None else None)
+
+        # Sensitive data must never appear anywhere in logs
+        for forbidden in (
+            "worker.example",
+            "do-not-log",
+            "query-secret",
+            "user:pass",
+            "SECRET-CHALLENGE-BODY",
+            "SECRET-DIRECT-403-BODY",
+            "SECRET-FORWARDER-403-BODY",
+            "SECRET-TIMEOUT",
+            "SECRET-EXCEPTION",
+            "SECRET-HEADER",
+        ):
+            self.assertNotIn(forbidden, logs)
+
+        # public_source_url strips credentials and queries even if called directly
+        self.assertEqual(
+            gateway.public_source_url("https://user:pass@rule.kelee.one/a.lsr?token=secret"),
+            "https://rule.kelee.one/a.lsr",
         )
 
 

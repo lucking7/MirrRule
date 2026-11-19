@@ -18,6 +18,7 @@ import path from 'node:path';
 import picocolors from 'picocolors';
 import { PUBLIC_DIR } from '../../constants/dir';
 import { getPluginList, getPluginStats } from './plugin-list';
+import type { CatalogAttempt } from './plugin-list';
 import { convertPluginsBatchFromLocalMirror, waitForScriptHub } from './script-hub-client';
 import type { LocalMirrorPluginConversionResult } from './script-hub-client';
 import {
@@ -98,7 +99,8 @@ function extractModuleName(content: string, fallbackName: string): string {
  */
 export async function convertAndMirrorPlugins(
   waitForService = false,
-  useLocalFallback = true
+  useLocalFallback = true,
+  observeCatalog?: (attempt: CatalogAttempt) => void,
 ): Promise<ConversionResult[]> {
   console.log(picocolors.cyan('\nPlugin Converter & Mirror (v2.2 - Hybrid + Local Fallback)\n'));
 
@@ -113,7 +115,7 @@ export async function convertAndMirrorPlugins(
 
   // 1. 获取插件列表
   console.log(picocolors.cyan('\n[Step 1/4] Fetching plugin list...\n'));
-  const pluginsResult = await getPluginList();
+  const pluginsResult = await getPluginList(observeCatalog);
 
   if ('error' in pluginsResult) {
     throw new PluginCatalogUnavailableError(`Failed to get plugin list: ${pluginsResult.error}`);

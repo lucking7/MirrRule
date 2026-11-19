@@ -8,3 +8,5 @@ export const UA_SURGE_MAC = 'Surge Mac/8380';
 
 /** 规则集镜像同步 UA - 用于 GitHub API 和镜像下载 */
 export const UA_MIRROR = 'Surge-Ruleset-Mirror/1.0';
+
+export const UA_MIRRRULE = 'MirrRule/1.0 (+https://github.com/lucking7/MirrRule)';

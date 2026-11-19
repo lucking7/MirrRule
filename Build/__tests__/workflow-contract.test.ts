@@ -159,6 +159,16 @@ describe('GitHub Actions workflow contract', () => {
     });
   });
 
+  it('keeps internal Kelee checks out of the build, artifact upload and deployment paths', () => {
+    assert.deepEqual(evaluateTaskPlan({ eventName: 'workflow_dispatch', task: 'verify-kelee' }).tasks, []);
+    const job = getJob('verify-kelee');
+    assert.match(job.if ?? '', /inputs.task == 'verify-kelee'/);
+    assert.ok(job.steps?.every(step => !/upload-artifact|actions\/cache/.test(step.uses ?? '')));
+    assert.equal(hasStep(job, 'Require a clean workspace for download evidence'), true);
+    assert.equal(hasStep(job, 'Verify both rules from download through all four writers'), true);
+    assert.equal(hasStep(job, 'Convert modules and verify script digests'), true);
+  });
+
   it('normalizes legacy deploy selectors to the single production chain with a migration notice', () => {
     const inputs = workflow.on?.workflow_dispatch?.inputs ?? {};
     assert.deepEqual(inputs.deploy_target?.options, ['production', 'all', 'github', 'cloudflare']);

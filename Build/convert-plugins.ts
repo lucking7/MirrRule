@@ -4,9 +4,10 @@
  */
 
 import process from 'node:process';
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import { convertAndMirrorPlugins, printConversionSummary } from './integration/plugin-converter';
+import type { CatalogAttempt } from './integration/plugin-converter/plugin-list';
+import { writeFileAtomic } from './lib/atomic-file';
 import { getErrorMessage, registerGlobalErrorHandlers } from './lib/misc';
 import {
   PluginCatalogUnavailableError,
@@ -14,6 +15,11 @@ import {
   UPSTREAM_UNAVAILABLE_EXIT_CODE,
   verifyRequiredPluginOutputs,
 } from './integration/plugin-converter/readiness';
+
+async function writeReportFile(reportPath: string | undefined, payload: unknown): Promise<void> {
+  if (!reportPath) return;
+  await writeFileAtomic(reportPath, JSON.stringify(payload, null, 2));
+}
 
 registerGlobalErrorHandlers();
 
@@ -33,12 +39,24 @@ async function main() {
   }
 
   const startTime = Date.now();
-  const results = await convertAndMirrorPlugins(waitForService);
-  const duration = ((Date.now() - startTime) / 1000).toFixed(2);
   const reportPath = process.env.PLUGIN_CONVERSION_REPORT;
+  const catalog: CatalogAttempt[] = [];
+  let results;
+  try {
+    results = await convertAndMirrorPlugins(waitForService, true, attempt => catalog.push(attempt));
+  } catch (error) {
+    if (error instanceof PluginCatalogUnavailableError) {
+      await writeReportFile(reportPath, {
+        schemaVersion: 1, generatedAt: new Date().toISOString(), status: 'catalog-unavailable', catalog,
+      });
+    }
+    throw error;
+  }
+  const duration = ((Date.now() - startTime) / 1000).toFixed(2);
   const report = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
+    catalog,
     total: results.length,
     ready: results.filter(result => result.status === 'ready').length,
     degraded: results.filter(result => result.status === 'degraded').length,
@@ -53,12 +71,7 @@ async function main() {
       upstreamUnavailable: result.upstreamUnavailable,
     })),
   };
-  async function writeReport() {
-    if (!reportPath) return;
-    await fs.mkdir(path.dirname(reportPath), { recursive: true });
-    await fs.writeFile(reportPath, JSON.stringify(report, null, 2));
-  }
-  await writeReport();
+  await writeReportFile(reportPath, report);
 
   if (results.length === 0) {
     console.error('没有插件被转换');
@@ -83,7 +96,7 @@ async function main() {
       process.exit(UPSTREAM_UNAVAILABLE_EXIT_CODE);
     }
     report.required = { config: requiredConfig, ready: requiredReady };
-    await writeReport();
+    await writeReportFile(reportPath, report);
     console.log(`必需模块验收通过: ${requiredReady} 个模块全部来自本轮 ready 产物`);
     if (failedCount > 0) {
       console.warn(`::warning::${failedCount} 个非必需插件未通过，详见转换报告；未将其标为成功`);

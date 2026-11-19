@@ -6,7 +6,7 @@
 import process from 'node:process';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import picocolors from 'picocolors';
-import { UA_SURGE_MAC } from '../../constants/user-agents';
+import { UA_MIRRRULE, UA_SURGE_MAC } from '../../constants/user-agents';
 import { applyProxyIfNeeded, shouldUseProxy } from '../../utils/network/proxy';
 import type { PluginConversionResult, PluginInfo, ConversionConfig } from './types.ts';
 import { getErrorMessage } from '../../lib/misc';
@@ -59,7 +59,8 @@ function buildStagedConversionUrl(
   const baseUrl = `${SCRIPT_HUB_CONFIG.baseUrl}/file/_start_/${finalUrl}/_end_/${encodedName}.sgmodule`;
 
   // 添加 User-Agent 到请求头参数
-  const headerValue = encodeURIComponentSafe(`User-Agent: ${UA_SURGE_MAC}`);
+  const userAgent = process.env.KELEE_INTERNAL_CHECK === 'true' ? UA_MIRRRULE : UA_SURGE_MAC;
+  const headerValue = encodeURIComponentSafe(`User-Agent: ${userAgent}`);
   const query = `type=${config.sourceType}&target=${config.targetType}&category=${encodedCategory}&headers=${headerValue}`;
 
   return `${baseUrl}?${query}`;

@@ -107,7 +107,7 @@ function canonicalizeUrl(url: string): string {
   return canonical.toString();
 }
 
-function getMirrorFilename(script: ScriptInfo): string {
+export function getMirrorFilename(script: ScriptInfo): string {
   if (script.isMirrored) {
     const source = new URL(script.originalUrl);
     if (source.hostname === MIRROR_BASE.hostname && source.pathname.startsWith(MIRROR_BASE.pathname)) {

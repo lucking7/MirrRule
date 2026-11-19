@@ -7,11 +7,11 @@ import process from 'node:process';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import picocolors from 'picocolors';
+import { UA_MIRRRULE } from '../../constants/user-agents';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
 import type { PluginInfo } from './types';
 import { buildClassifiedProxyUrlCandidates } from '../../utils/network/proxy';
 import type { ProxyUrlCandidate } from '../../utils/network/proxy';
-import { getErrorMessage } from '../../lib/misc';
 import { updatePluginMetadata } from './provenance';
 import { getPluginRetirementReason } from './plugin-policy';
 
@@ -38,7 +38,7 @@ function resolvePluginListSources(): ProxyUrlCandidate[] {
   for (const base of bases) {
     const candidates = buildClassifiedProxyUrlCandidates(base, {
       forceProxy: FORCE_PROXY_FOR_LIST,
-      preferDirect: false,
+      preferDirect: base === DEFAULT_PLUGIN_LIST_URL,
     });
 
     for (const candidate of candidates) {
@@ -68,72 +68,51 @@ const EXTRA_PLUGINS: PluginInfo[] = [
  *
  * @returns 插件列表 JSON 字符串
  */
-interface PluginListDownload {
-  text: string;
+export interface CatalogAttempt {
   source: 'direct' | 'proxy';
-  bytes: number;
-  sha256: string
+  status?: number;
+  outcome: 'accepted' | 'invalid-body' | 'http-error' | 'request-error';
+  bytes?: number;
+  sha256?: string;
 }
 
-async function downloadPluginList(): Promise<PluginListDownload | { error: string }> {
-  const sources = resolvePluginListSources();
+async function downloadPluginList(observe?: (attempt: CatalogAttempt) => void): Promise<string[] | { error: string }> {
   const errors: string[] = [];
-
-  for (const source of sources) {
+  for (const source of resolvePluginListSources()) {
     console.log(picocolors.cyan(`[Plugin List] Downloading via ${source.source}...`));
-
     try {
       const response = await $$fetch(source.url, {
-        ...defaultRequestInit,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          Accept: 'application/json',
-        },
+        ...defaultRequestInit, headers: { 'User-Agent': UA_MIRRRULE, Accept: 'application/json' },
       });
-
       if (!response.ok) {
-        const errorMsg = `HTTP ${response.status}: ${response.statusText}`;
-        console.log(picocolors.red(`[Plugin List] ✗ ${errorMsg}`));
-        errors.push(`${source.source} -> ${errorMsg}`);
+        observe?.({ source: source.source, status: response.status, outcome: 'http-error' });
+        errors.push(`${source.source} -> HTTP ${response.status}`);
         continue;
       }
-
       const text = await response.text();
-
-      if (!text || text.trim().length === 0) {
-        console.log(picocolors.red('[Plugin List] ✗ Empty response'));
-        errors.push(`${source.source} -> Empty response`);
-        continue;
-      }
-
+      let urls: string[] = [];
       try {
-        JSON.parse(text);
+        urls = extractPluginUrls(text);
       } catch {
-        console.log(picocolors.red('[Plugin List] ✗ Invalid JSON format'));
-        errors.push(`${source.source} -> Invalid JSON`);
-        continue;
+        // A response without a usable catalog must still try the remaining candidates.
       }
-
       const sha256 = createHash('sha256').update(text).digest('hex');
       const bytes = Buffer.byteLength(text);
-      console.log(
-        picocolors.green(
-          `[Plugin List] ✓ asset=plugin-list source=${source.source} bytes=${bytes} sha256=${sha256}`
-        )
-      );
-      return { text, source: source.source, bytes, sha256 };
+      observe?.({ source: source.source, status: response.status, bytes, sha256, outcome: urls.length ? 'accepted' : 'invalid-body' });
+      if (urls.length) {
+        console.log(picocolors.green(`[Plugin List] ✓ asset=plugin-list source=${source.source} bytes=${bytes} sha256=${sha256}`));
+        return urls;
+      }
+      errors.push(`${source.source} -> Invalid catalog`);
     } catch (error) {
-      const errorMsg = source.source === 'proxy' ? 'Proxy request failed' : getErrorMessage(error);
-      console.log(picocolors.red(`[Plugin List] ✗ ${errorMsg}`));
-      errors.push(`${source.source} -> ${errorMsg}`);
+      const status = error && typeof error === 'object' && 'statusCode' in error && typeof error.statusCode === 'number'
+        ? error.statusCode
+        : undefined;
+      observe?.({ source: source.source, status, outcome: status === undefined ? 'request-error' : 'http-error' });
+      errors.push(`${source.source} -> ${status === undefined ? 'Request failed' : `HTTP ${status}`}`);
     }
   }
-
-  return {
-    error: `Failed to download plugin list after trying ${sources.length} source(s): ${errors.join(
-      '; '
-    )}`,
-  };
+  return { error: `Failed to download plugin list: ${errors.join('; ')}` };
 }
 
 /**
@@ -217,24 +196,11 @@ function urlToPluginInfo(url: string): PluginInfo {
  *
  * @returns 插件信息数组
  */
-export async function getPluginList(): Promise<PluginInfo[] | { error: string }> {
-  // 下载列表
-  const listResult = await downloadPluginList();
+export async function getPluginList(observe?: (attempt: CatalogAttempt) => void): Promise<PluginInfo[] | { error: string }> {
+  const urls = await downloadPluginList(observe);
+  if (!Array.isArray(urls)) return urls;
 
-  if ('error' in listResult) {
-    return listResult;
-  }
-
-  // 提取 URL
-  const urls = extractPluginUrls(listResult.text);
-
-  if (urls.length === 0) {
-    return {
-      error: 'No plugin URLs found in list',
-    };
-  }
-
-  console.log(picocolors.green(`[Plugin List] Found ${urls.length} plugins from Script-Hub`));
+  console.log(picocolors.green(`[Plugin List] Found ${urls.length} plugins in the catalog`));
   await updatePluginMetadata({ listCount: urls.length });
 
   // 转换为插件信息

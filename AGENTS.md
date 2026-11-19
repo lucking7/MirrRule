@@ -313,7 +313,7 @@ iRingo `.sgmodule` 有后处理逻辑，会替换 `#!arguments=` 中的 `Proxy` 
 - `Build/integration/plugin-converter/plugin-list.ts`
 - `Build/integration/plugin-converter/*`
 
-插件列表默认从 `https://hub.kelee.one/list.json` 获取，可通过环境变量覆盖：
+插件列表默认用 MirrRule 应用标识直连 `https://hub.kelee.one/list.json`，失败时再试已有代理候选。目录失败的转换报告记 `status: catalog-unavailable`，没有 `results`。手动任务 `verify-kelee` 只验证内部刷新、不上传正文或部署，检查条件见 `RULE_SOURCES.md`。可通过环境变量覆盖目录配置：
 
 - `PLUGIN_LIST_URL`：逗号分隔的插件列表 URL。
 - `PLUGIN_LIST_FORCE_PROXY`：默认视为启用代理候选；设为 `false` 可关闭强制代理候选。

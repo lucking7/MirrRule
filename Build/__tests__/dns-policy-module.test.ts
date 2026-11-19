@@ -179,10 +179,13 @@ describe('designated DNS policy module', () => {
       const fetchPath = require.resolve(path.join(converterDirectory, '../../utils/network/fetch-retry.ts'));
       replaceModule(fetchPath, {
         defaultRequestInit: {},
-        $$fetch: async (url) => {
+        $$fetch: async (url, init) => {
           requests.push(url);
           let body;
-          if (url === 'https://catalog.test/list.json') body = JSON.stringify({ lists: catalog });
+          if (url === 'https://hub.kelee.one/list.json') {
+            assert.match(init.headers['User-Agent'], /^MirrRule\//);
+            body = JSON.stringify({ lists: catalog });
+          }
           else if (url === dnsUrl) body = dnsResponse;
           else if (url === 'https://raw.githubusercontent.com/fmz200/wool_scripts/main/Surge/module/blockAds.module') {
             body = '#!name=Native fixture\n[Rule]\nDOMAIN,native.example,REJECT\n';
@@ -200,7 +203,10 @@ describe('designated DNS policy module', () => {
       });
       (async () => {
         const { getPluginList } = require(path.join(converterDirectory, 'plugin-list.ts'));
+        process.env.PROXY_BASE = 'http://127.0.0.1:13193?url=';
         const active = await getPluginList();
+        assert.deepEqual(requests, ['https://hub.kelee.one/list.json']);
+        delete process.env.PROXY_BASE;
         assert.ok(Array.isArray(active));
         assert.equal(active.some(plugin => plugin.url === tencentUrl), false);
         assert.equal(active.some(plugin => plugin.url === easyBikeUrl), true);
@@ -237,7 +243,7 @@ describe('designated DNS policy module', () => {
         SWC_NODE_IGNORE_DYNAMIC: 'true',
         SWC_NODE_PROJECT: path.resolve(__dirname, '../../tsconfig.json'),
         PUBLIC_DIR: path.join(directory, 'public'),
-        PLUGIN_LIST_URL: 'https://catalog.test/list.json',
+        PLUGIN_LIST_URL: '',
         PLUGIN_LIST_FORCE_PROXY: 'false',
         PROXY_BASE: '',
         GITHUB_STEP_SUMMARY: '',

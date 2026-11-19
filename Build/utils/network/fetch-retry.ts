@@ -12,9 +12,11 @@ export type UndiciResponseData<T = unknown> = Dispatcher.ResponseData<T>;
 
 import { inspect } from 'node:util';
 import path from 'node:path';
+import process from 'node:process';
 import fs from 'node:fs';
 import { CACHE_DIR } from '../../constants/dir';
-import { UA_SURGE_MAC } from '../../constants/user-agents';
+import { shouldUseProxy } from './proxy';
+import { UA_MIRRRULE, UA_SURGE_MAC } from '../../constants/user-agents';
 
 fs.mkdirSync(CACHE_DIR, { recursive: true });
 
@@ -159,6 +161,11 @@ export const defaultRequestInit = {
 
 export async function $$fetch(url: string, init: RequestInit = defaultRequestInit) {
   try {
+    if (process.env.KELEE_INTERNAL_CHECK === 'true' && shouldUseProxy(url)) {
+      const headers = new undici.Headers(init.headers);
+      headers.set('User-Agent', UA_MIRRRULE);
+      init = { ...init, headers };
+    }
     const res = await undici.fetch(url, { ...init, dispatcher });
     if (res.status >= 400) {
       throw new ResponseError(res, url);
