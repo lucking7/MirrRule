@@ -31,6 +31,7 @@ on:
         type: choice
         options:
           - all
+          - verify-kelee
           - build
           - convert-plugins
           - merge-modules
@@ -74,6 +75,19 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  verify-kelee:
+    name: Verify internal Kelee refresh
+    if: github.event_name == 'workflow_dispatch' && inputs.task == 'verify-kelee'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 -m pip install -r Build/browser-rule-requirements.txt
+      - name: Check direct access from this runner
+        run: python3 Build/check-kelee-inputs.py
+
   # ============================================
   # 准备阶段：确定需要执行的任务
   # ============================================
