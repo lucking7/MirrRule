@@ -425,7 +425,7 @@ jobs:
       - run: python3 -m pip install -r Build/browser-rule-requirements.txt
       - name: Require a clean workspace for download evidence
         run: |
-          for input in .cache public/Modules public/Scripts "$RUNNER_TEMP/kelee-conversion.json"; do
+          for input in .cache public/Modules public/Scripts "$RUNNER_TEMP/kelee-catalog.json" "$RUNNER_TEMP/kelee-conversion.json"; do
             test ! -e "$input" || { echo "::error::Unexpected prior output at $input"; exit 1; }
           done
       - name: Check direct access from this runner
@@ -433,8 +433,12 @@ jobs:
         run: python3 Build/check-kelee-inputs.py
       - name: Parse the fresh catalog with the plugin converter
         if: "!cancelled() && steps.inputs.outputs.catalog == 'true'"
+        env:
+          KELEE_INTERNAL_CHECK: 'true'
+          KELEE_CATALOG_FILE: ${{ runner.temp }}/kelee-catalog.json
+          KELEE_CATALOG_SHA256: ${{ steps.inputs.outputs.catalog_sha256 }}
         run: |
-          pnpm run node -e "require('./Build/integration/plugin-converter/plugin-list').getPluginList().then(p => { if (!Array.isArray(p) || !p.length) process.exitCode = 1; })"
+          pnpm run node -e "require('./Build/integration/plugin-converter/plugin-list').getPluginList(a => console.log(JSON.stringify(a))).then(p => { if (!Array.isArray(p)) throw new Error(p.error); if (!p.length) process.exitCode = 1; })"
       - name: Verify both rules from download through all four writers
         if: "!cancelled() && steps.inputs.outputs.china == 'true' && steps.inputs.outputs.international == 'true'"
         env:
@@ -450,6 +454,8 @@ jobs:
         if: "!cancelled() && steps.script-hub.outcome == 'success'"
         env:
           KELEE_INTERNAL_CHECK: 'true'
+          KELEE_CATALOG_FILE: ${{ runner.temp }}/kelee-catalog.json
+          KELEE_CATALOG_SHA256: ${{ steps.inputs.outputs.catalog_sha256 }}
           PLUGIN_CONVERSION_REPORT: ${{ runner.temp }}/kelee-conversion.json
         run: |
           set -eu

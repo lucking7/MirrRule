@@ -6,6 +6,7 @@
 import process from 'node:process';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import picocolors from 'picocolors';
 import { UA_MIRRRULE } from '../../constants/user-agents';
 import { $$fetch, defaultRequestInit } from '../../utils/network/fetch-retry';
@@ -64,19 +65,65 @@ const EXTRA_PLUGINS: PluginInfo[] = [
 ];
 
 /**
- * 下载插件列表
- *
- * @returns 插件列表 JSON 字符串
+ * 目录尝试只记录响应元数据。
  */
 export interface CatalogAttempt {
-  source: 'direct' | 'proxy';
+  source: 'direct' | 'proxy' | 'runner-input';
   status?: number;
   outcome: 'accepted' | 'invalid-body' | 'http-error' | 'request-error';
   bytes?: number;
   sha256?: string;
 }
 
-async function downloadPluginList(observe?: (attempt: CatalogAttempt) => void): Promise<string[] | { error: string }> {
+function extractUsablePluginUrls(raw: Buffer): string[] {
+  try {
+    return extractPluginUrls(new TextDecoder('utf-8', { fatal: true }).decode(raw));
+  } catch {
+    return [];
+  }
+}
+
+async function readRunnerInputPluginList(
+  filePath: string,
+  expectedSha256: string | undefined,
+  observe?: (attempt: CatalogAttempt) => void,
+): Promise<string[] | { error: string }> {
+  const expected = expectedSha256?.trim().toLowerCase();
+  if (!expected || !/^[0-9a-f]{64}$/.test(expected)) {
+    observe?.({ source: 'runner-input', outcome: 'invalid-body' });
+    return { error: 'Failed to load plugin list from runner-input: missing or invalid KELEE_CATALOG_SHA256' };
+  }
+
+  let raw: Buffer;
+  try {
+    raw = await readFile(filePath);
+  } catch {
+    observe?.({ source: 'runner-input', outcome: 'request-error' });
+    return { error: 'Failed to load plugin list from runner-input: unable to read catalog file' };
+  }
+
+  const bytes = raw.byteLength;
+  const sha256 = createHash('sha256').update(raw).digest('hex');
+  if (sha256 !== expected) {
+    observe?.({ source: 'runner-input', bytes, sha256, outcome: 'invalid-body' });
+    return { error: 'Failed to load plugin list from runner-input: SHA-256 mismatch' };
+  }
+
+  const urls = extractUsablePluginUrls(raw);
+  observe?.({ source: 'runner-input', bytes, sha256, outcome: urls.length ? 'accepted' : 'invalid-body' });
+  if (urls.length) {
+    console.log(picocolors.green(`[Plugin List] ✓ asset=plugin-list source=runner-input bytes=${bytes} sha256=${sha256}`));
+    return urls;
+  }
+  return { error: 'Failed to load plugin list from runner-input: Invalid catalog' };
+}
+
+export async function downloadPluginList(observe?: (attempt: CatalogAttempt) => void): Promise<string[] | { error: string }> {
+  const catalogFile = process.env.KELEE_CATALOG_FILE?.trim();
+  if (catalogFile && process.env.KELEE_INTERNAL_CHECK === 'true') {
+    return readRunnerInputPluginList(catalogFile, process.env.KELEE_CATALOG_SHA256, observe);
+  }
+
   const errors: string[] = [];
   for (const source of resolvePluginListSources()) {
     console.log(picocolors.cyan(`[Plugin List] Downloading via ${source.source}...`));
@@ -89,15 +136,10 @@ async function downloadPluginList(observe?: (attempt: CatalogAttempt) => void): 
         errors.push(`${source.source} -> HTTP ${response.status}`);
         continue;
       }
-      const text = await response.text();
-      let urls: string[] = [];
-      try {
-        urls = extractPluginUrls(text);
-      } catch {
-        // A response without a usable catalog must still try the remaining candidates.
-      }
-      const sha256 = createHash('sha256').update(text).digest('hex');
-      const bytes = Buffer.byteLength(text);
+      const raw = Buffer.from(await response.arrayBuffer());
+      const urls = extractUsablePluginUrls(raw);
+      const sha256 = createHash('sha256').update(raw).digest('hex');
+      const bytes = raw.byteLength;
       observe?.({ source: source.source, status: response.status, bytes, sha256, outcome: urls.length ? 'accepted' : 'invalid-body' });
       if (urls.length) {
         console.log(picocolors.green(`[Plugin List] ✓ asset=plugin-list source=${source.source} bytes=${bytes} sha256=${sha256}`));

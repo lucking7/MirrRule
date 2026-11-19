@@ -155,7 +155,7 @@ CloudMounter 的规则包含 AND、`PROCESS-NAME,*CloudMounter`、`SRC-IP` 和�
 
 插件转换器使用 MirrRule 应用标识，优先直连官方目录 `https://hub.kelee.one/list.json`。每次目录尝试的途径、响应状态、正文校验结果和取得目录的 SHA-256 记在转换报告的 `catalog` 中。目录不可用时报告为 `status: catalog-unavailable`，没有 `results`，退出码 3 仍触发既有基线保留流程。
 
-手动任务 `verify-kelee` 在全新 Runner 上独立检查目录、两份 Speedtest 和必需的 HTTPDNS 插件。规则可达时运行四平台 writer 并比对摘要，插件可达时执行转换、必需项检查、脚本校验和合并。它只在日志中保留元数据，不上传规则、模块或脚本，也不触发部署。目录可用、规则源可用、模块源可用在日志中分别显示。任一必需输入获取失败，任务失败。
+手动任务 `verify-kelee` 在全新 Runner 上独立检查目录、两份 Speedtest、必需的 HTTPDNS 插件和高德脚本。转换器在 Runner 临时目录读取本次取得的目录字节，按下载步骤的 SHA-256 复核后解析。规则可达时运行四平台 writer 并比对摘要，插件可达时执行转换、必需项检查、脚本校验和合并。它只在日志中保留元数据，不上传规则、模块或脚本，也不触发部署。目录可用、规则源可用、模块源可用在日志中分别显示。任一必需输入获取失败，任务失败。
 
 规则构建、source-health 与插件转换均接入 [browser-rule-gateway.py](Build/browser-rule-gateway.py)。它只接受 Kelee HTTPS `.lsr`、`.plugin`、`.lpx`、`.js` 及固定目录 `https://hub.kelee.one/list.json`。它固定监听 `127.0.0.1`，每请求创建独立 browser session，要求 HTTP 200，限制 8 MiB，关闭 redirect 并设置超时。HEAD 健康探针在上游使用 GET 并校验正文；`/health` 仅表示本地服务已启动。目录用 browser session 直连并校验 JSON（包括 `loon://` 安装链接）；其他资源经自有 Worker 下载，规则要求非空 UTF-8 规则正文且拒绝 HTML/JSON，插件要求名称和有效 section，脚本拒绝 HTML/challenge 正文。它不是通用代理。
 
