@@ -465,7 +465,22 @@ jobs:
           echo "❌ Browser rule gateway startup timed out" >&2
           cat "$gateway_log" >&2 || true
           exit 1
+      - name: Probe the gateway download path
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          for target in \
+            "https://kelee.one/Tool/Loon/Lsr/SpeedtestChina.lsr" \
+            "https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx"; do
+            status=$(curl -sS -o "$RUNNER_TEMP/gateway-probe.bin" -w '%{http_code}' \
+              "http://127.0.0.1:13193?url=$target" || true)
+            printf 'gateway probe: status=%s bytes=%s target=%s\n' \
+              "$status" "$(wc -c < "$RUNNER_TEMP/gateway-probe.bin")" "$target"
+          done
+          echo '--- browser rule gateway log ---'
+          cat "$RUNNER_TEMP/browser-rule-gateway.log" || true
       - name: Verify both rules from download through all four writers
+        id: rules
         if: "!cancelled() && steps.inputs.outputs.china == 'true' && steps.inputs.outputs.international == 'true'"
         env:
           KELEE_INTERNAL_CHECK: 'true'
@@ -473,6 +488,8 @@ jobs:
         run: |
           if ! pnpm run node Build/check-kelee-rules.ts >"$RUNNER_TEMP/kelee-rules.log" 2>&1; then
             cat "$RUNNER_TEMP/kelee-rules.log"
+            echo '--- browser rule gateway log ---'
+            cat "$RUNNER_TEMP/browser-rule-gateway.log" || true
             exit 1
           fi
           cat "$RUNNER_TEMP/kelee-rule-audit.json"
@@ -481,7 +498,7 @@ jobs:
         if: "!cancelled() && steps.inputs.outputs.catalog == 'true' && steps.inputs.outputs.plugin == 'true'"
         run: *start-script-hub
       - name: Convert modules and verify script digests
-        if: "!cancelled() && steps.script-hub.outcome == 'success'"
+        if: "!cancelled() && steps.script-hub.outcome == 'success' && steps.rules.outcome == 'success'"
         env:
           KELEE_INTERNAL_CHECK: 'true'
           PROXY_BASE: http://127.0.0.1:13193?url=
@@ -497,6 +514,8 @@ jobs:
           if [ "$code" -ne 0 ]; then
             tail -n 200 "$RUNNER_TEMP/kelee-conversion.log"
             grep -E "HTTP 403|\[Mirror\] ✗|fetch failed|ECONN|ETIMEDOUT" "$RUNNER_TEMP/kelee-conversion.log" | head -n 40 || true
+            echo '--- browser rule gateway log ---'
+            tail -n 100 "$RUNNER_TEMP/browser-rule-gateway.log" || true
             exit "$code"
           fi
           pnpm run node Build/check-kelee-modules.ts
