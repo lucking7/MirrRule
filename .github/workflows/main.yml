@@ -444,7 +444,10 @@ jobs:
         env:
           KELEE_INTERNAL_CHECK: 'true'
         run: |
-          pnpm run node Build/check-kelee-rules.ts >"$RUNNER_TEMP/kelee-rules.log" 2>&1
+          if ! pnpm run node Build/check-kelee-rules.ts >"$RUNNER_TEMP/kelee-rules.log" 2>&1; then
+            cat "$RUNNER_TEMP/kelee-rules.log"
+            exit 1
+          fi
           cat "$RUNNER_TEMP/kelee-rule-audit.json"
       - name: Start Script-Hub for internal conversion
         id: script-hub
@@ -463,7 +466,11 @@ jobs:
           code=0
           pnpm run convert-plugins --wait-service --required-config "$config" >"$RUNNER_TEMP/kelee-conversion.log" 2>&1 || code=$?
           jq -c '{status, catalog, total, ready, degraded, failed, required, issues: [.results[]? | select(.status != "ready") | {pluginName, status, upstreamUnavailable}]}' "$PLUGIN_CONVERSION_REPORT"
-          if [ "$code" -ne 0 ]; then exit "$code"; fi
+          if [ "$code" -ne 0 ]; then
+            tail -n 200 "$RUNNER_TEMP/kelee-conversion.log"
+            grep -E "HTTP 403|\[Mirror\] ✗|fetch failed|ECONN|ETIMEDOUT" "$RUNNER_TEMP/kelee-conversion.log" | head -n 40 || true
+            exit "$code"
+          fi
           pnpm run node Build/check-kelee-modules.ts
           pnpm run merge-modules >"$RUNNER_TEMP/kelee-merge.log" 2>&1
           sha256sum public/Modules/Merged/All-in-One-Pro.sgmodule
