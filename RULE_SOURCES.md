@@ -55,7 +55,11 @@ Surge 与 Loon 保留 `.list`，Clash 输出 classical `.txt`，sing-box 输出 
 
 不读取二进制 `.mrs`、`.srs`。当前配置使用文本来源。sing-box JSON 输入接受 version 1/2 的 `domain`、`domain_suffix`、`domain_keyword` 和 `ip_cidr` 字符串或数组，以及 `type: "default"`、`invert: false`。遇到端口、logical、`invert: true`、正则等未支持字段时拒绝整个来源，不能通过丢弃字段扩大匹配范围。空 `rules` 数组受 `allowEmpty` 控制，空规则对象始终拒绝。
 
-现有 `ai` 已覆盖 2026-10-08 的 OpenAI 22、Anthropic 9、Google Gemini 46、Cursor 4 条样本，无需重复加入同一数据。规则覆盖比较不代表客户端的实际出口或地区解锁已经验证。
+2026-11-17 新增 Meta [AS399358 文本来源](https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/asn/AS399358.list)，本次为 `160.79.104.0/23`、`2607:6bc0::/48`、`2607:6bc0:11::/48`，跟随上游更新。现有 Sukka `IP-ASN,399358` 在 sing-box 输出中被丢弃，具体 CIDR 为它补充 Anthropic IP 匹配；Surge 等支持 ASN 的平台继续保留原 ASN 条目。新增 CIDR 位于 `ip` 分版，保持来源未带 `no-resolve` 的选择。这些网段不等同于整个 ASN 或 Anthropic 使用的全部 CDN。
+
+对照 [Claude 分流参考页](https://ip.net.coffee/claude/site.html)、[MetaCubeX meta 分支](https://github.com/MetaCubeX/meta-rules-dat/tree/meta)和 [Claude Code 官方网络要求](https://code.claude.com/docs/en/network-config)，本轮不额外引入兼容域名、共享遥测端点或拦截策略。参考页的兼容域名与遥测屏蔽由用户本机模块按需配置。Meta `category-ai-!cn.list` 已包含本次 `anthropic.list` 的全部 21 条，不重复添加该来源；上游已有的 Sentry、Intercom 等条目保持不变。官方网络要求是连接依赖清单，不代表其中所有通用依赖都应绑定 AI 出口；不添加全局遥测关键词或 `category-ntp`。
+
+四平台合并版和 `non_ip`／`ip` 地址不变。规则覆盖比较不代表客户端的实际出口、账号风控或地区解锁已经验证。
 
 ## CDN、Download 与 Speedtest
 
