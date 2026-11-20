@@ -116,6 +116,7 @@ Build/
   integration/plugin-converter/    插件下载、转换、镜像实现
   lib/                             规则处理、输出、解析、模块合并等核心逻辑
   lib/rule-output-variants.ts      分版（non_ip/ip）分类、路径与格式契约
+  lib/primary-ip-sources.ts        Anthropic 官方入站 IP 文档与 RIPEstat 实时 BGP 前缀抓取及 RDAP 校验
   lib/output-audit.ts              各 ruleset×分版×平台的实际输出审计、来源快照与 delta
   lib/publication-manifest.ts      发布清单（路径、字节数、SHA256、generated/preserved 来源）
   lib/publication-receipt.ts       GitHub Deployments 验收 receipt 的读写与基线选择
