@@ -157,7 +157,11 @@ kelee.one 的 Cloudflare WAF 只放行以 `Surge Mac/` 开头的 UA（大小写�
 
 手动任务 `verify-kelee` 在全新 Runner 上独立检查目录、两份 Speedtest、必需的 HTTPDNS 插件和高德 JQ 资源。转换器在 Runner 临时目录读取本次取得的目录字节，按下载步骤的 SHA-256 复核后解析。规则可达时运行四平台 writer 并比对摘要，插件可达时执行转换、必需项检查、脚本校验和合并。它只在日志中保留元数据，不上传规则、模块或脚本，也不触发部署。目录可用、规则源可用、模块源可用在日志中分别显示。任一必需输入获取失败，任务失败。
 
-规则构建、source-health 与插件转换均接入 [browser-rule-gateway.py](Build/browser-rule-gateway.py)。它只接受 Kelee HTTPS `.lsr`、`.plugin`、`.lpx`、`.js`、`.jq` 及固定目录 `https://hub.kelee.one/list.json`。它固定监听 `127.0.0.1`，每请求创建独立 browser session，要求 HTTP 200，限制 8 MiB，关闭 redirect 并设置超时。HEAD 健康探针在上游使用 GET 并校验正文；`/health` 仅表示本地服务已启动。目录用 browser session 直连并校验 JSON（包括 `loon://` 安装链接）；其他资源经自有 Worker 下载，规则要求非空 UTF-8 规则正文且拒绝 HTML/JSON，插件要求名称和有效 section，脚本拒绝 HTML/challenge 正文。它不是通用代理。
+规则构建、source-health 与插件转换均接入 [browser-rule-gateway.py](Build/browser-rule-gateway.py)。它只接受 Kelee HTTPS `.lsr`、`.plugin`、`.lpx`、`.js`、`.jq` 及固定目录 `https://hub.kelee.one/list.json`。它固定监听 `127.0.0.1`，要求 HTTP 200，限制 8 MiB，关闭 redirect 并设置超时。HEAD 健康探针在上游使用 GET 并校验正文；`/health` 仅表示本地服务已启动。
+
+每个资源先直连上游（`route=direct`，普通 requests session 带 Kelee UA），失败后才经自有 Worker 重试（`route=configured_forwarder`，browser session），两次尝试各自写一行日志，取第一个通过正文校验的响应。目录同样直连并校验 JSON（包括 `loon://` 安装链接）；规则要求非空 UTF-8 规则正文且拒绝 HTML/JSON，插件要求名称和有效 section，脚本拒绝 HTML/challenge 正文。它不是通用代理。
+
+Node 不直接下载 Kelee：2026-11-19 的 `verify-kelee` 中，同一 Runner 上 python requests 直连返回 200，而 undici 直连对 275 个插件全部返回 403（UA 相同）。差异原因未单独隔离（HTTP/2 与 TLS 指纹或 IP 信誉），因此 Node 侧继续设置 `PROXY_BASE` 指向本 gateway，由 python 完成下载。
 
 使用 Python 3.11，并安装精确锁定的 [requirements](Build/browser-rule-requirements.txt)。本地直连规则源可用时不必设置 gateway；需要复现 CI 的路径时，在仓库根目录运行：
 

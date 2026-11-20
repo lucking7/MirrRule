@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+from collections.abc import Sequence
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable, NamedTuple
 from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
@@ -24,6 +25,9 @@ READ_CHUNK_BYTES = 64 * 1024
 
 BrowserFactory = Callable[[], requests.Session]
 BodyValidator = Callable[[bytes], bool]
+
+# kelee.one 的 WAF 只放行以 `Surge Mac/` 开头的 UA，应用标识放在括号内。
+KELEE_USER_AGENT = "Surge Mac/8380 (MirrRule/1.0; +https://github.com/lucking7/MirrRule)"
 
 DOMAIN_PATTERN = re.compile(
     r"^(?=.{1,253}$)(?:[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?\.)+"
@@ -58,6 +62,19 @@ def create_browser_session() -> requests.Session:
         interpreter="nodejs",
         delay=10,
     )
+
+
+def create_kelee_session() -> requests.Session:
+    """A plain client carrying the Kelee-compatible UA.
+
+    Kelee's WAF refuses clients whose UA does not start with ``Surge Mac/``, and the
+    browser TLS stack that cloudscraper presents is refused as well, so the direct
+    attempt uses this UA with a plain requests session.
+    """
+    session = requests.Session()
+    session.headers["User-Agent"] = KELEE_USER_AGENT
+    session.headers["Accept"] = "*/*"
+    return session
 
 
 def classify_resource_url(hostname: str, path: str) -> str:
@@ -353,6 +370,51 @@ def fetch_resource_with_observation(
             session.close()
 
 
+class GatewayHTTPServer(ThreadingHTTPServer):
+    """Accept backlog sized for the converter.
+
+    The plugin converter fetches with concurrency 5 and rule downloads race the direct and
+    proxied candidates, so the default backlog of 5 refuses valid loopback connections.
+    """
+
+    daemon_threads = True
+    request_queue_size = 128
+
+
+class FetchAttempt(NamedTuple):
+    url: str
+    route: str
+    session_factory: BrowserFactory
+
+
+def fetch_with_fallback(
+    attempts: Sequence[FetchAttempt],
+    validator: BodyValidator,
+    invalid_message: bytes,
+    observe: Callable[[FetchAttempt, int, FetchObservation], None],
+) -> tuple[int, bytes, FetchObservation]:
+    """Try each attempt in order and return the first accepted body.
+
+    Every attempt is reported through ``observe`` so the log shows which route answered,
+    and the last failure is returned when none is accepted.
+    """
+    last: tuple[int, bytes, FetchObservation] | None = None
+    for attempt in attempts:
+        status, body, observation = fetch_resource_with_observation(
+            attempt.url,
+            attempt.session_factory,
+            validator,
+            invalid_message,
+            route=attempt.route,
+        )
+        observe(attempt, status, observation)
+        if status == 200:
+            return status, body, observation
+        last = (status, body, observation)
+    assert last is not None, "at least one fetch attempt is required"
+    return last
+
+
 def public_source_url(target_url: str) -> str:
     parsed = urlsplit(target_url)
     return urlunsplit((parsed.scheme, parsed.hostname or "", parsed.path, "", ""))
@@ -374,7 +436,8 @@ def format_fetch_log(target_url: str, status: int, observation: FetchObservation
 def create_server(
     upstream_base: str,
     port: int = DEFAULT_PORT,
-    browser_factory: BrowserFactory = create_browser_session,
+    direct_factory: BrowserFactory = create_kelee_session,
+    forwarder_factory: BrowserFactory = create_browser_session,
     logger: logging.Logger | None = None,
 ) -> ThreadingHTTPServer:
     normalized_upstream = normalize_upstream_base(upstream_base)
@@ -455,13 +518,21 @@ def create_server(
                 urlsplit(target_url).path,
             )
             validator, invalid_message, content_type = resource_formats[resource_type]
-            direct = resource_type == RESOURCE_PLUGIN_CATALOG
-            status, body, observation = fetch_resource_with_observation(
-                target_url if direct else build_upstream_url(normalized_upstream, target_url),
-                browser_factory, validator, invalid_message,
-                route=ROUTE_DIRECT if direct else ROUTE_CONFIGURED_FORWARDER,
+            status, body, _ = fetch_with_fallback(
+                [
+                    FetchAttempt(target_url, ROUTE_DIRECT, direct_factory),
+                    FetchAttempt(
+                        build_upstream_url(normalized_upstream, target_url),
+                        ROUTE_CONFIGURED_FORWARDER,
+                        forwarder_factory,
+                    ),
+                ],
+                validator,
+                invalid_message,
+                lambda _attempt, attempt_status, observation: gateway_logger.info(
+                    "%s", format_fetch_log(target_url, attempt_status, observation)
+                ),
             )
-            gateway_logger.info("%s", format_fetch_log(target_url, status, observation))
             self.send_body(
                 status,
                 body,
@@ -491,9 +562,7 @@ def create_server(
         do_OPTIONS = method_not_allowed
         do_TRACE = method_not_allowed
 
-    server = ThreadingHTTPServer(("127.0.0.1", port), GatewayHandler)
-    server.daemon_threads = True
-    return server
+    return GatewayHTTPServer(("127.0.0.1", port), GatewayHandler)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
