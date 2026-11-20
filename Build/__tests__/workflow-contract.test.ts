@@ -165,8 +165,19 @@ describe('GitHub Actions workflow contract', () => {
     assert.match(job.if ?? '', /inputs.task == 'verify-kelee'/);
     assert.ok(job.steps?.every(step => !/upload-artifact|actions\/cache/.test(step.uses ?? '')));
     assert.equal(hasStep(job, 'Require a clean workspace for download evidence'), true);
-    assert.equal(hasStep(job, 'Verify both rules from download through all four writers'), true);
-    assert.equal(hasStep(job, 'Convert modules and verify script digests'), true);
+    assert.equal(getStep(job, 'Check direct access from this runner').run, 'python3 Build/check-kelee-inputs.py');
+    const catalog = getStep(job, 'Parse the fresh catalog with the plugin converter');
+    assert.match(catalog.if ?? '', /steps\.inputs\.outputs\.catalog == 'true'/);
+    assert.equal(catalog.env?.KELEE_CATALOG_SHA256, githubExpression('steps.inputs.outputs.catalog_sha256'));
+    assert.equal(getStep(job, 'Start browser rule gateway for the Node download path').id, 'gateway');
+    assert.match(getStep(job, 'Probe the gateway download path').run ?? '', /Block_HTTPDNS\.lpx/);
+    const scriptHub = getStep(job, 'Start Script-Hub for internal conversion');
+    assert.equal(scriptHub.if, '!cancelled() && steps.inputs.outputs.catalog == \'true\' && steps.inputs.outputs.plugin == \'true\'');
+    const conversion = getStep(job, 'Convert modules and verify script digests');
+    assert.equal(conversion.if, '!cancelled() && steps.gateway.outcome == \'success\' && steps.script-hub.outcome == \'success\'');
+    assert.match(conversion.run ?? '', /Build\/check-kelee-modules\.ts/);
+    assert.match(conversion.run ?? '', /pnpm run merge-modules/);
+    assert.doesNotMatch(JSON.stringify(job.steps), /speedtest|check-kelee-rules|steps\.rules\.|outputs\.(?:china|international)\b/i);
   });
 
   it('normalizes legacy deploy selectors to the single production chain with a migration notice', () => {
@@ -345,88 +356,26 @@ describe('GitHub Actions workflow contract', () => {
     }
   });
 
-  it('runs the pinned Python browser gateway before the Node build', () => {
+  it('runs the rule build and source health check without the plugin browser gateway', () => {
     const buildJob = getJob('build');
-    const pythonSetup = buildJob.steps?.find((step) =>
-      step.uses?.startsWith('actions/setup-python@'),
-    );
-    assert.equal(
-      pythonSetup?.uses,
-      expectedSetupPythonAction,
-    );
-    assert.equal(pythonSetup.with?.['python-version'], '3.11');
-
-    const installStep = getStep(buildJob, 'Install browser gateway dependencies');
-    assert.match(String(installStep.run), /python3 -m pip install/);
-    assert.match(String(installStep.run), /Build\/browser-rule-requirements\.txt/);
-    assert.match(
-      String(getStep(buildJob, 'Run browser gateway tests').run),
-      /python3 Build\/__tests__\/browser-rule-gateway\.test\.py/,
-    );
-
-    const startStep = getStep(buildJob, 'Start browser rule gateway');
-    assert.match(String(startStep.run), /--port 13193/);
-    assert.match(
-      String(startStep.run),
-      /--upstream-base https:\/\/cloudflare-proxy\.lucking\.workers\.dev/,
-    );
-    assert.match(String(startStep.run), /127\.0\.0\.1:13193\/health/);
-    assert.match(String(startStep.run), /seq 1 30/);
-    assert.match(String(startStep.run), /--max-time 2/);
-    assert.match(
-      String(getStep(buildJob, 'Stop browser rule gateway').if),
-      /always\(\)/,
-    );
-    assert.match(String(getStep(buildJob, 'Stop browser rule gateway').run), /kill/);
-
-    const buildStep = buildJob.steps?.find((step) =>
-      step.run?.includes('pnpm run build'),
-    );
-    assert.equal(buildStep?.env?.PROXY_BASE, 'http://127.0.0.1:13193?url=');
-  });
-
-  it('uses the same bounded gateway contract for source health and propagates health failures', () => {
     const healthJob = getJob('check', sourceHealthWorkflow);
-    const pythonSetup = healthJob.steps?.find((step) =>
-      step.uses?.startsWith('actions/setup-python@'),
-    );
-    assert.equal(
-      pythonSetup?.uses,
-      expectedSetupPythonAction,
-    );
-    assert.equal(pythonSetup.with?.['python-version'], '3.11');
-    assert.match(
-      String(getStep(healthJob, 'Install browser gateway dependencies').run),
-      /Build\/browser-rule-requirements\.txt/,
-    );
-    assert.match(
-      String(getStep(healthJob, 'Run browser gateway tests').run),
-      /python3 Build\/__tests__\/browser-rule-gateway\.test\.py/,
-    );
+    for (const job of [buildJob, healthJob]) {
+      assert.ok(job.steps);
+      for (const step of job.steps) {
+        assert.doesNotMatch(step.name ?? '', /browser.*gateway/i);
+        assert.equal(step.env?.PROXY_BASE, undefined);
+      }
+    }
 
-    const startStep = getStep(healthJob, 'Start browser rule gateway');
-    assert.match(String(startStep.run), /--port 13193/);
-    assert.match(
-      String(startStep.run),
-      /--upstream-base https:\/\/cloudflare-proxy\.lucking\.workers\.dev/,
-    );
-    assert.match(String(startStep.run), /127\.0\.0\.1:13193\/health/);
-    assert.match(String(startStep.run), /seq 1 30/);
-    assert.match(String(startStep.run), /--max-time 2/);
-    assert.equal(
-      getStep(healthJob, 'Check sources').env?.PROXY_BASE,
-      'http://127.0.0.1:13193?url=',
-    );
-    assert.equal(getStep(healthJob, 'Check sources')['continue-on-error'], true);
+    const buildStep = buildJob.steps?.find((step) => step.run === 'pnpm run build');
+    assert.ok(buildStep);
+    const checkStep = getStep(healthJob, 'Check sources');
+    assert.match(String(checkStep.run), /Build\/validate-domain-alive\.ts/);
+    assert.equal(checkStep['continue-on-error'], true);
     assert.match(
       String(getStep(healthJob, 'Propagate health result').if),
       /steps\.health\.outcome == 'failure'/,
     );
-    assert.match(
-      String(getStep(healthJob, 'Stop browser rule gateway').if),
-      /always\(\)/,
-    );
-    assert.match(String(getStep(healthJob, 'Stop browser rule gateway').run), /kill/);
   });
 
   it('runs the pinned Script-Hub container on the host network only for plugin conversion', () => {

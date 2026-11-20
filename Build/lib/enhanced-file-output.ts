@@ -10,6 +10,7 @@ import { createRetrieKeywordFilter as createKeywordFilter } from 'foxts/retrie';
 import type { BaseWriteStrategy, RuleConversionLosses, RuleDropSummary } from '../core/output/writing-strategy/base';
 import type { RulePlatform } from '../core/output/rule-support-matrix';
 import { normalizeRuleType } from '../core/output/rule-support-matrix';
+import { writeFileAtomic } from './atomic-file';
 import { compareAndWriteFile } from './create-file';
 import { createWriter, normalizeTargets } from './platform-config';
 import type { SupportedPlatform } from './platform-config';
@@ -83,7 +84,7 @@ export class EnhancedFileOutput {
 
   private title: string | null = null;
   private description: string[] | null = null;
-  private readonly date = new Date();
+  private readonly date: Date;
   private strategiesWritten = false;
   private extendedDomainMatching = false;
   /** Set on a source variant output: every condition goes to this variant and nothing is merged. */
@@ -124,9 +125,11 @@ export class EnhancedFileOutput {
     targets: SupportedPlatform[] = ['surge'],
     private readonly defaultPolicy: string | null = null,
     private readonly options?: RuleProcessingOptions,
-    private readonly outputBaseDir = 'public'
+    private readonly outputBaseDir = 'public',
+    private readonly frozenDate?: Date
   ) {
     this.span = span.traceChild('RuleOutput#' + id);
+    this.date = frozenDate ?? new Date();
 
     this.config = {
       keepComments: options?.keepComments ?? false,
@@ -884,7 +887,12 @@ export class EnhancedFileOutput {
         }
         await Promise.all(published.map(output => childSpan.traceChildAsync(
           'write ' + output.audit.path,
-          writeSpan => compareAndWriteFile(writeSpan, output.lines, output.filePath)
+          writeSpan => {
+            if (this.frozenDate !== undefined) {
+              return writeFileAtomic(output.filePath, output.lines.join('\n') + '\n');
+            }
+            return compareAndWriteFile(writeSpan, output.lines, output.filePath);
+          }
         )));
         // A successful ruleset removes variants that are now legitimately absent.
         await Promise.all(absent.map(output => fs.rm(output.filePath, { force: true })));

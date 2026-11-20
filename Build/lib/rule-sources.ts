@@ -109,10 +109,12 @@ export const ruleGroups: RuleGroup[] = [
       {
         path: 'List/speedtest_china.list',
         url: 'https://kelee.one/Tool/Loon/Lsr/SpeedtestChina.lsr',
+        frozen: { updatedAt: '2026-11-19T06:14:06.357Z', sha256: '1ec01898377325df43a8d8256519856216a7ac6bff666ee9bcbd549b29455880' },
       },
       {
         path: 'List/speedtest_international.list',
         url: 'https://kelee.one/Tool/Loon/Lsr/SpeedtestInternational.lsr',
+        frozen: { updatedAt: '2026-11-19T06:14:06.370Z', sha256: 'da44bd1a21867fe486ab30a231f61653d916bc302bfc4cd5ce95d1eaeecb64e2' },
       },
       {
         path: 'List/speedtest.list',

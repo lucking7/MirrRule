@@ -1,8 +1,10 @@
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { gunzipSync } from 'node:zlib';
 import type { Span } from '../trace';
 import { boundedMap } from '../utils/concurrency';
-import { PUBLIC_DIR } from '../constants/dir';
+import { PUBLIC_DIR, ROOT_DIR } from '../constants/dir';
 import { fetchAssets } from '../utils/network/fetch-assets';
 import type { FetchAssetsSelection } from '../utils/network/fetch-assets';
 import { loadRules } from '../utils/rule-loader';
@@ -11,7 +13,6 @@ import type {
   FileConfig,
   RuleGroup,
   RulePolicy,
-  RuleProcessingOptions,
   RuleTarget,
   SpecialRuleConfig,
 } from './rule-source-types';
@@ -112,7 +113,8 @@ function withSourceInputs(audit: RulesetOutputAudit, sources: readonly SourceInp
     emptyLines += source.selection?.rawLines.emptyLines ?? 0;
     commentsOrMarkers += source.selection?.rawLines.commentsOrMarkers ?? 0;
     // Unobserved loaders (sing-box JSON, local modules) fall back to the loaded lines.
-    digests.push(source.selection ? `raw:${source.selection.rawContentSha256}` : `lines:${sha256Hex(source.rules.join('\n'))}`);
+    const rawDigest = source.provenance.rawContentSha256;
+    digests.push(rawDigest ? `raw:${rawDigest}` : `lines:${sha256Hex(source.rules.join('\n'))}`);
   }
   return {
     ...audit,
@@ -156,7 +158,7 @@ export class RuleSourceProcessor {
     fileName: string,
     rawTargets: string[] | undefined,
     defaultPolicy: string | null,
-    options: RuleProcessingOptions
+    options: FileConfig | SpecialRuleConfig
   ) {
     return new EnhancedFileOutput(
       span,
@@ -164,7 +166,8 @@ export class RuleSourceProcessor {
       normalizeTargets(rawTargets),
       defaultPolicy,
       options,
-      this.outputDir
+      this.outputDir,
+      'frozen' in options && options.frozen ? new Date(options.frozen.updatedAt) : undefined
     );
   }
 
@@ -255,6 +258,10 @@ export class RuleSourceProcessor {
     downloadResult: DownloadResult
   ) {
     if (!downloadResult.ok) {
+      if (fileConfig.frozen) {
+        RuleSourceProcessor.recordError(stats, fileConfig.path, downloadResult.error);
+        return;
+      }
       try {
         const reused = await this.republishBaselineSnapshot(groupSpan, {
           id: rulesetIdFromConfigPath(fileConfig.path),
@@ -284,6 +291,12 @@ export class RuleSourceProcessor {
 
     try {
       const rules = downloadResult.rules;
+      const provenance = buildSourceProvenance(fileConfig.url, fileConfig.fallbackUrls, downloadResult.selection);
+      if (fileConfig.frozen) {
+        provenance.selection = 'frozen-snapshot';
+        provenance.rawContentSha256 = fileConfig.frozen.sha256;
+        provenance.rawLineCount = rules.length;
+      }
 
       const { summary, audit } = await this.publishRuleset(
         groupSpan,
@@ -292,7 +305,7 @@ export class RuleSourceProcessor {
           id: rulesetIdFromConfigPath(fileConfig.path),
           path: fileConfig.path,
           sources: [{
-            provenance: buildSourceProvenance(fileConfig.url, fileConfig.fallbackUrls, downloadResult.selection),
+            provenance,
             selection: downloadResult.selection,
             rules,
           }],
@@ -348,6 +361,12 @@ export class RuleSourceProcessor {
 
           const downloads = await boundedMap(group.files, async (fileConfig): Promise<DownloadResult> => {
             try {
+              if (fileConfig.frozen) {
+                const snapshot = path.join(ROOT_DIR, 'Build/assets/frozen-rules', path.basename(fileConfig.path) + '.gz');
+                const body = gunzipSync(await readFile(snapshot));
+                if (sha256Hex(body) !== fileConfig.frozen.sha256) throw new Error('Frozen rule snapshot digest mismatch: ' + snapshot);
+                return { ok: true, rules: body.toString('utf8').replace(/\n$/, '').split('\n') };
+              }
               let selection: FetchAssetsSelection | undefined;
               const rules = await groupSpan
                 .traceChild('download')

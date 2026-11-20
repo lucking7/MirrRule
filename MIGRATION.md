@@ -153,13 +153,13 @@ node -e 'const fs=require("node:fs"); for (const p of ["public/status.json","pub
 | -------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | npm registry                                       | 首次安装锁定依赖                                                                       |
 | GitHub API、raw、Release、codeload                 | 规则、GeoIP、Release 镜像与脚本；部分下载使用 GitLab fallback                          |
-| `kelee.one`、`hub.kelee.one` 等配置上游            | 两个地域 Speedtest 规则与插件列表，源文件完整清单以配置为准                            |
+| `kelee.one`、`hub.kelee.one` 等配置上游            | 插件目录、插件正文及其依赖资源                            |
 | Script-Hub 的 `localhost:9101` / `script.hub:9101` | 插件远程转换；容器同时暴露 9100、9101                                                  |
-| `cloudflare-proxy.lucking.workers.dev`             | 原维护者的公开转发 Worker，workflow 三处注入；源码仓不包含其服务实现或部署配置         |
+| `cloudflare-proxy.lucking.workers.dev`             | 插件下载使用的备用转发服务，源码仓不包含其服务实现或部署配置         |
 | 原 NRRule 产物仓                                   | workflow 补齐缺失目录、单独合并时读取已转换模块、PR 对比；新账号应改为自己的公开产物仓 |
 | Cloudflare API / GitHub Git 写入                   | 仅发布阶段需要                                                                         |
 
-规则 Build 与 source-health 现通过 Python 3.11 browser gateway 使用自己的 Worker；安装锁定依赖、启动与退出命令见 [RULE_SOURCES.md](RULE_SOURCES.md)。只接受 HTTPS Kelee `.lsr`、`.plugin`、`.lpx`、`.js` 及固定插件目录；目录直连 browser session，其他资源经 Worker。插件转换也设置同一 Node `PROXY_BASE`。Node `PROXY_BASE` 设置为 `http://127.0.0.1:13193?url=`，gateway 上游设置为自有 HTTPS Worker；新账号必须独立验证，不能沿用原维护者 Worker 作为长期依赖。
+地域 Speedtest 随源码归档，规则构建和来源健康检查只访问仍在更新的测速源 Sukka。插件转换和手动插件验证使用 browser gateway，安装和运行说明见 [RULE_SOURCES.md](RULE_SOURCES.md)。
 
 Worker 的普通基址会被补成 `?url=`，随后直接拼接原始 URL；已有 `/`、`?` 或 `?url=` 的基址会按源码规则保留。loopback gateway 使用编码后的 `url` 查询参数，保留源地址内部的查询参数。自建服务需要兼容实际拼接、响应状态和二进制/文本内容。不要仅把 `PROXY_BASE` 改成不支持此协议的代理地址。规则下载和健康检查应使用一致的请求语义与 User-Agent；诊断时不要把浏览器能访问视为构建可访问的证据。
 

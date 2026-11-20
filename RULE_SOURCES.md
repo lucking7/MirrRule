@@ -69,8 +69,12 @@ Surge 与 Loon 保留 `.list`，Clash 输出 classical `.txt`，sing-box 输出 
 | `download_global`                            | Repcz/Tool `X/Surge/Rules/DownloadCDN_Global.list` | 与本次取得的 Kelee 国际下载 CDN 集合相同，178 条唯一规则；含 2 条 AND，sing-box 按既有行为丢弃 |
 | `cdn`                                        | Sukka domainset + non_ip + ip CDN                  | 已有聚合源，继续使用；IP 规则按上游不带 `no-resolve`；Repcz 通用 CDN 与其高度重叠，暂不叠加    |
 | `download`                                   | Sukka domainset + non_ip + ip Download             | 补齐 IP 部分；此分类不限于游戏或单个测速服务                                                   |
-| `speedtest`                                  | Sukka domainset Speedtest                          | 已有全球测速集合，继续使用                                                                     |
-| `speedtest_china`、`speedtest_international` | Kelee SpeedtestChina、SpeedtestInternational       | 保留地域语义，CI 通过下述 browser gateway 下载                                                 |
+| `speedtest`                                  | [Sukka 全球测速域名成品](https://ruleset.skk.moe/List/domainset/speedtest.conf) | 随上游更新，按现有流程转换为四个平台的订阅格式 |
+| `speedtest_china`、`speedtest_international` | 已验收的 Kelee 地域规则快照 | 2026-11-19 停止刷新，原有合并版和分版 URL 继续提供冻结内容 |
+
+Sukka 的[构建脚本](https://github.com/SukkaW/Surge/blob/master/Build/build-speedtest-domainset.ts)从 Ookla `servers.json` 的 `host` 和 `url` 提取主机名，并合入 LibreSpeed 后端、手工维护的测速域名和上一版输出。MirrRule 直接订阅生成的 `speedtest.conf`，沿用既有域名规范化与平台转换，无需另行下载节点 JSON 或按国家拆分。
+
+两个地域订阅固定在 [NRRule 已验收提交](https://github.com/lucking7/NRRule/commit/085c496b9f31e44d834a1106d67fbe104a65bf01)（receipt `7905690629`）。构建从 `Build/assets/frozen-rules/` 读取并校验两份归档，保留原规则和文本规则头部的 `Last Updated` 日期，来源审计记为 `frozen-snapshot`。Kelee URL 仅用于注明原始来源。国内版 11 条，四个平台各有合并版和 `non_ip`。国际版 18,499 条，四个平台各有合并版、`non_ip` 和 `ip`。生命周期登记为 `deprecated`，需要持续更新的全球测速规则可订阅 `speedtest`。
 
 调查过 blackmatrix7 Download、Speedtest，Meta `category-cdn-cn`、`category-cdn-!cn`、游戏下载与 Speedtest，以及 Moli-X 镜像。blackmatrix7 Download 包含进程名等应用规则，不等价于下载 CDN；Meta 游戏下载不覆盖全部软件与对象存储；全球 Speedtest 集合不能直接替换中国/国际两个文件。Moli-X 下载 CDN 样本与 Repcz 相同，本次选用许可证与来源更明确的 Repcz。UsbEAm 备份是 hosts 编辑器 XML，没有当作 Surge ruleset 导入。
 
@@ -155,15 +159,15 @@ kelee.one 的 Cloudflare WAF 只放行以 `Surge Mac/` 开头的 UA（大小写�
 
 插件转换器使用 `Surge Mac/8380 (MirrRule/1.0; +https://github.com/lucking7/MirrRule)`，保留应用标识的同时满足 Kelee 的 UA 规则；优先直连官方目录 `https://hub.kelee.one/list.json`。每次目录尝试的途径、响应状态、正文校验结果和取得目录的 SHA-256 记在转换报告的 `catalog` 中。目录不可用时报告为 `status: catalog-unavailable`，没有 `results`，退出码 3 仍触发既有基线保留流程。
 
-手动任务 `verify-kelee` 在全新 Runner 上独立检查目录、两份 Speedtest、必需的 HTTPDNS 插件和高德 JQ 资源。转换器在 Runner 临时目录读取本次取得的目录字节，按下载步骤的 SHA-256 复核后解析。规则可达时运行四平台 writer 并比对摘要，插件可达时执行转换、必需项检查、脚本校验和合并。它只在日志中保留元数据，不上传规则、模块或脚本，也不触发部署。目录可用、规则源可用、模块源可用在日志中分别显示。任一必需输入获取失败，任务失败。
+手动任务 `verify-kelee` 检查 Kelee 插件目录、HTTPDNS 插件和高德 JQ 资源。转换器核对本轮目录的 SHA-256，再验证必需模块、依赖脚本与合并结果。任务只记录验证信息，不上传正文或部署。
 
-规则构建、source-health 与插件转换均接入 [browser-rule-gateway.py](Build/browser-rule-gateway.py)。它只接受 Kelee HTTPS `.lsr`、`.plugin`、`.lpx`、`.js`、`.jq` 及固定目录 `https://hub.kelee.one/list.json`。它固定监听 `127.0.0.1`，要求 HTTP 200，限制 8 MiB，关闭 redirect 并设置超时。HEAD 健康探针在上游使用 GET 并校验正文；`/health` 仅表示本地服务已启动。
+插件转换与手动插件验证使用 [browser-rule-gateway.py](Build/browser-rule-gateway.py)。它只接受 Kelee HTTPS `.lsr`、`.plugin`、`.lpx`、`.js`、`.jq` 及固定目录 `https://hub.kelee.one/list.json`。它固定监听 `127.0.0.1`，要求 HTTP 200，限制 8 MiB，关闭 redirect 并设置超时。HEAD 健康探针在上游使用 GET 并校验正文；`/health` 仅表示本地服务已启动。
 
 每个资源先直连上游（`route=direct`，普通 requests session 带 Kelee UA），失败后才经自有 Worker 重试（`route=configured_forwarder`，browser session），两次尝试各自写一行日志，取第一个通过正文校验的响应。目录同样直连并校验 JSON（包括 `loon://` 安装链接）；规则要求非空 UTF-8 规则正文且拒绝 HTML/JSON，插件要求名称和有效 section，脚本拒绝 HTML/challenge 正文。它不是通用代理。
 
 Node 不直接下载 Kelee：2026-11-19 的 `verify-kelee` 中，同一 Runner 上 python requests 直连返回 200，而 undici 直连对 275 个插件全部返回 403（UA 相同）。差异原因未单独隔离（HTTP/2 与 TLS 指纹或 IP 信誉），因此 Node 侧继续设置 `PROXY_BASE` 指向本 gateway，由 python 完成下载。
 
-使用 Python 3.11，并安装精确锁定的 [requirements](Build/browser-rule-requirements.txt)。本地直连规则源可用时不必设置 gateway；需要复现 CI 的路径时，在仓库根目录运行：
+使用 Python 3.11，并安装精确锁定的 [requirements](Build/browser-rule-requirements.txt)。需要复现插件转换的 CI 下载路径时，在仓库根目录运行：
 
 ```bash
 python3 -m venv .venv-browser
@@ -177,13 +181,12 @@ PYTHONDONTWRITEBYTECODE=1 .venv-browser/bin/python Build/__tests__/browser-rule-
 
 ```bash
 # ?url= 必须保留；仅以 / 结尾的地址会被现有 Node proxy 拼成错误路径。
-PROXY_BASE='http://127.0.0.1:13193?url=' pnpm run build
-PROXY_BASE='http://127.0.0.1:13193?url=' pnpm run node Build/validate-domain-alive.ts source-health-report.json
+PROXY_BASE='http://127.0.0.1:13193?url=' pnpm run convert-plugins
 ```
 
-完成后在 gateway 终端按 Ctrl-C。可用 `BROWSER_RULE_UPSTREAM_BASE` 配置上游，`BROWSER_RULE_GATEWAY_PORT` 或 `--port` 配置端口；更换端口时同步 Node 的 `PROXY_BASE`。Node.js 也是 cloudscraper 的 JavaScript interpreter，仍需 Node 26。不要把 localhost 基址作为 gateway 的上游，会被拒绝。CI 的 Build、source-health 与插件转换均启动并清理 gateway。转换 job 用 Docker host network，让 Script-Hub 读取 runner 上仅供本轮已验证插件使用的 loopback 服务。
+完成后在 gateway 终端按 Ctrl-C。可用 `BROWSER_RULE_UPSTREAM_BASE` 配置上游，`BROWSER_RULE_GATEWAY_PORT` 或 `--port` 配置端口；更换端口时同步 Node 的 `PROXY_BASE`。Node.js 也是 cloudscraper 的 JavaScript interpreter，仍需 Node 26。不要把 localhost 基址作为 gateway 的上游，会被拒绝。CI 的插件转换和手动插件验证任务各自启动并清理 gateway。转换 job 用 Docker host network，让 Script-Hub 读取 runner 上仅供本轮已验证插件使用的 loopback 服务。
 
-403/502 表示上游下载或正文验证失败，504 表示超时；`/health` 成功不能解除这个故障。检查 gateway 日志中的公开 source URL/status、Worker 可用性和新账号权限，不要仅改 UA。gateway 不提供无限重试，Node 保留原有候选、重试与缓存行为。外部防护或 Worker 失效仍可能阻塞两个地域测速文件，需要由新账号再次验收。
+403/502 表示上游下载或正文验证失败，504 表示超时；`/health` 成功不能解除这个故障。检查 gateway 日志中的公开 source URL/status、Worker 可用性和新账号权限，不要仅改 UA。gateway 不提供无限重试，Node 保留原有候选、重试与缓存行为。外部防护或 Worker 失效仍可能阻塞插件和依赖脚本下载。
 
 此前转换运行 [36704699346](https://github.com/lucking7/MirrRule/actions/runs/36704699346) 的插件目录下载失败，新增转换数为 0；后续合并取旧产物可以成功，不能代表重新转换成功。当前实现参考 Mirrored 的下载后转换方法：先刷新并校验目录/插件，再用 loopback 暂存输入调用 Script-Hub，依赖脚本具备可用镜像后才原子发布。下载失败不能被旧缓存标成 fresh；CLI 的非零退出传递到 job，零产物不能用 marker 冒充成功，要求本轮转换时也不能由旧 NRRule 模块兜底。完整实网转换及合并的验证记录将在验收完成后补充，方法接入不等于已经通过。
 

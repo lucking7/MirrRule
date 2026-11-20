@@ -35,10 +35,10 @@ const SCRIPT_ROOT = 'Scripts';
 const MODULE_SCAN_ROOTS = ['Modules', 'Mirror', SCRIPT_ROOT];
 const MIRRORED_SCRIPT_PREFIX = '/Scripts/';
 
-function platformPaths(id: string): string[] {
+function platformPaths(id: string, variants = ['', 'non_ip/', 'ip/']): string[] {
   return [
     ['List', 'list'], ['Clash', 'txt'], ['Loon', 'list'], ['sing-box', 'json'],
-  ].flatMap(([root, extension]) => ['', 'non_ip/', 'ip/'].map(variant => `${root}/${variant}${id}.${extension}`));
+  ].flatMap(([root, extension]) => variants.map(variant => `${root}/${variant}${id}.${extension}`));
 }
 
 export const ARTIFACT_LIFECYCLE_REGISTRY: readonly ArtifactLifecycleRecord[] = [
@@ -58,6 +58,14 @@ export const ARTIFACT_LIFECYCLE_REGISTRY: readonly ArtifactLifecycleRecord[] = [
     evidence: 'Build/lib/module-merger no longer writes a rule list; the merged module [Rule] section is the only rule output',
     replacement: 'Modules/Merged/All-in-One-Pro.sgmodule',
   },
+  ...['speedtest_china', 'speedtest_international'].map((id): ArtifactLifecycleRecord => ({
+    id: `ruleset:${id}`,
+    state: 'deprecated',
+    paths: platformPaths(id, id === 'speedtest_china' ? ['', 'non_ip/'] : undefined),
+    reason: 'Regional endpoint updates ended on 2026-11-19. Existing subscriptions keep the accepted rules.',
+    evidence: 'NRRule commit 085c496b9f31e44d834a1106d67fbe104a65bf01, publication receipt 7905690629',
+    replacement: '<platform>/speedtest (Sukka global speedtest domains across regions)',
+  })),
   ...(['container', 'discord', 'scholar'] as const).map((id): ArtifactLifecycleRecord => ({
     id: `ruleset:${id}`,
     state: 'retired',
