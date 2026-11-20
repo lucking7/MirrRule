@@ -2,17 +2,18 @@ import path from 'node:path';
 import type { SupportedPlatform } from './platform-config';
 
 /**
- * Mutually exclusive condition classes published next to each merged ruleset, following Sukka's
- * layout: ip holds every destination IP rule, with or without no-resolve, and whole logical rules
- * with a destination-IP child; everything else, including all domain rules, is in non_ip.
+ * Classical routing classes. The independent domainset projection also exposes exact and suffix
+ * domains, which stay in non_ip for compatibility with existing subscriptions.
  */
 export const RULE_OUTPUT_VARIANTS = ['non_ip', 'ip'] as const;
 export type RuleOutputVariant = typeof RULE_OUTPUT_VARIANTS[number];
-export type RuleOutputSlot = 'merged' | RuleOutputVariant;
+export type RuleOutputSlot = 'merged' | RuleOutputVariant | 'domainset';
 
 export type RuleOutputFormat =
   | 'surge-classical'
+  | 'surge-domainset'
   | 'clash-classical'
+  | 'clash-domain'
   | 'loon-classical'
   | 'singbox-json-v2';
 
@@ -31,13 +32,35 @@ export const PLATFORM_OUTPUT_LAYOUT: Readonly<Record<SupportedPlatform, Platform
   loon: { directory: 'Loon', extension: 'list', format: 'loon-classical' },
 };
 
-export interface RuleOutputTarget {
+const DOMAINSET_LAYOUT = {
+  surge: { extension: 'conf', format: 'surge-domainset' },
+  clash: { extension: 'txt', format: 'clash-domain' },
+  singbox: { extension: 'json', format: 'singbox-json-v2' },
+} as const;
+
+type DomainsetPlatform = keyof typeof DOMAINSET_LAYOUT;
+
+export function supportsDomainset(platform: SupportedPlatform): platform is DomainsetPlatform {
+  return platform !== 'loon';
+}
+
+export const RULE_OUTPUT_LAYOUT_VERSION = 'sukka-compatible-v1';
+
+/** Public split directories, including native domainsets where the platform supports them. */
+export const RULE_OUTPUT_VARIANT_DIRECTORIES: readonly string[] = Object.values(PLATFORM_OUTPUT_LAYOUT)
+  .flatMap(({ directory }) => {
+    const slots = directory === 'Loon' ? RULE_OUTPUT_VARIANTS : ['domainset', ...RULE_OUTPUT_VARIANTS];
+    return slots.map(slot => `${directory}/${slot}`);
+  });
+
+export type RuleOutputTarget = {
   platform: SupportedPlatform;
-  slot: RuleOutputSlot;
   format: RuleOutputFormat;
   /** Output-root relative path with `/` separators. */
   relativePath: string;
-}
+  /** A second public URL for the bytes of this output-root relative file. */
+  aliasOf?: string;
+} & ({ slot: 'merged' | RuleOutputVariant } | { slot: 'domainset' });
 
 /** Keep the historical flat id: lowercase basename of the configured path without its extension. */
 export function rulesetIdFromConfigPath(configPath: string): string {
@@ -54,6 +77,11 @@ export function resolveRuleOutputTarget(
   id: string
 ): RuleOutputTarget {
   const layout = PLATFORM_OUTPUT_LAYOUT[platform];
+  if (slot === 'domainset') {
+    if (!supportsDomainset(platform)) throw new Error(`Domainset output is unavailable for ${platform}`);
+    const { extension, format } = DOMAINSET_LAYOUT[platform];
+    return { platform, slot, format, relativePath: `${layout.directory}/domainset/${id}.${extension}` };
+  }
   const filename = `${id}.${layout.extension}`;
   return {
     platform,
@@ -63,6 +91,28 @@ export function resolveRuleOutputTarget(
       ? `${layout.directory}/${filename}`
       : `${layout.directory}/${slot}/${filename}`,
   };
+}
+
+/** Every physical file for this platform, with Surge's .conf split files paired to their .list sources. */
+export function resolveRuleOutputTargets(
+  platform: SupportedPlatform,
+  id: string,
+  { legacyOnly = false }: { legacyOnly?: boolean } = {}
+): RuleOutputTarget[] {
+  const targets = [resolveRuleOutputTarget(platform, 'merged', id)];
+  if (!legacyOnly && supportsDomainset(platform)) targets.push(resolveRuleOutputTarget(platform, 'domainset', id));
+  for (const variant of RULE_OUTPUT_VARIANTS) {
+    const target = resolveRuleOutputTarget(platform, variant, id);
+    targets.push(target);
+    if (!legacyOnly && platform === 'surge') {
+      targets.push({
+        ...target,
+        relativePath: `${target.relativePath.slice(0, -'.list'.length)}.conf`,
+        aliasOf: target.relativePath,
+      });
+    }
+  }
+  return targets;
 }
 
 /** Destination-address matchers; source-address types such as SRC-IP are not included. */

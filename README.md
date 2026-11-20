@@ -8,12 +8,12 @@ MirrRule is the source repository name. Generated artifacts are published for th
 
 | Platform | Rule Format | Directory |
 |---|---|---|
-| **Surge** | `.list` (RULE-SET) | `List/` |
-| **Clash** | `.txt` (classical ruleset) | `Clash/` |
+| **Surge** | `.conf` (DOMAIN-SET or RULE-SET by directory), `.list` (RULE-SET) | `List/` |
+| **Clash** | `.txt` (domain or classical provider by directory) | `Clash/` |
 | **Loon** | `.list` (Rule) | `Loon/` |
 | **sing-box** | `.json` (rule-set) | `sing-box/` |
 
-These flat files are the merged subscriptions. Split variants are published in addition under `<directory>/non_ip/` and `<directory>/ip/`; see [Subscription Variants](#subscription-variants).
+The four platform roots contain merged subscriptions. The directories below each root provide the formats described in [Subscription Variants](#subscription-variants).
 
 ## Usage
 
@@ -50,16 +50,21 @@ Full file listing available at: https://nrrule.pages.dev
 
 ## Subscription Variants
 
-Every enabled ruleset keeps its merged flat URL (for example `List/apple_cdn.list`). In addition, each ruleset has two output variants for the platforms it targets. The table describes classification by rule type. The source-based split for `reject` is described below.
+The split paths use each client's native format. Choose the URL and configuration together. The table describes classification by rule type; the source-based split for `reject` is described below.
 
-| Variant | Contains |
-|---|---|
-| `non_ip` | All conditions that do not use the destination IP: domain rules (`DOMAIN`, `DOMAIN-SUFFIX`, keyword, wildcard), URL-REGEX, User-Agent, process, source address (`SRC-IP`), ports, and logical rules without a destination-IP child |
-| `ip` | `IP-CIDR`, `IP-CIDR6`, `IP-ASN` and `GEOIP`, with or without `no-resolve`, and whole logical rules with a destination-IP child |
+| Subscription | Surge | Clash / Mihomo (text) | sing-box (source JSON v2) | Loon |
+|---|---|---|---|---|
+| Exact domains and suffixes | `List/domainset/<id>.conf` · DOMAIN-SET | `Clash/domainset/<id>.txt` · `behavior: domain` | `sing-box/domainset/<id>.json` | Use the classical subscription |
+| Non-IP conditions | `List/non_ip/<id>.conf` · RULE-SET | `Clash/non_ip/<id>.txt` · `behavior: classical` | `sing-box/non_ip/<id>.json` | `Loon/non_ip/<id>.list` |
+| Destination-IP conditions | `List/ip/<id>.conf` · RULE-SET | `Clash/ip/<id>.txt` · `behavior: classical` | `sing-box/ip/<id>.json` | `Loon/ip/<id>.list` |
 
-Paths follow `<directory>/<variant>/<id>.<extension>`, using the directories and extensions from [Supported Platforms](#supported-platforms). For one platform, the union of the two variants matches the same requests as the merged subscription; `reject` publishes upstream files as its variants, so its two files can overlap (see its notes below). Logical rules are never split into separate child conditions. Every variant uses the platform's merged format: classical RULE-SET for Surge and Loon, classical text (`behavior: classical`) for Clash, and source rule-set JSON version 2 for sing-box. Variants published under `<directory>/domainset/` until 2026-10-17 now return 404; their domains are in `non_ip`.
+Use `domainset` for the explicit exact hosts and suffixes that survive normalization in `non_ip`. For example, a suffix appears as `.example.com` in Surge, `+.example.com` in Clash and a `domain_suffix` entry in sing-box. To load the full ruleset use the merged file, or the published `non_ip` and `ip` files together. The domains also appear in `non_ip`, which includes keywords, wildcards and other non-IP conditions. Adding `domainset` to that combination is redundant. NRRule keeps its own ruleset IDs and sources. Sukka's directory names identify the same client formats but each site's contents depend on its sources.
 
-In Surge, load every `non_ip` variant before every `ip` variant. Rules in `ip` without `no-resolve` make Surge resolve the domain locally, so `ip` variants must come after all domain rules; `no-resolve` rules in `ip` match only connections made directly to an IP address. For Sukka sources, whether a rule carries `no-resolve` follows upstream; the service rulesets (netflix, disney, spotify, primevideo, youtube, bilibili, tiktok, wechat, google, github) and `emby` add `no-resolve` to every IP rule. The merged file of a ruleset with resolving IP rules (for example `cdn` or `reject`) contains those rules too: place it after all domain rules, or add `no-resolve` to its rule-set line. Surge logical rules that mix a domain sub-condition with a destination-IP condition stay in `non_ip` when the ruleset uses `extended-matching`, so the file-wide flag still applies to them; the audit records their count as `reroutedFromIp`, and other platforms put those rules in `ip`.
+The deprecated regional `speedtest_china` and `speedtest_international` snapshots retain only their historical URLs. The active global `speedtest` gets the new formats. A Surge ruleset that requires file-wide `extended-matching` has no native domain set.
+
+The existing merged URLs (for example `List/apple_cdn.list`) and Surge split URLs ending in `.list` continue to serve RULE-SET files. The Surge native domain set uses `.conf`. On Clash, configure a domain provider when using a new `Clash/domainset/` URL, including a URL you used before that directory was retired in October.
+
+In Surge, load every `non_ip` variant before every `ip` variant. Rules in `ip` without `no-resolve` make Surge resolve the domain locally, so `ip` variants must come after all domain rules; `no-resolve` rules in `ip` match only connections made directly to an IP address. For Sukka sources, whether a rule carries `no-resolve` follows upstream; the service rulesets (netflix, disney, spotify, primevideo, youtube, bilibili, tiktok, wechat, google, github) and `emby` add `no-resolve` to every IP rule. The merged file of a ruleset with resolving IP rules (for example `cdn` or `reject`) contains those rules too: in Surge, place it after all domain rules, or add `no-resolve` to its rule-set line. Surge logical rules that mix a domain sub-condition with a destination-IP condition stay in `non_ip` when the ruleset uses `extended-matching`, so the file-wide flag still applies to them; the audit records their count as `reroutedFromIp`, and other platforms put those rules in `ip`.
 
 The sing-box format drops Surge’s `no-resolve` modifier. Because `reject` is split by upstream file, `sing-box/non_ip/reject.json` can contain `ip_cidr`. For DNS filtering by query name, select the domain fields you need, including `domain_keyword` and `domain_regex` when those matches matter. To filter by an address in the DNS answer in sing-box 1.14+, use the `evaluate` action followed by a rule with `match_response: true`. [sing-box DNS migration guide](https://sing-box.sagernet.org/migration/#migrate-address-filter-fields-to-response-matching)
 
@@ -72,25 +77,27 @@ Surge:
 ```ini
 [Rule]
 # non_ip goes where the merged subscription was:
-RULE-SET,https://nrrule.pages.dev/List/non_ip/<id>.list,POLICY
+RULE-SET,https://nrrule.pages.dev/List/non_ip/<id>.conf,POLICY
 # ... other domain rules ...
 # ip, when published, goes after all domain rules:
-RULE-SET,https://nrrule.pages.dev/List/ip/<id>.list,POLICY
+RULE-SET,https://nrrule.pages.dev/List/ip/<id>.conf,POLICY
 ```
+
+For a domain-only Surge subscription, use `DOMAIN-SET,https://nrrule.pages.dev/List/domainset/speedtest.conf,DIRECT`.
 
 Clash (Mihomo):
 
 ```yaml
 rule-providers:
-  apple_cdn_non_ip:
+  speedtest_domains:
     type: http
-    behavior: classical
+    behavior: domain
     format: text
-    url: https://nrrule.pages.dev/Clash/non_ip/apple_cdn.txt
-    path: ./rules/apple_cdn_non_ip.txt
+    url: https://nrrule.pages.dev/Clash/domainset/speedtest.txt
+    path: ./rules/speedtest_domains.txt
     interval: 86400
 rules:
-  - RULE-SET,apple_cdn_non_ip,DIRECT
+  - RULE-SET,speedtest_domains,DIRECT
 ```
 
 Loon:
@@ -117,7 +124,7 @@ sing-box:
 }
 ```
 
-Whether a ruleset has an `ip` variant follows upstream and can change: if you load only `non_ip/<id>`, a later `ip/<id>` is not loaded, and you cannot reference it in advance because a missing variant returns 404. Check your profile against the current audit with `pnpm run node Build/check-profile-variants.ts --profile <profile.conf>`. It lists published variants your profile does not load and loaded variants that are no longer published, and exits 1 when it finds either; `--audit` takes a local audit file instead of the production one.
+Whether a ruleset has an `ip` variant follows upstream and can change: if you load only `non_ip/<id>`, a later `ip/<id>` is not loaded, and you cannot reference it in advance because a missing variant returns 404. Check your profile against the current audit with `pnpm run node Build/check-profile-variants.ts --profile <profile.conf>`. It checks the exact URLs you load and lists missing parts of a non_ip/ip subscription, and exits 1 when it finds either; `--audit` takes a local audit file instead of the production one.
 
 A ruleset without an `ip` variant can also stay as the merged subscription in a single line. Equal condition sets do not guarantee the same policy outcome once the variants are rearranged: an `ip` variant can hold logical rules with a domain child, and moving it later delays that domain match. Use the same policy for both variants of a ruleset unless its notes below say otherwise (see `reject`), and review cross-subscription reordering with the coverage audit below.
 
@@ -125,7 +132,7 @@ A ruleset without an `ip` variant can also stay as the merged subscription in a 
 
 Every successful rules build publishes `Internal/rule-coverage.json`, an audit of the documented example subscription order. It reports earlier exact/suffix domain coverage, distinguishes different-policy conflicts from same-policy redundancy, and warns about broad User-Agent/process conditions. This report describes the example order, not the configuration loaded by every subscriber. Unavailable sources and unsupported predicates remain explicit gaps; a report does not prove complete routing correctness.
 
-Profile audits resolve NRRule references to files below `--rules-dir`: `RULE-SET` for `List/<id>.list`, `List/non_ip/<id>.list` and `List/ip/<id>.list`; a `DOMAIN-SET` line pointing to a local file is parsed as a native domain set. Each subscription entry records its `format`, `variant` and `reviewStatus`. A reference that cannot be resolved is reported as `not-covered` with a `notCoveredReason`, never as reviewed: an absent variant (status read from `Internal/rule-output-audit.json` next to the rules directory, or from `--output-audit`), a `RULE-SET`/`DOMAIN-SET` format mismatch, an unknown NRRule path, or any other remote URL. Missing files, absent variants and format mismatches make the CLI exit 1.
+Profile audits resolve NRRule subscriptions below `--rules-dir` using the formats in the table above. Local `DOMAIN-SET` files also use the native parser. Each subscription entry records its `format`, `variant` and `reviewStatus`. A reference that cannot be resolved is reported as `not-covered` with a `notCoveredReason`, never as reviewed: an absent variant (status read from `Internal/rule-output-audit.json` next to the rules directory, or from `--output-audit`), a `RULE-SET`/`DOMAIN-SET` format mismatch, an unknown NRRule path, or any other remote URL. Missing files, absent variants and format mismatches make the CLI exit 1.
 
 ```bash
 pnpm run audit:coverage -- --rules-dir public/List --output /tmp/rule-coverage.json

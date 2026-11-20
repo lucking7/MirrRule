@@ -13,35 +13,52 @@ import { priorityOrder, prioritySorter } from './lib/public-index-sort.ts';
 import { escapeHtml } from './utils/escape-html';
 import { purgeRetiredArtifacts, writeLifecycleReport } from './lib/artifact-lifecycle';
 import { writePagesInternalGate } from './lib/pages-internal-gate';
-import { PLATFORM_OUTPUT_LAYOUT, RULE_OUTPUT_VARIANTS } from './lib/rule-output-variants';
+import { isNativeDomainsetPath, readPublishedDomainsetPaths } from './lib/publication-outputs';
+import { PLATFORM_OUTPUT_LAYOUT, resolveRuleOutputTargets } from './lib/rule-output-variants';
+import type { RuleOutputFormat } from './lib/rule-output-variants';
+import type { SupportedPlatform } from './lib/platform-config';
 
 const INDEX_CSS = fs.readFileSync(path.join(__dirname, 'assets', 'ruleset-index.css'), 'utf8');
 const HIDDEN_INDEX_FILES = new Set(['cname', 'favicon.ico', 'favicon.svg', 'favicon.png', 'robots.txt']);
 const CLOSED_ROOT_FOLDERS = new Set(['Mock', 'Internal']);
-const NESTED_FOLDER_PRIORITY = new Map<string, number>(RULE_OUTPUT_VARIANTS.map((variant, index) => [variant, (index + 2) * 10]));
-const PLATFORM_FORMAT_LABELS: Readonly<Record<string, string>> = {
-  List: 'Surge RULE-SET', Clash: 'Clash classical', Loon: 'Loon RULE-SET', 'sing-box': 'sing-box rule-set JSON v2',
+const NESTED_FOLDER_PRIORITY = new Map<string, number>([['domainset', 1], ['non_ip', 2], ['ip', 3]]);
+const FORMAT_LABELS: Record<RuleOutputFormat, string> = {
+  'surge-domainset': 'Surge DOMAIN-SET',
+  'surge-classical': 'Surge RULE-SET',
+  'clash-domain': 'Clash domain',
+  'clash-classical': 'Clash classical',
+  'loon-classical': 'Loon RULE-SET',
+  'singbox-json-v2': 'sing-box rule-set JSON v2',
 };
-/** Consumer format of split subscription folders, keyed by `<platform root>/<variant>`; every variant uses the platform format. */
-const VARIANT_FORMAT_LABELS = new Map<string, string>(Object.values(PLATFORM_OUTPUT_LAYOUT).flatMap(({ directory }) => RULE_OUTPUT_VARIANTS.map(variant => [`${directory}/${variant}`, PLATFORM_FORMAT_LABELS[directory]] as const)));
+const VARIANT_FORMAT_LABELS = new Map<string, string>();
+for (const platform of Object.keys(PLATFORM_OUTPUT_LAYOUT) as SupportedPlatform[]) {
+  for (const target of resolveRuleOutputTargets(platform, 'example')) {
+    if (target.slot !== 'merged') VARIANT_FORMAT_LABELS.set(path.posix.dirname(target.relativePath), FORMAT_LABELS[target.format]);
+  }
+}
 
 export function isVisiblePublicFile(name: string): boolean {
   return !name.startsWith('.') && !name.startsWith('_') && !/\.html?$/i.test(name) && !HIDDEN_INDEX_FILES.has(name.toLowerCase());
 }
 
-function visibleTree(tree: TreeTypeArray): TreeTypeArray {
+function visibleTree(tree: TreeTypeArray, publishedDomainsets: ReadonlySet<string>): TreeTypeArray {
   const visible: TreeTypeArray = [];
   for (const entry of tree) {
     if (!isVisiblePublicFile(entry.name)) continue;
-    visible.push(entry.type === TreeFileType.DIRECTORY
-      ? { ...entry, children: visibleTree(entry.children) }
-      : entry);
+    const relative = entry.path.slice(1).split(path.sep).join('/');
+    if (entry.type === TreeFileType.DIRECTORY) {
+      const children = visibleTree(entry.children, publishedDomainsets);
+      if (children.length || !isNativeDomainsetPath(relative)) visible.push({ ...entry, children });
+    } else if (!isNativeDomainsetPath(relative) || publishedDomainsets.has(relative)) {
+      visible.push(entry);
+    }
   }
   return visible;
 }
 
-export async function scanPublicTree(publicDir: string = PUBLIC_DIR): Promise<TreeTypeArray> {
-  return visibleTree(await treeDir(publicDir));
+export async function scanPublicTree(publicDir: string = PUBLIC_DIR, publishedDomainsets?: ReadonlySet<string>): Promise<TreeTypeArray> {
+  const [tree, verified] = await Promise.all([treeDir(publicDir), publishedDomainsets ?? readPublishedDomainsetPaths(publicDir)]);
+  return visibleTree(tree, verified);
 }
 
 export const buildPublic = task(
@@ -52,7 +69,8 @@ export const buildPublic = task(
   const removed = await purgeRetiredArtifacts(PUBLIC_DIR);
   if (removed.length) console.log(`Removed retired artifacts: ${removed.join(', ')}`);
   await writeLifecycleReport(PUBLIC_DIR, removed);
-  await writePagesInternalGate(PUBLIC_DIR);
+  const publishedDomainsets = await readPublishedDomainsetPaths(PUBLIC_DIR);
+  await writePagesInternalGate(PUBLIC_DIR, publishedDomainsets);
   await span.traceChild('prepare public metadata').traceAsyncFn(() => Promise.all([
     fsp.copyFile(path.join(ROOT_DIR, 'LICENSE'), path.join(PUBLIC_DIR, 'LICENSE')),
     compareAndWriteFile(
@@ -71,7 +89,7 @@ export const buildPublic = task(
   const rulesetHeaderDirs = Object.keys(priorityOrder).filter(name => name !== 'GeoIP');
   const pageHtml = await span
     .traceChild('generate index.html')
-    .traceAsyncFn(() => scanPublicTree().then(tree => generateHtml(tree)));
+    .traceAsyncFn(() => scanPublicTree(PUBLIC_DIR, publishedDomainsets).then(tree => generateHtml(tree)));
 
   await Promise.all([
     compareAndWriteFile(

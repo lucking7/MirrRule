@@ -3,7 +3,14 @@ import path from 'node:path';
 
 import { normalizePublicPath } from './artifact-lifecycle';
 import { comparePaths, hashFile } from './publication-manifest';
-import { PLATFORM_OUTPUT_LAYOUT, RULE_OUTPUT_VARIANTS } from './rule-output-variants';
+import type { SupportedPlatform } from './platform-config';
+import {
+  PLATFORM_OUTPUT_LAYOUT,
+  RULE_OUTPUT_LAYOUT_VERSION,
+  RULE_OUTPUT_VARIANT_DIRECTORIES,
+  resolveRuleOutputTarget,
+  supportsDomainset,
+} from './rule-output-variants';
 
 export const RULE_OUTPUT_AUDIT_FILE = 'Internal/rule-output-audit.json';
 export const SOURCE_DELTA_FILE = 'Internal/source-delta.json';
@@ -17,7 +24,15 @@ const CANDIDATE_REPORTS = [RULE_OUTPUT_AUDIT_FILE, SOURCE_DELTA_FILE, RULE_COVER
 export const PUBLICATION_REPORTS = [...CANDIDATE_REPORTS, LIFECYCLE_REPORT_FILE] as const;
 
 const OUTPUT_STATUSES = new Set(['published', 'absent-empty', 'absent-unsupported']);
-const RULE_OUTPUT_ROOTS = new Set<string>(Object.values(PLATFORM_OUTPUT_LAYOUT).map(layout => layout.directory));
+const PLATFORM_BY_ROOT = new Map<string, SupportedPlatform>(
+  (Object.keys(PLATFORM_OUTPUT_LAYOUT) as SupportedPlatform[]).map(platform => [PLATFORM_OUTPUT_LAYOUT[platform].directory, platform])
+);
+const DOMAINSET_DIRECTORIES = new Set(RULE_OUTPUT_VARIANT_DIRECTORIES.filter(directory => directory.endsWith('/domainset')));
+
+export function isNativeDomainsetPath(relative: string): boolean {
+  const [platform, variant] = relative.split('/', 2);
+  return DOMAINSET_DIRECTORIES.has(`${platform}/${variant}`);
+}
 
 export interface AuditOutput {
   path: string,
@@ -48,7 +63,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-function parseRuleOutputAudit(text: string): AuditOutput[] {
+function parseRuleOutputAudit(text: string, ignoreHistoricalDomainsets = false): AuditOutput[] {
   let value: unknown;
   try {
     value = JSON.parse(text);
@@ -56,6 +71,7 @@ function parseRuleOutputAudit(text: string): AuditOutput[] {
     invalid(RULE_OUTPUT_AUDIT_FILE, 'not JSON');
   }
   if (!isRecord(value) || value.schemaVersion !== 1 || !Array.isArray(value.rulesets)) invalid(RULE_OUTPUT_AUDIT_FILE, 'unsupported schema');
+  const currentLayout = value.layoutVersion === RULE_OUTPUT_LAYOUT_VERSION;
   const outputs: AuditOutput[] = [];
   const seen = new Set<string>();
   for (const ruleset of value.rulesets as unknown[]) {
@@ -70,10 +86,26 @@ function parseRuleOutputAudit(text: string): AuditOutput[] {
       } catch {
         invalid(RULE_OUTPUT_AUDIT_FILE, `output path ${output.path}`);
       }
-      if (normalized !== output.path || !RULE_OUTPUT_ROOTS.has(normalized.split('/')[0])) invalid(RULE_OUTPUT_AUDIT_FILE, `output path ${output.path}`);
+      const [root, variant] = normalized.split('/');
+      const platform = PLATFORM_BY_ROOT.get(root);
+      if (!platform || normalized !== output.path) invalid(RULE_OUTPUT_AUDIT_FILE, `output path ${output.path}`);
       if (seen.has(normalized)) invalid(RULE_OUTPUT_AUDIT_FILE, `duplicate output path ${normalized}`);
       seen.add(normalized);
       const status = output.status as AuditOutput['status'];
+      if (variant === 'domainset') {
+        // Historical layouts partitioned exact/suffix rules away from non_ip and sometimes
+        // served a different format at the same URL. Those bodies cannot be rolled forward.
+        if (!currentLayout && ignoreHistoricalDomainsets) continue;
+        if (!currentLayout && status === 'published') {
+          invalid(RULE_OUTPUT_AUDIT_FILE, `ruleset ${ruleset.id} uses the retired domainset variant layout (${normalized}); rebuild to publish the current subscription formats`);
+        }
+        if (currentLayout) {
+          const expected = supportsDomainset(platform) ? resolveRuleOutputTarget(platform, 'domainset', ruleset.id) : null;
+          if (expected?.relativePath !== normalized || output.format !== expected.format || output.variant !== expected.slot || output.platform !== expected.platform) {
+            invalid(RULE_OUTPUT_AUDIT_FILE, `invalid domainset subscription for ${ruleset.id}: ${normalized}`);
+          }
+        }
+      }
       if (status === 'published') {
         if (typeof output.sha256 !== 'string' || !/^[\da-f]{64}$/.test(output.sha256)) invalid(RULE_OUTPUT_AUDIT_FILE, `sha256 of ${normalized}`);
         if (typeof output.bytes !== 'number' || !Number.isSafeInteger(output.bytes) || output.bytes < 0) invalid(RULE_OUTPUT_AUDIT_FILE, `bytes of ${normalized}`);
@@ -149,13 +181,75 @@ async function fileState(file: string): Promise<'file' | 'absent' | 'other'> {
   }
 }
 
+/** Current domainsets are exposed only when the file agrees with the native layout audit. */
+export async function readPublishedDomainsetPaths(root: string): Promise<ReadonlySet<string>> {
+  let audit: string;
+  try {
+    audit = await readReport(root, RULE_OUTPUT_AUDIT_FILE);
+  } catch (error) {
+    if (error instanceof OutputContractError && error.code === 'missing-report') return new Set();
+    throw error;
+  }
+  const published = new Set<string>();
+  for (const output of parseRuleOutputAudit(audit, true)) {
+    if (output.status !== 'published' || !isNativeDomainsetPath(output.path)) continue;
+    const file = path.join(root, output.path);
+    // eslint-disable-next-line no-await-in-loop -- bound the file descriptors used for digest checks
+    if (await fileState(file) !== 'file') continue;
+    // eslint-disable-next-line no-await-in-loop -- bound the file descriptors used for digest checks
+    const digest = await hashFile(file);
+    if (digest.bytes === output.bytes && digest.sha256 === output.sha256) published.add(output.path);
+  }
+  return published;
+}
+
+/** Drop stale native files after a complete rule build has written its fresh audit. */
+export async function pruneStaleNativeDomainsets(root: string): Promise<string[]> {
+  const { outputs } = await readOutputContract(root, [RULE_OUTPUT_AUDIT_FILE]);
+  const audited = new Set(outputs.map(output => output.path));
+  const realRoot = await fs.realpath(root);
+  const removed: string[] = [];
+  for (const platform of PLATFORM_BY_ROOT.values()) {
+    if (!supportsDomainset(platform)) continue;
+    const sample = resolveRuleOutputTarget(platform, 'domainset', 'sample').relativePath;
+    const extension = path.posix.extname(sample);
+    const relativeDirectory = path.posix.dirname(sample);
+    const directory = path.join(realRoot, relativeDirectory);
+    // eslint-disable-next-line no-await-in-loop -- check each managed directory before deleting anything in it
+    const realDirectory = await fs.realpath(directory).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    });
+    if (realDirectory === null) continue;
+    if (realDirectory !== directory) throw new Error(`Domainset directory resolves outside its output path: ${relativeDirectory}`);
+    // eslint-disable-next-line no-await-in-loop -- deterministic cleanup and diagnostics
+    for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+      if (!entry.isFile() || !entry.name.endsWith(extension) || entry.name.startsWith('.')) continue;
+      const relative = `${relativeDirectory}/${entry.name}`;
+      if (audited.has(relative)) continue;
+      // eslint-disable-next-line no-await-in-loop -- deterministic cleanup and diagnostics
+      await fs.rm(path.join(directory, entry.name), { force: true });
+      removed.push(relative);
+    }
+  }
+  return removed.sort(comparePaths);
+}
+
 /**
  * Compare a tree with the output audit: every published output exists with the audited bytes
  * and digest, every absent output is missing, and no unaudited variant file remains.
  */
 export async function findOutputMismatches(root: string, outputs: readonly AuditOutput[]): Promise<string[]> {
   const problems: string[] = [];
+  const audited = new Map(outputs.map(output => [output.path, output]));
   for (const output of outputs) {
+    if (/^List\/(?:non_ip|ip)\/[^/]+\.conf$/.test(output.path)) {
+      const sourcePath = output.path.replace(/\.conf$/, '.list');
+      const source = audited.get(sourcePath);
+      if (source?.status !== output.status || source.bytes !== output.bytes || source.sha256 !== output.sha256) {
+        problems.push(`${output.path}: alias does not match audited ${sourcePath}`);
+      }
+    }
     const file = path.join(root, ...output.path.split('/'));
     // eslint-disable-next-line no-await-in-loop -- sequential hashing bounds open descriptors
     const state = await fileState(file);
@@ -173,18 +267,15 @@ export async function findOutputMismatches(root: string, outputs: readonly Audit
       problems.push(`${output.path}: ${digest.bytes} bytes sha256 ${digest.sha256}, audit expects ${output.bytes} bytes sha256 ${output.sha256}`);
     }
   }
-  const audited = new Set(outputs.map(output => output.path));
-  for (const platform of RULE_OUTPUT_ROOTS) {
-    for (const variant of RULE_OUTPUT_VARIANTS) {
-      // eslint-disable-next-line no-await-in-loop -- twelve small directory reads
-      const names = await fs.readdir(path.join(root, platform, variant)).catch((error: NodeJS.ErrnoException) => {
-        if (error.code === 'ENOENT') return [] as string[];
-        throw error;
-      });
-      for (const name of names) {
-        const relative = `${platform}/${variant}/${name}`;
-        if (!audited.has(relative)) problems.push(`${relative}: variant file is not listed in the audit`);
-      }
+  for (const directory of RULE_OUTPUT_VARIANT_DIRECTORIES) {
+    // eslint-disable-next-line no-await-in-loop -- these are small directory reads
+    const names = await fs.readdir(path.join(root, directory)).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return [] as string[];
+      throw error;
+    });
+    for (const name of names) {
+      const relative = `${directory}/${name}`;
+      if (!audited.has(relative)) problems.push(`${relative}: variant file is not listed in the audit`);
     }
   }
   return problems.sort(comparePaths);

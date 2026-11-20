@@ -10,17 +10,18 @@ import { createRetrieKeywordFilter as createKeywordFilter } from 'foxts/retrie';
 import type { BaseWriteStrategy, RuleConversionLosses, RuleDropSummary } from '../core/output/writing-strategy/base';
 import type { RulePlatform } from '../core/output/rule-support-matrix';
 import { normalizeRuleType } from '../core/output/rule-support-matrix';
+import { SingboxSource } from '../core/output/writing-strategy/singbox';
 import { writeFileAtomic } from './atomic-file';
 import { compareAndWriteFile } from './create-file';
 import { createWriter, normalizeTargets } from './platform-config';
 import type { SupportedPlatform } from './platform-config';
 import type { RuleProcessingOptions } from './rule-source-types';
-import { classifyRuleLine, EXTENDED_MATCHING_RULE_TYPES, hasDomainMatcherSubRule, resolveRuleOutputTarget, RULE_OUTPUT_VARIANTS } from './rule-output-variants';
-import type { RuleOutputSlot, RuleOutputVariant } from './rule-output-variants';
+import { classifyRuleLine, EXTENDED_MATCHING_RULE_TYPES, hasDomainMatcherSubRule, resolveRuleOutputTarget, resolveRuleOutputTargets, RULE_OUTPUT_VARIANTS } from './rule-output-variants';
+import type { RuleOutputTarget, RuleOutputVariant } from './rule-output-variants';
 import { countEffectiveConditions, sha256Hex, snapshotEffectiveOutput } from './output-audit';
 import type { RuleOptimizationAudit, RuleOutputFileAudit, RulesetOutputAudit, RulesetStageCounts } from './output-audit';
 import { cleanPolicy } from './policy-cleaner';
-import { smartConvertRule } from './misc';
+import { smartConvertRule, withBannerArray } from './misc';
 import { RuleLineUtils } from '../utils/validation/validators';
 import { merge as mergeCidr } from 'fast-cidr-tools';
 
@@ -50,7 +51,11 @@ interface StagedOutput {
   audit: RuleOutputFileAudit;
   filePath: string;
   lines: string[] | null;
+  aliasSourcePath?: string;
 }
+
+/** Validate the ASCII labels produced by the trie before using them as bare domainset entries. */
+const DOMAINSET_HOSTNAME = /^(?:\w(?:[\w-]{0,61}\w)?\.)*\w(?:[\w-]{0,61}\w)?$/;
 
 /**
  * Normalizes rules, owns canonical state, and delegates platform output to writing strategies.
@@ -64,6 +69,11 @@ export class EnhancedFileOutput {
   private readonly domainTrie = new HostnameSmolTrie(null);
   private readonly wildcardTrie = new HostnameSmolTrie(null);
   private readonly domainKeywords = new Set<string>();
+  private readonly domainset: { domains: Array<{ domain: string; suffix: boolean }>; malformed: number } = {
+    domains: [],
+    malformed: 0,
+  };
+
   private readonly userAgent = new Set<string>();
   private readonly processName = new Set<string>();
   private readonly processPath = new Set<string>();
@@ -605,6 +615,14 @@ export class EnhancedFileOutput {
 
       this.wildcardTrie.whitelist(domain, includeAllSubdomain);
 
+      if (this.pinnedVariant !== 'ip') {
+        if (domain.length <= 253 && DOMAINSET_HOSTNAME.test(domain)) {
+          this.domainset.domains.push({ domain, suffix: includeAllSubdomain });
+        } else {
+          this.domainset.malformed++;
+        }
+      }
+
       this.route(
         'non_ip',
         1,
@@ -777,12 +795,28 @@ export class EnhancedFileOutput {
     for (const outputs of this.platformOutputs) {
       outputs.merged.validateForPublication();
       for (const message of outputs.merged.getRuleDropMessages()) console.warn(message);
-      staged.push(this.stageOutput(outputs, 'merged', outputs.merged, title, descriptions));
-      for (const variant of RULE_OUTPUT_VARIANTS) {
-        staged.push(this.stageOutput(outputs, variant, outputs.variants[variant], title, [
-          ...descriptions,
-          `Variant: ${variant}. Combine non_ip and ip for the conditions of the merged ruleset.`,
-        ]));
+      // Frozen sources retain the subscription set for which their archives were captured.
+      const targets = resolveRuleOutputTargets(outputs.platform, this.id, { legacyOnly: this.frozenDate !== undefined });
+      for (const target of targets) {
+        const { slot } = target;
+        if (target.aliasOf) {
+          const source = nullthrow(staged.find(output => output.audit.path === target.aliasOf), `Missing alias source ${target.aliasOf}`);
+          staged.push({
+            ...source,
+            audit: { ...source.audit, path: target.relativePath },
+            filePath: path.join(this.outputBaseDir, ...target.relativePath.split('/')),
+            aliasSourcePath: source.filePath,
+          });
+        } else if (slot === 'domainset') {
+          staged.push(this.stageDomainset(target, title, descriptions));
+        } else if (slot === 'merged') {
+          staged.push(this.stageOutput(outputs, target, outputs.merged, title, descriptions));
+        } else {
+          staged.push(this.stageOutput(outputs, target, outputs.variants[slot], title, [
+            ...descriptions,
+            `Variant: ${slot}. Combine non_ip and ip for the conditions of the merged ruleset.`,
+          ]));
+        }
       }
     }
     return staged;
@@ -790,12 +824,12 @@ export class EnhancedFileOutput {
 
   private stageOutput(
     outputs: PlatformOutputs,
-    slot: RuleOutputSlot,
+    target: RuleOutputTarget & { slot: Exclude<RuleOutputTarget['slot'], 'domainset'> },
     strategy: BaseWriteStrategy,
     title: string,
     descriptions: readonly string[]
   ): StagedOutput {
-    const target = resolveRuleOutputTarget(outputs.platform, slot, this.id);
+    const { slot } = target;
     const counts = countEffectiveConditions(target.format, strategy.content);
     const routedConditionCount = slot === 'merged' ? outputs.mergedRouted : outputs.routed[slot];
 
@@ -833,6 +867,56 @@ export class EnhancedFileOutput {
       },
       filePath: path.join(this.outputBaseDir, ...target.relativePath.split('/')),
       lines: status === 'published' ? strategy.render(title, descriptions, this.date) : null,
+    };
+  }
+
+  private stageDomainset(target: RuleOutputTarget, title: string, descriptions: readonly string[]): StagedOutput {
+    const source = this.variantSources.size > 0 ? this.variantSources.get('non_ip') : this;
+    const domains = source?.domainset.domains ?? [];
+    const malformed = source?.domainset.malformed ?? 0;
+    const routedConditionCount = domains.length + malformed;
+    const requiresExtendedMatching = source?.extendedDomainMatching ?? false;
+    const unsupported = target.format === 'surge-domainset' && requiresExtendedMatching;
+    const publish = domains.length > 0 && !unsupported;
+    let content: string[] = [];
+    let lines: string[] | null = null;
+    if (publish) {
+      if (target.format === 'singbox-json-v2') {
+        const strategy = new SingboxSource();
+        for (const { domain, suffix } of domains) {
+          if (suffix) strategy.writeDomainSuffix(domain);
+          else strategy.writeDomain(domain);
+        }
+        content = strategy.content;
+        lines = content;
+      } else {
+        const suffixPrefix = target.format === 'surge-domainset' ? '.' : '+.';
+        content = domains.map(({ domain, suffix }) => (suffix ? suffixPrefix + domain : domain));
+        lines = withBannerArray(title, [...descriptions, 'Variant: domainset. Exact and suffix domains from non_ip.'], this.date, content);
+      }
+    }
+    const status = publish ? 'published' : (routedConditionCount === 0 ? 'absent-empty' : 'absent-unsupported');
+    return {
+      audit: {
+        platform: target.platform,
+        variant: target.slot,
+        format: target.format,
+        path: target.relativePath,
+        status,
+        ...(status === 'absent-empty' && { reason: 'no-conditions' as const }),
+        ...(status === 'absent-unsupported' && { reason: 'platform-unsupported' as const }),
+        routedConditionCount,
+        ...(publish ? countEffectiveConditions(target.format, content) : { effectiveConditionCount: 0 }),
+        bytes: null,
+        sha256: null,
+        drops: { unsupported: {}, malformed, unknown: {} },
+        losses: {
+          droppedValues: {},
+          ignoredModifiers: publish && requiresExtendedMatching ? { 'extended-matching': domains.length } : {},
+        },
+      },
+      filePath: path.join(this.outputBaseDir, ...target.relativePath.split('/')),
+      lines,
     };
   }
 
@@ -879,24 +963,41 @@ export class EnhancedFileOutput {
       const staged = childSpan.traceChildSync('stage outputs', () => this.stageOutputs());
 
       await childSpan.traceChildAsync('output to disk', async childSpan => {
-        const published: Array<StagedOutput & { lines: string[] }> = [];
+        const published: StagedOutput[] = [];
         const absent: StagedOutput[] = [];
+        const writes: Array<Promise<void>> = [];
         for (const output of staged) {
-          if (output.lines === null) absent.push(output);
-          else published.push({ ...output, lines: output.lines });
-        }
-        await Promise.all(published.map(output => childSpan.traceChildAsync(
-          'write ' + output.audit.path,
-          writeSpan => {
-            if (this.frozenDate !== undefined) {
-              return writeFileAtomic(output.filePath, output.lines.join('\n') + '\n');
-            }
-            return compareAndWriteFile(writeSpan, output.lines, output.filePath);
+          const { lines } = output;
+          if (lines === null) {
+            absent.push(output);
+            continue;
           }
-        )));
+          published.push(output);
+          if (output.aliasSourcePath) continue;
+          writes.push(childSpan.traceChildAsync(
+            'write ' + output.audit.path,
+            writeSpan => (
+              this.frozenDate !== undefined
+                ? writeFileAtomic(output.filePath, lines.join('\n') + '\n')
+                : compareAndWriteFile(writeSpan, lines, output.filePath)
+            )
+          ));
+        }
+        await Promise.all(writes);
         // A successful ruleset removes variants that are now legitimately absent.
         await Promise.all(absent.map(output => fs.rm(output.filePath, { force: true })));
         await Promise.all(published.map(async output => {
+          if (output.aliasSourcePath) {
+            const data = await fs.readFile(output.aliasSourcePath);
+            const previous = await fs.readFile(output.filePath).catch((error: NodeJS.ErrnoException) => {
+              if (error.code !== 'ENOENT') throw error;
+              return null;
+            });
+            if (!previous?.equals(data)) await writeFileAtomic(output.filePath, data);
+            output.audit.bytes = data.length;
+            output.audit.sha256 = sha256Hex(data);
+            return;
+          }
           const data = await fs.readFile(output.filePath);
           output.audit.bytes = data.length;
           output.audit.sha256 = sha256Hex(data);

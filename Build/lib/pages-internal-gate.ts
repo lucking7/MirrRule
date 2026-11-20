@@ -2,8 +2,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { writeFileAtomic } from './atomic-file';
 import { listTreeFiles } from './publication-manifest';
-import { retiredPublicPaths, retiredPublicPrefixes } from './artifact-lifecycle';
-import { PLATFORM_OUTPUT_LAYOUT, RULE_OUTPUT_VARIANTS } from './rule-output-variants';
+import { retiredPublicPaths, retiredPublicPrefixRules } from './artifact-lifecycle';
+import { isNativeDomainsetPath, readPublishedDomainsetPaths } from './publication-outputs';
+import { RULE_OUTPUT_VARIANT_DIRECTORIES } from './rule-output-variants';
 
 const INTERNAL_PREFIX = '/Internal/';
 /**
@@ -14,7 +15,7 @@ const INTERNAL_PREFIX = '/Internal/';
  * 404 for the rest.
  */
 const GATED_PREFIXES = [
-  ...Object.values(PLATFORM_OUTPUT_LAYOUT).flatMap(layout => RULE_OUTPUT_VARIANTS.map(variant => `/${layout.directory}/${variant}/`)),
+  ...RULE_OUTPUT_VARIANT_DIRECTORIES.map(relative => `/${relative}/`),
   '/Mirror/',
 ].sort();
 
@@ -39,13 +40,20 @@ async function treePaths(publicDir: string, prefix: string): Promise<string[]> {
  * Gate Internal inventory, split variants, mirrors, and registered retired URLs and directories before
  * the static asset cache.
  */
-export async function writePagesInternalGate(publicDir: string): Promise<void> {
-  const paths = await treePaths(publicDir, INTERNAL_PREFIX);
-  const published = (await Promise.all(GATED_PREFIXES.map(prefix => treePaths(publicDir, prefix)))).flat();
+export async function writePagesInternalGate(publicDir: string, domainsets?: ReadonlySet<string>): Promise<void> {
+  const [paths, gatedTrees, currentDomainsets] = await Promise.all([
+    treePaths(publicDir, INTERNAL_PREFIX),
+    Promise.all(GATED_PREFIXES.map(prefix => treePaths(publicDir, prefix))),
+    domainsets ?? readPublishedDomainsetPaths(publicDir),
+  ]);
+  const published = gatedTrees.flat().filter(relative => {
+    const localPath = relative.slice(1);
+    return !isNativeDomainsetPath(localPath) || currentDomainsets.has(localPath);
+  });
   const retired = [...new Set(retiredPublicPaths().map(relative => `/${relative}`))].sort();
-  const retiredPrefixes = [...new Set(retiredPublicPrefixes().map(relative => `/${relative}`))].sort();
+  const retiredRules = retiredPublicPrefixRules().map(({ prefix, suffix }) => ({ prefix: `/${prefix}`, suffix }));
   // Exact retired paths inside a routed directory need no route of their own.
-  const routedPrefixes = [...GATED_PREFIXES, ...retiredPrefixes];
+  const routedPrefixes = [...new Set([...GATED_PREFIXES, ...retiredRules.map(rule => rule.prefix)])];
   const include = [
     INTERNAL_PREFIX + '*',
     ...routedPrefixes.map(prefix => encodePublicPath(prefix) + '*'),
@@ -57,13 +65,15 @@ const active = new Set(${JSON.stringify(paths)});
 const gatedPrefixes = ${JSON.stringify(GATED_PREFIXES)};
 const published = new Set(${JSON.stringify(published)});
 const retired = new Set(${JSON.stringify(retired)});
-const retiredPrefixes = ${JSON.stringify(retiredPrefixes)};
+const retiredRules = ${JSON.stringify(retiredRules)};
 export default {
   async fetch(request, env) {
     const pathname = new URL(request.url).pathname;
     let decoded;
     try { decoded = decodeURIComponent(pathname); } catch { decoded = null; }
-    const isRetired = retired.has(decoded) || (decoded !== null && retiredPrefixes.some(retiredPrefix => decoded.startsWith(retiredPrefix)));
+    const isRetired = retired.has(decoded) || (decoded !== null && retiredRules.some(rule =>
+      decoded.startsWith(rule.prefix) && (rule.suffix === undefined || decoded.endsWith(rule.suffix))
+    ));
     const isGated = gatedPrefixes.some(gatedPrefix => pathname.startsWith(gatedPrefix));
     if (!pathname.startsWith(prefix) && !isGated && !isRetired) return env.ASSETS.fetch(request);
     if (!isRetired && isGated && published.has(decoded)) {
