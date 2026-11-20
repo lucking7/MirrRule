@@ -412,7 +412,8 @@ jobs:
     name: Verify internal Kelee refresh
     if: github.event_name == 'workflow_dispatch' && inputs.task == 'verify-kelee'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # A working Kelee refresh converts all catalog plugins, which no longer fails early.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
