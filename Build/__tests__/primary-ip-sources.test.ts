@@ -158,6 +158,21 @@ describe('Anthropic official Markdown parser', () => {
     assert.deepEqual(parseAnthropicInboundCidrs(markdown), ['160.79.104.0/23', '2607:6bc0::/48']);
   });
 
+  it('excludes nested headings in deprecated IP sections', () => {
+    const markdown = [
+      '## Inbound IP addresses',
+      '### Deprecated addresses',
+      '#### IPv4',
+      '192.0.2.0/24',
+      '#### IPv6',
+      '2001:db8::/48',
+      '### Current addresses',
+      '#### IPv4',
+      '198.51.100.0/24',
+    ].join('\n');
+    assert.deepEqual(parseAnthropicInboundCidrs(markdown), ['198.51.100.0/24']);
+  });
+
   it('rejects HTML challenge pages, missing Inbound heading, and empty sections', () => {
     assert.throws(
       () => parseAnthropicInboundCidrs('<!doctype html><html>Just a moment</html>'),
@@ -239,7 +254,7 @@ describe('RIPEstat live BGP announced-prefixes parser', () => {
 });
 
 describe('RIR RDAP ownership and containment verification', () => {
-  it('verifies ownership via ASN registrant, caches parent ranges, and falls back on 404', async () => {
+  it('verifies each prefix via the ASN registrant and falls back on 404', async () => {
     const requestedPaths: string[] = [];
     await withHttpServer((request, response) => {
       const reqPath = request.url ?? '';
@@ -259,6 +274,9 @@ describe('RIR RDAP ownership and containment verification', () => {
             { handle: 'AP-2440', roles: ['registrant'] },
           ],
         },
+        '/primary/ip/2607:6bc0:11::/48': createRdapIp('AP-2440', 'Anthropic, PBC', [
+          { v6prefix: '2607:6BC0::', length: 32 },
+        ]),
       };
       const body = routes[reqPath];
       response.writeHead(body ? 200 : 404, {
@@ -281,8 +299,7 @@ describe('RIR RDAP ownership and containment verification', () => {
         '2607:6bc0::/48',
         '2607:6bc0:11::/48',
       ]);
-      // 2607:6bc0:11::/48 is covered by already-verified 2607:6bc0::/32, so it skips a redundant lookup.
-      assert.equal(requestedPaths.includes('/primary/ip/2607:6bc0:11::/48'), false);
+      assert.ok(requestedPaths.includes('/primary/ip/2607:6bc0:11::/48'));
       assert.equal(requestedPaths.includes('/fallback/ip/153.61.224.0/22'), true);
     });
   });
@@ -293,6 +310,12 @@ describe('RIR RDAP ownership and containment verification', () => {
         '/rdap/autnum/399358': SAMPLE_RDAP_AUTNUM_399358,
         '/rdap/ip/34.162.46.92/32': createRdapIp('GOOGL-2', 'Google LLC', [
           { v4prefix: '34.128.0.0', length: 10 },
+        ]),
+        '/rdap/ip/2001:db8:1::/48': createRdapIp('AP-2440', 'Anthropic, PBC', [
+          { v6prefix: '2001:db8::', length: 32 },
+        ]),
+        '/rdap/ip/2001:db8:2::/48': createRdapIp('OTHER', 'Unrelated registrant', [
+          { v6prefix: '2001:db8:2::', length: 48 },
         ]),
         '/rdap/ip/160.79.104.0/8': createRdapIp('AP-2440', 'Anthropic, PBC', [
           { v4prefix: '160.79.104.0', length: 21 },
@@ -311,6 +334,13 @@ describe('RIR RDAP ownership and containment verification', () => {
           fallbackRdapBaseUrl: null,
         }),
         /RDAP registrant mismatch/
+      );
+      await assert.rejects(
+        verifyCidrsWithRdap(['2001:db8:1::/48', '2001:db8:2::/48'], ANTHROPIC_ASN, {
+          rdapBaseUrl: `${baseUrl}/rdap`,
+          fallbackRdapBaseUrl: null,
+        }),
+        /RDAP registrant mismatch for 2001:db8:2::/
       );
       await assert.rejects(
         verifyCidrsWithRdap(['160.79.104.0/8'], ANTHROPIC_ASN, {
@@ -357,6 +387,9 @@ describe('end-to-end automated primary IP loaders', () => {
           { v4prefix: '153.61.0.0', length: 16 },
         ]),
         '/rdap/ip/2607:6bc0::/48': createRdapIp('AP-2440', 'Anthropic, PBC', [
+          { v6prefix: '2607:6BC0::', length: 32 },
+        ]),
+        '/rdap/ip/2607:6bc0:11::/48': createRdapIp('AP-2440', 'Anthropic, PBC', [
           { v6prefix: '2607:6BC0::', length: 32 },
         ]),
       };

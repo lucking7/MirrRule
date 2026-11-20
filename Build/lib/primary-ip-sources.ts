@@ -20,7 +20,7 @@ const DEFAULT_BOOTSTRAP_RDAP_BASE_URL = 'https://rdap.org';
 
 const INBOUND_HEADING_RE = /^##\s+inbound\s+ip\s+addresses\b/i;
 const TOP_LEVEL_HEADING_RE = /^#{1,2}\s+/;
-const SUB_HEADING_RE = /^#{3,6}[ \t]+(\S.*)$/;
+const SUB_HEADING_RE = /^(#{3,6})[ \t]+(\S.*)$/;
 const EXCLUDED_SUBSECTION_RE = /\b(?:phased\s+out|deprecated|outbound|no\s+longer)\b/i;
 const FENCE_RE = /^(`{3,}|~{3,})/;
 
@@ -114,7 +114,7 @@ export function parseAnthropicInboundCidrs(markdown: string, allowEmpty = false)
 
   let inInboundSection = false;
   let foundInboundSection = false;
-  let skipSubsection = false;
+  let excludedHeadingDepth: number | null = null;
   let activeFence: string | null = null;
   const inboundLines: string[] = [];
 
@@ -128,7 +128,7 @@ export function parseAnthropicInboundCidrs(markdown: string, allowEmpty = false)
       } else if (marker[0] === activeFence[0] && marker.length >= activeFence.length) {
         activeFence = null;
       }
-      if (inInboundSection && !skipSubsection) inboundLines.push(rawLine);
+      if (inInboundSection && excludedHeadingDepth === null) inboundLines.push(rawLine);
       continue;
     }
 
@@ -136,7 +136,7 @@ export function parseAnthropicInboundCidrs(markdown: string, allowEmpty = false)
       if (INBOUND_HEADING_RE.test(trimmed)) {
         inInboundSection = true;
         foundInboundSection = true;
-        skipSubsection = false;
+        excludedHeadingDepth = null;
         continue;
       }
       if (inInboundSection && TOP_LEVEL_HEADING_RE.test(trimmed)) {
@@ -145,13 +145,16 @@ export function parseAnthropicInboundCidrs(markdown: string, allowEmpty = false)
       if (inInboundSection) {
         const subMatch = SUB_HEADING_RE.exec(trimmed);
         if (subMatch) {
-          skipSubsection = EXCLUDED_SUBSECTION_RE.test(subMatch[1]);
+          const depth = subMatch[1].length;
+          if (excludedHeadingDepth === null || depth <= excludedHeadingDepth) {
+            excludedHeadingDepth = EXCLUDED_SUBSECTION_RE.test(subMatch[2]) ? depth : null;
+          }
           continue;
         }
       }
     }
 
-    if (inInboundSection && !skipSubsection) {
+    if (inInboundSection && excludedHeadingDepth === null) {
       inboundLines.push(rawLine);
     }
   }
@@ -437,15 +440,10 @@ export async function verifyCidrsWithRdap(
     fallbackRdapBaseUrl
   );
 
-  const verifiedParentRanges: IpMeta[] = [];
-  for (const cidr of cidrs) {
+  for (const cidr of new Set(cidrs)) {
     const candidateMeta = parseCidr(cidr);
-    if (isRangeContained(candidateMeta, verifiedParentRanges)) {
-      continue;
-    }
-
-    // Sequential RDAP checks keep upstream RIR query rate gentle and deduplicate shared parents.
-    // eslint-disable-next-line no-await-in-loop -- deduplicates parent RDAP blocks and avoids RIR rate limits
+    // A suballocation can have a different registrant from its enclosing block.
+    // eslint-disable-next-line no-await-in-loop -- sequential lookups avoid RIR rate limits
     const record = await fetchRdapIpRecord(cidr, fetchFn, rdapBaseUrl, fallbackRdapBaseUrl);
     if (!identitiesMatch(expectedIdentity, record.identity)) {
       throw new Error(
@@ -457,7 +455,6 @@ export async function verifyCidrsWithRdap(
         `RDAP registered IP ranges do not contain candidate CIDR ${cidr}`
       );
     }
-    verifiedParentRanges.push(...record.ranges);
   }
 
   return [...cidrs];

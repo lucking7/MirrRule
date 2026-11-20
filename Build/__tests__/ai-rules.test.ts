@@ -75,6 +75,10 @@ test('AI combines RDAP-verified Anthropic official docs and RIPEstat BGP CIDRs a
       cidr0_cidrs: [{ v6prefix: '2607:6BC0::', length: 32 }],
       entities: [{ handle: 'AP-2440', roles: ['registrant'], vcardArray: ['vcard', [['fn', {}, 'text', 'Anthropic, PBC']]] }],
     },
+    '/rdap/ip/2607:6bc0:11::/48': {
+      cidr0_cidrs: [{ v6prefix: '2607:6BC0::', length: 32 }],
+      entities: [{ handle: 'AP-2440', roles: ['registrant'], vcardArray: ['vcard', [['fn', {}, 'text', 'Anthropic, PBC']]] }],
+    },
   };
 
   const server = http.createServer((request, response) => {
