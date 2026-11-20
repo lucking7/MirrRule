@@ -50,7 +50,7 @@ Full file listing available at: https://nrrule.pages.dev
 
 ## Subscription Variants
 
-Every enabled ruleset keeps its merged flat URL (for example `List/apple_cdn.list`). In addition, each ruleset is split into two mutually exclusive variants for every platform it already targets:
+Every enabled ruleset keeps its merged flat URL (for example `List/apple_cdn.list`). In addition, each ruleset has two output variants for the platforms it targets. The table describes classification by rule type. The source-based split for `reject` is described below.
 
 | Variant | Contains |
 |---|---|
@@ -59,7 +59,9 @@ Every enabled ruleset keeps its merged flat URL (for example `List/apple_cdn.lis
 
 Paths follow `<directory>/<variant>/<id>.<extension>`, using the directories and extensions from [Supported Platforms](#supported-platforms). For one platform, the union of the two variants matches the same requests as the merged subscription; `reject` publishes upstream files as its variants, so its two files can overlap (see its notes below). Logical rules are never split into separate child conditions. Every variant uses the platform's merged format: classical RULE-SET for Surge and Loon, classical text (`behavior: classical`) for Clash, and source rule-set JSON version 2 for sing-box. Variants published under `<directory>/domainset/` until 2026-10-17 now return 404; their domains are in `non_ip`.
 
-The split follows Sukka's layout: every destination-IP rule is in `ip`, whether or not it carries `no-resolve`, so `non_ip` holds only domain and other non-IP conditions. Load every `non_ip` variant before every `ip` variant. Rules in `ip` without `no-resolve` make Surge resolve the domain locally, so `ip` variants must come after all domain rules; `no-resolve` rules in `ip` match only connections made directly to an IP address. For Sukka sources, whether a rule carries `no-resolve` follows upstream; the service rulesets (netflix, disney, spotify, primevideo, youtube, bilibili, tiktok, wechat, google, github) and `emby` add `no-resolve` to every IP rule. The merged file of a ruleset with resolving IP rules (for example `cdn` or `reject`) contains those rules too: place it after all domain rules, or add `no-resolve` to its rule-set line. sing-box cannot express `no-resolve`; its `non_ip` has no `ip_cidr` and stays usable in DNS rules. Surge logical rules that mix a domain sub-condition with a destination-IP condition stay in `non_ip` when the ruleset uses `extended-matching`, so the file-wide flag still applies to them; the audit records their count as `reroutedFromIp`, and other platforms put those rules in `ip`.
+In Surge, load every `non_ip` variant before every `ip` variant. Rules in `ip` without `no-resolve` make Surge resolve the domain locally, so `ip` variants must come after all domain rules; `no-resolve` rules in `ip` match only connections made directly to an IP address. For Sukka sources, whether a rule carries `no-resolve` follows upstream; the service rulesets (netflix, disney, spotify, primevideo, youtube, bilibili, tiktok, wechat, google, github) and `emby` add `no-resolve` to every IP rule. The merged file of a ruleset with resolving IP rules (for example `cdn` or `reject`) contains those rules too: place it after all domain rules, or add `no-resolve` to its rule-set line. Surge logical rules that mix a domain sub-condition with a destination-IP condition stay in `non_ip` when the ruleset uses `extended-matching`, so the file-wide flag still applies to them; the audit records their count as `reroutedFromIp`, and other platforms put those rules in `ip`.
+
+The sing-box format drops Surge’s `no-resolve` modifier. Because `reject` is split by upstream file, `sing-box/non_ip/reject.json` can contain `ip_cidr`. For DNS filtering by query name, select the domain fields you need, including `domain_keyword` and `domain_regex` when those matches matter. To filter by an address in the DNS answer in sing-box 1.14+, use the `evaluate` action followed by a rule with `match_response: true`. [sing-box DNS migration guide](https://sing-box.sagernet.org/migration/#migrate-address-filter-fields-to-response-matching)
 
 Platform conversion can lose modifiers or values. sing-box cannot express `no-resolve`, platforms other than Surge ignore `extended-matching`, and Clash drops `PROTOCOL` values other than TCP and UDP. Each loss is counted in `outputs[].losses` of the output audit.
 
@@ -95,8 +97,10 @@ Loon:
 
 ```ini
 [Remote Rule]
-https://nrrule.pages.dev/Loon/non_ip/apple_cdn.list, policy=DIRECT, tag=Apple CDN non_ip, enabled=true
+https://nrrule.pages.dev/Loon/apple_cdn.list, policy=DIRECT, tag=Apple CDN, enabled=true
 ```
+
+Loon 3.0.3 and later match domain rules first. If none matches, Loon resolves the name and tests IP rules. Use the merged subscription for a single policy. Choose the split files to assign different policies to domain and IP rules. [Loon rule priority](https://nsloon.app/docs/Rule/)
 
 sing-box:
 
