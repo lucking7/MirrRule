@@ -18,9 +18,13 @@ describe('Kelee input check', () => {
     assert.ok(source.includes(`USER_AGENT = "${UA_MIRRRULE}"`));
   });
 
-  it('checks the current Amap JQ resource instead of the removed JS file', async () => {
+  it('probes the Kelee plugin catalog, HTTPDNS plugin and Amap JQ resource only', async () => {
     const source = await readFile(scriptPath, 'utf8');
-    assert.ok(source.includes('https://kelee.one/Resource/JQLang/Amap/updatable.jq'));
-    assert.ok(!source.includes('Amap_remove_ads.js'));
+    const urls = [...source.matchAll(/https:\/\/(?:hub\.)?kelee\.one\/[^"]+/g)].map(([url]) => url);
+    assert.deepEqual(urls.sort(), [
+      'https://hub.kelee.one/list.json',
+      'https://kelee.one/Resource/JQLang/Amap/updatable.jq',
+      'https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx',
+    ]);
   });
 });

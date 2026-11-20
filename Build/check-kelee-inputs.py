@@ -45,8 +45,6 @@ def main():
     spec.loader.exec_module(gateway)
     inputs = (
         ("catalog", "https://hub.kelee.one/list.json", gateway.is_plugin_catalog),
-        ("china", "https://kelee.one/Tool/Loon/Lsr/SpeedtestChina.lsr", gateway.is_rule_text),
-        ("international", "https://kelee.one/Tool/Loon/Lsr/SpeedtestInternational.lsr", gateway.is_rule_text),
         ("plugin", "https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx", gateway.is_plugin_text),
         ("script", AMAP_JQ_URL, gateway.is_script_text),
     )

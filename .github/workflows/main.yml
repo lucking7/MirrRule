@@ -441,6 +441,7 @@ jobs:
         run: |
           pnpm run node -e "require('./Build/integration/plugin-converter/plugin-list').getPluginList(a => console.log(JSON.stringify(a))).then(p => { if (!Array.isArray(p)) throw new Error(p.error); if (!p.length) process.exitCode = 1; })"
       - name: Start browser rule gateway for the Node download path
+        id: gateway
         run: |
           set -euo pipefail
           gateway_log="$RUNNER_TEMP/browser-rule-gateway.log"
@@ -470,36 +471,19 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          for target in \
-            "https://kelee.one/Tool/Loon/Lsr/SpeedtestChina.lsr" \
-            "https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx"; do
-            status=$(curl -sS -o "$RUNNER_TEMP/gateway-probe.bin" -w '%{http_code}' \
-              "http://127.0.0.1:13193?url=$target" || true)
-            printf 'gateway probe: status=%s bytes=%s target=%s\n' \
-              "$status" "$(wc -c < "$RUNNER_TEMP/gateway-probe.bin")" "$target"
-          done
+          target=https://kelee.one/Tool/Loon/Lpx/Block_HTTPDNS.lpx
+          status=$(curl -sS -o "$RUNNER_TEMP/gateway-probe.bin" -w '%{http_code}' \
+            "http://127.0.0.1:13193?url=$target" || true)
+          printf 'gateway probe: status=%s bytes=%s target=%s\n' \
+            "$status" "$(wc -c < "$RUNNER_TEMP/gateway-probe.bin")" "$target"
           echo '--- browser rule gateway log ---'
           cat "$RUNNER_TEMP/browser-rule-gateway.log" || true
-      - name: Verify both rules from download through all four writers
-        id: rules
-        if: "!cancelled() && steps.inputs.outputs.china == 'true' && steps.inputs.outputs.international == 'true'"
-        env:
-          KELEE_INTERNAL_CHECK: 'true'
-          PROXY_BASE: http://127.0.0.1:13193?url=
-        run: |
-          if ! pnpm run node Build/check-kelee-rules.ts >"$RUNNER_TEMP/kelee-rules.log" 2>&1; then
-            cat "$RUNNER_TEMP/kelee-rules.log"
-            echo '--- browser rule gateway log ---'
-            cat "$RUNNER_TEMP/browser-rule-gateway.log" || true
-            exit 1
-          fi
-          cat "$RUNNER_TEMP/kelee-rule-audit.json"
       - name: Start Script-Hub for internal conversion
         id: script-hub
         if: "!cancelled() && steps.inputs.outputs.catalog == 'true' && steps.inputs.outputs.plugin == 'true'"
         run: *start-script-hub
       - name: Convert modules and verify script digests
-        if: "!cancelled() && steps.script-hub.outcome == 'success' && steps.rules.outcome == 'success'"
+        if: "!cancelled() && steps.gateway.outcome == 'success' && steps.script-hub.outcome == 'success'"
         env:
           KELEE_INTERNAL_CHECK: 'true'
           PROXY_BASE: http://127.0.0.1:13193?url=
@@ -729,12 +713,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install browser gateway dependencies
-        run: python3 -m pip install --requirement Build/browser-rule-requirements.txt
-
-      - name: Run browser gateway tests
-        run: python3 Build/__tests__/browser-rule-gateway.test.py
-
       - name: Install GeoIP country builder
         run: |
           set -euo pipefail
@@ -747,33 +725,6 @@ jobs:
             echo "::warning::GeoIP converter installation failed; the country database build will attempt the accepted fallback"
             echo "GEOIP_CONVERTER=$RUNNER_TEMP/geoip-converter-unavailable" >> "$GITHUB_ENV"
           fi
-
-      - name: Start browser rule gateway
-        run: |
-          set -euo pipefail
-          gateway_log="$RUNNER_TEMP/browser-rule-gateway.log"
-          gateway_pid="$RUNNER_TEMP/browser-rule-gateway.pid"
-          nohup python3 Build/browser-rule-gateway.py \
-            --upstream-base https://cloudflare-proxy.lucking.workers.dev \
-            --port 13193 >"$gateway_log" 2>&1 &
-          gateway_pid_value=$!
-          printf '%s\n' "$gateway_pid_value" > "$gateway_pid"
-          for attempt in $(seq 1 30); do
-            if curl --fail --silent --show-error --max-time 2 \
-              http://127.0.0.1:13193/health >/dev/null; then
-              echo "✅ Browser rule gateway ready (attempt $attempt/30)"
-              exit 0
-            fi
-            if ! kill -0 "$gateway_pid_value" 2>/dev/null; then
-              echo "❌ Browser rule gateway exited during startup" >&2
-              cat "$gateway_log" >&2 || true
-              exit 1
-            fi
-            sleep 1
-          done
-          echo "❌ Browser rule gateway startup timed out" >&2
-          cat "$gateway_log" >&2 || true
-          exit 1
 
       - name: Setup build directory
         id: build-dir
@@ -939,7 +890,6 @@ jobs:
       - run: pnpm run build
         env:
           PUBLIC_DIR: ${{ steps.build-dir.outputs.dir }}
-          PROXY_BASE: http://127.0.0.1:13193?url=
           PUBLICATION_BASELINE_DIR: ${{ steps.baseline-tree.outcome == 'success' && format('{0}/publication-baseline', runner.temp) || '' }}
           PUBLICATION_BASELINE_RECEIPT_ID: ${{ needs.baseline.outputs.receipt_id }}
 
@@ -1026,32 +976,6 @@ jobs:
         with:
           path: .cache
           key: ${{ runner.os }}-build-v3-${{ steps.date.outputs.year }}-${{ steps.date.outputs.month }}-${{ steps.date.outputs.day }}-${{ github.run_id }}
-
-      - name: Stop browser rule gateway
-        if: always()
-        run: |
-          pid_file="$RUNNER_TEMP/browser-rule-gateway.pid"
-          if [ -f "$pid_file" ]; then
-            pid=$(cat "$pid_file")
-            if kill -0 "$pid" 2>/dev/null; then
-              kill "$pid" 2>/dev/null || true
-              for _ in $(seq 1 10); do
-                kill -0 "$pid" 2>/dev/null || break
-                sleep 1
-              done
-              kill -9 "$pid" 2>/dev/null || true
-            fi
-          fi
-
-      - name: Upload browser gateway log
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: browser-rule-gateway-log-${{ github.sha }}-${{ github.run_number }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/browser-rule-gateway.log
-          retention-days: 7
-          if-no-files-found: ignore
-
 
 
   # ============================================

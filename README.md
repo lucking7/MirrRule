@@ -163,7 +163,8 @@ Netflix, Disney, Spotify, Prime Video, YouTube, BiliBili, TikTok, Google and Git
 | `amazon` | Amazon, AWS, Prime Video, Kindle, IMDb, and related services |
 | `domestic` | China domestic sites |
 | `lan` | Local network |
-| `speedtest` | Speedtest servers |
+| `speedtest` | Global speed-test domains, updated from Sukka’s published domain set |
+| `speedtest_china`, `speedtest_international` | Frozen regional subscriptions. Existing URLs serve the rules accepted on 2026-11-19 |
 | `apple_intelligence` | Apple Intelligence and Apple Relay |
 | `game_download` | Game download CDNs outside China |
 | `stream_us`, `stream_hk`, `stream_jp`, `stream_tw`, `stream_kr`, `stream_eu` | Regional streaming domain and application rules |

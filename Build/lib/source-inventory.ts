@@ -35,6 +35,7 @@ export function createSourceInventory(
 
   for (const group of ruleGroups) {
     for (const file of group.files) {
+      if (file.frozen) continue;
       add(entries, 'primary', 'rule', file.url);
       for (const fallback of file.fallbackUrls ?? []) add(entries, 'fallback', 'rule', fallback);
     }

@@ -44,6 +44,8 @@ export interface FileConfig extends RuleProcessingOptions {
   path: string,
   /** 文件下载URL */
   url: string,
+  /** Read the accepted List snapshot from Build/assets/frozen-rules instead of fetching url. */
+  frozen?: { updatedAt: string, sha256: string },
   /** 备用下载URL列表 */
   fallbackUrls?: string[],
   /** 文件标题 */

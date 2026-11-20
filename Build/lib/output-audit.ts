@@ -166,15 +166,15 @@ export interface SourceProvenance {
   configuredUrl: string;
   fallbackUrls: string[];
   selectedUrl: string | null;
-  /** baseline-snapshot: every download failed and the accepted baseline snapshot was republished. */
-  selection: 'primary' | 'fallback' | 'unknown' | 'baseline-snapshot';
+  /** frozen-snapshot uses the bundled archive. baseline-snapshot recovers an unavailable live source. */
+  selection: 'primary' | 'fallback' | 'unknown' | 'baseline-snapshot' | 'frozen-snapshot';
   fallbackIndex: number | null;
   viaProxy: boolean | null;
   /** HTTP Age header of the selected response; it may come from the local HTTP cache or a CDN. */
   responseAgeSeconds: number | null;
-  /** sha256 of the downloaded body before decoding and cleaning; null when the loader is not observed. */
+  /** SHA256 of the verified source body before decoding and cleaning, including a bundled snapshot. */
   rawContentSha256: string | null;
-  /** Lines of the downloaded body before cleaning; null when the loader is not observed. */
+  /** Lines in the source body before cleaning; null when the loader does not provide raw counts. */
   rawLineCount: number | null;
 }
 

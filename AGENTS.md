@@ -194,6 +194,7 @@ eslint.config.js                   ESLint 配置
 
 - `path`：逻辑目标路径，取 basename（小写）作为 ruleset id，生成各平台 flat 文件名与分版文件名。
 - `url` / `fallbackUrls`：主下载地址与备用地址。
+- `frozen`：普通规则文件可指定归档的 `sha256` 和 `updatedAt`。构建只读取 `Build/assets/frozen-rules/<文件名>.gz`，并在文本规则头部保留归档的 `Last Updated` 日期。来源健康检查跳过其历史 URL。
 - `targets`：目标平台，当前有效平台见 `Build/lib/platform-config.ts`：`surge`、`clash`、`singbox`、`loon`。
 - `defaultPolicy`：默认策略；设为 `null` 时会清理规则中的策略字段，输出纯规则格式。
 - `allowEmpty`：允许空来源或策略筛选后为空的文本规则；不能绕过 sing-box 的有效匹配条件发布检查。
