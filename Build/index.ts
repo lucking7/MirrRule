@@ -18,6 +18,7 @@ import {
 } from './lib/status-manifest';
 import { RULE_OUTPUT_AUDIT_PATH, SOURCE_DELTA_PATH, writeRuleOutputReports } from './lib/output-audit';
 import type { RulesetAuditRecord } from './lib/output-audit';
+import { pruneStaleNativeDomainsets } from './lib/publication-outputs';
 import type { RulesetSummary } from './lib/rule-source-processor';
 import type { Span } from './trace';
 
@@ -90,8 +91,12 @@ async function executeRuleOutputReportStep(records: RulesetAuditRecord[]): Promi
   }
 }
 
-async function executeWebBuildStep(): Promise<BuildStepResult> {
+async function executeWebBuildStep(pruneDomainsets: boolean): Promise<BuildStepResult> {
   try {
+    if (pruneDomainsets) {
+      const removed = await pruneStaleNativeDomainsets(PUBLIC_DIR);
+      if (removed.length) console.log(`Removed stale native domainsets: ${removed.join(', ')}`);
+    }
     await buildPublic();
     return { success: true, errors: [] };
   } catch (error) {
@@ -134,13 +139,9 @@ export const buildRuleset = task(
   const coverageStep = ruleStep.success
     ? await span.traceChildAsync('cross-subscription coverage audit', () => executeCoverageAuditStep())
     : { success: false, errors: ['[rule-coverage] Skipped because rule processing failed'] };
-  const steps = [
-    geoIpStep,
-    ruleStep,
-    reportStep,
-    coverageStep,
-    await span.traceChildAsync('build web page', () => executeWebBuildStep()),
-  ];
+  const steps = [geoIpStep, ruleStep, reportStep, coverageStep];
+  const pruneDomainsets = steps.every(step => step.success);
+  steps.push(await span.traceChildAsync('build web page', () => executeWebBuildStep(pruneDomainsets)));
 
   const allErrors = steps.flatMap(step => step.errors);
   const allSuccess = steps.every(step => step.success);

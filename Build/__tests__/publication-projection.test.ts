@@ -12,7 +12,8 @@ import { computeCandidateId, hashFile, scanTree, sha256Hex } from '../lib/public
 import { StageError, renderPublicInChild, stagePublication } from '../lib/publication-stage';
 import { projectRetiredRuleOutputs } from '../lib/publication-projection';
 import { collectAbsentPaths } from '../lib/publication-verify';
-import { retiredPublicPaths, retiredPublicPrefixes } from '../lib/artifact-lifecycle';
+import { purgeRetiredArtifacts, retiredPublicPaths, retiredPublicPrefixes } from '../lib/artifact-lifecycle';
+import { pruneStaleNativeDomainsets, readPublishedDomainsetPaths } from '../lib/publication-outputs';
 import { createSpan } from '../trace';
 
 const SOURCE = 'a'.repeat(40);
@@ -67,9 +68,11 @@ describe('publication lifecycle projection and baseline rebase', () => {
     const result = await stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['rollback'], sourceCommit: SOURCE, baseline: await baseline(env.tree, 2), baselineTreeDir: env.tree, rollbackOf: { receiptId: 1, deployCommit: OLD_COMMIT, sourceCommit: SOURCE }, render: renderPublicInChild });
     const audit = await json<ProjectionAudit>(path.join(env.out, 'Internal/rule-output-audit.json'));
     assert.deepEqual(audit.rulesets.map(record => record.id), ['keep']);
-    assert.equal(audit.retiredOutputs.length, 12);
+    assert.equal(audit.retiredOutputs.length, 17);
     assert.ok(audit.retiredOutputs.every(output => output.lifecycleId === 'ruleset:discord'));
     assert.ok(result.manifest.retiredRemoved.includes('List/non_ip/discord.list'));
+    assert.ok(result.manifest.retiredRemoved.includes('List/non_ip/discord.conf'));
+    assert.ok(result.manifest.retiredRemoved.includes('Clash/domainset/discord.txt'));
     assert.ok(result.manifest.retiredRemoved.includes('sing-box/ip/discord.json'));
     await assert.rejects(fs.access(path.join(env.out, 'Internal/source-snapshots/discord.json.gz')));
     const delta = await json<Delta>(path.join(env.out, 'Internal/source-delta.json'));
@@ -82,7 +85,18 @@ describe('publication lifecycle projection and baseline rebase', () => {
     const absent = await collectAbsentPaths(env.out, result.manifest);
     assert.ok(absent.includes('List/non_ip/discord.list'));
     // Retired directories are probed on every run, not only when the baseline still listed files.
-    assert.ok(absent.includes('List/domainset/nrrule-retired-probe'));
+    assert.ok(absent.includes('Loon/domainset/nrrule-retired-probe'));
+    assert.ok(absent.includes('List/domainset/nrrule-retired-probe.list'));
+    assert.ok(absent.includes('List/domainset/nrrule-absent-probe.list'));
+    assert.ok(absent.includes('List/domainset/discord.conf'));
+    assert.ok(absent.includes('List/ip/keep.conf'));
+    const manifestFiles = new Map(result.manifest.files.map(file => [file.path, file]));
+    assert.ok(manifestFiles.has('List/domainset/keep.conf'));
+    assert.ok(manifestFiles.has('Clash/domainset/keep.txt'));
+    assert.ok(manifestFiles.has('sing-box/domainset/keep.json'));
+    assert.equal(manifestFiles.get('List/non_ip/keep.conf')?.sha256, manifestFiles.get('List/non_ip/keep.list')?.sha256);
+    const index = await fs.readFile(path.join(env.out, 'index.html'), 'utf8');
+    assert.match(index, /href="\/List\/domainset\/keep\.conf"/);
     assert.equal(result.manifest.files.find(file => file.path === 'Internal/rule-output-audit.json')?.origin, 'generated');
     assert.equal(result.manifest.files.find(file => file.path === 'Internal/source-snapshots/keep.json.gz')?.origin, 'preserved');
     for (const relative of ['_worker.js', '_routes.json']) {
@@ -92,7 +106,11 @@ describe('publication lifecycle projection and baseline rebase', () => {
     assert.ok(worker.includes('keep.json.gz'));
     assert.equal(worker.includes('discord.json.gz'), false);
     const routes = await json<{ include: string[]; exclude: string[] }>(path.join(env.out, '_routes.json'));
-    const routed = ['Clash/ip/', 'Clash/non_ip/', 'List/ip/', 'List/non_ip/', 'Loon/ip/', 'Loon/non_ip/', 'Mirror/', 'sing-box/ip/', 'sing-box/non_ip/', ...retiredPublicPrefixes().sort()];
+    const routed = [
+      'Clash/domainset/', 'Clash/ip/', 'Clash/non_ip/', 'List/domainset/', 'List/ip/', 'List/non_ip/',
+      'Loon/ip/', 'Loon/non_ip/', 'Mirror/', 'sing-box/domainset/', 'sing-box/ip/', 'sing-box/non_ip/',
+      ...retiredPublicPrefixes().sort(),
+    ];
     assert.deepEqual(routes.include, [
       '/Internal/*',
       ...routed.map(prefix => `/${prefix}*`),
@@ -109,17 +127,67 @@ describe('publication lifecycle projection and baseline rebase', () => {
     await fixture(env.candidate, [['keep', ['DOMAIN,keep.example', 'USER-AGENT,Keep*']]], 1);
     // Before 2026-10-17 plain domains lived only in domainset, so historical non_ip lacks them.
     const auditPath = path.join(env.candidate, 'Internal/rule-output-audit.json');
-    const audit = await json<{ rulesets: Array<{ id: string, outputs: Array<Record<string, unknown>> }> }>(auditPath);
-    const content = 'keep.example\n';
-    await fs.mkdir(path.join(env.candidate, 'List/domainset'), { recursive: true });
-    await fs.writeFile(path.join(env.candidate, 'List/domainset/keep.list'), content);
-    audit.rulesets[0].outputs.push({ platform: 'surge', variant: 'domainset', format: 'surge-domainset', path: 'List/domainset/keep.list', status: 'published', bytes: new TextEncoder().encode(content).length, sha256: sha256Hex(content) });
+    const audit = await json<{ layoutVersion?: string, rulesets: Array<{ id: string, outputs: Array<Record<string, unknown>> }> }>(auditPath);
+    delete audit.layoutVersion;
+    const relative = 'Clash/domainset/keep.txt';
+    const content = 'DOMAIN,keep.example\n';
+    await fs.mkdir(path.join(env.candidate, 'Clash/domainset'), { recursive: true });
+    await fs.writeFile(path.join(env.candidate, relative), content);
+    audit.rulesets[0].outputs = audit.rulesets[0].outputs.filter(output => output.variant !== 'domainset');
+    audit.rulesets[0].outputs.push({ platform: 'clash', variant: 'domainset', format: 'clash-classical', path: relative, status: 'published', bytes: new TextEncoder().encode(content).length, sha256: sha256Hex(content) });
     await fs.writeFile(auditPath, JSON.stringify(audit));
     await fs.cp(env.candidate, env.tree, { recursive: true });
     await assert.rejects(
       stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['rollback'], sourceCommit: SOURCE, baseline: await baseline(env.tree, 2), baselineTreeDir: env.tree, rollbackOf: { receiptId: 1, deployCommit: OLD_COMMIT, sourceCommit: SOURCE }, render: renderPublicInChild }),
       /retired domainset variant layout/
     );
+  });
+
+  it('rejects unaudited and obsolete paths under a current domainset directory', async t => {
+    const env = await environment(t);
+    await fixture(env.candidate, [['keep', ['DOMAIN,keep.example']]], 1);
+    const auditPath = path.join(env.candidate, 'Internal/rule-output-audit.json');
+    const audit = await json<{ rulesets: Array<{ outputs: Array<Record<string, unknown>> }> }>(auditPath);
+    const obsolete = 'List/domainset/keep.list';
+    await fs.copyFile(path.join(env.candidate, 'List/domainset/keep.conf'), path.join(env.candidate, obsolete));
+    await fixture(env.tree, [['keep', ['DOMAIN,previous.example']]], 1);
+    const stage = async () => stagePublication({
+      candidateDir: env.candidate,
+      outDir: env.out,
+      tasks: ['build'],
+      sourceCommit: SOURCE,
+      baseline: await baseline(env.tree, 1),
+      baselineTreeDir: env.tree,
+      render: renderPublicInChild,
+    });
+    await assert.rejects(stage(), /List\/domainset\/keep\.list: variant file is not listed in the audit/);
+    const native = audit.rulesets[0].outputs.find(output => output.path === 'List/domainset/keep.conf');
+    assert.ok(native);
+    audit.rulesets[0].outputs.push({ ...native, path: obsolete });
+    await fs.writeFile(auditPath, JSON.stringify(audit));
+    await assert.rejects(stage(), /invalid domainset subscription.*List\/domainset\/keep\.list/);
+  });
+
+  it('cleans obsolete managed domainsets after a fresh rules audit and leaves audited corruption detectable', async t => {
+    const env = await environment(t);
+    await fixture(env.candidate, [['keep', ['DOMAIN,keep.example']]], 1);
+    const staleSurge = 'List/domainset/keep.list';
+    const staleClash = 'Clash/domainset/old.txt';
+    const staleSingBox = 'sing-box/domainset/old.json';
+    const unrelated = 'Clash/domainset/notes.md';
+    await Promise.all([staleSurge, staleClash, staleSingBox, unrelated].map(relative => (
+      fs.writeFile(path.join(env.candidate, relative), 'old')
+    )));
+    const native = 'Clash/domainset/keep.txt';
+    await fs.writeFile(path.join(env.candidate, native), 'DOMAIN-SUFFIX,keep.example');
+
+    assert.deepEqual(await pruneStaleNativeDomainsets(env.candidate), [staleClash, staleSingBox]);
+    assert.deepEqual(await purgeRetiredArtifacts(env.candidate), [staleSurge]);
+    assert.deepEqual([...(await readPublishedDomainsetPaths(env.candidate))].sort(), [
+      'List/domainset/keep.conf', 'sing-box/domainset/keep.json',
+    ]);
+    assert.equal(await fs.readFile(path.join(env.candidate, native), 'utf8'), 'DOMAIN-SUFFIX,keep.example');
+    assert.equal(await fs.readFile(path.join(env.candidate, unrelated), 'utf8'), 'old');
   });
 
   it('projects partial platform retirement in the audit and snapshot while preserving normalized conditions and active platforms', async t => {

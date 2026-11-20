@@ -7,6 +7,12 @@ import { castArray } from 'foxts/cast-array';
 import { fetchAssets } from './network/fetch-assets';
 import { $$fetch, defaultRequestInit } from './network/fetch-retry';
 import { IPValidator } from './validation/validators';
+import {
+  isAnthropicIpDocsUrl,
+  isRipestatAnnouncedPrefixesUrl,
+  loadAnthropicDocsIpRules,
+  loadRipestatAsnRules,
+} from '../lib/primary-ip-sources';
 
 interface LoadRulesOptions {
   throwOnError?: boolean;
@@ -169,6 +175,12 @@ export async function loadRules(
   options: LoadRulesOptions = {}
 ): Promise<string[]> {
   if (isUrl(source)) {
+    if (isAnthropicIpDocsUrl(source)) {
+      return loadAnthropicDocsIpRules(source, options);
+    }
+    if (isRipestatAnnouncedPrefixesUrl(source)) {
+      return loadRipestatAsnRules(source, options);
+    }
     if (isSingboxJsonUrl(source)) {
       return loadFromSingboxJson(source, options);
     }

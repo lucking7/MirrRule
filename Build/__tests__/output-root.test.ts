@@ -80,10 +80,14 @@ it('build entry publishes rules, index and status under PUBLIC_DIR from another 
   assert.deepEqual(manifest.reports, { ruleOutputAudit: 'Internal/rule-output-audit.json', sourceDelta: 'Internal/source-delta.json' });
   const audit = JSON.parse(await fs.readFile(path.join(destination, 'Internal', 'rule-output-audit.json'), 'utf8'));
   assert.equal(audit.schemaVersion, 1);
+  assert.equal(audit.layoutVersion, 'sukka-compatible-v1');
   assert.deepEqual(audit.rulesets.map((entry: { id: string }) => entry.id), ['group', 'special']);
   assert.equal(audit.rulesets[0].sources[0].configuredUrl, 'https://fixture.test/group');
   assert.equal(audit.rulesets[1].sources[0].selection, 'primary');
-  assert.equal(audit.rulesets[0].outputs.length, 12);
+  assert.equal(audit.rulesets[0].outputs.length, 17);
+  assert.equal(await fs.readFile(path.join(destination, 'List/non_ip/group.conf'), 'utf8'),
+    await fs.readFile(path.join(destination, 'List/non_ip/group.list'), 'utf8'));
+  assert.match(await fs.readFile(path.join(destination, 'List/domainset/group.conf'), 'utf8'), /^group\.example$/m);
   const delta = JSON.parse(await fs.readFile(path.join(destination, 'Internal', 'source-delta.json'), 'utf8'));
   assert.deepEqual(delta.sources.map((entry: { status: string }) => entry.status), ['baseline-unavailable', 'baseline-unavailable']);
   await fs.access(path.join(destination, 'Internal', 'source-snapshots', 'group.json.gz'));

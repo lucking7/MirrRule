@@ -222,8 +222,8 @@ describe('EnhancedFileOutput', () => {
     await assert.rejects(published.compile(), /Strategies already written/);
     await assert.rejects(published.write(), /Strategies already written/);
     assert.equal(await fs.readFile(outputPath, 'utf8'), content);
-    assert.deepEqual(await fs.readdir(path.join(directory, 'List')), ['non_ip', 'published.list']);
-    assert.deepEqual(await fs.readdir(path.join(directory, 'List', 'non_ip')), ['published.list']);
+    assert.deepEqual(await fs.readdir(path.join(directory, 'List')), ['domainset', 'non_ip', 'published.list']);
+    assert.deepEqual(await fs.readdir(path.join(directory, 'List', 'non_ip')), ['published.conf', 'published.list']);
     const nonIp = await fs.readFile(path.join(directory, 'List/non_ip/published.list'), 'utf8');
     assert.ok(nonIp.split('\n').includes('DOMAIN,published.example'));
     assert.match(nonIp, /^# Variant: non_ip\./m);

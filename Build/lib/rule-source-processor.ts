@@ -139,7 +139,11 @@ function appendRuleBatch(target: string[], source: readonly string[]): void {
 }
 
 export class RuleSourceProcessor {
-  constructor(private readonly span: Span, private readonly outputDir = PUBLIC_DIR) {}
+  constructor(
+    private readonly span: Span,
+    private readonly outputDir = PUBLIC_DIR,
+    private readonly ruleLoader: typeof loadRules = loadRules
+  ) {}
 
   private static recordError(
     this: void,
@@ -333,7 +337,8 @@ export class RuleSourceProcessor {
     this: void,
     ruleSpan: Span,
     source: string,
-    allowEmpty: boolean
+    allowEmpty: boolean,
+    ruleLoader: typeof loadRules
   ): Promise<DownloadResult> {
     try {
       let selection: FetchAssetsSelection | undefined;
@@ -341,7 +346,7 @@ export class RuleSourceProcessor {
         .traceChild('load')
         .traceAsyncFn(() => observeSourceDownloads(
           selected => { selection = selected; },
-          () => loadRules(source, { throwOnError: true, allowEmpty })
+          () => ruleLoader(source, { throwOnError: true, allowEmpty })
         ));
       return { ok: true, rules, selection };
     } catch (error) {
@@ -414,7 +419,8 @@ export class RuleSourceProcessor {
             RuleSourceProcessor.loadSpecialRuleSource(
               ruleSpan,
               source,
-              ruleConfig.allowEmpty ?? false
+              ruleConfig.allowEmpty ?? false,
+              this.ruleLoader
             )
           );
 

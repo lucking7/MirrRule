@@ -56,6 +56,52 @@ describe('profile variant check', () => {
     ]);
   });
 
+  it('uses audited paths when canonical and legacy subscriptions cover the same split slot', () => {
+    const currentAudit = { rulesets: [{
+      id: 'download',
+      outputs: [
+        { platform: 'surge', variant: 'merged', path: 'List/download.list', status: 'published' },
+        { platform: 'surge', variant: 'non_ip', path: 'List/non_ip/download.conf', status: 'published' },
+        { platform: 'surge', variant: 'non_ip', path: 'List/non_ip/download.list', status: 'published' },
+        { platform: 'surge', variant: 'ip', path: 'List/ip/download.conf', status: 'published' },
+        { platform: 'surge', variant: 'ip', path: 'List/ip/download.list', status: 'published' },
+        { platform: 'surge', variant: 'domainset', path: 'List/domainset/download.conf', status: 'published' },
+      ],
+    }] };
+    const nonIp = `[Rule]\nRULE-SET,${BASE}/non_ip/download.list,Star\n`;
+    const canonicalIp = `OR,((GEOIP,CN),(RULE-SET,"${BASE}/ip/download.conf?version=1")),DIRECT\n`;
+    assert.deepEqual(checkProfileVariants(nonIp, currentAudit), [
+      { id: 'download', path: 'List/ip/download.conf', kind: 'unreferenced' },
+    ]);
+    assert.deepEqual(checkProfileVariants(nonIp + canonicalIp, currentAudit), []);
+    const oldAudit = { rulesets: [{
+      id: 'download',
+      outputs: currentAudit.rulesets[0].outputs.filter(output => output.path.endsWith('.list')),
+    }] };
+    assert.deepEqual(checkProfileVariants(nonIp + canonicalIp, oldAudit), [
+      { id: 'download', path: 'List/ip/download.conf', kind: 'absent' },
+      { id: 'download', path: 'List/ip/download.list', kind: 'unreferenced' },
+    ]);
+  });
+
+  it('only checks the optional domainset output when the exact path is referenced', () => {
+    const currentAudit = { rulesets: [{
+      id: 'download',
+      outputs: [
+        { platform: 'surge', variant: 'non_ip', path: 'List/non_ip/download.conf', status: 'published' },
+        { platform: 'surge', variant: 'domainset', path: 'List/domainset/download.conf', status: 'published' },
+      ],
+    }] };
+    const profile = `[Rule]\nDOMAIN-SET,${BASE}/domainset/download.conf,DIRECT\n`;
+    assert.deepEqual(checkProfileVariants(profile, currentAudit), []);
+    assert.deepEqual(checkProfileVariants(profile.replace('.conf', '.list'), currentAudit), [
+      { id: 'download', path: 'List/domainset/download.list', kind: 'absent' },
+    ]);
+    assert.deepEqual(checkProfileVariants(profile, audit({ download: ['non_ip'] })), [
+      { id: 'download', path: 'List/domainset/download.conf', kind: 'absent' },
+    ]);
+  });
+
   it('exits 1 with findings and 0 when every published variant is loaded', async t => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-profile-variants-'));
     t.after(() => fs.rm(directory, { recursive: true, force: true }));
