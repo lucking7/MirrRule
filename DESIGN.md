@@ -42,7 +42,7 @@
 
 ## 目录树与交互
 
-树的 DOM 为 `ul.tree`，目录为 `li.folder > details > summary + ul`，文件为 `li.file > a.file-link`。顶层默认展开，`Mock`、`Internal` 默认折叠，所有嵌套目录默认折叠。目录标签是实际名称，文件标签是带扩展名的实际文件名。
+树的 DOM 为 `ul.tree`，目录为 `li.folder > details > summary + ul`，文件为 `li.file > a.file-link`。顶层默认展开，`Mock`、`Internal` 默认折叠，所有嵌套目录默认折叠。分版目录按 `domainset`、`non_ip`、`ip` 排序，标签在目录名后注明客户端格式。其他目录显示实际名称。文件标签保留扩展名。
 
 - `--tree-spacing: 1.5rem`，`--radius: 10px`。
 - 子级 `li` 的左 padding 为 `calc(2 * var(--tree-spacing) - var(--radius) - 2px)`；子 `ul` 左 margin 为 `calc(var(--radius) - var(--tree-spacing))`，左 padding 为 0。

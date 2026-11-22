@@ -16,10 +16,11 @@ Surge 保留 domain ruleset 的 extended-matching 语义；PROCESS-PATH 按平�
 
 ## 分版订阅
 
-每个启用的规则集保留原 flat 合并版，并在其原有 targets 上追加 `non_ip`、`ip` 两类分版，路径为 `List|Clash|Loon|sing-box/<分版>/<basename>.<原扩展名>`。按规则类型分版时，两类互斥，同一平台两者并集等于该平台合并版：`non_ip` 是不使用目标 IP 的条件（含 DOMAIN、DOMAIN-SUFFIX、keyword、wildcard、URL-REGEX、UA、进程、源地址 SRC-IP、端口、不含目标 IP 子条件的 logical 规则）；`ip` 是全部 IP-CIDR／IP-CIDR6／IP-ASN／GEOIP（不论是否带 `no-resolve`）及含目标 IP 子条件的完整 logical 规则，与 Sukka 的 `ip/` 文件布局一致。在 Surge 中，先加载域名规则，再加载可能触发解析的 IP 规则。`reject` 按来源分版，详见下文。分版沿用各平台合并版的编码，Surge 两类都用 `RULE-SET` 引用。2026-10-17 曾把带 `no-resolve` 的 IP 规则改入 `non_ip`，2026-10-18 撤销，恢复 Sukka 布局；2026-10-17 起 `domainset` 分版并入 `non_ip`，旧 `domainset/` 地址返回 404。
+四个平台继续发布根目录合并版及 `non_ip`、`ip` 分版。Surge 的两个分版使用 `List/{non_ip,ip}/<id>.conf`（`RULE-SET`），已有 `.list` 地址继续提供相同内容。通常按条件分类，含目标 IP 的完整 logical 规则和目标 IP 规则（即使带 `no-resolve`）归入 `ip`，域名、URL、进程、源地址等归入 `non_ip`。在 Surge 中，先加载域名规则，再加载可能触发解析的 IP 规则。`reject` 按来源指定分版，详见下文。
 
 Loon 3.0.3 起优先匹配域名规则，未命中时才解析域名并匹配 IP 规则。使用同一策略时，订阅合并版即可。需要为域名和 IP 指定不同策略时，再使用分版。[Loon 规则优先级](https://nsloon.app/docs/Rule/)
 
+`domainset` 额外提供 `non_ip` 中可独立表示的精确域名与后缀。Surge 的 `List/domainset/<id>.conf` 使用裸域名和点前缀，Clash 的 `Clash/domainset/<id>.txt` 使用裸域名和 `+.` 后缀语法（`behavior: domain`、`format: text`），sing-box 的 `sing-box/domainset/<id>.json` 使用 JSON v2 的 `domain`、`domain_suffix`。Loon 使用原有 classical 订阅。加载完整 `non_ip` 后无需再订阅同名域名集。需要文件级 `extended-matching` 的 Surge 规则集跳过原生域名集。两份已冻结的地域测速订阅仅保留历史地址，全球 `speedtest` 正常生成新格式。各平台引用示例见 [README](README.md#subscription-variants)。
 sing-box 转换时会丢弃 Surge 的 `no-resolve`。`reject` 通过 `sourceVariants` 按上游文件分版，因此 `sing-box/non_ip/reject.json` 中仍可能包含 `ip_cidr`。按 DNS 查询名过滤时，应选取需要的域名字段，依赖关键词或正则的规则还需保留 `domain_keyword` 或 `domain_regex`。在 sing-box 1.14 及以上版本中，若要按应答中的 IP 地址过滤，先执行 `evaluate`，再用设置了 `match_response: true` 的规则检查应答。[sing-box DNS 迁移说明](https://sing-box.sagernet.org/migration/#migrate-address-filter-fields-to-response-matching)
 
 含 `extended-matching` 的规则集在 Surge 上例外：同时含域名子条件与目标 IP 条件的 logical 规则留在 Surge `non_ip`，以保留文件级标志，审计以 `reroutedFromIp` 记录条数，其他平台仍归入 `ip`。转换损失记录在审计的 `outputs[].losses`：sing-box 不能表达 `no-resolve`，Surge 以外的平台忽略 `extended-matching`，Clash 丢弃 TCP、UDP 以外的 `PROTOCOL` 值。
@@ -28,7 +29,7 @@ sing-box 转换时会丢弃 Surge 的 `no-resolve`。`reject` 通过 `sourceVari
 
 ## 退休与替代
 
-退休和废弃订阅统一登记在 [artifact-lifecycle.ts](Build/lib/artifact-lifecycle.ts)，发布为 `Internal/artifact-lifecycle.json`，包含原因、依据与替代。缓存恢复、历史产物下载、网页索引、发布候选和回滚都使用同一登记，retired 文件不会被重新发布；replacement 只是迁移说明，不做跨格式重定向。当前 retired：腾讯视频去广告插件模块（上游停止维护，无替代）；`container`、`discord`、`scholar` 四平台规则（已从规则源移除，无替代）；`sing-box/china_asn.json`（替代见上文）；四平台 `domainset/` 目录下的全部文件（2026-10-17 并入 `non_ip`，替代为同名 `non_ip` 文件）。
+退休和废弃订阅统一登记在 [artifact-lifecycle.ts](Build/lib/artifact-lifecycle.ts)，发布为 `Internal/artifact-lifecycle.json`，包含原因、依据与替代。缓存恢复、历史产物下载、网页索引、发布候选和回滚都使用同一登记，retired 文件不会被重新发布；replacement 只是迁移说明，不做跨格式重定向。当前 retired：腾讯视频去广告插件模块（上游停止维护，无替代）；`container`、`discord`、`scholar` 四平台规则（已从规则源移除，无替代）；`sing-box/china_asn.json`（替代见上文）；旧 `Loon/domainset/` 目录。Surge 的旧 `List/domainset/*.list` 继续返回 404，现行的三个原生域名集格式见上文。
 
 ## Reject 订阅边界
 
@@ -59,7 +60,7 @@ Surge 与 Loon 保留 `.list`，Clash 输出 classical `.txt`，sing-box 输出 
 
 不读取二进制 `.mrs`、`.srs`。当前配置使用文本来源。sing-box JSON 输入接受 version 1/2 的 `domain`、`domain_suffix`、`domain_keyword` 和 `ip_cidr` 字符串或数组，以及 `type: "default"`、`invert: false`。遇到端口、logical、`invert: true`、正则等未支持字段时拒绝整个来源，不能通过丢弃字段扩大匹配范围。空 `rules` 数组受 `allowEmpty` 控制，空规则对象始终拒绝。
 
-2026-11-17 新增 Meta [AS399358 文本来源](https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/asn/AS399358.list)，本次为 `160.79.104.0/23`、`2607:6bc0::/48`、`2607:6bc0:11::/48`，跟随上游更新。现有 Sukka `IP-ASN,399358` 在 sing-box 输出中被丢弃，具体 CIDR 为它补充 Anthropic IP 匹配；Surge 等支持 ASN 的平台继续保留原 ASN 条目。新增 CIDR 位于 `ip` 分版，保持来源未带 `no-resolve` 的选择。这些网段不等同于整个 ASN 或 Anthropic 使用的全部 CDN。
+2026-11-19 起改为直接从一手自动源抓取 Anthropic IP CIDR（替换第三方 Meta `AS399358.list` 镜像，不手写静态 CIDR）：[Anthropic 官方 IP 文档 Markdown](https://platform.claude.com/docs/en/api/ip-addresses.md)（仅解析 `Inbound IP addresses` 段，排除 Outbound 与 Phased out）和 [RIPEstat 全球 BGP 实时宣告前缀](https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS399358)（仅保留 `query_endtime` 时刻仍活跃的前缀）。两类来源抓取结果均通过 RIR RDAP（优先 `rdap.arin.net`，404 时回退 `rdap.org`）交叉校验：从 `autnum/399358` 动态读取注册人身份，再核对每个候选 CIDR 的归属主体与注册父段包含关系，拦截误抓的第三方云 IP 或过宽掩码；失败时由构建基线快照回退兜底。本次自动获取结果为 `153.61.224.0/22`（BYOIP 经 GCP `AS396982` 宣告的官方入站段）、`160.79.104.0/23`、`2607:6bc0::/48`、`2607:6bc0:11::/48`，同时在支持 ASN 的平台保留 `IP-ASN,399358`，在 sing-box 补充 Anthropic IP 匹配。新增 CIDR 位于 `ip` 分版，保持来源未带 `no-resolve` 的选择。这些网段不等同于 Anthropic 使用的全部 CDN。
 
 对照 [Claude 分流参考页](https://ip.net.coffee/claude/site.html)、[MetaCubeX meta 分支](https://github.com/MetaCubeX/meta-rules-dat/tree/meta)和 [Claude Code 官方网络要求](https://code.claude.com/docs/en/network-config)，本轮不额外引入兼容域名、共享遥测端点或拦截策略。参考页的兼容域名与遥测屏蔽由用户本机模块按需配置。Meta `category-ai-!cn.list` 已包含本次 `anthropic.list` 的全部 21 条，不重复添加该来源；上游已有的 Sentry、Intercom 等条目保持不变。官方网络要求是连接依赖清单，不代表其中所有通用依赖都应绑定 AI 出口；不添加全局遥测关键词或 `category-ntp`。
 

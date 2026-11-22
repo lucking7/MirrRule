@@ -102,6 +102,10 @@ it('publishes the existing regional subscriptions from frozen archives and refre
   const domains = fs.readFileSync(path.join(outputDir, 'List/non_ip/speedtest.list'), 'utf8');
   assert.match(domains, /^DOMAIN-SUFFIX,fast\.com$/m);
   assert.match(domains, /^DOMAIN,speedtest\.example\.net$/m);
+  const native = fs.readFileSync(path.join(outputDir, 'List/domainset/speedtest.conf'), 'utf8');
+  assert.match(native, /^\.fast\.com$/m);
+  assert.match(native, /^speedtest\.example\.net$/m);
+  assert.equal(fs.readFileSync(path.join(outputDir, 'List/non_ip/speedtest.conf'), 'utf8'), domains);
 });
 
 it('fails on a mismatched frozen digest even with a usable baseline snapshot', async t => {

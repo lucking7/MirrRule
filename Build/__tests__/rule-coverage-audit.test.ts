@@ -236,12 +236,34 @@ describe('coverage CLI and profile input', () => {
     assert.equal(resolveNrruleSurgeReference('/List/ip/telegram.list', 'rule-set', rulesDir).variant, 'ip');
     assert.equal(resolveNrruleSurgeReference('/List/non_ip/apple_cdn.list', 'domain-set', rulesDir).skipped, 'format-mismatch');
     assert.equal(resolveNrruleSurgeReference('/List/apple_cdn.list', 'domain-set', rulesDir).skipped, 'format-mismatch');
-    // domainset was merged into non_ip; its old paths are no longer NRRule subscriptions.
-    for (const unresolved of ['/List/domainset/apple_cdn.list', '/List/other/apple_cdn.list', '/List/a/b/c.list', '/Clash/apple_cdn.txt']) {
+    assert.equal(resolveNrruleSurgeReference('/List/ip/telegram.conf', 'rule-set', rulesDir).filename, path.join(rulesDir, 'ip', 'telegram.conf'));
+    assert.equal(resolveNrruleSurgeReference('/List/domainset/apple_cdn.conf', 'rule-set', rulesDir).skipped, 'format-mismatch');
+    for (const unresolved of ['/List/domainset/apple_cdn.list', '/List/apple.conf', '/List/other/apple_cdn.list', '/List/a/b/c.list', '/Clash/apple_cdn.txt']) {
       const resolved = resolveNrruleSurgeReference(unresolved, 'rule-set', rulesDir);
       assert.equal(resolved.skipped, 'unavailable-remote');
       assert.equal(resolved.filename, undefined);
     }
+  });
+
+  it('audits published Surge domain sets and reports absent .conf files from the output audit', async t => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'coverage-conf-'));
+    t.after(() => fs.rm(root, { recursive: true, force: true }));
+    const list = path.join(root, 'List');
+    await fs.mkdir(path.join(list, 'domainset'), { recursive: true });
+    await fs.writeFile(path.join(list, 'domainset', 'cdn.conf'), '.example.com\nexact.test\n');
+    const auditPath = path.join(root, 'audit.json');
+    await fs.writeFile(auditPath, JSON.stringify({ rulesets: [{ id: 'cdn', outputs: [
+      { platform: 'surge', variant: 'ip', status: 'absent-empty', path: 'List/ip/cdn.conf' },
+    ] }] }));
+    const profile = [
+      '[Rule]', 'DOMAIN-SET,https://nrrule.pages.dev/List/domainset/cdn.conf,DIRECT',
+      'DOMAIN,a.example.com,PROXY', 'RULE-SET,https://nrrule.pages.dev/List/ip/cdn.conf,DIRECT',
+    ].join('\n');
+    const report = auditRuleCoverage(await readProfileSubscriptions(profile, root, list, { outputAuditPath: auditPath }));
+    assert.equal(report.subscriptions[0].variant, 'domainset');
+    assert.equal(report.subscriptions[0].domainRules, 2);
+    assert.equal(report.subscriptions[1].fullyCoveredDomainRules, 1);
+    assert.equal(report.subscriptions[2].skipped, 'absent-variant');
   });
 
   it('parses native DOMAIN-SET lines with apex, subdomain and look-alike boundaries', () => {

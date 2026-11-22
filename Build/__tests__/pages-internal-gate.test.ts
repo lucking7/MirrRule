@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,12 +9,32 @@ import { describe, it } from 'node:test';
 import { pathToFileURL } from 'node:url';
 import { writePagesInternalGate } from '../lib/pages-internal-gate';
 import { retiredPublicPaths } from '../lib/artifact-lifecycle';
+import { RULE_OUTPUT_LAYOUT_VERSION } from '../lib/rule-output-variants';
 
 async function fixture(t: { after: (fn: () => Promise<unknown>) => void }): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-pages-gate-'));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   await fs.mkdir(path.join(root, 'Internal/source-snapshots'), { recursive: true });
   return root;
+}
+
+async function writeDomainsetAudit(root: string, current: boolean): Promise<void> {
+  const fixtures = [
+    { path: 'List/domainset/cdn.conf', platform: 'surge', format: 'surge-domainset' },
+    { path: 'Clash/domainset/cdn.txt', platform: 'clash', format: 'clash-domain' },
+    { path: 'sing-box/domainset/cdn.json', platform: 'singbox', format: 'singbox-json-v2' },
+  ];
+  const outputs = await Promise.all(fixtures.map(async output => {
+    const bytes = await fs.readFile(path.join(root, output.path));
+    return {
+      ...output, variant: 'domainset', status: 'published',
+      bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'),
+    };
+  }));
+  const layoutVersion = current ? RULE_OUTPUT_LAYOUT_VERSION : undefined;
+  await fs.writeFile(path.join(root, 'Internal/rule-output-audit.json'), JSON.stringify({
+    schemaVersion: 1, layoutVersion, rulesets: [{ id: 'cdn', outputs }],
+  }));
 }
 
 function exerciseWorker(root: string, checks: Array<{ pathname: string, status: number, delegated: boolean, method?: string, assetStatus?: number }>): void {
@@ -40,7 +61,7 @@ for (const check of ${JSON.stringify(checks)}) {
       assert.equal(response.headers.get('cache-control'), 'public, max-age=0, must-revalidate');
       assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
       assert.equal(response.headers.get('x-robots-tag'), 'noindex');
-    } else if (/^\/(?:(?:List|Clash|Loon|sing-box)\/(?:ip|non_ip)|Mirror)\//.test(check.pathname)) {
+    } else if (/^\/(?:(?:List|Clash|Loon|sing-box)\/(?:domainset|ip|non_ip)|Mirror)\//.test(check.pathname)) {
       assert.equal(response.headers.get('cache-control'), 'public, max-age=0, must-revalidate');
       assert.equal(response.headers.get('content-type'), 'text/plain; charset=utf-8');
       assert.equal(response.headers.get('x-robots-tag'), 'noindex');
@@ -74,13 +95,22 @@ describe('Pages Internal inventory gate', () => {
     await fs.writeFile(path.join(root, 'List/ip/cdn.list'), 'IP-CIDR,185.199.108.0/22');
     await fs.mkdir(path.join(root, 'List/non_ip'), { recursive: true });
     await fs.writeFile(path.join(root, 'List/non_ip/cdn.list'), 'DOMAIN-SUFFIX,cdn.example');
+    await fs.writeFile(path.join(root, 'List/non_ip/cdn.conf'), 'DOMAIN-SUFFIX,cdn.example');
+    await fs.mkdir(path.join(root, 'List/domainset'), { recursive: true });
+    await fs.writeFile(path.join(root, 'List/domainset/cdn.conf'), '.cdn.example');
+    await fs.mkdir(path.join(root, 'Clash/domainset'), { recursive: true });
+    await fs.writeFile(path.join(root, 'Clash/domainset/cdn.txt'), '+.cdn.example');
+    await fs.mkdir(path.join(root, 'sing-box/domainset'), { recursive: true });
+    await fs.writeFile(path.join(root, 'sing-box/domainset/cdn.json'), '{"version":2,"rules":[{"domain_suffix":["cdn.example"]}]}');
+    await writeDomainsetAudit(root, true);
     await fs.mkdir(path.join(root, 'Mirror/fmz200/sgmodule/categories/Q'), { recursive: true });
     await fs.writeFile(path.join(root, 'Mirror/fmz200/sgmodule/categories/Q/知乎.sgmodule'), '#!name=知乎');
     await writePagesInternalGate(root);
     const routes = JSON.parse(await fs.readFile(path.join(root, '_routes.json'), 'utf8')) as { version: number, include: string[], exclude: string[] };
     const routed = [
-      '/Clash/ip/', '/Clash/non_ip/', '/List/ip/', '/List/non_ip/', '/Loon/ip/', '/Loon/non_ip/', '/Mirror/', '/sing-box/ip/', '/sing-box/non_ip/',
-      '/Clash/domainset/', '/List/domainset/', '/Loon/domainset/', '/sing-box/domainset/',
+      '/Clash/domainset/', '/Clash/ip/', '/Clash/non_ip/', '/List/domainset/', '/List/ip/', '/List/non_ip/',
+      '/Loon/ip/', '/Loon/non_ip/', '/Mirror/', '/sing-box/domainset/', '/sing-box/ip/', '/sing-box/non_ip/',
+      '/Loon/domainset/',
     ];
     assert.deepEqual(routes, {
       version: 1,
@@ -117,12 +147,48 @@ describe('Pages Internal inventory gate', () => {
       { pathname: '/Clash/ip/cdn.txt', status: 404, delegated: false },
       { pathname: '/List/ip/discord.list', status: 404, delegated: false },
       { pathname: '/List/non_ip/cdn.list', status: 200, delegated: true },
+      { pathname: '/List/non_ip/cdn.conf', status: 200, delegated: true },
+      { pathname: '/List/domainset/cdn.conf', status: 200, delegated: true },
+      { pathname: '/Clash/domainset/cdn.txt', status: 200, delegated: true },
+      { pathname: '/sing-box/domainset/cdn.json', status: 200, delegated: true },
+      { pathname: '/List/domainset/cdn.list', status: 404, delegated: false },
+      { pathname: '/List/domainset/missing.conf', status: 404, delegated: false },
+      { pathname: '/Clash/domainset/discord.txt', status: 404, delegated: false },
+      { pathname: '/sing-box/domainset/missing.json', status: 404, delegated: false },
+      { pathname: '/Loon/domainset/cdn.list', status: 404, delegated: false },
       // A sing-box non_ip that disappears when a ruleset turns IP-only is not served from the cache.
       { pathname: '/sing-box/non_ip/apple_services_ip.json', status: 404, delegated: false },
       { pathname: '/Mirror/fmz200/sgmodule/categories/Q/%E7%9F%A5%E4%B9%8E.sgmodule', status: 200, delegated: true },
       // A mirrored module renamed or dropped upstream is not served from the edge cache.
       { pathname: '/Mirror/fmz200/sgmodule/categories/Q/%E5%B0%8F%E7%BA%A2%E4%B9%A6.sgmodule', status: 404, delegated: false },
       { pathname: '/Mirror/iRingo/sgmodule/removed.sgmodule', status: 404, delegated: false },
+    ]);
+  });
+
+  it('serves only audited native domainsets from a reused output directory', async t => {
+    const root = await fixture(t);
+    for (const [directory, filename] of [['List', 'cdn.conf'], ['Clash', 'cdn.txt'], ['sing-box', 'cdn.json']]) {
+      const tree = path.join(root, directory, 'domainset');
+      // eslint-disable-next-line no-await-in-loop -- fixture on disk precedes audit
+      await fs.mkdir(tree, { recursive: true });
+      // eslint-disable-next-line no-await-in-loop -- fixture on disk precedes audit
+      await fs.writeFile(path.join(tree, filename), 'old body');
+    }
+    const native = { pathname: '/Clash/domainset/cdn.txt', status: 404, delegated: false };
+    await writePagesInternalGate(root);
+    exerciseWorker(root, [native]);
+    await writeDomainsetAudit(root, false);
+    await writePagesInternalGate(root);
+    exerciseWorker(root, [native]);
+
+    await fs.writeFile(path.join(root, 'Clash/domainset/cdn.txt'), '+.cdn.example');
+    await writeDomainsetAudit(root, true);
+    await fs.writeFile(path.join(root, 'List/domainset/cdn.list'), '.cdn.example');
+    await fs.writeFile(path.join(root, 'Clash/domainset/cdn.txt'), 'DOMAIN-SUFFIX,cdn.example');
+    await writePagesInternalGate(root);
+    exerciseWorker(root, [
+      native,
+      { pathname: '/List/domainset/cdn.list', status: 404, delegated: false },
     ]);
   });
 

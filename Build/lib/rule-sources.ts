@@ -263,7 +263,10 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://github.com/dler-io/Rules/raw/main/Surge/Surge%203/Provider/AI%20Suite.list',
       // Use Meta's text geosite format; the JSON path cannot preserve every field.
       `${META_RULES}/geosite/category-ai-!cn.list`,
-      'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/asn/AS399358.list',
+      // Official Anthropic inbound IP documentation (Markdown), cross-checked against RIR RDAP.
+      'https://platform.claude.com/docs/en/api/ip-addresses.md',
+      // Live global BGP announced prefixes for AS399358, cross-checked against RIR RDAP.
+      'https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS399358',
     ],
     defaultPolicy: null, // 无策略，纯RULE-SET格式
     targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持

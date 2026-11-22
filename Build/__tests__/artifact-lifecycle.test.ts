@@ -87,18 +87,27 @@ describe('artifact lifecycle registry', () => {
   });
 
   it('purges retired merged and split rules while preserving active subscriptions', async () => {
-    // domainset files are retired by directory prefix, whatever the ruleset id.
-    const paths = ['List/discord.list', 'Clash/domainset/discord.txt', 'List/domainset/apple_cdn.list', 'sing-box/domainset/nested/x.json', 'Loon/non_ip/scholar.list', 'sing-box/ip/container.json', 'sing-box/non_ip/china_asn.json'];
-    await withTree(Object.fromEntries([...paths.map(relative => [relative, 'old']), ['List/non_ip/apple_cdn.list', 'DOMAIN-SUFFIX,apple.com']]), async root => {
+    const paths = [
+      'List/discord.list', 'Clash/domainset/discord.txt', 'List/ip/discord.conf',
+      'Loon/domainset/nested/x.list', 'Loon/non_ip/scholar.list', 'sing-box/ip/container.json',
+      'sing-box/non_ip/china_asn.json', 'sing-box/domainset/china_asn.json',
+    ];
+    await withTree(Object.fromEntries([
+      ...paths.map(relative => [relative, 'old']),
+      ['List/non_ip/apple_cdn.list', 'DOMAIN-SUFFIX,apple.com'],
+      ['List/domainset/apple_cdn.conf', '.apple.com'],
+    ]), async root => {
       for (const relative of paths) assert.equal(isRetiredPublicPath(relative), true);
       assert.equal(isRetiredPublicPath('List/domainset'), false);
       assert.equal(isRetiredPublicPath('List/domainsetx/a.list'), false);
-      assert.equal(findLifecycleRecord('Clash/domainset/discord.txt')?.id, 'variant:domainset');
-      await fs.writeFile(path.join(root, 'List/domainset/apple_cdn.list'), 'old');
-      await assert.rejects(assertNoRetiredArtifacts(root), /List\/domainset\/apple_cdn\.list/);
+      assert.equal(findLifecycleRecord('Loon/domainset/nested/x.list')?.id, 'variant:domainset');
+      assert.equal(findLifecycleRecord('Clash/domainset/discord.txt')?.id, 'ruleset:discord');
+      assert.equal(isRetiredPublicPath('List/domainset/apple_cdn.conf'), false);
+      await assert.rejects(assertNoRetiredArtifacts(root), /Loon\/domainset\/nested\/x\.list/);
       assert.deepEqual(new Set(await purgeRetiredArtifacts(root)), new Set(paths));
       await assertNoRetiredArtifacts(root);
       assert.equal(await fs.readFile(path.join(root, 'List/non_ip/apple_cdn.list'), 'utf8'), 'DOMAIN-SUFFIX,apple.com');
+      assert.equal(await fs.readFile(path.join(root, 'List/domainset/apple_cdn.conf'), 'utf8'), '.apple.com');
     });
   });
 
@@ -109,6 +118,11 @@ describe('artifact lifecycle registry', () => {
     assert.throws(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['List/'] }]), /directory/);
     assert.throws(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['Other/old/'] }]), /directory/);
     assert.throws(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['../List/old/'] }]), /escapes/);
+    assert.throws(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['List/old/'], pathSuffix: '*.list' }]), /literal extension/);
+    assert.doesNotThrow(() => validateLifecycleRegistry([
+      { ...base, id: 'a', paths: [], pathPrefixes: ['List/domainset/'], pathSuffix: '.list' },
+      { ...base, id: 'b', paths: ['List/domainset/cdn.conf'] },
+    ]));
     assert.throws(() => validateLifecycleRegistry([
       { ...base, id: 'a', paths: [], pathPrefixes: ['List/old/'] },
       { ...base, id: 'b', paths: ['List/old/x.list'] },

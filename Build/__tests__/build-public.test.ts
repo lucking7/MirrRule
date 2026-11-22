@@ -239,6 +239,24 @@ describe('native public directory tree', () => {
     assert.ok(links.includes('/sing-box/non_ip/apple.json'));
   });
 
+  it('shows a native domainset before the corresponding classical folders', () => {
+    const tree: TreeTypeArray = ['List', 'Clash', 'sing-box'].map(root => {
+      const extension = root === 'List' ? 'conf' : (root === 'Clash' ? 'txt' : 'json');
+      return dir(root, ['non_ip', 'ip', 'domainset'].map(variant => {
+        const entryPath = `/${root}/${variant}`;
+        return dir(variant, [file(`cdn.${extension}`, `${entryPath}/cdn.${extension}`)], entryPath);
+      }));
+    });
+    const html = treeHtml(tree);
+    const names = [...html.matchAll(/<summary>([^<]*)<\/summary>/g)].map(match => match[1]);
+    assert.deepEqual(names.filter(name => name.startsWith('domainset')), [
+      'domainset (Surge DOMAIN-SET)', 'domainset (Clash domain)', 'domainset (sing-box rule-set JSON v2)',
+    ]);
+    assert.deepEqual(fileLinks(html).slice(0, 3).map(link => link.href), [
+      '/List/domainset/cdn.conf', '/List/non_ip/cdn.conf', '/List/ip/cdn.conf',
+    ]);
+  });
+
   it('preserves category order and sorts files without mutating the input at any depth', () => {
     const tree: TreeTypeArray = [
       file('README.md', '/README.md'),
@@ -311,6 +329,19 @@ describe('public filename visibility and escaping', () => {
         '/README.md', '/LICENSE', '/List/apple.list', '/Clash/apple.txt', '/Loon/apple.list', '/sing-box/apple.json',
         '/Mirror/Sukka/sgmodule/module.sgmodule', '/List/README.md', '/List/LICENSE',
       ].sort());
+    });
+  });
+
+  it('hides pre-migration domainset bodies when an old tree has no native output audit', async () => {
+    await withPublicDirectory([
+      'List/domainset/cdn.list', 'Clash/domainset/cdn.txt', 'sing-box/domainset/cdn.json',
+      'List/non_ip/cdn.list', 'Mirror/domainset/module.sgmodule',
+    ], async directory => {
+      const rendered = treeHtml(await scanPublicTree(directory));
+      assert.deepEqual(fileLinks(rendered).map(link => link.href), [
+        '/List/non_ip/cdn.list', '/Mirror/domainset/module.sgmodule',
+      ]);
+      assert.doesNotMatch(rendered, /domainset \(Surge|domainset \(Clash|domainset \(sing-box/);
     });
   });
 

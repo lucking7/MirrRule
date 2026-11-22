@@ -7,7 +7,7 @@ import { gzip, gunzip } from 'node:zlib';
 import type { RuleConversionLosses, RuleDropSummary } from '../core/output/writing-strategy/base';
 import type { SupportedPlatform } from './platform-config';
 import type { RuleOutputFormat, RuleOutputSlot, RuleOutputStatus } from './rule-output-variants';
-import { PLATFORM_OUTPUT_LAYOUT, resolveRuleOutputTarget } from './rule-output-variants';
+import { PLATFORM_OUTPUT_LAYOUT, resolveRuleOutputTarget, RULE_OUTPUT_LAYOUT_VERSION } from './rule-output-variants';
 import { writeFileAtomic } from './atomic-file';
 import { RuleLineUtils } from '../utils/validation/validators';
 import type { FetchAssetsSelection } from '../utils/network/fetch-assets';
@@ -777,6 +777,7 @@ export async function writeRuleOutputReports(options: RuleOutputReportOptions): 
   const countOutputs = (status: RuleOutputStatus) => outputs.filter(output => output.status === status).length;
   await writeFileAtomic(path.join(options.outputRoot, RULE_OUTPUT_AUDIT_PATH), toJson({
     schemaVersion: RULE_OUTPUT_AUDIT_SCHEMA_VERSION,
+    layoutVersion: RULE_OUTPUT_LAYOUT_VERSION,
     converterVersion: RULE_OUTPUT_CONVERTER_VERSION,
     generatedAt: options.generatedAt,
     summary: {

@@ -1,4 +1,4 @@
-import { isRetiredPublicPath, retiredPublicPaths, retiredPublicPrefixes } from './artifact-lifecycle';
+import { isRetiredPublicPath, retiredPublicPaths, retiredPublicPrefixRules } from './artifact-lifecycle';
 import type { GitHubClient } from './publication-github';
 import { NRRULE_REPOSITORY } from './publication-github';
 import type { Clock } from './publication-check';
@@ -8,20 +8,25 @@ import { checkOriginUntil } from './publication-http';
 import { PUBLICATION_MANIFEST_PATH, comparePaths } from './publication-manifest';
 import type { PublicationManifest } from './publication-manifest';
 import { RULE_OUTPUT_AUDIT_FILE, auditAbsentPaths, readOutputContract } from './publication-outputs';
+import { RULE_OUTPUT_VARIANT_DIRECTORIES } from './rule-output-variants';
 
 /** File name probed below every retired directory prefix; no published file uses it. */
 const RETIRED_PREFIX_PROBE = 'nrrule-retired-probe';
+const DOMAINSET_PREFIX_PROBE = 'nrrule-absent-probe.list';
 
 /**
  * Paths that must answer 404: outputs the audit declares absent, every retired registry path,
- * one probe below each retired directory prefix, and baseline paths this tree no longer
- * publishes (retired removals and stale variants).
+ * probes below retired and active domainset prefixes, and baseline paths this tree no
+ * longer publishes.
  */
 export async function collectAbsentPaths(staging: string, manifest: PublicationManifest): Promise<string[]> {
   const { outputs } = await readOutputContract(staging, [RULE_OUTPUT_AUDIT_FILE]);
   const published = new Set(manifest.files.map(file => file.path));
-  const prefixProbes = retiredPublicPrefixes().map(prefix => prefix + RETIRED_PREFIX_PROBE);
-  const absent = new Set([...auditAbsentPaths(outputs), ...retiredPublicPaths(), ...prefixProbes, ...manifest.removedPaths, ...manifest.retiredRemoved]);
+  const prefixProbes = retiredPublicPrefixRules().map(({ prefix, suffix }) => prefix + RETIRED_PREFIX_PROBE + (suffix ?? ''));
+  const domainsetProbes = RULE_OUTPUT_VARIANT_DIRECTORIES.flatMap(directory => (
+    directory.endsWith('/domainset') ? [`${directory}/${DOMAINSET_PREFIX_PROBE}`] : []
+  ));
+  const absent = new Set([...auditAbsentPaths(outputs), ...retiredPublicPaths(), ...prefixProbes, ...domainsetProbes, ...manifest.removedPaths, ...manifest.retiredRemoved]);
   return [...absent].filter(relative => !published.has(relative) && relative !== PUBLICATION_MANIFEST_PATH).sort(comparePaths);
 }
 

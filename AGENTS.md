@@ -13,7 +13,7 @@ MirrRule 是一个 **Node.js + TypeScript 的网络代理规则聚合、转换�
 - Loon：`public/Loon/*.list`
 - sing-box rule-set：`public/sing-box/*.json`
 - Surge modules / plugins / mirrors：`public/Mirror/**`
-- 规则分版（追加输出，见第 7 节）：`public/<平台目录>/{non_ip,ip}/*`
+- 分版订阅见第 7 节。四个平台提供 `non_ip/`、`ip/`，Surge、Clash 和 sing-box 另有原生 `domainset/`。
 - 机器可读报告：`public/Internal/*.json`（输出审计、来源 delta、发布清单、退休登记、覆盖审查）
 
 公开服务基础地址见 `README.md`：`https://nrrule.pages.dev`。
@@ -115,7 +115,8 @@ Build/
   integration/mirror-sync/         GitHub Release/镜像同步实现
   integration/plugin-converter/    插件下载、转换、镜像实现
   lib/                             规则处理、输出、解析、模块合并等核心逻辑
-  lib/rule-output-variants.ts      分版（non_ip/ip）分类、路径与格式契约
+  lib/rule-output-variants.ts      分版（domainset/non_ip/ip）分类、路径与格式契约
+  lib/primary-ip-sources.ts        Anthropic 官方入站 IP 文档与 RIPEstat 实时 BGP 前缀抓取及 RDAP 校验
   lib/output-audit.ts              各 ruleset×分版×平台的实际输出审计、来源快照与 delta
   lib/publication-manifest.ts      发布清单（路径、字节数、SHA256、generated/preserved 来源）
   lib/publication-receipt.ts       GitHub Deployments 验收 receipt 的读写与基线选择
@@ -158,7 +159,7 @@ eslint.config.js                   ESLint 配置
 3. 创建 `RuleSourceProcessor`，读取 `ruleGroups` 与 `specialRules`。
 4. 逐个下载上游规则源。
 5. 通过 `EnhancedFileOutput` 清洗、转换、去重、排序、分类规则。
-6. 按目标平台创建输出策略，写入 flat 合并版 `public/List`、`public/Clash`、`public/Loon`、`public/sing-box`，并在同一次 canonical 处理结果上分类写入 `<平台目录>/{non_ip,ip}/` 分版（不重新下载）。
+6. 按目标平台创建输出策略，写入 flat 合并版 `public/List`、`public/Clash`、`public/Loon`、`public/sing-box`，并在同一次 canonical 处理结果上分类写入第 7 节的分版（不重新下载）。
 7. 生成 `Internal/rule-output-audit.json`（每个 ruleset×分版×平台的格式、路径、状态、有效条数、字节数、SHA256）、`Internal/source-snapshots/<sourceId>.json.gz` 与 `Internal/source-delta.json`（相对 `PUBLICATION_BASELINE_DIR` 中已验收 tree 的来源条件增删，并记录基线 receiptId；无基线为 baseline-unavailable，版本或处理选项变化为 not-comparable，基线中有、本次不再构建的规则集为 removed）。
 8. 执行跨订阅覆盖审查，写入 `Internal/rule-coverage.json`；缺失示例订阅时该步骤失败。
 9. 执行 `buildPublic` 生成 `index.html`、`_headers`、`404.html`、`README.md` 等 public 辅助文件，并按退休登记清除 retired 文件。
@@ -176,7 +177,7 @@ eslint.config.js                   ESLint 配置
 - `Build/core/output/writing-strategy/*.ts`
 - `Build/build-public.ts`
 
-来源比较快照写为 `Internal/source-snapshots/*.json.gz`，读取兼容历史 `.json`；相同 source id 的两种编码不能同时存在。发布暂存检查单文件 25 MiB 上限，超限在 Git 推送前失败。 最终 tree 同时生成 `_worker.js` 和 `_routes.json`，路由 `/Internal/*`、四个平台的 `ip/` 与 `non_ip/` 分版目录、`/Mirror/`、退休登记中的目录前缀（`/<prefix>*`）和不在这些目录内的精确路径，总数不能超过 Pages 的 100 条上限；分版目录只放行本次 tree 中存在的文件并补上 `_headers` 中的规则目录响应头，其余返回 `404`，因为分版文件会随上游内容出现和消失（如规则集只剩域名时 `ip` 消失、只剩 IP 时 `non_ip` 消失），被删除的文件仍会留在边缘缓存中；`Mirror/` 同样只放行本次 tree 中的文件（2026-10-26 起），因为镜像模块会随上游改名或删除（fmz200 按模块 `#!name` 命名文件，run 40211439832 因 `Q/小红书.sgmodule` 的缓存残留验收失败）；分版和镜像请求因此都计入 Functions 调用次数；当前内部文件放行，缺失内部文件和退休订阅在静态缓存查询前返回 `404`。Pages production/preview 必须设置 `fail_open: false`，以免 Functions 额度耗尽后跳过检查。两文件属于生成物并登记为 generated provenance。
+来源比较快照写为 `Internal/source-snapshots/*.json.gz`，读取兼容历史 `.json`；相同 source id 的两种编码不能同时存在。发布暂存检查单文件 25 MiB 上限，超限在 Git 推送前失败。 最终 tree 同时生成 `_worker.js` 和 `_routes.json`，路由 `/Internal/*`、四个平台的 `ip/` 与 `non_ip/`、三个原生 `domainset/` 目录、`/Mirror/`、退休登记中的目录前缀（`/<prefix>*`）和不在这些目录内的精确路径，总数不能超过 Pages 的 100 条上限；分版目录只放行本次 tree 中存在的文件并补上 `_headers` 中的规则目录响应头，其余返回 `404`，因为分版文件会随上游内容出现和消失（如规则集只剩域名时 `ip` 消失、只剩 IP 时 `non_ip` 消失），被删除的文件仍会留在边缘缓存中；`Mirror/` 同样只放行本次 tree 中的文件（2026-10-26 起），因为镜像模块会随上游改名或删除（fmz200 按模块 `#!name` 命名文件，run 40211439832 因 `Q/小红书.sgmodule` 的缓存残留验收失败）；分版和镜像请求因此都计入 Functions 调用次数；当前内部文件放行，缺失内部文件和退休订阅在静态缓存查询前返回 `404`。Pages production/preview 必须设置 `fail_open: false`，以免 Functions 额度耗尽后跳过检查。两文件属于生成物并登记为 generated provenance。
 
 `status.json` 的 `ruleCount` 保持 canonical 逻辑数量的旧含义，不等于各平台实际输出数量；平台实际数量以 `Internal/rule-output-audit.json` 为准。`semanticScope: normalized-source` 与 `effectiveOutputs` 分别比较标准化来源和平台实际输出；`optimizations` 记录 canonical 到 writer 路由间的 keyword/domain coverage，不代表早期 Trie/CIDR 归一化的逐条原因。旧 converter 或缺少有效输出快照时，相关比较标为不可比。
 
@@ -243,16 +244,17 @@ loon    -> public/Loon
 
 ### 分版输出
 
-flat 合并版 URL 保持不变；分版是追加输出，契约在 `Build/lib/rule-output-variants.ts`：
+发布目录和正文格式统一由 `Build/lib/rule-output-variants.ts` 定义。修改时同时核对输出审计、Pages 放行路径、覆盖审查和 [README 的订阅示例](README.md#subscription-variants)。
 
-- 路径：`<平台目录>/<variant>/<id>.<扩展名>`，平台目录与扩展名同上表（`List/.list`、`Clash/.txt`、`Loon/.list`、`sing-box/.json`），`id` 为配置路径 basename 的小写形式。
-- 两类互斥，同一平台两者并集等于合并版：`non_ip` 为不使用目标 IP 的条件，包括全部域名规则、SRC-IP 等源地址条件；`ip` 为全部 IP-CIDR／IP-CIDR6／IP-ASN／GEOIP（不论是否带 `no-resolve`）及含目标 IP 子条件的完整 logical 规则。这与 Sukka 的 `ip/` 文件一致（2026-10-18 起，撤销 10-17 把带 `no-resolve` 的 IP 规则放进 `non_ip` 的做法）；Sukka 来源是否带 `no-resolve` 跟随上游。logical 规则不拆分子条件。2026-10-17 起 `domainset` 分版并入 `non_ip`，旧 `<平台目录>/domainset/` 由 `variant:domainset` 退休前缀覆盖，残留文件会在 stage 时清除并记入 `retiredRemoved`。
+- 合并版位于各平台根目录。Surge 的 `non_ip`、`ip` 同时发布 `.conf` 与原 `.list` 地址。其余平台沿用表中的扩展名。
+- 默认按规则条件分类。`non_ip` 包含域名、源地址等条件，`ip` 包含带或不带 `no-resolve` 的目标 IP 条件，以及含目标 IP 子条件的完整 logical 规则。两类合起来覆盖合并版。
+- `domainset` 是可选的精确域名与后缀子集。Surge 用 `List/domainset/*.conf` 和 `DOMAIN-SET`，Clash 用 `Clash/domainset/*.txt` 和 `behavior: domain`，sing-box 用 `sing-box/domainset/*.json` 和 JSON v2。Loon 仍使用 classical。两个冻结的地域测速订阅只发布原有路径。
 - 按来源分版的例外：规则集设置 `sourceVariants` 时，每个分版是指定给它的上游文件经同样清洗后的内容，不按上面的类型分类，也不跨分版去重。此时 `non_ip` 可以包含上游放在该文件中、带 `no-resolve` 的 IP 规则（如 `non_ip/reject`），两者并集仍等于合并版的匹配范围，但条数之和可以大于合并版。
 - Surge 的 extended-matching 例外：规则集含 `extended-matching` 时，含域名子条件的目标 IP logical 规则留在 Surge `non_ip` 以保留文件级标志，审计记为 `reroutedFromIp`。其他平台仍归入 `ip`。
 - 转换损失记录在 `outputs[].losses`（`droppedValues`、`ignoredModifiers`）：sing-box 不能表达 `no-resolve`，Surge 以外忽略 `extended-matching`，Clash 丢弃 TCP/UDP 以外的 `PROTOCOL` 值。不要把这些损失写成"保留"。
-- 格式：分版沿用各平台合并版的编码：Surge `List/non_ip`、`List/ip` 与 Loon 为 classical RULE-SET，Clash 为 classical 文本，sing-box 为 JSON v2。消费者格式以审计报告的 `format` 字段为准，不按目录名猜测。
+- 格式：`non_ip`、`ip` 沿用各平台合并版的编码：Surge `List/non_ip`、`List/ip` 与 Loon 为 classical RULE-SET，Clash 为 classical 文本，sing-box 为 JSON v2。消费者格式以审计报告的 `format` 字段为准，不按目录名猜测。
 - 空分版或平台全部不支持的分版不写文件，在审计报告中记为 `absent-empty`／`absent-unsupported`；成功构建会清除以前存在、现已合法消失的分版文件。下载失败不得解释为空分版：规则集的上游下载失败时，用 `PUBLICATION_BASELINE_DIR` 中已验收的来源快照重新发布该规则集（内容不变，`sources[].selection` 记为 `baseline-snapshot`，构建记录中有 `::warning::`），其他规则集照常更新；没有可用快照、设置了 `sourceVariants`，或快照在当前处理选项下不能复现时，才是构建失败。sing-box 仍执行有效匹配条件门槛。
-- 覆盖审查（`Build/audit-rule-coverage.ts`）按引用关键字选择解析器：NRRule 的 flat 与 `List/{non_ip,ip}/<id>.list` 都是 `RULE-SET`；`DOMAIN-SET` 只解析本地文件，指向 NRRule 地址时记为格式不符或未知路径。缺失分版、格式不符、未知路径与远端引用都记为 `reviewStatus: not-covered` 并给出 `notCoveredReason`，不能计为已审查。
+- 覆盖审查（`Build/audit-rule-coverage.ts`）按引用关键字和实际发布路径匹配格式。Surge 的 `domainset/*.conf` 用 `DOMAIN-SET`，合并版和 `non_ip`、`ip` 用 `RULE-SET`。缺失、格式不符及无法解析的引用均记为 `not-covered`。
 
 ## 8. 规则清洗与转换约定
 
@@ -314,14 +316,15 @@ iRingo `.sgmodule` 有后处理逻辑，会替换 `#!arguments=` 中的 `Proxy` 
 - `Build/integration/plugin-converter/plugin-list.ts`
 - `Build/integration/plugin-converter/*`
 
-插件列表默认用 `Surge Mac/8380 (MirrRule/1.0; +...)` 应用标识直连 `https://hub.kelee.one/list.json`，失败时再试已有代理候选。kelee.one 的 WAF 只放行以 `Surge Mac/` 开头的 UA，应用标识必须放在括号内。目录失败的转换报告记 `status: catalog-unavailable`，没有 `results`。手动任务 `verify-kelee` 只验证内部刷新、不上传正文或部署，检查条件见 `RULE_SOURCES.md`。可通过环境变量覆盖目录配置：
+插件列表默认用 `Surge Mac/8380 (MirrRule/1.0; +...)` 应用标识直连 `https://hub.kelee.one/list.json`，失败时再试已有代理候选。kelee.one 的 WAF 只放行以 `Surge Mac/` 开头的 UA，应用标识必须放在括号内。目录失败的转换报告记 `status: catalog-unavailable`，没有 `results`。手动任务 `verify-kelee` 只验证内部刷新、不上传正文或部署，检查条件见 `RULE_SOURCES.md`。CI 使用固定 digest 的 `xream/script-hub` 镜像；覆盖目录配置见第 14 节的 `PLUGIN_LIST_URL` 与 `PLUGIN_LIST_FORCE_PROXY`。
 
-- `PLUGIN_LIST_URL`：逗号分隔的插件列表 URL。
-- `PLUGIN_LIST_FORCE_PROXY`：默认视为启用代理候选；设为 `false` 可关闭强制代理候选。
+目录下载失败，或所有缺失、未就绪的必需模块均因插件或必需脚本下载时遇到网络错误、HTTP 5xx、401、403、408、429 而失败时，`convert-plugins` 退出 3。workflow 记录 `converted=false` 并警告，跳过重试和合并，发布时沿用已验收的 `Modules`、`Scripts`，规则可继续更新。必需脚本返回 404/410、模块改名导致缺失、转换或合并 dry-run 出错时退出 1。修改分类时查 `Build/integration/plugin-converter/upstream-failure.ts` 和同目录的 `readiness.ts`，其中按 `upstreamUnavailable` 和无输出路径的失败数归因。回归用例在 `Build/__tests__/plugin-readiness.test.ts`。
 
-CI 中会启动固定 digest 的 `xream/script-hub` image 用于插件转换。
+**排查 Kelee 下载失败**时，按已有授权选择下载入口。仅限内部使用时，在隔离 runner 内校验正文并运行获准的转换，日志只记录请求元数据、校验结果和摘要，跳过正文及产物上传和发布。
 
-插件上游不可用时，`convert-plugins` 退出码为 3。只有两种情况算上游不可用：插件目录下载失败；或每个缺失、未就绪的必需模块，都是因为它的插件或某个必需脚本因网络错误、HTTP 5xx，或与客户端有关的拒绝（401、403、408、429，例如上游的反爬拦截）下载失败；404、410 等表示文件被删除或改名，算真实故障。原因记录在结果的 `upstreamUnavailable` 字段（分类逻辑在 `Build/integration/plugin-converter/upstream-failure.ts` 与 `readiness.ts`），不按错误文本匹配。插件下载失败时还没有输出文件名，这类缺失模块只能按数量对应到无输出路径的下载失败，所以无输出路径的失败里只要有一个不是上游原因，就退出 1。合并 dry-run 出错、模块因改名缺失、Script-Hub 转换错误、必需脚本 404 都退出 1。退出码 3 时 workflow 不重试，发出 `::warning::`，跳过模块合并，从发布任务中去掉 `convert-plugins` 与 `merge-modules`，`Modules`、`Scripts` 沿用已验收版本，规则照常发布；代价是模块可能变旧。其他失败仍让 run 失败。
+1. 分别检查插件目录 `https://hub.kelee.one/list.json`、插件正文及其必需脚本（两份 Kelee 地域测速规则已于 2026-11-19 冻结，不再实时抓取）。记录请求时间（UTC）、目标路径、直连或 gateway、HTTP 状态和对应格式的正文校验结果。目录通过 JSON 校验只证明目录可读。各类正文的校验条件见 `Build/browser-rule-gateway.py`。
+2. 直连返回 Cloudflare 403 时，记录响应的 Ray ID。由上游管理员按时间、主机、路径和 Ray ID 查询命中的规则，确认现有请求如何放行，或提供 CI 专用入口和服务凭据。gateway 返回 502 时查同轮网关日志，区分上游非 200、请求异常和正文校验失败。
+3. 验收刷新时，核对同一 run、同一次 attempt 中插件目录、插件与必需脚本的下载与正文校验记录，再对照插件转换报告中的必需模块状态、脚本和合并 dry-run 结果；核对规则审计中的 `sources[].selection` 时，确认两份冻结地域测速保持 `frozen-snapshot`，备用源（`fallback`）注明实际来源，缓存和已验收快照（`baseline-snapshot`）单独列为复用。若目录下载阶段已退出，从该步骤的日志定位。
 
 模块脚本依赖：构建 job 每次运行 `Build/audit-module-dependencies.ts`（逻辑在 `Build/lib/module-dependency-audit.ts`），检查 `Mirror/`、`Modules/` 中 Surge 模块 `[Script]` 段生效行的 `script-path`。外部脚本返回 HTTP 404/410、或 NRRule 托管脚本不在 tree 中算一次缺失；网络错误、5xx、限流不计。计数保存在 `Internal/module-dependency-audit.json`，从 `PUBLICATION_BASELINE_DIR` 的已验收报告延续；连续 3 次缺失后，只在本轮刷新的目录（任务含 `mirror-sync` 则 `Mirror`，含 `convert-plugins` 或 `merge-modules` 则 `Modules`）中删除加载该脚本的行，并发出 `::warning::`。`Mirror/` 模块的脚本行全部被删时删除整个文件（该目录由 worker 门控，删后返回 404）；`Modules/` 文件只删行不删文件（合并配置要求这些模块存在，且该目录不受 worker 门控）。未刷新的目录在发布时从已验收 tree 复制，因此只计数不修改；被删过的脚本继续跟踪，上游刷新后再次出现会立即被删，恢复为 2xx 后计数清零、不再删除。
 
@@ -335,7 +338,7 @@ CI 中会启动固定 digest 的 `xream/script-hub` image 用于插件转换。
 
 ### 退休登记
 
-`Build/lib/artifact-lifecycle.ts` 是 deprecated／retired 订阅的唯一登记，发布为 `Internal/artifact-lifecycle.json`。每条记录有稳定 id、原公开路径（或以 `/` 结尾的目录前缀 `pathPrefixes`，其下所有文件都视为退休）、原因、依据和可选 replacement。精确路径不能落在其他记录的前缀内。缓存恢复（`restore-optional-artifacts.ts`、`download-previous-build.ts`）、`build-public`、`prepare-publication` 与回滚候选都调用同一登记，retired 文件不能从历史产物、缓存或保留目录复活。退休 ruleset 登记同时覆盖合并版和 `non_ip`、`ip` 分版，旧 `domainset/` 路径由 `variant:domainset` 前缀记录覆盖。清理只作用于已登记的公开路径，拒绝绝对路径和路径穿越；共享 Scripts 需有引用或独占证据才能删除。不要凭一次上游空响应新增退休记录。当前 retired：腾讯视频去广告模块、`Modules/Rules/reject-pro.list`（2026-11-16，去掉策略的合并模块 [Rule] 副本，把 DIRECT 例外混进了拦截列表；replacement 为 `Modules/Merged/All-in-One-Pro.sgmodule`，不在 worker 门控目录内，因此占一条精确路由）、`wechat_no_ua` 四平台规则（2026-11-15，replacement 为 `wechat`）、`container`／`discord`／`scholar` 四平台规则、`sing-box/china_asn.json`（replacement 为 `sing-box/china_ip.json` 与 `china_ip_ipv6.json`，IP 覆盖不等同于 ASN）、四平台 `domainset/` 目录（2026-10-17 并入 `non_ip`，旧文件仍在 Cloudflare 边缘缓存中返回 200，必须由 worker 返回 404）、`streaming_cn`／`streaming_!cn` 四平台规则（2026-11-10，唯一上游 ConnersHua/RuleGo 已停止维护；`streaming_!cn` 的替代为 Sukka `stream`）、iRingo 地图／TestFlight／Siri／Search／Spotlight 镜像（2026-11-16，证书固定导致失效）、`GeoIP/ip2.mmdb`（2026-11-16，上游 xream/geoip 已归档，replacement 为 `GeoIP/country.mmdb`；退休路径不在门控目录内，占一条精确路由）。`ads` 同日去掉 RuleGo 的广告、恶意、跟踪三个来源，只剩 AWAvenue。
+`Build/lib/artifact-lifecycle.ts` 是 deprecated／retired 订阅的唯一登记，发布为 `Internal/artifact-lifecycle.json`。每条记录有稳定 id、原因、依据和可选 replacement。路径可用精确文件或目录前缀 `pathPrefixes`；设置 `pathSuffix` 时仅匹配该前缀下具有指定后缀的文件，例如 `List/domainset/*.list`。精确路径不能落在其他记录的前缀内。缓存恢复（`restore-optional-artifacts.ts`、`download-previous-build.ts`）、`build-public`、`prepare-publication` 与回滚候选都调用同一登记，retired 文件不能从历史产物、缓存或保留目录复活。退休 ruleset 的合并版和分版均须在发布与回滚中核对。清理只作用于已登记的公开路径，拒绝绝对路径和路径穿越；共享 Scripts 需有引用或独占证据才能删除。不要凭一次上游空响应新增退休记录。当前 retired：腾讯视频去广告模块、`Modules/Rules/reject-pro.list`（2026-11-16，去掉策略的合并模块 [Rule] 副本，把 DIRECT 例外混进了拦截列表；replacement 为 `Modules/Merged/All-in-One-Pro.sgmodule`，不在 worker 门控目录内，因此占一条精确路由）、`wechat_no_ua` 四平台规则（2026-11-15，replacement 为 `wechat`）、`container`／`discord`／`scholar` 四平台规则、`sing-box/china_asn.json`（replacement 为 `sing-box/china_ip.json` 与 `china_ip_ipv6.json`，IP 覆盖不等同于 ASN）、`Loon/domainset/` 旧目录、`streaming_cn`／`streaming_!cn` 四平台规则（2026-11-10，唯一上游 ConnersHua/RuleGo 已停止维护；`streaming_!cn` 的替代为 Sukka `stream`）、iRingo 地图／TestFlight／Siri／Search／Spotlight 镜像（2026-11-16，证书固定导致失效）、`GeoIP/ip2.mmdb`（2026-11-16，上游 xream/geoip 已归档，replacement 为 `GeoIP/country.mmdb`；退休路径不在门控目录内，占一条精确路由）。`ads` 同日去掉 RuleGo 的广告、恶意、跟踪三个来源，只剩 AWAvenue。
 
 ### 模块合并
 
@@ -593,4 +596,4 @@ pnpm run deploy
 - 本仓库构建高度依赖外部网络，上游不可用可能导致 `pnpm run build` 失败。
 - `public/` 是构建产物目录，不在源码中长期维护。
 - 部分源码注释为中文，新增说明可继续使用中文；公开用户文档可视上下文使用英文或中英混排。
-- 分版设计的调研依据、上游对比和未解决问题（旧订阅 404、Mihomo 格式）见 `docs/notes/2026-10-17-rule-variant-split-research.md`。
+- 现行分版契约见第 7 节。2026-10-17 版分版的历史取舍见 `docs/notes/2026-10-17-rule-variant-split-research.md`。
