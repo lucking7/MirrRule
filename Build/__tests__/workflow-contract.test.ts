@@ -52,7 +52,6 @@ const sourceHealthWorkflow = parse(
     'utf8',
   ),
 ) as Workflow;
-const expectedSetupPythonAction = 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97';
 
 function getJob(id: string, targetWorkflow: Workflow = workflow) {
   const job = targetWorkflow.jobs?.[id];
@@ -417,16 +416,27 @@ describe('GitHub Actions workflow contract', () => {
     assert.match(String(cleanupStep.run), /docker rm --force mirrrule-script-hub/);
   });
 
+  it('uses the same pinned setup-python action before installing Python dependencies', () => {
+    const consumers = [
+      ['convert-plugins', 'Install browser gateway dependencies'],
+      ['build', 'Install GeoIP country builder'],
+    ] as const;
+    const pythonActions = new Set<string>();
+    for (const [jobId, installStepName] of consumers) {
+      const job = getJob(jobId);
+      const steps = job.steps ?? [];
+      const pythonSetup = steps.find((step) => step.uses?.startsWith('actions/setup-python@'));
+      assert.ok(pythonSetup?.uses, `job ${jobId} should set up Python`);
+      assert.match(pythonSetup.uses, /^actions\/setup-python@[a-f0-9]{40}$/);
+      assert.equal(pythonSetup.with?.['python-version'], '3.11');
+      assert.ok(steps.indexOf(pythonSetup) < steps.indexOf(getStep(job, installStepName)));
+      pythonActions.add(pythonSetup.uses);
+    }
+    assert.equal(pythonActions.size, 1);
+  });
+
   it('runs the browser gateway before plugin conversion and always uploads its diagnostics', () => {
     const convertJob = getJob('convert-plugins');
-    const pythonSetup = convertJob.steps?.find((step) =>
-      step.uses?.startsWith('actions/setup-python@'),
-    );
-    assert.equal(
-      pythonSetup?.uses,
-      expectedSetupPythonAction,
-    );
-    assert.equal(pythonSetup.with?.['python-version'], '3.11');
     assert.match(
       String(getStep(convertJob, 'Install browser gateway dependencies').run),
       /Build\/browser-rule-requirements\.txt/,
