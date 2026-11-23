@@ -315,16 +315,45 @@ export async function syncRepository(
   ));
 
   const processable = filterProcessableAssets(classified);
-  if (repository.branchFiles && processable.length !== classified.length) {
-    const rejected: string[] = [];
-    for (const item of classified) {
-      if (!processable.includes(item)) rejected.push(item.asset.name);
+  if (repository.branchFiles) {
+    if (repository.branchFiles.paths.length === 0) {
+      const error = 'Branch files configuration has no paths';
+      console.log(picocolors.red(`[Sync] ✗ ${error}`));
+      result.total = 1;
+      result.failed.push({ asset: repository.repo, error, required: true });
+      return result;
     }
-    const error = `Branch files outside allowed types: ${rejected.join(', ')}`;
-    console.log(picocolors.red(`[Sync] ✗ ${error}`));
-    result.total = 1;
-    result.failed.push({ asset: repository.repo, error, required: true });
-    return result;
+
+    if (processable.length !== classified.length) {
+      const rejected: string[] = [];
+      for (const item of classified) {
+        if (!processable.includes(item)) rejected.push(item.asset.name);
+      }
+      const error = `Branch files outside allowed types: ${rejected.join(', ')}`;
+      console.log(picocolors.red(`[Sync] ✗ ${error}`));
+      result.total = 1;
+      result.failed.push({ asset: repository.repo, error, required: true });
+      return result;
+    }
+
+    const seenOutputPaths = new Set<string>();
+    const collidingOutputPaths = new Set<string>();
+    for (const item of processable) {
+      if (!item.outputPath) continue;
+      if (seenOutputPaths.has(item.outputPath)) {
+        collidingOutputPaths.add(item.outputPath);
+      } else {
+        seenOutputPaths.add(item.outputPath);
+      }
+    }
+
+    if (collidingOutputPaths.size > 0) {
+      const error = `Branch file output path collision: ${[...collidingOutputPaths].join(', ')}`;
+      console.log(picocolors.red(`[Sync] ✗ ${error}`));
+      result.total = 1;
+      result.failed.push({ asset: repository.repo, error, required: true });
+      return result;
+    }
   }
   if (repository.assetNamePattern && processable.length === 0) {
     const error = `No release assets matched ${repository.assetNamePattern}`;

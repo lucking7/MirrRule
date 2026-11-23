@@ -55,6 +55,27 @@ describe('source health report', () => {
     assert.deepEqual(userAgents, [UA_SURGE_MAC, UA_MIRROR]);
   });
 
+  it('probes github-raw sources with the mirror User-Agent', async () => {
+    const userAgents: string[] = [];
+    const fetchFn = ((_input: string | URL | Request, init?: RequestInit) => {
+      userAgents.push(new Headers(init?.headers).get('user-agent') ?? '');
+      return Promise.resolve(new Response(null, { status: 204 }));
+    }) as typeof fetch;
+
+    const result = await probeSource(
+      {
+        id: 'mirror-repository:raw',
+        role: 'mirror-repository',
+        requestProfile: 'github-raw',
+        url: 'https://raw.githubusercontent.com/owner/repo/main/sgmodule/DNS.sgmodule',
+      },
+      fetchFn
+    );
+
+    assert.deepEqual(userAgents, [UA_MIRROR]);
+    assert.deepEqual(result, { status: 'ok', httpStatus: 204 });
+  });
+
   it('routes proxy-required sources through PROXY_BASE like the build does', async () => {
     const seenUrls: string[] = [];
     const fetchFn = ((_input: string | URL | Request, _init?: RequestInit) => {
