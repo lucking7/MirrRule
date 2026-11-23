@@ -269,6 +269,23 @@ describe('EnhancedFileOutput', () => {
     assert.deepEqual(output.getPublicationAudit().outputs, audit.outputs);
   });
 
+  it('counts Surge writer drops once per classical split after publication', async t => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-surge-drops-'));
+    t.after(() => fs.rm(directory, { recursive: true, force: true }));
+    const output = new EnhancedFileOutput(createSpan('split-drops'), 'drops', ['surge'], null, undefined, directory)
+      .withTitle('Drops')
+      .withDescription([]);
+    output.addRules([
+      'DOMAIN,control.example',
+      'AND,((DOMAIN,a.example),(NO-SUCH-TYPE,x))',
+      'AND,((IP-CIDR,192.0.2.0/24),(NO-SUCH-TYPE,x))',
+    ]);
+    await output.write();
+    assert.deepEqual(output.getRuleDropSummaries().surge, {
+      malformed: 0, unsupported: {}, unknown: { 'NO-SUCH-TYPE': 2 },
+    });
+  });
+
   it('keeps explicit policies when a default policy is configured', async () => {
     const output = new EnhancedFileOutput(
       createSpan('test'),

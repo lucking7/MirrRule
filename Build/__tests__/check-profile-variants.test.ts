@@ -72,6 +72,38 @@ describe('profile variant check', () => {
     ]);
   });
 
+  it('rejects retired split URLs in the historical audit and prints their replacement', async t => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-profile-retired-split-'));
+    t.after(() => fs.rm(directory, { recursive: true, force: true }));
+    const profile = `[Rule]\nRULE-SET,${BASE}/non_ip/streaming_%21cn.list,DIRECT\n`;
+    const historicalAudit = audit({ 'streaming_!cn': ['non_ip', 'ip'] });
+    assert.deepEqual(checkProfileVariants(profile, historicalAudit), [
+      { id: 'streaming_!cn', path: 'List/non_ip/streaming_!cn.list', kind: 'retired' },
+    ]);
+    const auditPath = path.join(directory, 'audit.json');
+    const profilePath = path.join(directory, 'profile.conf');
+    await fs.writeFile(auditPath, JSON.stringify(historicalAudit));
+    await fs.writeFile(profilePath, profile);
+    const output: string[] = [];
+    t.mock.method(console, 'log', (message: string) => { output.push(message); });
+    assert.equal(await runProfileVariantCli(['--profile', profilePath, '--audit', auditPath]), 1);
+    assert.match(output.join('\n'), /<platform>\/stream/);
+  });
+
+  it('recognizes canonical URLs in rule nodes without reading URL-REGEX values as subscriptions', () => {
+    const profile = [
+      '[Rule]',
+      'RULE-SET,https://NRRULE.PAGES.DEV:443/%4Cist/non_ip/down%6coad.list,DIRECT',
+      `URL-REGEX,"(RULE-SET,${BASE}/ip/download.list)",DIRECT`,
+      `URL-REGEX,"(RULE-SET,${BASE}/download.list)",DIRECT`,
+      `AND,((NOT,((DOMAIN,blocked.example))),(RULE-SET,'${BASE}/ip/Unknown.list')),DIRECT`,
+    ].join('\n');
+    assert.deepEqual(checkProfileVariants(profile, audit({ download: ['non_ip', 'ip'] })), [
+      { id: 'download', path: 'List/ip/download.list', kind: 'unreferenced' },
+      { id: 'unknown', path: 'List/ip/Unknown.list', kind: 'absent' },
+    ]);
+  });
+
   it('uses audited paths when canonical and legacy subscriptions cover the same split slot', () => {
     const currentAudit = { rulesets: [{
       id: 'download',
@@ -111,7 +143,7 @@ describe('profile variant check', () => {
     const profile = `[Rule]\nDOMAIN-SET,${BASE}/domainset/download.conf,DIRECT\n`;
     assert.deepEqual(checkProfileVariants(profile, currentAudit), []);
     assert.deepEqual(checkProfileVariants(profile.replace('.conf', '.list'), currentAudit), [
-      { id: 'download', path: 'List/domainset/download.list', kind: 'absent' },
+      { id: 'download', path: 'List/domainset/download.list', kind: 'retired' },
     ]);
     assert.deepEqual(checkProfileVariants(profile, audit({ download: ['non_ip'] })), [
       { id: 'download', path: 'List/domainset/download.conf', kind: 'absent' },

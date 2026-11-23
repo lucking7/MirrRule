@@ -1,7 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
-import { auditRuleCoverage, cleanAuditRuleLine, retiredSurgeBasename, retiredSurgeReferences, splitSurgeRuleFields } from './lib/rule-coverage-audit';
+import {
+  auditRuleCoverage, cleanAuditRuleLine, NRRULE_HOST, nrruleSurgeReferences,
+  parseSurgeSubscriptionPath, splitSurgeRuleFields, unquoteSurgeField,
+} from './lib/rule-coverage-audit';
 import type { CoverageAuditReport, CoverageSubscription, CoverageVariant } from './lib/rule-coverage-audit';
 import { writeFileAtomic } from './lib/atomic-file';
 import { RULE_OUTPUT_VARIANTS, resolveRuleOutputTargets } from './lib/rule-output-variants';
@@ -32,10 +35,6 @@ export const exampleRoutingOrder: ReadonlyArray<readonly [string, string]> = [
   ['china_ip', 'DIRECT']
 ];
 
-function unquote(value: string): string {
-  return /^(["']).*\1$/.test(value) ? value.slice(1, -1) : value;
-}
-
 async function readSubscription(
   id: string,
   policy: string,
@@ -52,9 +51,6 @@ async function readSubscription(
   }
 }
 
-const NRRULE_HOST = 'nrrule.pages.dev';
-const NRRULE_SURGE_PATH = /^\/List\/(domainset|non_ip|ip)\/([^/]+)\.(list|conf)$/;
-
 type ReferenceFormat = 'rule-set' | 'domain-set';
 
 interface ResolvedReference {
@@ -68,22 +64,20 @@ interface ResolvedReference {
 
 /** Resolve published split subscriptions and enforce the client's reference format. */
 export function resolveNrruleSurgeReference(pathname: string, format: ReferenceFormat, rulesDir: string): ResolvedReference {
-  const retired = retiredSurgeBasename(pathname);
-  if (retired) return { label: retired, skipped: 'retired-subscription', notCoveredReason: `List/${retired} is retired; use the published non_ip and ip variants` };
-  const match = NRRULE_SURGE_PATH.exec(pathname);
-  const directory = match?.[1];
-  const extension = match?.[3];
-  if (!match || (directory === 'domainset' && extension !== 'conf')) {
+  const parsed = parseSurgeSubscriptionPath(pathname);
+  if (!parsed) {
     return {
       label: pathname.replace(/^\//, ''),
       skipped: 'unavailable-remote',
       notCoveredReason: 'Unknown NRRule Surge subscription path or extension'
     };
   }
-  const variant = directory as CoverageVariant;
-  const basename = `${match[2]}.${extension}`;
-  const label = `${directory}/${basename}`;
-  const expected = directory === 'domainset' ? 'domain-set' : 'rule-set';
+  const label = parsed.path.slice('List/'.length);
+  if ('retirementReason' in parsed) {
+    return { label, skipped: 'retired-subscription', notCoveredReason: parsed.retirementReason };
+  }
+  const { variant } = parsed;
+  const expected = variant === 'domainset' ? 'domain-set' : 'rule-set';
   if (format !== expected) {
     return {
       label,
@@ -102,13 +96,13 @@ interface AuditedRuleSet {
   outputs?: unknown
 }
 
-async function readAuditedRuleSets(auditPath: string): Promise<AuditedRuleSet[]> {
+async function readAuditedRuleSets(auditPath: string, mode: 'required' | 'optional'): Promise<AuditedRuleSet[]> {
   let data: unknown;
   try {
     data = JSON.parse(await fs.readFile(auditPath, 'utf8'));
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
-    throw new Error('Unable to read rule output audit', { cause: error });
+    if (mode === 'optional' && (error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw new Error(`Unable to read rule output audit at ${auditPath}`, { cause: error });
   }
   const rulesets = (data as { rulesets?: unknown } | null)?.rulesets;
   if (!Array.isArray(rulesets)) throw new TypeError('Rule output audit has no rulesets list');
@@ -122,7 +116,7 @@ async function readAuditedRuleSets(auditPath: string): Promise<AuditedRuleSet[]>
  */
 export async function loadVariantAvailability(auditPath: string): Promise<VariantAvailability> {
   const availability = new Map<string, string>();
-  for (const ruleset of await readAuditedRuleSets(auditPath)) {
+  for (const ruleset of await readAuditedRuleSets(auditPath, 'optional')) {
     if (typeof ruleset.id !== 'string' || !Array.isArray(ruleset.outputs)) continue;
     for (const output of ruleset.outputs as Array<Record<string, unknown> | null>) {
       const { platform, variant, status, reason } = output ?? {};
@@ -160,30 +154,31 @@ export async function readProfileSubscriptions(
     const fields = splitSurgeRuleFields(line);
     const type = fields[0].toUpperCase();
     if (type !== 'RULE-SET' && type !== 'DOMAIN-SET') {
-      const retired = [...retiredSurgeReferences(line)];
-      if (retired.length) {
-        for (const basename of retired) {
-          subscriptions.push({
-            id: `${NRRULE_HOST}/List/${basename}:${lineIndex + 1}`,
-            policy: unquote(fields[2] ?? 'UNKNOWN'),
-            lines: [],
-            skipped: 'retired-subscription',
-            notCoveredReason: `List/${basename} is retired; use the published non_ip and ip variants`
-          });
-        }
-        continue;
+      const retired = new Set<string>();
+      for (const reference of nrruleSurgeReferences(fields)) {
+        const { path: relative } = reference;
+        if (!('retirementReason' in reference) || retired.has(relative)) continue;
+        retired.add(relative);
+        subscriptions.push({
+          id: `${NRRULE_HOST}/${relative}:${lineIndex + 1}`,
+          policy: unquoteSurgeField(fields[2] ?? 'UNKNOWN'),
+          lines: [],
+          skipped: 'retired-subscription',
+          notCoveredReason: reference.retirementReason
+        });
       }
+      if (retired.size) continue;
       // Remove the outer policy, retaining only conditions needed for the audit.
       const policyIndex = type === 'FINAL' ? 1 : 2;
-      const policy = unquote(fields[policyIndex] ?? 'UNKNOWN');
+      const policy = unquoteSurgeField(fields[policyIndex] ?? 'UNKNOWN');
       const condition = fields.slice(0, policyIndex).join(',');
       const outerOptions = fields.slice(policyIndex + 1).map(field => field.toLowerCase());
       const unsupportedOptions = outerOptions.some(field => !['extended-matching', 'no-resolve'].includes(field));
       subscriptions.push({ id: `inline:${lineIndex + 1}:${/^[A-Z0-9-]+$/.test(type) ? type : 'UNKNOWN'}`, policy, kind: 'inline', lines: [condition], extendedMatching: outerOptions.includes('extended-matching'), ...(unsupportedOptions && { skipped: 'unsupported-options' as const }) });
       continue;
     }
-    const reference = unquote(fields[1] ?? '');
-    const policy = unquote(fields[2] ?? 'UNKNOWN');
+    const reference = unquoteSurgeField(fields[1] ?? '');
+    const policy = unquoteSurgeField(fields[2] ?? 'UNKNOWN');
     const format: ReferenceFormat = type === 'DOMAIN-SET' ? 'domain-set' : 'rule-set';
     let id = `subscription:${lineIndex + 1}`;
     let filename: string | undefined;
@@ -242,7 +237,7 @@ export async function readProfileSubscriptions(
 }
 
 async function readExampleSubscriptions(rulesDir: string, auditPath: string): Promise<CoverageSubscription[]> {
-  const rulesets = new Map((await readAuditedRuleSets(auditPath)).map(ruleSet => [ruleSet.id, ruleSet.outputs]));
+  const rulesets = new Map((await readAuditedRuleSets(auditPath, 'required')).map(ruleSet => [ruleSet.id, ruleSet.outputs]));
   return (await Promise.all(exampleRoutingOrder.map(async ([id, policy]) => {
     const outputs = rulesets.get(id);
     const targets = resolveRuleOutputTargets('surge', id);

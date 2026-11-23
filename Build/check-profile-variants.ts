@@ -1,12 +1,11 @@
 import fs from 'node:fs/promises';
 import process from 'node:process';
 
-import { cleanAuditRuleLine, retiredSurgeReferences } from './lib/rule-coverage-audit';
+import { cleanAuditRuleLine, nrruleSurgeReferences, retiredSurgeSubscriptionReason, splitSurgeRuleFields } from './lib/rule-coverage-audit';
+import type { CoverageVariant } from './lib/rule-coverage-audit';
 import { RULE_OUTPUT_VARIANTS } from './lib/rule-output-variants';
-import type { RuleOutputSlot } from './lib/rule-output-variants';
 
 const DEFAULT_AUDIT = 'https://nrrule.pages.dev/Internal/rule-output-audit.json';
-const NRRULE_SURGE_URL = /https?:\/\/nrrule\.pages\.dev\/(List\/(domainset|non_ip|ip)\/([^/,\s)"'?#]+)\.(?:list|conf))(?=[,\s)"'?#]|$)/g;
 
 export interface ProfileVariantFinding {
   id: string,
@@ -15,9 +14,9 @@ export interface ProfileVariantFinding {
   kind: 'unreferenced' | 'absent' | 'retired'
 }
 
-type SlotPaths = Map<RuleOutputSlot, Set<string>>;
+type SlotPaths = Map<CoverageVariant, Set<string>>;
 
-function addPath(slots: SlotPaths, slot: RuleOutputSlot, path: string): void {
+function addPath(slots: SlotPaths, slot: CoverageVariant, path: string): void {
   const paths = slots.get(slot) ?? new Set<string>();
   paths.add(path);
   slots.set(slot, paths);
@@ -35,16 +34,15 @@ function referencedSlots(profile: string, findings: ProfileVariantFinding[]): Ma
       continue;
     }
     if (!inRules || !line || /^(?:#|;|\/\/)/.test(line)) continue;
-    for (const basename of retiredSurgeReferences(line)) {
-      const id = basename.slice(0, -'.list'.length).toLowerCase();
-      const path = `List/${basename}`;
-      if (!findings.some(finding => finding.path === path)) findings.push({ id, path, kind: 'retired' });
-    }
-    // Matches nested references in logical rules as well as top-level RULE-SET/DOMAIN-SET lines.
-    for (const [, path, variant, basename] of line.matchAll(NRRULE_SURGE_URL)) {
-      const id = basename.toLowerCase();
+    for (const reference of nrruleSurgeReferences(splitSurgeRuleFields(line))) {
+      const { path, basename } = reference;
+      const id = basename.replace(/\.(?:list|conf)$/, '').toLowerCase();
+      if ('retirementReason' in reference) {
+        if (!findings.some(finding => finding.path === path)) findings.push({ id, path, kind: 'retired' });
+        continue;
+      }
       const slots = referenced.get(id) ?? new Map();
-      addPath(slots, variant as RuleOutputSlot, path);
+      addPath(slots, reference.variant, path);
       referenced.set(id, slots);
     }
   }
@@ -84,7 +82,7 @@ export function checkProfileVariants(profile: string, audit: unknown): ProfileVa
   const findings: ProfileVariantFinding[] = [];
   for (const [id, slots] of [...referencedSlots(profile, findings)].sort(([a], [b]) => a.localeCompare(b))) {
     const available = published.get(id);
-    const loaded = new Set<RuleOutputSlot>();
+    const loaded = new Set<CoverageVariant>();
     for (const [slot, paths] of slots) {
       for (const path of paths) {
         if (available?.get(slot)?.has(path)) loaded.add(slot);
@@ -132,7 +130,7 @@ export async function runProfileVariantCli(args: readonly string[]): Promise<num
     console.log(finding.kind === 'unreferenced'
       ? `missing: ${finding.path} is published but the profile does not load it`
       : (finding.kind === 'retired'
-        ? `retired: ${finding.path} must be replaced with published split subscriptions`
+        ? `retired: ${retiredSurgeSubscriptionReason(finding.path) ?? finding.path}`
         : `absent: ${finding.path} is loaded but not published (HTTP 404)`));
   }
   if (!findings.length) console.log('OK: NRRule Surge subscriptions and split coverage match the audit');

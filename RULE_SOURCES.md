@@ -20,7 +20,7 @@ Surge 保留 domain ruleset 的 extended-matching 语义；PROCESS-PATH 按平�
 
 Loon 3.0.3 起优先匹配域名规则，未命中时才解析域名并匹配 IP 规则。使用同一策略时，订阅合并版即可。需要为域名和 IP 指定不同策略时，再使用分版。[Loon 规则优先级](https://nsloon.app/docs/Rule/)
 
-`domainset` 额外提供 `non_ip` 中可独立表示的精确域名与后缀。Surge 的 `List/domainset/<id>.conf` 使用裸域名和点前缀，Clash 的 `Clash/domainset/<id>.txt` 使用裸域名和 `+.` 后缀语法（`behavior: domain`、`format: text`），sing-box 的 `sing-box/domainset/<id>.json` 使用 JSON v2 的 `domain`、`domain_suffix`。Loon 使用原有 classical 订阅。加载完整 `non_ip` 后无需再订阅同名域名集。需要文件级 `extended-matching` 的 Surge 规则集跳过原生域名集。两份已冻结的地域测速订阅仅保留历史地址，全球 `speedtest` 正常生成新格式。各平台引用示例见 [README](README.md#subscription-variants)。
+`domainset` 额外提供 `non_ip` 中可独立表示的精确域名与后缀。Surge 的 `List/domainset/<id>.conf` 使用裸域名和点前缀，Clash 的 `Clash/domainset/<id>.txt` 使用裸域名和 `+.` 后缀语法（`behavior: domain`、`format: text`），sing-box 的 `sing-box/domainset/<id>.json` 使用 JSON v2 的 `domain`、`domain_suffix`。Loon 使用原有 classical 订阅。加载完整 `non_ip` 后无需再订阅同名域名集。需要文件级 `extended-matching` 的 Surge 规则集跳过原生域名集。两份已冻结的地域测速订阅在 Surge 上仅发布已有的分版 `.list`，全球 `speedtest` 正常生成新格式。各平台引用示例见 [README](README.md#subscription-variants)。
 sing-box 转换时会丢弃 Surge 的 `no-resolve`。`reject` 通过 `sourceVariants` 按上游文件分版，因此 `sing-box/non_ip/reject.json` 中仍可能包含 `ip_cidr`。按 DNS 查询名过滤时，应选取需要的域名字段，依赖关键词或正则的规则还需保留 `domain_keyword` 或 `domain_regex`。在 sing-box 1.14 及以上版本中，若要按应答中的 IP 地址过滤，先执行 `evaluate`，再用设置了 `match_response: true` 的规则检查应答。[sing-box DNS 迁移说明](https://sing-box.sagernet.org/migration/#migrate-address-filter-fields-to-response-matching)
 
 含 `extended-matching` 的规则集在 Surge 上例外：同时含域名子条件与目标 IP 条件的 logical 规则留在 Surge `non_ip`，以保留文件级标志，审计以 `reroutedFromIp` 记录条数，其他平台仍归入 `ip`。转换损失记录在审计的 `outputs[].losses`：sing-box 不能表达 `no-resolve`，Surge 以外的平台忽略 `extended-matching`，Clash 丢弃 TCP、UDP 以外的 `PROTOCOL` 值。

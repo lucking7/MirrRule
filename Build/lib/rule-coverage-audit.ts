@@ -1,5 +1,6 @@
 import { domainToASCII } from 'node:url';
 import { isIP } from 'node:net';
+import { findLifecycleRecord } from './artifact-lifecycle';
 import type { RuleOutputSlot } from './rule-output-variants';
 
 /** Consumer format used to parse subscription lines; never inferred from a directory name alone. */
@@ -21,21 +22,64 @@ export interface CoverageSubscription {
   notCoveredReason?: string
 }
 
-const NRRULE_RULESET_URL = /(?:^|[(,])\s*(?:RULE-SET|DOMAIN-SET)\s*,\s*["']?https?:\/\/nrrule\.pages\.dev(?::\d+)?(\/List\/[^,\s)"'?#]+)(?=[,\s)"'?#]|$)/gi;
+export const NRRULE_HOST = 'nrrule.pages.dev';
 
-export function retiredSurgeBasename(pathname: string): string | undefined {
-  try {
-    return /^\/List\/([^/\\]+\.list)$/.exec(decodeURIComponent(pathname))?.[1];
-  } catch {
-    return undefined;
-  }
+export function retiredSurgeSubscriptionReason(relative: string): string | undefined {
+  const record = findLifecycleRecord(relative);
+  if (record?.state !== 'retired') return;
+  // A retired ruleset takes precedence over a general format retirement.
+  const listBasename = relative.slice(relative.lastIndexOf('/') + 1).replace(/\.conf$/, '.list');
+  const wholeRuleset = record.id.startsWith('variant:') ? findLifecycleRecord(`List/non_ip/${listBasename}`) : undefined;
+  const { reason, replacement } = wholeRuleset?.state === 'retired' && wholeRuleset.id.startsWith('ruleset:')
+    ? wholeRuleset
+    : record;
+  const summary = `${relative} is retired (${reason})`;
+  return replacement ? `${summary}. Suggested replacement is ${replacement}` : summary;
 }
 
-/** Include retired merged references inside compound rules. */
-export function *retiredSurgeReferences(line: string): Generator<string> {
-  for (const [, pathname] of line.matchAll(NRRULE_RULESET_URL)) {
-    const basename = retiredSurgeBasename(pathname);
-    if (basename) yield basename;
+type SurgeSubscriptionPath = { path: string, basename: string } & ({ retirementReason: string } | { variant: CoverageVariant });
+
+export function parseSurgeSubscriptionPath(pathname: string): SurgeSubscriptionPath | undefined {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    return;
+  }
+  // eslint-disable-next-line no-control-regex -- reject control characters before resolving a local filename
+  if (/[\u{0}-\u{1F}\u{7F}]/u.test(decoded)) return;
+  const match = /^\/List\/(?:(domainset|non_ip|ip)\/)?([^/\\]+\.(?:list|conf))$/.exec(decoded);
+  if (!match) return;
+  const [, variant, basename] = match;
+  const path = decoded.slice(1);
+  const retirementReason = retiredSurgeSubscriptionReason(path);
+  if (retirementReason) return { path, basename, retirementReason };
+  if (variant && (variant !== 'domainset' || basename.endsWith('.conf'))) return { path, basename, variant: variant as CoverageVariant };
+}
+
+export function unquoteSurgeField(value: string): string {
+  return /^(["']).*\1$/.test(value) ? value.slice(1, -1) : value;
+}
+
+/** Read subscription arguments on real rule nodes, including the children of compound rules. */
+export function *nrruleSurgeReferences(
+  fields: readonly string[],
+  depth = 0
+): Generator<SurgeSubscriptionPath> {
+  const type = fields[0]?.toUpperCase();
+  const value = fields[1];
+  if (!value || depth > 64) return;
+  if (type === 'RULE-SET' || type === 'DOMAIN-SET') {
+    const url = URL.parse(unquoteSurgeField(value));
+    if (url?.hostname !== NRRULE_HOST || (url.protocol !== 'https:' && url.protocol !== 'http:')) return;
+    const reference = parseSurgeSubscriptionPath(url.pathname);
+    if (reference) yield reference;
+  } else if (['AND', 'OR', 'NOT'].includes(type) && value.startsWith('(') && value.endsWith(')')) {
+    for (const child of splitSurgeRuleFields(value.slice(1, -1))) {
+      if (child.startsWith('(') && child.endsWith(')')) {
+        yield *nrruleSurgeReferences(splitSurgeRuleFields(child.slice(1, -1)), depth + 1);
+      }
+    }
   }
 }
 

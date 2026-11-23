@@ -50,11 +50,8 @@ type DownloadResult =
   | { ok: true; rules: string[]; selection?: FetchAssetsSelection }
   | { ok: false; error: Error };
 
-/**
- * Explicit publication contract: `id` names the flat files `<PlatformDir>/<id>.<ext>`
- * and the variant files `<PlatformDir>/<variant>/<id>.<ext>`.
- */
 interface RulesetPublication {
+  /** Basename shared by the published targets of this ruleset. */
   id: string;
   /** Configured path, used only in error messages. */
   path: string;

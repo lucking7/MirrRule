@@ -8,6 +8,7 @@ import { describe, it } from 'node:test';
 import { EnhancedFileOutput } from '../lib/enhanced-file-output';
 import { writeRuleOutputReports, readSourceSnapshotFile, snapshotEffectiveOutput, writeSourceSnapshotFile } from '../lib/output-audit';
 import type { RulesetAuditRecord } from '../lib/output-audit';
+import type { SupportedPlatform } from '../lib/platform-config';
 import type { ResolvedBaseline } from '../lib/publication-baseline';
 import { computeCandidateId, hashFile, scanTree, sha256Hex } from '../lib/publication-manifest';
 import { StageError, renderPublicInChild, stagePublication } from '../lib/publication-stage';
@@ -21,30 +22,40 @@ const SOURCE = 'a'.repeat(40);
 const OLD_COMMIT = 'b'.repeat(40);
 const NEW_COMMIT = 'c'.repeat(40);
 const BUILT_AT = '2026-10-11T00:00:00.000Z';
+const PLATFORMS: SupportedPlatform[] = ['surge', 'clash', 'singbox', 'loon'];
 
 async function json<T>(file: string): Promise<T> {
   return (file.endsWith('.json.gz') ? await readSourceSnapshotFile(file) : JSON.parse(await fs.readFile(file, 'utf8'))) as T;
 }
 
-async function fixture(root: string, records: Array<[string, string[]]>, receiptId: number, historicalSurgeMerged = false): Promise<void> {
+async function fixture(
+  root: string,
+  records: Array<[string, string[], SupportedPlatform[]?]>,
+  receiptId: number,
+  historicalSurgeMerged = false
+): Promise<void> {
   const audits: RulesetAuditRecord[] = [];
-  for (const [id, rules] of records) {
-    const output = new EnhancedFileOutput(createSpan(id), id, ['surge', 'clash', 'singbox', 'loon'], null, undefined, root).withTitle(id).withDescription(['fixture']);
+  for (const [id, rules, platforms = PLATFORMS] of records) {
+    const output = new EnhancedFileOutput(createSpan(id), id, platforms, null, undefined, root).withTitle(id).withDescription(['fixture']);
     output.addRules(rules);
     // eslint-disable-next-line no-await-in-loop -- fixture publication keeps its own audit with the written files
     const audit = await output.write();
     if (historicalSurgeMerged) {
-      const parts = audit.outputs.filter(file => file.platform === 'surge' && file.status === 'published' && /\/(?:non_ip|ip)\/[^/]+\.list$/.test(file.path));
+      const parts = audit.outputs.filter(file => file.platform === 'surge' && /\/(?:non_ip|ip)\/[^/]+\.list$/.test(file.path));
       // eslint-disable-next-line no-await-in-loop -- each historical audit binds its own split parts
-      const bodies = await Promise.all(parts.map(file => fs.readFile(path.join(root, file.path), 'utf8')));
+      const bodies = await Promise.all(parts.flatMap(file => (
+        file.status === 'published' ? [fs.readFile(path.join(root, file.path), 'utf8')] : []
+      )));
       const relative = `List/${id}.list`;
-      const body = bodies.join('');
+      const body = bodies.join('') || '# Empty historical merged ruleset\n';
+      // eslint-disable-next-line no-await-in-loop -- the directory may have no published variants
+      await fs.mkdir(path.join(root, 'List'), { recursive: true });
       // eslint-disable-next-line no-await-in-loop -- reproduce a receipt from before Surge merged URLs were retired
       await fs.writeFile(path.join(root, relative), body);
       const snapshot = snapshotEffectiveOutput('surge', parts[0].format, body.split('\n'));
       const count = snapshot.conditions.length;
-      audit.outputs.push({ ...parts[0], variant: 'merged', path: relative, routedConditionCount: count, effectiveConditionCount: count, bytes: Buffer.byteLength(body), sha256: sha256Hex(body) });
-      audit.effectiveOutputs = audit.effectiveOutputs.map(value => (value.platform === 'surge' ? snapshot : value));
+      audit.outputs.push({ ...parts[0], variant: 'merged', path: relative, status: 'published', reason: undefined, routedConditionCount: count, effectiveConditionCount: count, bytes: Buffer.byteLength(body), sha256: sha256Hex(body) });
+      audit.effectiveOutputs = [snapshot, ...audit.effectiveOutputs.filter(value => value.platform !== 'surge')];
     }
     audits.push({ ...audit, sources: [] });
   }
@@ -142,6 +153,28 @@ describe('publication lifecycle projection and baseline rebase', () => {
     ]);
     assert.deepEqual(routes.exclude, []);
     assert.ok((await json<ProjectionAudit>(path.join(env.candidate, 'Internal/rule-output-audit.json'))).rulesets.some(record => record.id === 'discord'));
+  });
+
+  it('projects empty historical Surge metadata when the only published output was retired', async t => {
+    const env = await environment(t);
+    await fixture(env.candidate, [['empty', [], ['surge']], ['keep', ['DOMAIN,keep.example']]], 1, true);
+    const result = await stagePublication({
+      candidateDir: env.candidate,
+      outDir: env.out,
+      tasks: ['rollback'],
+      sourceCommit: SOURCE,
+      baseline: null,
+      baselineTreeDir: null,
+      rollbackOf: { receiptId: 1, deployCommit: OLD_COMMIT, sourceCommit: SOURCE },
+      render: renderPublicInChild,
+    });
+    const audit = await json<ProjectionAudit>(path.join(env.out, 'Internal/rule-output-audit.json'));
+    assert.deepEqual(audit.rulesets.find(ruleset => ruleset.id === 'empty')?.effectiveOutputs, []);
+    assert.ok(audit.retiredOutputs.some(output => output.path === 'List/empty.list'));
+    const snapshot = await json<Snapshot>(path.join(env.out, 'Internal/source-snapshots/empty.json.gz'));
+    assert.deepEqual(snapshot.effectiveOutputs, []);
+    const absent = await collectAbsentPaths(env.out, result.manifest);
+    for (const relative of ['List/empty.list', 'List/non_ip/empty.list', 'List/ip/empty.list']) assert.ok(absent.includes(relative), relative);
   });
 
   it('refuses to roll back a ruleset whose historical split used the retired domainset variant', async t => {

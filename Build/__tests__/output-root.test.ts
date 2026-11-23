@@ -125,8 +125,11 @@ it('compares with PUBLICATION_BASELINE_DIR and withholds .BUILD_FINISHED when re
   ]);
   assert.equal(JSON.stringify(delta).includes(baseline), false);
 
+  const coveragePath = path.join(fixture.destination, 'Internal', 'rule-coverage.json');
+  await fs.writeFile(coveragePath, 'previous coverage');
   const relative = runBuild(fixture, { PUBLICATION_BASELINE_DIR: 'relative/baseline' });
   assert.equal(relative.status, 1);
+  assert.equal(await fs.readFile(coveragePath, 'utf8'), 'previous coverage');
   assert.match(relative.stderr, /\[rule-output-audit\] PUBLICATION_BASELINE_DIR must be an absolute path/);
   await assert.rejects(fs.access(path.join(fixture.root, '.BUILD_FINISHED')), { code: 'ENOENT' });
 

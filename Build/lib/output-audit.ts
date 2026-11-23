@@ -701,7 +701,7 @@ function sameEffectiveOutput(output: EffectiveOutputSnapshot, expected: Effectiv
   return output.semanticSha256 === expected.semanticSha256 && JSON.stringify(output.conditions) === JSON.stringify(expected.conditions);
 }
 
-/** Rebind the retired merged output to the audited Surge split files during a historical rollback. */
+/** Project historical effective outputs onto the files still published after retirement. */
 async function projectEffectiveOutputs(
   publicDir: string,
   snapshot: SourceSnapshot,
@@ -719,10 +719,17 @@ async function projectEffectiveOutputs(
       continue;
     }
     const active = files.get(output.platform);
-    if (!active) continue;
-    if (!matchesEffectiveOutputMetadata(output, audit)
-      || (output.platform === 'surge' && !sameEffectiveOutput(output, snapshotEffectiveOutput(output.platform, output.format, output.conditions)))) {
+    const hasMetadata = audit.effectiveOutputs?.some(entry => entry.platform === output.platform);
+    if ((active || hasMetadata) && (!matchesEffectiveOutputMetadata(output, audit)
+      || (output.platform === 'surge' && !sameEffectiveOutput(output, snapshotEffectiveOutput(output.platform, output.format, output.conditions))))) {
       throw new Error(`Historical effective output does not match output audit: ${snapshot.sourceId}/${output.platform}`);
+    }
+    if (!active) {
+      if (hasMetadata) {
+        audit.effectiveOutputs = audit.effectiveOutputs!.filter(entry => entry.platform !== output.platform);
+        auditChanged = true;
+      }
+      continue;
     }
     // eslint-disable-next-line no-await-in-loop -- keep reads bounded and attributable to the projected platform
     const replacement = await snapshotPublishedFiles(publicDir, snapshot.rulesetId, active);
@@ -758,7 +765,9 @@ async function assertAuditedSnapshot(publicDir: string, snapshot: SourceSnapshot
     return;
   }
   const expectedFiles = effectiveOutputFiles(audit.outputs);
-  if (expectedFiles.size !== snapshot.effectiveOutputs.length || snapshot.effectiveOutputs.some(output => !expectedFiles.has(output.platform))) {
+  const effectiveOutputCount = snapshot.effectiveOutputs.length;
+  if (expectedFiles.size !== effectiveOutputCount || (audit.effectiveOutputs?.length ?? 0) !== effectiveOutputCount
+    || snapshot.effectiveOutputs.some(output => !expectedFiles.has(output.platform))) {
     throw new Error(`Current effective output inventory does not match output audit: ${snapshot.sourceId}`);
   }
   for (const output of snapshot.effectiveOutputs) {

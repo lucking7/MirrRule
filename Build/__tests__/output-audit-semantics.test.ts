@@ -254,6 +254,12 @@ describe('normalized source and effective output audits', () => {
     const body = await fs.readFile(bodyPath, 'utf8');
     await fs.writeFile(bodyPath, body.replace('DOMAIN,a.example', 'DOMAIN,incorrect.example'));
     await assert.rejects(recomputeSourceDeltaFromSnapshots(root, options), /does not match file/);
+    await fs.writeFile(bodyPath, body);
+    const auditPath = path.join(root, 'Internal/rule-output-audit.json');
+    const audit = await readJson<{ rulesets: Array<{ effectiveOutputs: unknown[] }> }>(auditPath);
+    audit.rulesets[0].effectiveOutputs.push(audit.rulesets[0].effectiveOutputs[0]);
+    await fs.writeFile(auditPath, JSON.stringify(audit));
+    await assert.rejects(recomputeSourceDeltaFromSnapshots(root, options), /effective output inventory does not match/);
   });
 
   it('compares historical rollback snapshots by their own converter without relabeling them', async t => {

@@ -136,9 +136,9 @@ export const buildRuleset = task(
   const reportStep = ruleStep.success
     ? await span.traceChildAsync('rule output audit', () => executeRuleOutputReportStep(ruleStep.audits ?? []))
     : { success: false, errors: ['[rule-output-audit] Skipped because rule processing failed'] };
-  const coverageStep = ruleStep.success
+  const coverageStep = reportStep.success
     ? await span.traceChildAsync('cross-subscription coverage audit', () => executeCoverageAuditStep())
-    : { success: false, errors: ['[rule-coverage] Skipped because rule processing failed'] };
+    : { success: false, errors: ['[rule-coverage] Skipped because the rule output audit is unavailable'] };
   const steps = [geoIpStep, ruleStep, reportStep, coverageStep];
   const pruneDomainsets = steps.every(step => step.success);
   steps.push(await span.traceChildAsync('build web page', () => executeWebBuildStep(pruneDomainsets)));

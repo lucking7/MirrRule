@@ -140,6 +140,8 @@ describe('Pages Internal inventory gate', () => {
       { pathname: '/Internal/nested/report.json', status: 200, delegated: true },
       { pathname: '/Internal/preserved-artifacts.json', status: 404, delegated: false },
       { pathname: '/List/ai.list', status: 404, delegated: false },
+      { pathname: '/List//ai.list', status: 404, delegated: false },
+      { pathname: '/%49nternal/missing.json', status: 404, delegated: false },
       { pathname: '/List/%61i.list?cached=1', status: 404, delegated: false, method: 'HEAD' },
       { pathname: '/List/notes.md', status: 200, delegated: true },
       { pathname: '/List/ip/cdn.list', status: 200, delegated: true },

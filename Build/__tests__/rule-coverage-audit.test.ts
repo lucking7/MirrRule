@@ -232,18 +232,38 @@ describe('coverage CLI and profile input', () => {
 
   it('rejects flat NRRule paths and maps split paths to the matching local files and formats', () => {
     const rulesDir = '/tmp/public/List';
-    assert.deepEqual(resolveNrruleSurgeReference('/List/apple_cdn.list', 'rule-set', rulesDir), { label: 'apple_cdn.list', skipped: 'retired-subscription', notCoveredReason: 'List/apple_cdn.list is retired; use the published non_ip and ip variants' });
+    const merged = resolveNrruleSurgeReference('/List/apple_cdn.list', 'rule-set', rulesDir);
+    assert.equal(merged.label, 'apple_cdn.list');
+    assert.equal(merged.skipped, 'retired-subscription');
+    assert.match(merged.notCoveredReason ?? '', /List\/non_ip\/ and List\/ip\//);
     assert.equal(resolveNrruleSurgeReference('/List/non_ip/microsoft_cdn.list', 'rule-set', rulesDir).filename, path.join(rulesDir, 'non_ip', 'microsoft_cdn.list'));
     assert.equal(resolveNrruleSurgeReference('/List/ip/telegram.list', 'rule-set', rulesDir).variant, 'ip');
     assert.equal(resolveNrruleSurgeReference('/List/non_ip/apple_cdn.list', 'domain-set', rulesDir).skipped, 'format-mismatch');
     assert.equal(resolveNrruleSurgeReference('/List/apple_cdn.list', 'domain-set', rulesDir).skipped, 'retired-subscription');
     assert.equal(resolveNrruleSurgeReference('/List/ip/telegram.conf', 'rule-set', rulesDir).filename, path.join(rulesDir, 'ip', 'telegram.conf'));
     assert.equal(resolveNrruleSurgeReference('/List/domainset/apple_cdn.conf', 'rule-set', rulesDir).skipped, 'format-mismatch');
-    for (const unresolved of ['/List/domainset/apple_cdn.list', '/List/apple.conf', '/List/other/apple_cdn.list', '/List/a/b/c.list', '/Clash/apple_cdn.txt']) {
+    for (const unresolved of ['/List/apple.conf', '/List/other/apple_cdn.list', '/List/a/b/c.list', '/Clash/apple_cdn.txt']) {
       const resolved = resolveNrruleSurgeReference(unresolved, 'rule-set', rulesDir);
       assert.equal(resolved.skipped, 'unavailable-remote');
       assert.equal(resolved.filename, undefined);
     }
+  });
+
+  it('reports retired split rulesets and recommends their registry replacements', async () => {
+    const profile = [
+      '[Rule]',
+      'RULE-SET,https://nrrule.pages.dev/List/non_ip/streaming_%21cn.conf,DIRECT',
+      'OR,((RULE-SET,https://nrrule.pages.dev/List/ip/streaming_!cn.list),(DOMAIN,example.com)),DIRECT',
+      'RULE-SET,https://nrrule.pages.dev/List/streaming_!cn.list,DIRECT',
+      'RULE-SET,https://nrrule.pages.dev/List/non_ip/container.conf,DIRECT',
+    ].join('\n');
+    const report = auditRuleCoverage(await readProfileSubscriptions(profile, '/tmp', '/tmp'));
+    assert.equal(report.summary.retiredSubscriptions, 4);
+    assert.match(report.subscriptions[0].notCoveredReason ?? '', /<platform>\/stream/);
+    assert.match(report.subscriptions[1].notCoveredReason ?? '', /<platform>\/stream/);
+    assert.match(report.subscriptions[2].notCoveredReason ?? '', /<platform>\/stream/);
+    assert.doesNotMatch(report.subscriptions[3].notCoveredReason ?? '', /replacement/);
+    assert.equal(resolveNrruleSurgeReference('/List/non_ip/speedtest_china.list', 'rule-set', '/tmp').skipped, undefined);
   });
 
   it('fails on retired profile references even if old files and an old audit are present', async t => {
@@ -274,6 +294,51 @@ describe('coverage CLI and profile input', () => {
     ]);
   });
 
+  it('reports each retired subscription once per compound rule line', async () => {
+    const profile = [
+      '[Rule]',
+      'OR,((RULE-SET,https://nrrule.pages.dev/List/old%2Elist),(NOT,((RULE-SET,https://nrrule.pages.dev/List/%6Fld.list))),(RULE-SET,https://nrrule.pages.dev/List/another.list)),AI',
+      'RULE-SET,https://nrrule.pages.dev/List/old.list,AI',
+    ].join('\n');
+    const report = auditRuleCoverage(await readProfileSubscriptions(profile, '/tmp', '/tmp'));
+    assert.equal(report.summary.retiredSubscriptions, 3);
+    assert.deepEqual(report.subscriptions.map(item => item.id), [
+      'nrrule.pages.dev/List/old.list:2',
+      'nrrule.pages.dev/List/another.list:2',
+      'nrrule.pages.dev/List/old.list:3',
+    ]);
+  });
+
+  it('audits encoded split URLs and ignores the retired URL in a URL-REGEX predicate', async t => {
+    const rulesDir = await fs.mkdtemp(path.join(os.tmpdir(), 'coverage-encoded-split-'));
+    t.after(() => fs.rm(rulesDir, { recursive: true, force: true }));
+    await fs.mkdir(path.join(rulesDir, 'non_ip'));
+    await fs.writeFile(path.join(rulesDir, 'non_ip', 'ai.conf'), 'DOMAIN,chatgpt.com\n');
+    const profile = [
+      '[Rule]',
+      'RULE-SET,"https://NRRULE.PAGES.DEV:443/%4Cist/non_ip/%61i.conf?revision=2",AI',
+      'URL-REGEX,"(RULE-SET,https://nrrule.pages.dev/List/ai.list)",AI',
+    ].join('\n');
+    const subscriptions = await readProfileSubscriptions(profile, rulesDir, rulesDir);
+    assert.equal(subscriptions[0].variant, 'non_ip');
+    assert.equal(subscriptions[0].skipped, undefined);
+    assert.equal(subscriptions[0].lines[0], 'DOMAIN,chatgpt.com');
+    assert.equal(subscriptions[1].kind, 'inline');
+    assert.equal(subscriptions[1].skipped, undefined);
+  });
+
+  it('reports decoded control characters as unavailable subscriptions and continues the audit', async () => {
+    const profile = [
+      '[Rule]',
+      'RULE-SET,https://nrrule.pages.dev/List/non_ip/a%00i.conf,AI',
+      'RULE-SET,https://nrrule.pages.dev/List/non_ip/a%0Ai.conf,AI',
+      'DOMAIN,chatgpt.com,AI',
+    ].join('\n');
+    const subscriptions = await readProfileSubscriptions(profile, '/tmp', '/tmp');
+    assert.deepEqual(subscriptions.map(item => item.skipped), ['unavailable-remote', 'unavailable-remote', undefined]);
+    assert.deepEqual(subscriptions[2].lines, ['DOMAIN,chatgpt.com']);
+  });
+
   it('selects audited classical split files for the example in ruleset order', async t => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'coverage-example-'));
     t.after(() => fs.rm(root, { recursive: true, force: true }));
@@ -281,6 +346,7 @@ describe('coverage CLI and profile input', () => {
     const auditPath = path.join(root, 'audit.json');
     await fs.mkdir(path.join(list, 'non_ip'), { recursive: true });
     await fs.mkdir(path.join(list, 'ip'));
+    await assert.rejects(createRuleCoverageReport({ rulesDir: list, outputAuditPath: auditPath }), /Unable to read rule output audit/);
     await fs.writeFile(path.join(list, 'non_ip', 'reject.conf'), 'DOMAIN,ads.example\n');
     await fs.writeFile(path.join(list, 'non_ip', 'reject.list'), 'DOMAIN,alias.example\n');
     await fs.writeFile(path.join(list, 'ip', 'reject.list'), 'IP-CIDR,192.0.2.0/24,no-resolve\n');
@@ -400,7 +466,7 @@ describe('coverage CLI and profile input', () => {
         'DOMAIN-SET,https://example.com/set.txt,DIRECT'
       ].join('\n');
       const report = auditRuleCoverage(await readProfileSubscriptions(profile, directory, rulesDir), { basis: 'profile-rule-section' });
-      const [absent, missing, mismatch, unknown, remote] = report.subscriptions;
+      const [absent, missing, mismatch, retired, remote] = report.subscriptions;
       assert.equal(absent.skipped, 'absent-variant');
       assert.equal(absent.reviewStatus, 'not-covered');
       assert.match(absent.notCoveredReason ?? '', /absent-empty/);
@@ -409,8 +475,9 @@ describe('coverage CLI and profile input', () => {
       assert.match(missing.notCoveredReason ?? '', /no absent status/);
       assert.equal(mismatch.skipped, 'format-mismatch');
       assert.match(mismatch.notCoveredReason ?? '', /DOMAIN-SET/);
-      assert.equal(unknown.skipped, 'unavailable-remote');
-      assert.equal(unknown.format, 'domain-set');
+      assert.equal(retired.skipped, 'retired-subscription');
+      assert.equal(retired.format, 'domain-set');
+      assert.match(retired.notCoveredReason ?? '', /List\/domainset\/<id>\.conf/);
       assert.equal(remote.skipped, 'unavailable-remote');
       assert.ok(report.subscriptions.every(item => item.reviewStatus === 'not-covered' && item.notCoveredReason));
       assert.equal(report.summary.auditedSubscriptions, 0);

@@ -72,12 +72,13 @@ export default {
     const pathname = new URL(request.url).pathname;
     let decoded;
     try { decoded = decodeURIComponent(pathname); } catch { decoded = null; }
-    const isRetired = retired.has(decoded) || (decoded !== null && retiredRules.some(rule =>
-      decoded.startsWith(rule.prefix) && (rule.suffix === undefined || decoded.endsWith(rule.suffix))
-        && (!rule.directChildrenOnly || !decoded.includes('/', rule.prefix.length))
-    ));
-    const isGated = gatedPrefixes.some(gatedPrefix => (decoded ?? pathname).startsWith(gatedPrefix));
-    if (!pathname.startsWith(prefix) && !isGated && !isRetired) return env.ASSETS.fetch(request);
+    const routedPath = (decoded ?? pathname).replace(/\/{2,}/g, '/');
+    const isRetired = retired.has(routedPath) || retiredRules.some(rule =>
+      routedPath.startsWith(rule.prefix) && (rule.suffix === undefined || routedPath.endsWith(rule.suffix))
+        && (!rule.directChildrenOnly || !routedPath.includes('/', rule.prefix.length))
+    );
+    const isGated = gatedPrefixes.some(gatedPrefix => routedPath.startsWith(gatedPrefix));
+    if (!routedPath.startsWith(prefix) && !isGated && !isRetired) return env.ASSETS.fetch(request);
     if (!isRetired && isGated && published.has(decoded)) {
       const asset = await env.ASSETS.fetch(request);
       const response = new Response(asset.body, asset);
