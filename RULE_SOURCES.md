@@ -129,7 +129,7 @@ SukkaW/Surge 的源码生成 domainset、non_ip、ip 等类别，发布到 rules
 
 2026-10-07 核对时，六个 `ip/stream_<region>.conf` 都只含注释与归属水印，没有实际 CIDR，现已从地域订阅和总 `stream` 移除。地域 non_ip 仍在维护，保留全部六个地域订阅。总 `ip/stream.conf` 有有效 IP 内容，继续接入；上游将来增加有效地域 IP 时应重新审核后接入。
 
-地域集合及总 `stream` 不再启用 `allowEmpty`。所有现役来源都须下载成功且清理后非空；下载、正文或空内容校验失败会停止该集合发布并保留旧产物。共享清理继续识别 Sukka 归属水印并保留合法数字开头域名。source-health 的完整报告与当前 source inventory 核对后才清理退役 ID，状态分支读取失败或无效、不完整报告不会触发清理；下次定时检查不再因退役来源维持告警。
+地域集合及总 `stream` 不再启用 `allowEmpty`。所有现役来源都须下载成功且清理后非空；下载、正文或空内容校验失败会停止该集合发布并保留旧产物。共享清理继续识别 Sukka 归属水印并保留合法数字开头域名。
 
 四平台合并版输出为 `List/<basename>.list`、`Clash/<basename>.txt`、`Loon/<basename>.list`、`sing-box/<basename>.json`，分版见[分版订阅](#分版订阅)；两个 Surge 专用集合除外。新增集合清理上游策略字段，IP 规则按上游逐条保留 `no-resolve`，不再统一添加。这里的“接入”是生成可订阅产物，不会自动修改客户端配置或启用拦截；来源更新后的公开路径须以对应生产部署为准。
 
