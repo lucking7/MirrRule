@@ -125,6 +125,23 @@ function unescapeAttribute(value: string): string {
   return value.replaceAll('&quot;', '"').replaceAll('&#39;', '\'').replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&');
 }
 
+function stripTags(value: string): string {
+  return value.replaceAll(/<[^>]+>/g, ' ').replaceAll(/\s+/g, ' ').trim();
+}
+
+function folderSummaries(html: string): Array<{ label: string, open: boolean, title: string | null }> {
+  const result: Array<{ label: string, open: boolean, title: string | null }> = [];
+  for (const match of html.matchAll(/<details\b([^>]*)><summary\b([^>]*)>([\s\S]*?)<\/summary>/g)) {
+    const titleMatch = /\btitle="([^"]*)"/.exec(match[2]);
+    result.push({
+      label: stripTags(match[3]),
+      open: /\bopen\b/.test(match[1]),
+      title: titleMatch ? unescapeAttribute(titleMatch[1]) : null,
+    });
+  }
+  return result;
+}
+
 function fileLinks(html: string): Array<{ href: string, text: string }> {
   const result: Array<{ href: string, text: string }> = [];
   for (const match of html.matchAll(/<a\b([^>]*)>([^<]*)<\/a>/g)) {
@@ -172,7 +189,7 @@ describe('prioritySorter (real public root ordering)', () => {
 });
 
 describe('native public directory tree', () => {
-  it('keeps every actual client path instead of aggregating matching basenames', () => {
+  it('keeps every actual client path and folds direct client merged files into a collapsible group', () => {
     const tree: TreeTypeArray = [
       dir('Clash', [file('apple.txt', '/Clash/apple.txt')]),
       dir('List', [file('apple.list', '/List/apple.list')]),
@@ -183,9 +200,15 @@ describe('native public directory tree', () => {
     assert.deepEqual(fileLinks(rendered).map(link => link.href), [
       '/List/apple.list', '/Loon/apple.list', '/Clash/apple.txt', '/sing-box/apple.json',
     ]);
-    assert.deepEqual([...rendered.matchAll(/<summary>([^<]*)<\/summary>/g)].map(match => match[1]), [
-      'List', 'Loon', 'Clash', 'sing-box',
-    ]);
+    assert.deepEqual(
+      folderSummaries(rendered).map(item => [item.label, item.open]),
+      [
+        ['List', true], ['Merged files 1 file', false],
+        ['Loon', true], ['Merged files 1 file', false],
+        ['Clash', true], ['Merged files 1 file', false],
+        ['sing-box', true], ['Merged files 1 file', false],
+      ]
+    );
   });
 
   it('shows Surge-only files only under their actual output directory', () => {
@@ -206,15 +229,14 @@ describe('native public directory tree', () => {
       dir('Internal', [file('dns.txt', '/Internal/dns.txt')]),
       dir('Mirror', [dir('Sukka', [file('module.sgmodule', '/Mirror/Sukka/module.sgmodule')], '/Mirror/Sukka')]),
     ];
-    const states = [...treeHtml(tree).matchAll(/<details\b([^>]*)>\s*<summary>([^<]*)<\/summary>/g)]
-      .map(match => [match[2], /\bopen\b/.test(match[1])]);
+    const states = folderSummaries(treeHtml(tree)).map(item => [item.label, item.open]);
     assert.deepEqual(states, [
-      ['List', true], ['non_ip (Surge RULE-SET)', false], ['Mock', false],
+      ['List', true], ['non_ip', false], ['Mock', false],
       ['Mirror', true], ['Sukka', false], ['Internal', false],
     ]);
   });
 
-  it('labels split variant folders with their consumer format and leaves merged files and other folders unlabeled', () => {
+  it('attaches consumer format metadata to split variant folders while keeping folder labels clean', () => {
     const variants = (root: string, extension: string) => dir(root, [
       file(`apple.${extension}`, `/${root}/apple.${extension}`),
       ...['ip', 'non_ip'].map(variant => dir(variant, [
@@ -227,13 +249,20 @@ describe('native public directory tree', () => {
       dir('List2', [dir('non_ip', [dir('ip', [file('x.list', '/List2/non_ip/ip/x.list')], '/List2/non_ip/ip')], '/List2/non_ip')]),
     ];
     const rendered = treeHtml(tree);
-    assert.deepEqual([...rendered.matchAll(/<summary>([^<]*)<\/summary>/g)].map(match => match[1]), [
-      'List', 'non_ip (Surge RULE-SET)', 'ip (Surge RULE-SET)',
-      'Loon', 'non_ip (Loon RULE-SET)', 'ip (Loon RULE-SET)',
-      'Clash', 'non_ip (Clash classical)', 'ip (Clash classical)',
-      'sing-box', 'non_ip (sing-box rule-set JSON v2)', 'ip (sing-box rule-set JSON v2)',
-      'Mirror', 'domainset', 'List2', 'non_ip', 'ip',
-    ]);
+    const summaries = folderSummaries(rendered);
+    const titledSummaries: Array<[string, string]> = [];
+    for (const item of summaries) {
+      if (item.title !== null) titledSummaries.push([item.label, item.title]);
+    }
+    assert.deepEqual(
+      titledSummaries,
+      [
+        ['non_ip', 'Surge RULE-SET'], ['ip', 'Surge RULE-SET'],
+        ['non_ip', 'Loon RULE-SET'], ['ip', 'Loon RULE-SET'],
+        ['non_ip', 'Clash classical'], ['ip', 'Clash classical'],
+        ['non_ip', 'sing-box rule-set JSON v2'], ['ip', 'sing-box rule-set JSON v2'],
+      ]
+    );
     const links = fileLinks(rendered).map(link => link.href);
     assert.deepEqual(links.slice(0, 3), ['/List/non_ip/apple.list', '/List/ip/apple.list', '/List/apple.list']);
     assert.ok(links.includes('/sing-box/non_ip/apple.json'));
@@ -248,13 +277,27 @@ describe('native public directory tree', () => {
       }));
     });
     const html = treeHtml(tree);
-    const names = [...html.matchAll(/<summary>([^<]*)<\/summary>/g)].map(match => match[1]);
-    assert.deepEqual(names.filter(name => name.startsWith('domainset')), [
-      'domainset (Surge DOMAIN-SET)', 'domainset (Clash domain)', 'domainset (sing-box rule-set JSON v2)',
+    const domainsetTitles: Array<string | null> = [];
+    for (const item of folderSummaries(html)) {
+      if (item.label === 'domainset') domainsetTitles.push(item.title);
+    }
+    assert.deepEqual(domainsetTitles, [
+      'Surge DOMAIN-SET', 'Clash domain', 'sing-box rule-set JSON v2',
     ]);
     assert.deepEqual(fileLinks(html).slice(0, 3).map(link => link.href), [
       '/List/domainset/cdn.conf', '/List/non_ip/cdn.conf', '/List/ip/cdn.conf',
     ]);
+  });
+
+  it('selects matching Tabler file glyphs by file extension', () => {
+    const rendered = treeHtml([
+      dir('sing-box', [file('ai.json', '/sing-box/ai.json')]),
+      dir('GeoIP', [file('country.mmdb', '/GeoIP/country.mmdb')]),
+      dir('List', [file('ai.list', '/List/ai.list')]),
+    ]);
+    assert.match(rendered, /href="#ico-file-json"/);
+    assert.match(rendered, /href="#ico-file-db"/);
+    assert.match(rendered, /href="#ico-file"/);
   });
 
   it('preserves category order and sorts files without mutating the input at any depth', () => {
@@ -293,7 +336,7 @@ describe('public filename visibility and escaping', () => {
     const name = '<script>"规则 & Jerry\'s #?100% 文件.list';
     const rawPath = `/${folder}/${name}`;
     const rendered = treeHtml([dir(folder, [file(name, rawPath)])]);
-    assert.ok(rendered.includes('<summary>目录 &quot;&amp;&#39;</summary>'));
+    assert.deepEqual(folderSummaries(rendered).map(item => item.label), ['目录 &quot;&amp;&#39;']);
     const links = fileLinks(rendered);
     assert.equal(links.length, 1);
     assert.equal(links[0].text, '&lt;script&gt;&quot;规则 &amp; Jerry&#39;s #?100% 文件.list');
@@ -341,56 +384,66 @@ describe('public filename visibility and escaping', () => {
       assert.deepEqual(fileLinks(rendered).map(link => link.href), [
         '/List/non_ip/cdn.list', '/Mirror/domainset/module.sgmodule',
       ]);
-      assert.doesNotMatch(rendered, /domainset \(Surge|domainset \(Clash|domainset \(sing-box/);
+      assert.equal(folderSummaries(rendered).some(item => item.title?.includes('DOMAIN-SET') || item.title?.includes('Clash domain')), false);
     });
   });
 
   it('retains actual directories without inventing file links when their contents are hidden', async () => {
     await withPublicDirectory(['Empty/index.html', 'List/apple.list'], async directory => {
       const rendered = treeHtml(await scanPublicTree(directory));
-      assert.equal(rendered.includes('<summary>Empty</summary>'), true);
+      assert.equal(folderSummaries(rendered).some(item => item.label === 'Empty'), true);
       assert.deepEqual(fileLinks(rendered).map(link => link.href), ['/List/apple.list']);
     });
   });
 });
 
 describe('standalone ruleset index generation', () => {
-  it('uses NRRule/Luck branding and local service metadata without copied external assets or scripts', () => {
-    const html = generateHtml([file('LICENSE', '/LICENSE')], new Date('2026-10-07T18:02:03.456Z'));
-    assert.match(html, /<title>[^<]*NRRule[^<]*<\/title>/);
-    assert.match(html, /<h1>[^<]*NRRule[^<]*<\/h1>/);
-    assert.match(html, /Made by\s*<a[^>]*>Luck<\/a>/);
+  it('uses NRRule/Luck branding, Tabler SVG sprite, and local metadata without external assets', () => {
+    const html = generateHtml([
+      dir('List', [file('ai.list', '/List/ai.list')]),
+      file('LICENSE', '/LICENSE'),
+    ], new Date('2026-10-07T18:02:03.456Z'));
+    assert.match(html, /<title>NRRule · nrrule\.pages\.dev<\/title>/);
+    assert.match(html, /<h1>NRRule<\/h1>/);
+    assert.match(html, /<span class="wordmark-host">nrrule\.pages\.dev<\/span>/);
+    assert.match(html, /Maintained by <a[^>]*href="https:\/\/github\.com\/lucking7"[^>]*>Luck<\/a>/);
     assert.match(html, /href="https:\/\/github\.com\/lucking7\/MirrRule\/?"/);
     assert.match(html, /<link[^>]+rel="canonical"[^>]*href="https:\/\/nrrule\.pages\.dev\/"/);
     assert.match(html, /<meta[^>]+property="og:url"[^>]*content="https:\/\/nrrule\.pages\.dev\/"/);
-    assert.match(html, /<meta[^>]+property="og:title"[^>]*content="[^"]*NRRule/);
+    assert.match(html, /<meta[^>]+property="og:title"[^>]*content="NRRule/);
     assert.match(html, /href="\/LICENSE"[^>]*>AGPL-3\.0<\/a>/);
+    assert.match(html, /id="ico-folder"/);
+    assert.match(html, /id="ico-route"/);
+    assert.match(html, /id="tree-filter"[^>]*hidden/);
+    assert.match(html, /1 ruleset/);
+    assert.match(html, /2 files/);
     assert.doesNotMatch(html, /(?:href|src)="https?:\/\/(?:cdn\.skk\.moe|ruleset\.skk\.moe|skk\.moe)/);
-    assert.doesNotMatch(html, /<script\b|__CF\$cv|cdn-cgi\/challenge-platform/);
+    assert.doesNotMatch(html, /__CF\$cv|cdn-cgi\/challenge-platform/);
     assert.doesNotMatch(html, /<link[^>]+rel="stylesheet"/);
+    assert.doesNotMatch(html, /<script[^>]+src=/);
   });
 
-  it('renders the injected instant as ISO UTC without converting it through the local timezone', () => {
+  it('renders the injected instant as deterministic UTC without converting through the local timezone', () => {
     const builtAt = new Date('2026-10-08T02:02:03.456+08:00');
     const before = builtAt.getTime();
     const html = generateHtml([], builtAt);
-    assert.match(html, /Last Build:\s*2026-10-07T18:02:03\.456Z/);
+    assert.match(html, /<time datetime="2026-10-07T18:02:03\.456Z" title="2026-10-07T18:02:03\.456Z">Oct 7, 2026 · 18:02 UTC<\/time>/);
     assert.equal(builtAt.getTime(), before);
     assert.equal(generateHtml([], builtAt), html);
   });
 
-  it('inlines the captured stylesheet with responsive, theme, and native tree rules', async () => {
+  it('inlines the stylesheet with responsive breakpoints, light/dark tokens, and opt-in motion', async () => {
     const css = await fs.readFile(path.join(__dirname, '../assets/ruleset-index.css'), 'utf8');
     const html = generateHtml([], new Date('2026-10-07T18:02:03.456Z'));
     const inlineStyle = /<style>([\s\S]*?)<\/style>/.exec(html);
     assert.ok(inlineStyle);
     assert.equal(inlineStyle[1].trim(), css.trim());
-    assert.match(css, /--font-family:\s*system-ui,\s*-apple-system/);
-    assert.match(css, /--background-color:\s*#fff/);
+    assert.match(css, /--font-sans:\s*system-ui,\s*-apple-system/);
     assert.match(css, /prefers-color-scheme:\s*dark/);
-    assert.match(css, /--background-color:\s*#11191f/);
+    assert.match(css, /prefers-reduced-motion:\s*no-preference/);
+    assert.match(css, /forced-colors:\s*active/);
     for (const width of [576, 768, 992, 1200]) assert.match(css, new RegExp(String.raw`min-width:\s*${width}px`));
-    assert.match(css, /\.tree li\.folder>details\[open\]>summary::before/);
+    assert.match(css, /\.folder > details\[open\] > summary \.icon-open/);
   });
 
   it('builds into PUBLIC_DIR and lists README/LICENSE on the first run without inventing formats', async () => {
