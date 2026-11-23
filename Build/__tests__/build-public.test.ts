@@ -8,6 +8,7 @@ import { describe, it } from 'node:test';
 
 import { generateHtml, isVisiblePublicFile, scanPublicTree, treeHtml } from '../build-public';
 import { prioritySorter } from '../lib/public-index-sort';
+import { RULESET_INDEX_SCRIPT } from '../lib/ruleset-index-script';
 import { TreeFileType } from '../lib/tree-dir';
 import type { TreeTypeArray } from '../lib/tree-dir';
 import { ruleGroups, specialRules } from '../lib/rule-sources';
@@ -398,7 +399,7 @@ describe('public filename visibility and escaping', () => {
 });
 
 describe('standalone ruleset index generation', () => {
-  it('uses NRRule/Luck branding, Tabler SVG sprite, and local metadata without external assets', () => {
+  it('uses NRRule/Luck branding, the coss ui shell, Tabler SVG sprite, and local metadata without external assets', () => {
     const html = generateHtml([
       dir('List', [file('ai.list', '/List/ai.list')]),
       file('LICENSE', '/LICENSE'),
@@ -414,7 +415,12 @@ describe('standalone ruleset index generation', () => {
     assert.match(html, /href="\/LICENSE"[^>]*>AGPL-3\.0<\/a>/);
     assert.match(html, /id="ico-folder"/);
     assert.match(html, /id="ico-route"/);
-    assert.match(html, /id="tree-filter"[^>]*hidden/);
+    assert.match(html, /<button id="cmd-trigger"[^>]*hidden>/);
+    assert.match(html, /<dialog id="cmd-dialog"[^>]*aria-labelledby="cmd-dialog-title"/);
+    assert.match(html, /<span class="coss-badge coss-badge-secondary coss-badge-sm">1 ruleset<\/span>/);
+    assert.match(html, /Styled with <a href="https:\/\/coss\.com\/ui"[^>]*>coss ui<\/a> \(MIT\)/);
+    assert.doesNotMatch(html, /id="tree-filter"/);
+    assert.doesNotMatch(RULESET_INDEX_SCRIPT, /matches\.slice\(|Showing \d+ of/, 'command palette must list every match');
     assert.match(html, /1 ruleset/);
     assert.match(html, /2 files/);
     assert.doesNotMatch(html, /(?:href|src)="https?:\/\/(?:cdn\.skk\.moe|ruleset\.skk\.moe|skk\.moe)/);

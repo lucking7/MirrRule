@@ -1,16 +1,11 @@
 /**
  * Progressive-enhancement client script inlined into public/index.html.
- * When JavaScript is disabled, all search controls remain hidden and every
- * file link remains directly navigable as static HTML.
+ * Adds per-file copy buttons and a coss ui style command dialog (Cmd/Ctrl+K or /).
+ * When JavaScript is disabled, the search trigger stays hidden and every file link
+ * remains directly navigable as static HTML.
  */
 export const RULESET_INDEX_SCRIPT = String.raw`(() => {
-  const controls = document.querySelector('#tree-filter');
-  const input = document.querySelector('#tree-query');
-  const clear = document.querySelector('#tree-clear');
-  const status = document.querySelector('#tree-status');
   const copyStatus = document.querySelector('#copy-status');
-
-  // Suppress transitions on OS theme flips so colors snap cleanly without smearing.
   const darkMedia = window.matchMedia('(prefers-color-scheme: dark)');
   darkMedia.addEventListener('change', () => {
     const style = document.createElement('style');
@@ -20,7 +15,6 @@ export const RULESET_INDEX_SCRIPT = String.raw`(() => {
     requestAnimationFrame(() => requestAnimationFrame(() => style.remove()));
   });
 
-  // Inject quiet Copy URL buttons dynamically so static HTML stays compact and no-JS stays clean.
   const svgNs = 'http://www.w3.org/2000/svg';
   function createUseSvg(id) {
     const svg = document.createElementNS(svgNs, 'svg');
@@ -35,7 +29,7 @@ export const RULESET_INDEX_SCRIPT = String.raw`(() => {
 
   const copyTemplate = document.createElement('button');
   copyTemplate.type = 'button';
-  copyTemplate.className = 'copy-url';
+  copyTemplate.className = "copy-url coss-btn coss-btn-outline coss-btn-xs";
   copyTemplate.dataset.copyUrl = '';
   const swapSpan = document.createElement('span');
   swapSpan.className = 'icon-swap';
@@ -61,13 +55,9 @@ export const RULESET_INDEX_SCRIPT = String.raw`(() => {
     row.append(btn);
   }
 
-  // Copy full subscription URL with contextual icon cross-fade and polite announcement.
   const copyTimers = new WeakMap();
   const canonical = document.querySelector('link[rel="canonical"]')?.href || 'https://nrrule.pages.dev/';
-  const useCanonical =
-    location.protocol === 'file:' ||
-    location.hostname === '127.0.0.1' ||
-    location.hostname === 'localhost';
+  const useCanonical = location.protocol === 'file:' || location.hostname === '127.0.0.1' || location.hostname === 'localhost';
   const baseOrigin = useCanonical ? new URL(canonical).origin : location.origin;
 
   async function writeClipboard(text) {
@@ -86,13 +76,7 @@ export const RULESET_INDEX_SCRIPT = String.raw`(() => {
     ta.remove();
   }
 
-  document.addEventListener('click', async (event) => {
-    const btn = event.target instanceof Element ? event.target.closest('[data-copy-url]') : null;
-    if (!btn) return;
-    const anchor = btn.closest('li.file')?.querySelector('a.file-link');
-    const href = anchor?.getAttribute('href');
-    if (!href) return;
-    const name = anchor.textContent?.trim() || href;
+  async function triggerCopy(btn, href, name) {
     const fullUrl = new URL(href, baseOrigin).href;
     try {
       await writeClipboard(fullUrl);
@@ -116,40 +100,28 @@ export const RULESET_INDEX_SCRIPT = String.raw`(() => {
         copyStatus.textContent = 'Unable to copy URL. Open the link directly to copy from the address bar.';
       }
     }
+  }
+
+  document.addEventListener('click', (event) => {
+    const btn = event.target instanceof Element ? event.target.closest('[data-copy-url]') : null;
+    if (!btn) return;
+    const directHref = btn.dataset.href;
+    if (directHref) {
+      triggerCopy(btn, directHref, btn.dataset.name || directHref);
+      return;
+    }
+    const anchor = btn.closest('li.file')?.querySelector('a.file-link');
+    const href = anchor?.getAttribute('href');
+    if (!href) return;
+    triggerCopy(btn, href, anchor.textContent?.trim() || href);
   });
 
-  if (!controls || !input || !clear || !status) return;
-
-  // Live directory tree filter
-  const branches = [...document.querySelectorAll('details[data-branch]')];
-  const counters = new Map();
-  for (const branch of branches) {
-    const node = branch.querySelector(':scope > summary [data-branch-count]');
-    if (node) counters.set(branch, { node, total: node.textContent || '' });
-  }
-
   const slotAliases = new Map([
-    ['nonip', 'non_ip'],
-    ['non_ip', 'non_ip'],
-    ['non-ip', 'non_ip'],
-    ['ip', 'ip'],
-    ['domainset', 'domainset'],
-    ['domain-set', 'domainset'],
-    ['merged', 'merged'],
+    ['nonip', 'non_ip'], ['non_ip', 'non_ip'], ['non-ip', 'non_ip'],
+    ['ip', 'ip'], ['domainset', 'domainset'], ['domain-set', 'domainset'], ['merged', 'merged'],
   ]);
-  const termAliases = new Map([
-    ['mihomo', 'clash'],
-    ['list', 'surge'],
-    ['singbox', 'sing-box'],
-  ]);
-
-  function normalizeText(value) {
-    return value.normalize('NFKC').toLowerCase();
-  }
-
-  function formatMatches(count) {
-    return count + (count === 1 ? ' matching file' : ' matching files');
-  }
+  const termAliases = new Map([['mihomo', 'clash'], ['list', 'surge'], ['singbox', 'sing-box']]);
+  function normalizeText(value) { return value.normalize('NFKC').toLowerCase(); }
 
   const entries = fileRows.map((node) => {
     const data = node.dataset;
@@ -159,27 +131,19 @@ export const RULESET_INDEX_SCRIPT = String.raw`(() => {
     }
     const anchor = node.querySelector('a.file-link');
     const href = anchor?.getAttribute('href') || '';
+    const name = anchor?.textContent?.trim() || href;
     let decoded = href;
     try { decoded = decodeURIComponent(href); } catch {}
     const pathLower = normalizeText(decoded);
-    const fields = [
-      data.region,
-      data.slot,
-      data.slotLabel,
-      data.format,
-      data.rule,
-      pathLower.split('/').pop(),
-      pathLower,
-      href,
-    ].filter(Boolean).map(normalizeText);
+    const fields = [data.region, data.slot, data.slotLabel, data.format, data.rule, pathLower.split('/').pop(), pathLower, href]
+      .filter(Boolean).map(normalizeText);
     const words = fields.flatMap((part) => [part, ...part.split(/[^\p{L}\p{N}]+/u).filter(Boolean)]);
-    return { node, parents, pathLower, hrefLower: normalizeText(href), words, slot: data.slot || 'resource' };
+    const topFolder = parents.length ? (parents[parents.length - 1].dataset.folder || 'Root') : 'Root';
+    return { node, parents, href, name, decoded, pathLower, hrefLower: normalizeText(href), words, slot: data.slot || 'resource', region: data.region || topFolder, format: data.format || '' };
   });
 
-  let openedBeforeSearch = null;
-
-  function applyFilter() {
-    const cleaned = normalizeText(input.value)
+  function matchEntries(queryRaw) {
+    const cleaned = normalizeText(queryRaw)
       .trim()
       .replace(/\bnon\s+ip\b/g, 'non_ip')
       .replace(/\bdestination\s+ip\b/g, 'ip')
@@ -190,87 +154,164 @@ export const RULESET_INDEX_SCRIPT = String.raw`(() => {
           catch { return { raw, decoded: raw }; }
         })
       : [];
-
-    if (tokens.length && !openedBeforeSearch) {
-      openedBeforeSearch = new Set(branches.filter((b) => b.open));
-    }
-
-    const matches = new Map();
-    let totalMatches = 0;
-
-    for (const entry of entries) {
-      const show = tokens.every(({ raw, decoded }) => {
-        if (slotAliases.has(decoded)) return slotAliases.get(decoded) === entry.slot;
-        if (decoded.includes('/') || decoded.startsWith('.')) {
-          return entry.pathLower.includes(decoded) || entry.hrefLower.includes(raw);
-        }
-        const term = termAliases.get(decoded) ?? decoded;
-        return entry.words.some((w) => w.startsWith(term) || (/\p{Script=Han}/u.test(term) && w.includes(term)));
-      });
-      entry.node.hidden = !show;
-      if (show) {
-        totalMatches++;
-        if (tokens.length) {
-          for (const parent of entry.parents) {
-            matches.set(parent, (matches.get(parent) ?? 0) + 1);
-          }
-        }
+    return { tokens, matches: entries.filter((entry) => tokens.every(({ raw, decoded }) => {
+      if (slotAliases.has(decoded)) return slotAliases.get(decoded) === entry.slot;
+      if (decoded.includes('/') || decoded.startsWith('.')) {
+        return entry.pathLower.includes(decoded) || entry.hrefLower.includes(raw);
       }
-    }
-
-    for (const branch of branches) {
-      const counter = counters.get(branch);
-      if (counter) {
-        counter.node.textContent = tokens.length ? formatMatches(matches.get(branch) ?? 0) : counter.total;
-      }
-      branch.hidden = tokens.length > 0 && !matches.has(branch);
-      if (branch.parentElement?.tagName === 'LI') {
-        branch.parentElement.hidden = branch.hidden;
-      }
-      if (tokens.length) branch.open = matches.has(branch);
-      else if (openedBeforeSearch) branch.open = openedBeforeSearch.has(branch);
-    }
-
-    if (!tokens.length) openedBeforeSearch = null;
-    clear.disabled = !input.value;
-    if (!tokens.length) status.textContent = '';
-    else status.textContent = totalMatches ? formatMatches(totalMatches) : 'No matching files. Try a shorter search.';
+      const term = termAliases.get(decoded) ?? decoded;
+      return entry.words.some((w) => w.startsWith(term) || (/\p{Script=Han}/u.test(term) && w.includes(term)));
+    })) };
   }
 
-  function resetFilter() {
-    input.value = '';
-    applyFilter();
-    input.focus();
+  const trigger = document.querySelector('#cmd-trigger');
+  const dialog = document.querySelector('#cmd-dialog');
+  const cmdInput = document.querySelector('#cmd-query');
+  const cmdResults = document.querySelector('#cmd-results');
+  const cmdStatus = document.querySelector('#cmd-status');
+  const cmdClose = document.querySelector('#cmd-close');
+  if (!trigger || !dialog || !cmdInput || !cmdResults || !cmdStatus) return;
+
+  let highlightedIdx = 0;
+  let renderedItems = [];
+
+  function renderResults() {
+    const { matches } = matchEntries(cmdInput.value);
+    cmdResults.textContent = '';
+    renderedItems = [];
+    highlightedIdx = 0;
+
+    if (!matches.length) {
+      const empty = document.createElement('div');
+      empty.className = 'cmd-empty';
+      empty.textContent = 'No matching files found.';
+      cmdResults.append(empty);
+      cmdStatus.textContent = '0 matches';
+      return;
+    }
+
+    const groups = new Map();
+    for (const item of matches) {
+      const g = item.region || 'Other';
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(item);
+    }
+
+    const fragment = document.createDocumentFragment();
+    for (const [groupName, items] of groups) {
+      const grp = document.createElement('section');
+      grp.className = 'cmd-group';
+      const lbl = document.createElement('h3');
+      lbl.className = 'cmd-group-label';
+      lbl.textContent = groupName;
+      const ul = document.createElement('ul');
+      ul.className = 'cmd-items';
+
+      for (const item of items) {
+        const idx = renderedItems.length;
+        const li = document.createElement('li');
+        li.className = 'cmd-item';
+        li.dataset.highlighted = idx === 0 ? 'true' : 'false';
+
+        const a = document.createElement('a');
+        a.className = 'cmd-item-link';
+        a.href = item.href;
+        a.append(createUseSvg('ico-file'));
+        const spanPath = document.createElement('span');
+        spanPath.className = 'cmd-item-path';
+        spanPath.textContent = item.decoded.replace(/^\//, '');
+        a.append(spanPath);
+
+        const copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.className = "cmd-item-copy coss-btn coss-btn-outline coss-btn-xs";
+        copyBtn.dataset.copyUrl = '';
+        copyBtn.dataset.href = item.href;
+        copyBtn.dataset.name = item.name;
+        copyBtn.setAttribute('aria-label', 'Copy URL for ' + item.decoded.replace(/^\//, ''));
+        const lblCopy = document.createElement('span');
+        lblCopy.className = 'copy-label';
+        lblCopy.textContent = 'Copy';
+        copyBtn.append(lblCopy);
+
+        li.addEventListener('mouseenter', () => setHighlight(idx));
+        li.append(a, copyBtn);
+        ul.append(li);
+        renderedItems.push({ li, a, copyBtn, item });
+      }
+      grp.append(lbl, ul);
+      fragment.append(grp);
+    }
+    cmdResults.append(fragment);
+
+    cmdStatus.textContent = matches.length + (matches.length === 1 ? ' match' : ' matches');
   }
 
-  input.addEventListener('input', applyFilter);
-  input.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      if (input.value) {
+  function setHighlight(nextIdx) {
+    if (!renderedItems.length) return;
+    renderedItems[highlightedIdx]?.li.setAttribute('data-highlighted', 'false');
+    highlightedIdx = (nextIdx + renderedItems.length) % renderedItems.length;
+    renderedItems[highlightedIdx].li.dataset.highlighted = 'true';
+    renderedItems[highlightedIdx].li.scrollIntoView({ block: 'nearest' });
+  }
+
+  function openDialog() {
+    if (dialog.open) return;
+    renderResults();
+    dialog.showModal();
+    trigger.setAttribute('aria-expanded', 'true');
+    requestAnimationFrame(() => {
+      cmdInput.focus();
+      cmdInput.select();
+    });
+  }
+
+  function closeDialog() {
+    if (!dialog.open) return;
+    dialog.close();
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.focus();
+  }
+
+  trigger.addEventListener('click', openDialog);
+  if (cmdClose) cmdClose.addEventListener('click', closeDialog);
+  dialog.addEventListener('close', () => trigger.setAttribute('aria-expanded', 'false'));
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) closeDialog();
+  });
+
+  cmdInput.addEventListener('input', renderResults);
+  cmdInput.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setHighlight(highlightedIdx + 1);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setHighlight(highlightedIdx - 1);
+    } else if (event.key === 'Enter' && renderedItems[highlightedIdx]) {
+      event.preventDefault();
+      renderedItems[highlightedIdx].a.click();
+    } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c' && !window.getSelection()?.toString()) {
+      const cur = renderedItems[highlightedIdx];
+      if (cur) {
         event.preventDefault();
-        resetFilter();
-      } else {
-        input.blur();
+        triggerCopy(cur.copyBtn, cur.item.href, cur.item.name);
       }
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      closeDialog();
     }
   });
-  clear.addEventListener('click', resetFilter);
 
   document.addEventListener('keydown', (event) => {
-    if (
-      event.key === '/' &&
-      !event.metaKey &&
-      !event.ctrlKey &&
-      !event.altKey &&
-      document.activeElement !== input &&
-      !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')
-    ) {
+    const isMetaK = event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey);
+    const isSlash = event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey;
+    if ((isMetaK || isSlash) && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')) {
       event.preventDefault();
-      input.focus();
-      input.select();
+      if (dialog.open && isMetaK) closeDialog();
+      else openDialog();
     }
   });
 
-  controls.hidden = false;
-  applyFilter();
+  trigger.hidden = false;
 })();`;

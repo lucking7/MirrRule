@@ -94,6 +94,10 @@ function formatUtcDisplay(date: Date): string {
   return `${month} ${day}, ${year} · ${hh}:${mm} UTC`;
 }
 
+function statBadge(label: string): string {
+  return `<span class="coss-badge coss-badge-secondary coss-badge-sm">${escapeHtml(label)}</span>`;
+}
+
 function formatCount(count: number, singular: string, plural: string): string {
   return `${NUMBER_FORMAT.format(count)} ${count === 1 ? singular : plural}`;
 }
@@ -277,8 +281,8 @@ export function generateHtml(tree: TreeTypeArray, builtAt: Date = new Date()): s
   const rulesetsLabel = formatCount(stats.rulesets, 'ruleset', 'rulesets');
   const filesLabel = formatCount(stats.files, 'file', 'files');
   const statsHtml = stats.rulesets > 0
-    ? `<span class="meta-counts"><span class="meta-stat">${escapeHtml(rulesetsLabel)}</span><span class="meta-stat">${escapeHtml(filesLabel)}</span></span>`
-    : `<span class="meta-counts"><span class="meta-stat">${escapeHtml(filesLabel)}</span></span>`;
+    ? `<span class="meta-counts">${statBadge(rulesetsLabel)}${statBadge(filesLabel)}</span>`
+    : `<span class="meta-counts">${statBadge(filesLabel)}</span>`;
 
   return html`
     <!DOCTYPE html>
@@ -301,57 +305,80 @@ export function generateHtml(tree: TreeTypeArray, builtAt: Date = new Date()): s
     <body>
       ${TABLER_SPRITE}
       <a class="skip-link" href="#main-content">Skip to content</a>
-      <main id="main-content" class="container" tabindex="-1">
-        <header class="masthead">
-          <div class="masthead-top">
+      <div class="page-root">
+        <header class="site-header">
+          <div class="site-header-inner">
             <div class="wordmark">
               <span class="wordmark-glyph" aria-hidden="true">${svgUse('ico-route', 'ico-route')}</span>
               <h1>NRRule</h1>
               <span class="wordmark-host">nrrule.pages.dev</span>
             </div>
-            <a class="ghost-link" href="https://github.com/lucking7/MirrRule" aria-label="Source code on GitHub">
-              ${svgUse('ico-github', 'ico-sm')}
-              <span>GitHub</span>
-            </a>
-          </div>
-
-          <div class="masthead-bar">
-            <div class="masthead-meta">
-              <span class="meta-fresh">
-                <span class="fresh-dot" aria-hidden="true"></span>
-                <span>Updated <time datetime="${builtIso}" title="${builtIso}">${escapeHtml(builtDisplay)}</time></span>
-              </span>
-              ${statsHtml}
-            </div>
-
-            <div id="tree-filter" class="search-cluster" hidden>
-              <div class="search-field">
-                <label class="sr-only" for="tree-query">Filter files</label>
-                ${svgUse('ico-search', 'ico-sm search-ico')}
-                <input id="tree-query" type="search" placeholder="apple_cdn, non_ip" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search">
-                <kbd class="key-hint" aria-hidden="true">/</kbd>
-                <button id="tree-clear" class="clear-btn" type="button" aria-label="Clear filter">${svgUse('ico-x', 'ico-xs')}</button>
-              </div>
-              <span id="tree-status" role="status" aria-live="polite"></span>
+            <div class="header-actions">
+              <button id="cmd-trigger" class="coss-btn coss-btn-outline coss-btn-sm" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="cmd-dialog" hidden>
+                ${svgUse('ico-search', 'ico-sm')}
+                <span>Search files…</span>
+                <kbd class="coss-kbd-group key-hint" aria-hidden="true"><kbd class="coss-kbd">⌘</kbd><kbd class="coss-kbd">K</kbd></kbd>
+              </button>
+              <a class="coss-btn coss-btn-ghost coss-btn-sm ghost-link" href="https://github.com/lucking7/MirrRule" aria-label="Source code on GitHub">
+                ${svgUse('ico-github', 'ico-sm')}
+                <span>GitHub</span>
+              </a>
             </div>
           </div>
         </header>
-
-        <ul class="tree">
-          ${treeHtml(tree)}
-        </ul>
-
-        <footer class="page-foot">
-          <div class="foot-group">
-            <span>Maintained by <a href="https://github.com/lucking7">Luck</a></span>
-            <a href="/LICENSE" target="_blank">AGPL-3.0</a>
+        <main id="main-content" class="container" tabindex="-1">
+          <div class="coss-frame">
+            <div class="coss-frame-header">
+              <div class="masthead-meta">
+                <span class="meta-fresh">
+                  <span class="fresh-dot" aria-hidden="true"></span>
+                  <span>Updated <time datetime="${builtIso}" title="${builtIso}">${escapeHtml(builtDisplay)}</time></span>
+                </span>
+                ${statsHtml}
+              </div>
+            </div>
+            <div class="coss-frame-panel">
+              <ul class="tree">${treeHtml(tree)}</ul>
+            </div>
+            <footer class="coss-frame-footer">
+              <div class="page-foot">
+                <div class="foot-group">
+                  <span>Maintained by <a href="https://github.com/lucking7">Luck</a></span>
+                  <a href="/LICENSE" target="_blank">AGPL-3.0</a>
+                  <span>Styled with <a href="https://coss.com/ui" rel="noopener noreferrer" target="_blank">coss ui</a> (MIT)</span>
+                </div>
+                <div class="foot-group">
+                  <a href="https://github.com/lucking7/MirrRule">Source on GitHub</a>
+                  <a href="/README.md">README</a>
+                </div>
+              </div>
+            </footer>
           </div>
-          <div class="foot-group">
-            <a href="https://github.com/lucking7/MirrRule">Source on GitHub</a>
-            <a href="/README.md">README</a>
+        </main>
+        <dialog id="cmd-dialog" class="cmd-dialog" aria-labelledby="cmd-dialog-title">
+          <div class="cmd-shell">
+            <h2 id="cmd-dialog-title" class="sr-only">Search rulesets and files</h2>
+            <div class="cmd-input-wrap">
+              <span class="cmd-input-icon" aria-hidden="true">${svgUse('ico-search', 'ico-sm')}</span>
+              <label class="sr-only" for="cmd-query">Filter rulesets and files</label>
+              <input id="cmd-query" class="coss-input" type="search" placeholder="Filter by client, variant, or ruleset…" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search">
+              <button id="cmd-close" class="coss-btn coss-btn-ghost coss-btn-icon-xs" type="button" aria-label="Close search dialog">${svgUse('ico-x', 'ico-xs')}</button>
+            </div>
+            <div class="cmd-panel">
+              <div id="cmd-results" class="cmd-results"></div>
+            </div>
+            <div class="cmd-footer">
+              <div class="cmd-footer-hints">
+                <span class="cmd-hint-pair"><kbd class="coss-kbd">↑</kbd><kbd class="coss-kbd">↓</kbd><span>Navigate</span></span>
+                <span class="cmd-hint-pair"><kbd class="coss-kbd">↵</kbd><span>Open</span></span>
+                <span class="cmd-hint-pair"><kbd class="coss-kbd">⌘C</kbd><span>Copy URL</span></span>
+                <span class="cmd-hint-pair"><kbd class="coss-kbd">Esc</kbd><span>Close</span></span>
+              </div>
+              <span id="cmd-status" role="status" aria-live="polite"></span>
+            </div>
           </div>
-        </footer>
-      </main>
+        </dialog>
+      </div>
       <div id="copy-status" class="sr-only" role="status" aria-live="polite"></div>
       <script>${RULESET_INDEX_SCRIPT}</script>
     </body>

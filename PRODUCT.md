@@ -4,11 +4,11 @@
 
 NRRule 是 MirrRule 构建脚本生成的静态规则文件服务，公开地址为 `https://nrrule.pages.dev`。服务发布 Surge、Clash、Loon、sing-box 规则、GeoIP 数据，以及模块、脚本和上游镜像。
 
-访问者可以直接展开对应客户端目录浏览文件、使用页头搜索框按客户端/分版/规则名快速定位，或直接点击文件打开与复制完整订阅 URL。目录与文件名直接对应实际产物；客户端格式、来源与分流顺序见 [README](README.md) 和 [RULE_SOURCES](RULE_SOURCES.md)。
+访问者可以直接展开对应客户端目录浏览文件、用命令面板搜索（`⌘K` / `Ctrl+K` 或 `/`）按客户端/分版/规则名快速定位，或直接点击文件打开与复制完整订阅 URL。目录与文件名直接对应实际产物；客户端格式、来源与分流顺序见 [README](README.md) 和 [RULE_SOURCES](RULE_SOURCES.md)。
 
 ## 页面结构
 
-页面依次呈现紧凑页头（品牌标识与规范域名 `nrrule.pages.dev`、GitHub 源码入口、UTC 更新时间、规则集与文件数量统计、内联搜索框）、原生折叠目录树，以及底部归属页脚。视觉与交互细节见 [DESIGN](DESIGN.md)。
+页面依次呈现吸顶顶栏（品牌标识与规范域名 `nrrule.pages.dev`、搜索触发按钮、GitHub 源码入口），以及一个 Frame 外框：头部为 UTC 更新时间与规则集、文件数量，中间为原生折叠目录树，底部为归属页脚。视觉与交互细节见 [DESIGN](DESIGN.md)。
 
 | 页面内容 | NRRule 值 |
 |---|---|
@@ -17,6 +17,7 @@ NRRule 是 MirrRule 构建脚本生成的静态规则文件服务，公开地址
 | 维护者 | `Maintained by Luck`，链接到 `https://github.com/lucking7` |
 | 源码 | `GitHub` / `Source on GitHub`，链接到 `https://github.com/lucking7/MirrRule` |
 | 许可证 | `AGPL-3.0`，链接到本站 `/LICENSE` |
+| 样式归属 | 页脚 `Styled with coss ui (MIT)`，链接到 `https://coss.com/ui` |
 | Canonical 与服务地址 | `https://nrrule.pages.dev/` |
 | 构建时间 | 本次构建的 UTC 时间（`<time datetime>` 保留精确 ISO 时间戳） |
 
@@ -33,4 +34,4 @@ NRRule 是 MirrRule 构建脚本生成的静态规则文件服务，公开地址
 
 ## 构建与归属
 
-`Build/build-public.ts` 从公开产物目录生成单文件 `index.html`，内联样式、Tabler Icons（MIT）SVG 精灵与轻量渐进增强脚本，无外部资源请求，禁用 JavaScript 时所有静态目录与文件链接保持完整可用。详见 [Build/assets/README](Build/assets/README.md)。
+`Build/build-public.ts` 从公开产物目录生成单文件 `index.html`，内联基于 coss ui（MIT）设计参数手写的样式、Tabler Icons（MIT）SVG 精灵与轻量渐进增强脚本，无外部资源请求，禁用 JavaScript 时所有静态目录与文件链接保持完整可用。详见 [Build/assets/README](Build/assets/README.md)。
