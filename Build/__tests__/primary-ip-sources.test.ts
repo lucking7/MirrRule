@@ -5,12 +5,17 @@ import { describe, it } from 'node:test';
 import {
   ANTHROPIC_ASN,
   ANTHROPIC_IP_DOCS_URL,
+  excludeGoogleCloudRanges,
   extractRipestatAsn,
+  GOOGLE_IP_RANGES_URL,
   isAnthropicIpDocsUrl,
+  isGoogleIpRangesUrl,
   isRipestatAnnouncedPrefixesUrl,
   loadAnthropicDocsIpRules,
+  loadGoogleOwnedIpRules,
   loadRipestatAsnRules,
   parseAnthropicInboundCidrs,
+  parseGoogleIpRanges,
   parseRipestatAnnouncedPrefixes,
   verifyCidrsWithRdap,
 } from '../lib/primary-ip-sources';
@@ -427,6 +432,73 @@ describe('end-to-end automated primary IP loaders', () => {
       assert.deepEqual(
         await loadAnthropicDocsIpRules(`${baseUrl}/missing`, { ...rdapOptions, throwOnError: false }),
         []
+      );
+    });
+  });
+});
+
+function googleRanges(prefixes: Array<Record<string, string>>) {
+  return { syncToken: '1795400000000', creationTime: '2026-11-22T18:05:36.039917', prefixes };
+}
+
+describe('Google published IP ranges', () => {
+  it('matches only the gstatic goog.json URL', () => {
+    assert.equal(isGoogleIpRangesUrl(GOOGLE_IP_RANGES_URL), true);
+    assert.equal(isGoogleIpRangesUrl('https://www.gstatic.com/ipranges/cloud.json'), false);
+    assert.equal(isGoogleIpRangesUrl('http://www.gstatic.com/ipranges/goog.json'), false);
+    assert.equal(isGoogleIpRangesUrl('https://www.gstatic.com/ipranges/goog.json?x=1'), false);
+    assert.equal(isGoogleIpRangesUrl('https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geoip/google.list'), false);
+  });
+
+  it('parses both address families and rejects malformed documents', () => {
+    assert.deepEqual(
+      parseGoogleIpRanges(googleRanges([{ ipv4Prefix: '8.8.8.0/24' }, { ipv6Prefix: '2001:4860::/32' }]), 'goog.json'),
+      ['8.8.8.0/24', '2001:4860::/32']
+    );
+    assert.throws(() => parseGoogleIpRanges({ prefixes: [] }, 'goog.json'), /syncToken/);
+    assert.throws(() => parseGoogleIpRanges(googleRanges([]), 'goog.json'), /no prefixes/);
+    assert.throws(() => parseGoogleIpRanges(googleRanges([{ ipv4Prefix: '8.8.8.0/24', ipv6Prefix: '2001:4860::/32' }]), 'goog.json'), /exactly one/);
+    assert.throws(() => parseGoogleIpRanges(googleRanges([{ ipv4Prefix: '2001:4860::/32' }]), 'goog.json'), /wrong address family/);
+    assert.throws(() => parseGoogleIpRanges(googleRanges([{ ipv4Prefix: '0.0.0.0/0' }]), 'goog.json'), /invalid prefix/);
+  });
+
+  it('removes Google Cloud customer ranges, including partial overlaps', () => {
+    assert.deepEqual(
+      excludeGoogleCloudRanges(['34.0.0.0/15', '8.8.8.0/24'], ['34.1.0.0/16']),
+      ['8.8.8.0/24', '34.0.0.0/16']
+    );
+    assert.deepEqual(excludeGoogleCloudRanges(['8.8.4.0/24'], ['8.8.4.0/25']), ['8.8.4.128/25']);
+    assert.deepEqual(excludeGoogleCloudRanges(['8.8.4.0/24'], ['8.8.4.0/23']), []);
+    // IPv6 keeps its prefix length and compresses zero groups.
+    assert.deepEqual(excludeGoogleCloudRanges(['2001:4860::/32'], []), ['2001:4860::/32']);
+    assert.deepEqual(
+      excludeGoogleCloudRanges(['2600:1900::/28'], ['2600:1900::/29']),
+      ['2600:1908::/29']
+    );
+    assert.deepEqual(
+      excludeGoogleCloudRanges(['2001:4860::/32'], ['2001:4860:8000::/33']),
+      ['2001:4860::/33']
+    );
+  });
+
+  it('loads goog.json minus cloud.json and fails closed on an invalid cloud document', async () => {
+    await withHttpServer((request, response) => {
+      const routes: Record<string, unknown> = {
+        '/goog.json': googleRanges([{ ipv4Prefix: '34.0.0.0/15' }, { ipv4Prefix: '8.8.8.0/24' }, { ipv6Prefix: '2001:4860::/32' }]),
+        '/cloud.json': googleRanges([{ ipv4Prefix: '34.1.0.0/16' }]),
+        '/broken-cloud.json': { prefixes: [] },
+      };
+      const body = routes[request.url ?? ''];
+      response.writeHead(body ? 200 : 404, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+      response.end(JSON.stringify(body ?? {}));
+    }, async baseUrl => {
+      assert.deepEqual(
+        await loadGoogleOwnedIpRules(`${baseUrl}/goog.json`, { throwOnError: true, cloudUrl: `${baseUrl}/cloud.json` }),
+        ['IP-CIDR,8.8.8.0/24', 'IP-CIDR,34.0.0.0/16', 'IP-CIDR6,2001:4860::/32']
+      );
+      await assert.rejects(
+        loadGoogleOwnedIpRules(`${baseUrl}/goog.json`, { throwOnError: true, cloudUrl: `${baseUrl}/broken-cloud.json` }),
+        /cloud\.json/
       );
     });
   });

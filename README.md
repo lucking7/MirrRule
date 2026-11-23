@@ -147,7 +147,7 @@ The homepage is a native directory tree following the layout and styling of [Suk
 
 The index uses system fonts and follows the system light or dark appearance. Its heading is `NRRule Ruleset Server`, `Made by Luck` links to [lucking7](https://github.com/lucking7), and `Source @ GitHub` links to this repository. Product and styling requirements are recorded in [PRODUCT.md](PRODUCT.md) and [DESIGN.md](DESIGN.md).
 
-Netflix, Disney, Spotify, Prime Video, YouTube, BiliBili, TikTok, Google and GitHub use only [MetaCubeX text geosite rules](https://github.com/MetaCubeX/meta-rules-dat/tree/meta/geo/geosite); Netflix also includes MetaCubeX's IP ranges, and BiliBili includes the international `biliintl` category. MetaCubeX lacks some domains that blackmatrix7 had (Prime Video video CDNs, BiliBili PCDN hosts, TikTok/CapCut overseas domains), so that traffic no longer matches these rulesets. WeChat uses [blackmatrix7 Surge rules](https://github.com/blackmatrix7/ios_rule_script/tree/master/rule/Surge) alone, since MetaCubeX has no WeChat category. Existing subscription filenames remain unchanged. See [规则来源与迁移记录](RULE_SOURCES.md) for source mappings, format conversion, CDN/speedtest coverage, and verification limits.
+Netflix, Disney, Spotify, Prime Video, YouTube, BiliBili, TikTok, Google and GitHub use [MetaCubeX domain rules](https://github.com/MetaCubeX/meta-rules-dat/tree/meta/geo/geosite). Netflix also includes the [MetaCubeX Netflix IP ranges](https://github.com/MetaCubeX/meta-rules-dat/tree/meta/geo/geoip). Google includes [Google's published ranges](https://www.gstatic.com/ipranges/goog.json) minus its [Google Cloud customer ranges](https://www.gstatic.com/ipranges/cloud.json), so sites hosted on Google Cloud are not routed as Google. BiliBili includes the international `biliintl` category. MetaCubeX lacks some domains that blackmatrix7 had (Prime Video video CDNs, BiliBili PCDN hosts, TikTok/CapCut overseas domains), so that traffic no longer matches these rulesets. WeChat uses [blackmatrix7 Surge rules](https://github.com/blackmatrix7/ios_rule_script/tree/master/rule/Surge) alone, since MetaCubeX has no WeChat category. Existing subscription filenames remain unchanged. See [规则来源与迁移记录](RULE_SOURCES.md) for source mappings, format conversion, CDN/speedtest coverage, and verification limits.
 
 ## Rule Sets
 
@@ -171,7 +171,8 @@ Netflix, Disney, Spotify, Prime Video, YouTube, BiliBili, TikTok, Google and Git
 | `icloud_private_relay` | iCloud Private Relay |
 | `microsoft` | Microsoft services |
 | `microsoft_cdn` | Microsoft download CDN, also included in `microsoft` |
-| `amazon` | Amazon, AWS, Prime Video, Kindle, IMDb, and related services |
+| `google` | Google domains and the network prefixes Google operates for its own services, excluding Google Cloud customer addresses. Use `non_ip/google` for domain routing or `ip/google` for the network prefixes. |
+| `amazon` | Domains for Amazon, AWS, Prime Video, Kindle, IMDb, and related services. Put any separate Prime Video policy first. |
 | `domestic` | China domestic sites |
 | `lan` | Local network |
 | `speedtest` | Global speed-test domains, updated from Sukka’s published domain set |

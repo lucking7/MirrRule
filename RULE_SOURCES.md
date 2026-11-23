@@ -39,7 +39,7 @@ sing-box 转换时会丢弃 Surge 的 `no-resolve`。`reject` 通过 `sourceVari
 
 配置在 [rule-sources.ts](Build/lib/rule-sources.ts)。MetaCubeX 使用 `meta/geo/geosite/<分类>.list`（及 `meta/geo/geoip/<分类>.list`）；blackmatrix7 使用 `master/rule/Surge/<分类>/<分类>.list`。同一 ruleset 的多个来源合并后去重，不是互相替代的 fallback。任一来源下载失败时，该 ruleset 整体沿用上次已验收发布的来源快照（内容不变，审计中 `selection` 为 `baseline-snapshot`，构建记录有警告），其他 ruleset 照常更新；代价是上游长期失效时这个 ruleset 会悄悄变旧，构建记录中的警告是信号。没有可用快照时构建失败。
 
-2026-10-18 起，有 MetaCubeX 分类的服务只用 MetaCubeX，只有 WeChat 仍用 blackmatrix7。对比当时上游：blackmatrix7 独有的多是第三方条目，例如 Netflix 的 `us-west-2.amazonaws.com`、`onetrust.com`、`cookielaw.org`，Disney 的 braze、conviva、optimizely 等统计与 CDN 域名，YouTube 的 `gvt1.com`、`gvt2.com`，Prime Video 的 `llnwd.net`（Limelight 共用 CDN）与 `media-amazon.com`，BiliBili 的 `smtcdns.net` 与阿里云 HTTPDNS `203.107.1.0/24`，TikTok 的 `snssdk.com`（字节国内 App 共用）。代价是失去 blackmatrix7 的 PROCESS-NAME、USER-AGENT 与多数 IP 规则，以及 Meta 没有收录的服务域名：Netflix 的 1119 条 IP 段中有 1106 条不在 Meta geoip 内，另有 `netflix.com.au`、`netflixstudios.com` 等 9 个域名未被 Meta 覆盖；Prime Video 缺 `aiv-delivery.net`、`pv-cdn.net` 等视频 CDN；BiliBili 缺 `ourdvsss.com`、`ksyungslb.com` 上的 PCDN 主机；TikTok 缺 CapCut 与 `byteoversea.com`、`isnssdk.com`、`ipstatp.com` 等海外域名。这些服务的部分流量不再命中服务规则，需要时由用户自己补充。
+2026-10-18 起，有 MetaCubeX 分类的服务只用 MetaCubeX，只有 WeChat 仍用 blackmatrix7。对比当时上游：blackmatrix7 独有的多是第三方条目，例如 Netflix 的 `us-west-2.amazonaws.com`、`onetrust.com`、`cookielaw.org`，Disney 的 braze、conviva、optimizely 等统计与 CDN 域名，YouTube 的 `gvt1.com`、`gvt2.com`，Prime Video 的 `llnwd.net`（Limelight 共用 CDN）与 `media-amazon.com`，BiliBili 的 `smtcdns.net` 与阿里云 HTTPDNS `203.107.1.0/24`，TikTok 的 `snssdk.com`（字节国内 App 共用）。代价是失去 blackmatrix7 的 PROCESS-NAME、USER-AGENT 与多数 IP 规则，以及 Meta 没有收录的服务域名：Netflix 的 1119 条 IP 段中有 1106 条不在 Meta geoip 内，另有 `netflix.com.au`、`netflixstudios.com` 等 9 个域名未被 Meta 覆盖；当时的 Prime Video 比对列出了 `aiv-delivery.net` 和 `pv-cdn.net`，当前覆盖见下表；BiliBili 缺 `ourdvsss.com`、`ksyungslb.com` 上的 PCDN 主机；TikTok 缺 CapCut 与 `byteoversea.com`、`isnssdk.com`、`ipstatp.com` 等海外域名。这些服务的部分流量不再命中服务规则，需要时由用户自己补充。
 
 | 输出 basename | Meta geosite       | blackmatrix7 分类 | 说明                                                          |
 | ------------- | ------------------ | ----------------- | ------------------------------------------------------------- |
@@ -47,12 +47,17 @@ sing-box 转换时会丢弃 Surge 的 `no-resolve`。`reject` 通过 `sourceVari
 | disney        | disney             | 无                |                                                               |
 | spotify       | spotify            | 无                |                                                               |
 | youtube       | youtube            | 无                |                                                               |
-| google        | google             | 无                | 不合并范围更宽的 Google geoip                                 |
+| google        | google             | 无                | IP 取 Google 公布的 `goog.json` 减去 Google Cloud 客户网段 `cloud.json`，发布为 `ip/google`；不用 MetaCubeX geoip/google，它含 Google Cloud 客户网段 |
+| amazon        | amazon             | 无                | 含 AWS、Prime Video 等域名；使用专属策略时先加载更具体的服务规则 |
 | github        | github             | 无                |                                                               |
-| primevideo    | primevideo         | 无                | 不含 `aiv-delivery.net`、`pv-cdn.net` 等视频 CDN              |
+| primevideo    | primevideo         | 无                | 含 `pv-cdn.net`；截至 2026-11-23 仍缺 `aiv-delivery.net`              |
 | bilibili      | bilibili、biliintl | 无                | `biliintl` 为国际版（bilibili.tv、bstar CDN）；不含 PCDN 主机 |
 | tiktok        | tiktok             | 无                | 不含 CapCut、byteoversea 等海外域名                           |
 | wechat        | 无                 | WeChat            | Meta 没有专用 WeChat 分类，不引入更宽的 Tencent               |
+
+Google 的 IP 来源：MetaCubeX `geoip/google` 在 2026-11-23 约有 2781 万个 IPv4 地址，其中约 70% 属于 Google Cloud 客户网段，`cloud.json` 的网段全部在内。把它并入 Google 订阅会让托管在 Google Cloud 上的第三方网站按 Google 分流；sing-box 不能表达 `no-resolve`，Clash 在 TUN 模式下也按目标 IP 匹配。因此按 [Google 的说明](https://support.google.com/a/answer/10026322) 用 `goog.json` 减去 `cloud.json`：同日结果为 297 个 IPv4 网段（约 485 万个地址）和 98 个 IPv6 网段，与 `cloud.json` 无交集，并包含 blackmatrix7 Google 规则中的全部 5 个 IP 网段。两份 JSON 由 [primary-ip-sources.ts](Build/lib/primary-ip-sources.ts) 下载并校验结构，任一份无效时该来源失败，规则集沿用已验收快照。网段相减在本地用 bigint 计算，因为 fast-cidr-tools 0.3.2 会把 IPv6 前缀改成 `/64`；主构建只对 IPv4 调用它的 `merge`，IPv6 原样输出。
+
+2026-11-23 按精确域名与后缀匹配核对，[Meta Amazon](https://github.com/MetaCubeX/meta-rules-dat/blob/meta/geo/geosite/amazon.list) 覆盖 Meta 的 `aws` 和 `primevideo` 两个域名集。[blackmatrix7 Amazon](https://github.com/blackmatrix7/ios_rule_script/blob/master/rule/Surge/Amazon/Amazon.list) 比它多匹配 7 条域名后缀，其中 `aiv-delivery.net` 可作为 Prime Video 的定向补充候选，`llnwd.net` 是共享 CDN；其 15 条 IP 均落在 AWS 公布的网段。Meta 完整 GeoIP 目录提供的是共享 CDN 分类 `cloudfront`，没有 `amazon`、`aws` 或 `primevideo`。Amazon 订阅继续按域名路由；需要按 AWS 网络或某项云服务分流时，可根据 [AWS 官方 IP 地址数据](https://docs.aws.amazon.com/vpc/latest/userguide/aws-ip-ranges.html) 的服务与区域单独选择网段。
 
 AI 保留 Sukka、dler 来源（2026-11-10 起不再合并已停止维护的 ConnersHua/RuleGo；去掉的 17 条中包括 `www.bing.com`、`apps.mzstatic.com`、`gateway.icloud.com`、`api.statsig.com` 等非 AI 专用的宽泛条目，以及让整个规则集带上 `extended-matching` 的 4 行），并使用 Meta `category-ai-!cn.list` 文本输入，补充 Sukka `List/ip/ai.conf`。2026-10-18 起不再合并 blackmatrix7 `OpenAI`（它曾替换 Kelee AI）：其中的 OpenAI 域名都已在 `category-ai-!cn` 中，独有的只是 `stripe.com`、`auth0.com`、`sentry.io` 等多个网站共用的第三方服务、Vultr 的整个 ASN（AS20473）和 2 个 DigitalOcean IP。PrimeVideo 不使用整个 Amazon 分类。上述分类与 Kelee 的覆盖范围不完全相同，尤其 WeChat 的 keyword 与 IPv6、不同来源的分类粒度可能影响客户端分流，迁移者应实测自己的应用。
 

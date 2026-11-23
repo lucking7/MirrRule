@@ -65,11 +65,19 @@ describe('service source migration', () => {
     for (const id of services) {
       const rule = specialRules.find(item => item.targetFile === `List/${id}.list`);
       assert.ok(rule, id);
-      assert.ok(rule.sourceFiles.every(url => url.includes('meta-rules-dat/meta/geo/')), id);
+      // Google's IP ranges come from Google itself; MetaCubeX geoip/google includes Cloud customer space.
+      const ownIpSources = id === 'google' ? ['https://www.gstatic.com/ipranges/goog.json'] : [];
+      assert.ok(rule.sourceFiles.every(url => url.includes('meta-rules-dat/meta/geo/') || ownIpSources.includes(url)), id);
       assert.deepEqual(rule.targets, ['surge', 'clash', 'singbox', 'loon']);
     }
     const metaPaths = (id: string) => specialRules.find(rule => rule.targetFile === `List/${id}.list`)?.sourceFiles.map(url => url.split('/geo/')[1]);
     assert.deepEqual(metaPaths('netflix'), ['geosite/netflix.list', 'geoip/netflix.list']);
+    assert.deepEqual(getSpecialRule('google').sourceFiles, [
+      'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/google.list',
+      'https://www.gstatic.com/ipranges/goog.json',
+    ], 'Google IPs come from Google\'s own ranges, not MetaCubeX geoip/google with Cloud customer space');
+    assert.equal(getSpecialRule('google').applyNoResolve, true);
+    assert.deepEqual(metaPaths('amazon'), ['geosite/amazon.list']);
     assert.deepEqual(metaPaths('bilibili'), ['geosite/bilibili.list', 'geosite/biliintl.list']);
     const wechat = specialRules.find(rule => rule.targetFile === 'List/wechat.list');
     assert.equal(wechat?.sourceFiles.length, 1, 'do not substitute a broad Tencent category for WeChat');
