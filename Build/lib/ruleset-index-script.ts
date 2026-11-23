@@ -176,13 +176,12 @@ export const RULESET_INDEX_SCRIPT = String.raw`(() => {
   let renderedItems = [];
 
   function renderResults() {
-    const { tokens, matches } = matchEntries(cmdInput.value);
-    const limited = matches.slice(0, 60);
+    const { matches } = matchEntries(cmdInput.value);
     cmdResults.textContent = '';
     renderedItems = [];
     highlightedIdx = 0;
 
-    if (!limited.length) {
+    if (!matches.length) {
       const empty = document.createElement('div');
       empty.className = 'cmd-empty';
       empty.textContent = 'No matching files found.';
@@ -192,12 +191,13 @@ export const RULESET_INDEX_SCRIPT = String.raw`(() => {
     }
 
     const groups = new Map();
-    for (const item of limited) {
+    for (const item of matches) {
       const g = item.region || 'Other';
       if (!groups.has(g)) groups.set(g, []);
       groups.get(g).push(item);
     }
 
+    const fragment = document.createDocumentFragment();
     for (const [groupName, items] of groups) {
       const grp = document.createElement('section');
       grp.className = 'cmd-group';
@@ -240,20 +240,18 @@ export const RULESET_INDEX_SCRIPT = String.raw`(() => {
         renderedItems.push({ li, a, copyBtn, item });
       }
       grp.append(lbl, ul);
-      cmdResults.append(grp);
+      fragment.append(grp);
     }
+    cmdResults.append(fragment);
 
-    cmdStatus.textContent = matches.length > limited.length
-      ? 'Showing ' + limited.length + ' of ' + matches.length + ' matches'
-      : matches.length + (matches.length === 1 ? ' match' : ' matches');
+    cmdStatus.textContent = matches.length + (matches.length === 1 ? ' match' : ' matches');
   }
 
   function setHighlight(nextIdx) {
     if (!renderedItems.length) return;
+    renderedItems[highlightedIdx]?.li.setAttribute('data-highlighted', 'false');
     highlightedIdx = (nextIdx + renderedItems.length) % renderedItems.length;
-    renderedItems.forEach((row, i) => {
-      row.li.dataset.highlighted = i === highlightedIdx ? 'true' : 'false';
-    });
+    renderedItems[highlightedIdx].li.dataset.highlighted = 'true';
     renderedItems[highlightedIdx].li.scrollIntoView({ block: 'nearest' });
   }
 

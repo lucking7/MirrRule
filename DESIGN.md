@@ -46,7 +46,7 @@ NRRule 索引页由 `Build/build-public.ts` 生成，内联 `Build/assets/rulese
 - **Tabler Icons（`1.5px` 描边，`currentColor`）**：目录闭合/展开（`folder` / `folder-open`）、合并集合（`stack-2` + `chevron-right`）、文件按扩展名区分文本规则（`file-text`）、JSON（`file-code`）与二进制数据库/压缩快照（`database`），以及搜索、关闭、复制与勾选。
 - **目录结构**：顶层目录默认展开，`Mock` 和 `Internal` 默认折叠；嵌套分版目录（`domainset`、`non_ip`、`ip`）默认折叠；各客户端根目录下的合并版文件收纳在 `Merged files` 分组中并显示文件计数。
 - **复制按钮**：脚本为每个文件行注入 coss outline 超小号 `Copy` 按钮，复制完整订阅 URL 后切换为 `Copied`，图标以 `scale`、`opacity` 与 `blur` 交叉过渡（包裹在 `prefers-reduced-motion: no-preference` 内），并通过 `role="status"` 播报。本地预览（`file:`、`localhost`、`127.0.0.1`）时 URL 拼接 canonical 域名。
-- **命令面板搜索（`#cmd-dialog`）**：原生 `<dialog>`，按 `⌘K` / `Ctrl+K` 或 `/` 打开，也可点击顶栏触发按钮。输入框按规则名、路径、客户端、分版多词过滤，结果按客户端分组，单次最多渲染 60 条（超出时状态显示 `Showing 60 of N matches`）。支持 `↑` / `↓` 移动高亮、`Enter` 打开、`⌘C` / `Ctrl+C` 复制高亮行 URL、`Esc` 关闭并把焦点还给触发按钮。
+- **命令面板搜索（`#cmd-dialog`）**：原生 `<dialog>`，按 `⌘K` / `Ctrl+K` 或 `/` 打开，也可点击顶栏触发按钮。输入框按规则名、路径、客户端、分版多词过滤，结果按客户端分组，列出全部匹配文件，状态区显示匹配总数。支持 `↑` / `↓` 移动高亮、`Enter` 打开、`⌘C` / `Ctrl+C` 复制高亮行 URL、`Esc` 关闭并把焦点还给触发按钮。
 - **无 JS**：触发按钮保持 `hidden`，不注入复制按钮，全部静态目录与文件链接正常可访问。
 
 图标与样式归属说明见 [Build/assets/README](Build/assets/README.md)。
