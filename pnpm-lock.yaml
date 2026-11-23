@@ -31,8 +31,8 @@ importers:
         specifier: ^0.3.2
         version: 0.3.2
       foxts:
-        specifier: ^5.9.1
-        version: 5.9.1
+        specifier: ^5.9.2
+        version: 5.9.2
       json-stringify-pretty-compact:
         specifier: 3.0.0
         version: 3.0.0
@@ -1304,9 +1304,6 @@ packages:
     engines: {node: '>=18.14.0'}
     hasBin: true
 
-  foxts@5.9.1:
-    resolution: {integrity: sha512-NrIHGlf4LZGTjjGlVi3gmMbtvC4871SFUflu9yb8X91FYppAk+WMiYS6ZlaEgkPqAkgIGNeq+Y5YCL80GL6v8g==}
-
   foxts@5.9.2:
     resolution: {integrity: sha512-f8U+YM046CwNmmpOm1KxtiD6cOviSxPXFR4r2HatyelIjbPoLktcSi9ty1caH63jvoC6NGdF7SUvribD5Qf8CQ==}
 
@@ -1772,7 +1769,7 @@ snapshots:
       '@typescript-eslint/utils': 8.73.0(eslint@10.15.0(jiti@2.7.0))(typescript@6.0.3)
       enhanced-resolve: 5.27.0
       eslint: 10.15.0(jiti@2.7.0)
-      foxts: 5.9.1
+      foxts: 5.9.2
     transitivePeerDependencies:
       - '@typescript/native'
       - supports-color
@@ -2450,7 +2447,7 @@ snapshots:
   domain-alive@0.1.25:
     dependencies:
       debug: 4.4.3
-      foxts: 5.9.1
+      foxts: 5.9.2
       tldts: 7.4.16
     transitivePeerDependencies:
       - supports-color
@@ -2769,11 +2766,6 @@ snapshots:
     dependencies:
       fd-package-json: 2.0.0
       package-manager-detector: 1.9.0
-
-  foxts@5.9.1:
-    dependencies:
-      fast-fnv1a: 1.0.0
-      fnv1a52: 1.0.0
 
   foxts@5.9.2:
     dependencies:
@@ -3167,7 +3159,7 @@ snapshots:
   undici-cache-store-better-sqlite3@1.1.1(undici@8.12.4):
     dependencies:
       better-sqlite3: 13.2.0
-      foxts: 5.9.1
+      foxts: 5.9.2
       undici: 8.12.4
 
   undici-types@8.9.0: {}
