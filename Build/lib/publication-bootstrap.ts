@@ -107,8 +107,7 @@ export function parseLegacyInventory(text: string): LegacyInventory {
     throw new Error('Invalid legacy inventory: unsupported schema');
   }
   if (typeof value.revision !== 'string' || !/^[\da-f]{40}$/.test(value.revision)) throw new Error('Invalid legacy inventory: revision');
-  // eslint-disable-next-line sukka/unicorn/prefer-type-error -- preserve the error for a malformed legacy inventory
-  if (!Array.isArray(value.files) || !Array.isArray(value.preservedDirs)) throw new Error('Invalid legacy inventory: files');
+  if (!Array.isArray(value.files) || !Array.isArray(value.preservedDirs)) throw new TypeError('Invalid legacy inventory: files');
   for (const file of value.files) {
     if (typeof file.path !== 'string' || typeof file.sha256 !== 'string' || !/^[\da-f]{64}$/.test(file.sha256)) {
       throw new Error('Invalid legacy inventory: file entry');
