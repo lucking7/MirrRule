@@ -104,7 +104,7 @@ export function isRipestatAnnouncedPrefixesUrl(value: string): boolean {
 
 /** Google's published ranges; goog.json includes the Google Cloud customer ranges in cloud.json. */
 export const GOOGLE_IP_RANGES_URL = 'https://www.gstatic.com/ipranges/goog.json';
-export const GOOGLE_CLOUD_IP_RANGES_URL = 'https://www.gstatic.com/ipranges/cloud.json';
+const GOOGLE_CLOUD_IP_RANGES_URL = 'https://www.gstatic.com/ipranges/cloud.json';
 
 export function isGoogleIpRangesUrl(value: string): boolean {
   try {
