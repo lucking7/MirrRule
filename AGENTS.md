@@ -114,7 +114,7 @@ MirrRule 下载上游代理规则、GitHub Release 镜像和插件，经清洗�
 
 ## CI
 
-`.github/workflows/main.yml`：push 到 `main` 或 `master` 运行完整流程（只有 `main` 发布）；PR 只构建；schedule 分别触发快速更新、完整构建、镜像同步和插件转换。`workflow_dispatch` 的 `task` 选项在文件开头的 inputs 中，任务选择逻辑在 `prepare` job，只有 `verify-kelee` 不经过 `prepare`，由同名 job 直接判断 `inputs.task`；`deploy-modules`、`bootstrap-baseline`、`rollback` 的用法见 README。`.github/workflows/check-source-domain.yml` 支持手动运行和每日定时运行（`03:17 UTC`），通过 `Build/validate-domain-alive.ts` 检查上游来源可用性并上传报告；定时运行还会执行 `Build/update-source-health-state.ts`，将状态保存在 `source-health-state` 分支，在来源连续 3 次返回 `dead`（`unknown` 不重置计数）后新建或更新带 `source-health` 标签的 Issue，没有配置来源达到该阈值时关闭该 Issue。`source-health-state` 分支保存持久状态，不要删除。
+`.github/workflows/main.yml`：push 到 `main` 或 `master` 运行完整流程（只有 `main` 发布）；PR 只构建；schedule 分别触发快速更新、完整构建、镜像同步和插件转换。`workflow_dispatch` 的 `task` 选项在文件开头的 inputs 中，任务选择逻辑在 `prepare` job，只有 `verify-kelee` 不经过 `prepare`，由同名 job 直接判断 `inputs.task`；`deploy-modules`、`bootstrap-baseline`、`rollback` 的用法见 README。`.github/workflows/check-source-domain.yml` 只能手动运行，通过 `Build/validate-domain-alive.ts` 检查上游来源（含 `cloud.json`、镜像 Release 与分支文件）能否访问，上传 `source-health-report` 并在有来源失效时让 run 失败；它不保存状态，也不开 Issue。上游长期失效时，构建只会沿用已验收快照并发 warning，需要人看 build 日志或手动运行这个检查。
 
 ## 环境变量
 

@@ -1,17 +1,11 @@
 name: Check Source Health
 
 on:
-  schedule:
-    - cron: '17 3 * * *'
+  # Manual only: run it to check that configured upstreams are still reachable.
   workflow_dispatch:
 
 permissions:
-  contents: write
-  issues: write
-
-concurrency:
-  group: source-health-state
-  cancel-in-progress: false
+  contents: read
 
 jobs:
   check:
@@ -42,65 +36,6 @@ jobs:
           name: source-health-report
           path: source-health-report.json
           retention-days: 14
-      - name: Load durable state
-        if: github.event_name == 'schedule'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          mkdir -p source-health-state-data
-          if git ls-remote --exit-code --heads origin source-health-state >/dev/null; then
-            git fetch --no-tags origin source-health-state
-            git show FETCH_HEAD:state.json > source-health-state-data/state.json
-          else
-            status=$?
-            if [ "$status" -ne 2 ]; then
-              exit "$status"
-            fi
-            printf '{"sources":{}}\n' > source-health-state-data/state.json
-          fi
-      - name: Apply three-strike state machine
-        if: github.event_name == 'schedule'
-        run: pnpm run node Build/update-source-health-state.ts source-health-report.json source-health-state-data/state.json source-health-state-data/actions.json
-      - name: Manage health issue
-        if: github.event_name == 'schedule'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          label='source-health'
-          title='Automated upstream source health'
-          gh label create "$label" --color D93F0B --description 'Automated structured source health alert' --force
-          issue=$(gh issue list --label "$label" --state open --json number --jq '.[0].number // empty')
-          unhealthy=$(jq -r '[.sources[] | select(.deadStreak >= 3) | .id] | sort | .[]' source-health-state-data/state.json)
-          if [ -n "$unhealthy" ]; then
-            body=$(printf 'The following configured sources have failed at least three consecutive scheduled checks:\n\n%s\n\nLatest report is attached to this workflow run.' "$(printf '%s\n' "$unhealthy" | sed 's/^/- `/;s/$/`/')")
-            if [ -n "$issue" ]; then
-              gh issue edit "$issue" --title "$title" --body "$body"
-              gh issue comment "$issue" --body "Updated after scheduled check at $(date -u +'%Y-%m-%dT%H:%M:%SZ')."
-            else
-              gh issue create --label "$label" --title "$title" --body "$body"
-            fi
-          elif [ -n "$issue" ]; then
-            gh issue comment "$issue" --body "No currently configured sources remain above the alert threshold after reconciliation at $(date -u +'%Y-%m-%dT%H:%M:%SZ'); prior alerts have recovered or their sources were retired."
-            gh issue close "$issue"
-          fi
-      - name: Persist durable state branch
-        if: github.event_name == 'schedule'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          tmp=$(mktemp -d)
-          cp source-health-state-data/state.json "$tmp/state.json"
-          cd "$tmp"
-          git init
-          git checkout --orphan source-health-state
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add state.json
-          git commit -m 'chore: update source health state'
-          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git push --force origin source-health-state
       - name: Propagate health result
         if: steps.health.outcome == 'failure'
         run: exit 1

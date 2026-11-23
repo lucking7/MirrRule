@@ -337,7 +337,7 @@ Pages 项目的 Functions fallback 应设为 fail-closed（production 和 previe
 
 插件转换失败仍记录在报告中。本轮要求转换时，必需模块不能从旧产物替代；可选历史恢复记录路径、摘要及来源 commit。`.cache` 可重建，不是完整备份。候选 artifact、验收证据和成功 receipt 的用途不同，回滚以已验收 tree 为准。
 
-[check-source-domain.yml](.github/workflows/check-source-domain.yml) 每日 `03:17 UTC` 检查，维护 `source-health-state` 分支和连续失败告警。手动运行只生成报告，不更新状态或 Issue。上游健康报告不能替代构建或生产验收。
+[check-source-domain.yml](.github/workflows/check-source-domain.yml) 只能手动运行，检查已配置的上游来源并上传报告；2026-11-23 起不再定时运行，也不再维护 `source-health-state` 分支和告警 Issue。上游健康报告不能替代构建或生产验收。
 
 ## 9. 故障排查与回滚
 
