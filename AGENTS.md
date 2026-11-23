@@ -52,7 +52,7 @@ MirrRule 下载上游代理规则、GitHub Release 镜像和插件，经清洗�
   - ruleset id 取 `path` 的小写 basename，决定所有平台的文件名。
   - 未设置的处理选项由 `EnhancedFileOutput` 填默认值。去重和排序始终由 Trie/Set 和 writer 决定，没有 `dedup`、`sort`、`header` 开关。
   - `targets` 缺省时只输出 Surge；包含未知平台时报错。
-  - `allowEmpty` 放行空来源及 `sourcePolicies`、`excludedRuleTypes`、`excludedRules` 筛选后为空的结果，但不绕过 sing-box 的有效匹配条件门槛。
+  - `allowEmpty` 在 `ruleGroups` 文件中放行空来源，在 `specialRules` 中只放行单个空来源；如果 `specialRules` 的所有来源都为空，无论是否设置 `allowEmpty` 都会以 `No rules loaded for special rule` 失败。两者在 `sourcePolicies`、`excludedRuleTypes`、`excludedRules` 筛选后为空时都受 `allowEmpty` 放行，但均不绕过 sing-box 的有效匹配条件门槛。
   - `excludedRuleTypes` 丢弃含该类型的整条 logical 规则；`excludedRules` 只匹配独立规则。只删子条件会扩大 logical 规则的匹配范围。
   - `frozen` 规则只读 `Build/assets/frozen-rules/<文件名>.gz`，来源健康检查跳过它的历史 URL。
 - 规则类型与别名统一由 `Build/core/output/rule-support-matrix.ts` 的 `normalizeRuleType` 识别，平台支持能力在同一文件单独判断。改转换逻辑必须补测试，复合规则等用例见 `Build/__tests__/reliability.test.ts`。
@@ -114,7 +114,7 @@ MirrRule 下载上游代理规则、GitHub Release 镜像和插件，经清洗�
 
 ## CI
 
-`.github/workflows/main.yml`：push 到 `main` 或 `master` 运行完整流程（只有 `main` 发布）；PR 只构建；schedule 分别触发快速更新、完整构建、镜像同步和插件转换。`workflow_dispatch` 的 `task` 选项在文件开头的 inputs 中，任务选择逻辑在 `prepare` job，只有 `verify-kelee` 不经过 `prepare`，由同名 job 直接判断 `inputs.task`；`deploy-modules`、`bootstrap-baseline`、`rollback` 的用法见 README。`check-source-domain.yml` 手动检查上游域名可用性（`Build/validate-domain-alive.ts`）。
+`.github/workflows/main.yml`：push 到 `main` 或 `master` 运行完整流程（只有 `main` 发布）；PR 只构建；schedule 分别触发快速更新、完整构建、镜像同步和插件转换。`workflow_dispatch` 的 `task` 选项在文件开头的 inputs 中，任务选择逻辑在 `prepare` job，只有 `verify-kelee` 不经过 `prepare`，由同名 job 直接判断 `inputs.task`；`deploy-modules`、`bootstrap-baseline`、`rollback` 的用法见 README。`.github/workflows/check-source-domain.yml` 支持手动运行和每日定时运行（`03:17 UTC`），通过 `Build/validate-domain-alive.ts` 检查上游来源可用性并上传报告；定时运行还会执行 `Build/update-source-health-state.ts`，将状态保存在 `source-health-state` 分支，在来源连续 3 次返回 `dead`（`unknown` 不重置计数）后新建或更新带 `source-health` 标签的 Issue，没有配置来源达到该阈值时关闭该 Issue。`source-health-state` 分支保存持久状态，不要删除。
 
 ## 环境变量
 

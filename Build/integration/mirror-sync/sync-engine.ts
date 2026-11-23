@@ -257,6 +257,28 @@ async function publishArtifactAtomic(
 
 const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com';
 
+/** Branch files are all required, so an empty list, a disallowed type or a shared output path fails the sync. */
+function getBranchFilesError(
+  branchFiles: MirrorBranchFiles,
+  classified: readonly ClassifiedAsset[],
+  processable: readonly ClassifiedAsset[]
+): string | null {
+  if (branchFiles.paths.length === 0) return 'Branch files configuration has no paths';
+  if (processable.length !== classified.length) {
+    const rejected: string[] = [];
+    for (const item of classified) if (!processable.includes(item)) rejected.push(item.asset.name);
+    return `Branch files outside allowed types: ${rejected.join(', ')}`;
+  }
+  const seen = new Set<string>();
+  const colliding = new Set<string>();
+  for (const { outputPath } of processable) {
+    if (!outputPath) continue;
+    if (seen.has(outputPath)) colliding.add(outputPath);
+    seen.add(outputPath);
+  }
+  return colliding.size > 0 ? `Branch file output path collision: ${[...colliding].join(', ')}` : null;
+}
+
 /** Raw URL of a branch file; also used by the source inventory. */
 export function getBranchFileUrl(repo: string, ref: string, filePath: string): string {
   return `${GITHUB_RAW_BASE}/${repo}/${ref}/${filePath}`;
@@ -315,16 +337,14 @@ export async function syncRepository(
   ));
 
   const processable = filterProcessableAssets(classified);
-  if (repository.branchFiles && processable.length !== classified.length) {
-    const rejected: string[] = [];
-    for (const item of classified) {
-      if (!processable.includes(item)) rejected.push(item.asset.name);
+  if (repository.branchFiles) {
+    const error = getBranchFilesError(repository.branchFiles, classified, processable);
+    if (error) {
+      console.log(picocolors.red(`[Sync] ✗ ${error}`));
+      result.total = 1;
+      result.failed.push({ asset: repository.repo, error, required: true });
+      return result;
     }
-    const error = `Branch files outside allowed types: ${rejected.join(', ')}`;
-    console.log(picocolors.red(`[Sync] ✗ ${error}`));
-    result.total = 1;
-    result.failed.push({ asset: repository.repo, error, required: true });
-    return result;
   }
   if (repository.assetNamePattern && processable.length === 0) {
     const error = `No release assets matched ${repository.assetNamePattern}`;

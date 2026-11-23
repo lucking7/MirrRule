@@ -170,4 +170,48 @@ describe('artifact synchronization', () => {
     assert.match(disallowed.failed[0].error, /outside allowed types: ASN\.China\.list/);
     assert.equal(hasRequiredFailures(disallowed), true);
   });
+
+  it('fails before downloading when branchFiles.paths is empty', async () => {
+    const { FileType, hasRequiredFailures, syncRepository } = require('../integration/mirror-sync/sync-engine');
+    const result = await syncRepository({
+      repo: 'VirgilClyne/GetSomeFries',
+      outputDir: '/unused',
+      allowedTypes: [FileType.SGMODULE],
+      branchFiles: { ref: 'main', paths: [] },
+    }, {
+      fetchRelease: () => assert.fail('branch files must not query releases'),
+      download: () => assert.fail('empty branchFiles must not download anything'),
+    });
+
+    assert.equal(result.succeeded, 0);
+    assert.equal(result.failed.length, 1);
+    assert.equal(result.failed[0].required, true);
+    assert.match(result.failed[0].error, /no paths/i);
+    assert.equal(hasRequiredFailures(result), true);
+  });
+
+  it('fails before downloading when branchFiles collide on the same output path', async () => {
+    const { FileType, hasRequiredFailures, syncRepository } = require('../integration/mirror-sync/sync-engine');
+    const outputDir = '/unused';
+    const expectedOutputPath = path.join(outputDir, 'sgmodule', 'DNS.sgmodule');
+    const result = await syncRepository({
+      repo: 'VirgilClyne/GetSomeFries',
+      outputDir,
+      allowedTypes: [FileType.SGMODULE],
+      branchFiles: {
+        ref: 'main',
+        paths: ['sgmodule/General.sgmodule', 'sgmodule/DNS.sgmodule', 'beta/DNS.sgmodule'],
+      },
+    }, {
+      fetchRelease: () => assert.fail('branch files must not query releases'),
+      download: () => assert.fail('colliding branch files must not be downloaded'),
+    });
+
+    assert.equal(result.succeeded, 0);
+    assert.equal(result.failed.length, 1);
+    assert.equal(result.failed[0].required, true);
+    assert.match(result.failed[0].error, /collision/i);
+    assert.ok(result.failed[0].error.includes(expectedOutputPath));
+    assert.equal(hasRequiredFailures(result), true);
+  });
 });

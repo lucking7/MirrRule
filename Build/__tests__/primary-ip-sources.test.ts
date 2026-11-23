@@ -7,6 +7,7 @@ import {
   ANTHROPIC_IP_DOCS_URL,
   excludeGoogleCloudRanges,
   extractRipestatAsn,
+  GOOGLE_CLOUD_IP_RANGES_URL,
   GOOGLE_IP_RANGES_URL,
   isAnthropicIpDocsUrl,
   isGoogleIpRangesUrl,
@@ -444,6 +445,7 @@ function googleRanges(prefixes: Array<Record<string, string>>) {
 describe('Google published IP ranges', () => {
   it('matches only the gstatic goog.json URL', () => {
     assert.equal(isGoogleIpRangesUrl(GOOGLE_IP_RANGES_URL), true);
+    assert.equal(isGoogleIpRangesUrl(GOOGLE_CLOUD_IP_RANGES_URL), false);
     assert.equal(isGoogleIpRangesUrl('https://www.gstatic.com/ipranges/cloud.json'), false);
     assert.equal(isGoogleIpRangesUrl('http://www.gstatic.com/ipranges/goog.json'), false);
     assert.equal(isGoogleIpRangesUrl('https://www.gstatic.com/ipranges/goog.json?x=1'), false);
@@ -460,6 +462,8 @@ describe('Google published IP ranges', () => {
     assert.throws(() => parseGoogleIpRanges(googleRanges([{ ipv4Prefix: '8.8.8.0/24', ipv6Prefix: '2001:4860::/32' }]), 'goog.json'), /exactly one/);
     assert.throws(() => parseGoogleIpRanges(googleRanges([{ ipv4Prefix: '2001:4860::/32' }]), 'goog.json'), /wrong address family/);
     assert.throws(() => parseGoogleIpRanges(googleRanges([{ ipv4Prefix: '0.0.0.0/0' }]), 'goog.json'), /invalid prefix/);
+    assert.throws(() => parseGoogleIpRanges(googleRanges([{ ipv4Prefix: '1.2.3.4/33' }]), 'goog.json'), /invalid prefix/);
+    assert.throws(() => parseGoogleIpRanges(googleRanges([{ ipv6Prefix: '2001:4860::/129' }]), 'goog.json'), /invalid prefix/);
   });
 
   it('removes Google Cloud customer ranges, including partial overlaps', () => {
@@ -478,6 +482,16 @@ describe('Google published IP ranges', () => {
     assert.deepEqual(
       excludeGoogleCloudRanges(['2001:4860::/32'], ['2001:4860:8000::/33']),
       ['2001:4860::/33']
+    );
+    // IPv4-embedded IPv6 prefixes keep their embedded IPv4 bits intact.
+    assert.deepEqual(
+      excludeGoogleCloudRanges(['::ffff:192.0.2.0/120'], []),
+      ['::ffff:c000:200/120']
+    );
+    // IPv4 results stay ordered before IPv6 results even when IPv6 has a smaller numeric value.
+    assert.deepEqual(
+      excludeGoogleCloudRanges(['::1/128', '8.8.8.0/24'], []),
+      ['8.8.8.0/24', '::1/128']
     );
   });
 

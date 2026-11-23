@@ -5,7 +5,7 @@
 
 import { Buffer } from 'node:buffer';
 import { isIP } from 'node:net';
-import { ip2bigint, parse as parseCidr } from 'fast-cidr-tools';
+import { exclude as excludeCidrs, ip2bigint, parse as parseCidr } from 'fast-cidr-tools';
 import type { IpMeta } from 'fast-cidr-tools';
 import picocolors from 'picocolors';
 import { UA_SURGE_MAC } from '../constants/user-agents';
@@ -104,7 +104,7 @@ export function isRipestatAnnouncedPrefixesUrl(value: string): boolean {
 
 /** Google's published ranges; goog.json includes the Google Cloud customer ranges in cloud.json. */
 export const GOOGLE_IP_RANGES_URL = 'https://www.gstatic.com/ipranges/goog.json';
-const GOOGLE_CLOUD_IP_RANGES_URL = 'https://www.gstatic.com/ipranges/cloud.json';
+export const GOOGLE_CLOUD_IP_RANGES_URL = 'https://www.gstatic.com/ipranges/cloud.json';
 
 export function isGoogleIpRangesUrl(value: string): boolean {
   try {
@@ -153,105 +153,12 @@ export function parseGoogleIpRanges(json: unknown, label: string): string[] {
 export function excludeGoogleCloudRanges(google: readonly string[], cloud: readonly string[]): string[] {
   const result: string[] = [];
   for (const v6 of [false, true]) {
-    const removed: AddressRange[] = [];
-    for (const cidr of cloud) {
-      const range = parseAddressRange(cidr);
-      if (range.v6 === v6) removed.push(range);
-    }
-    const mergedRemoved = mergeAddressRanges(removed);
-    const kept: AddressRange[] = [];
-    for (const cidr of google) {
-      const range = parseAddressRange(cidr);
-      if (range.v6 === v6) kept.push(...subtractAddressRanges(range, mergedRemoved));
-    }
-    for (const range of mergeAddressRanges(kept)) result.push(...addressRangeToCidrs(range));
+    const base = google.filter(cidr => cidr.includes(':') === v6);
+    if (base.length === 0) continue;
+    const excluded = cloud.filter(cidr => cidr.includes(':') === v6);
+    result.push(...excludeCidrs(base, excluded, true));
   }
   return result;
-}
-
-// fast-cidr-tools collapses IPv6 prefixes (2001:4860::/32 becomes /64), so ranges are computed here.
-interface AddressRange { v6: boolean, start: bigint, end: bigint }
-
-function parseAddressBits(address: string, v6: boolean): bigint {
-  // Shifting leaves the low bits zero, so adding each field is the same as OR-ing it in.
-  if (!v6) return address.split('.').reduce((value, octet) => (value << 8n) + BigInt(Number(octet)), 0n);
-  const parts = address.toLowerCase().split('::');
-  if (parts.length > 2) throw new Error(`Invalid IPv6 address: ${address}`);
-  const headGroups = parts[0] ? parts[0].split(':') : [];
-  const tailGroups = parts.length === 2 && parts[1] ? parts[1].split(':') : [];
-  const groups = parts.length === 1
-    ? headGroups
-    : [...headGroups, ...Array.from({ length: 8 - headGroups.length - tailGroups.length }, () => '0'), ...tailGroups];
-  if (groups.length !== 8) throw new Error(`Invalid IPv6 address: ${address}`);
-  return groups.reduce((value, group) => (value << 16n) + BigInt(Number.parseInt(group, 16)), 0n);
-}
-
-function parseAddressRange(cidr: string): AddressRange {
-  const [address, length] = cidr.split('/');
-  const v6 = address.includes(':');
-  const hostBits = BigInt((v6 ? 128 : 32) - Number(length));
-  const start = (parseAddressBits(address, v6) >> hostBits) << hostBits;
-  return { v6, start, end: start + (1n << hostBits) - 1n };
-}
-
-function mergeAddressRanges(ranges: readonly AddressRange[]): AddressRange[] {
-  const merged: AddressRange[] = [];
-  for (const range of [...ranges].sort((a, b) => (a.start < b.start ? -1 : (a.start > b.start ? 1 : 0)))) {
-    const last = merged.at(-1);
-    if (last && range.start <= last.end + 1n) {
-      if (range.end > last.end) last.end = range.end;
-    } else {
-      merged.push({ ...range });
-    }
-  }
-  return merged;
-}
-
-function subtractAddressRanges(range: AddressRange, removed: readonly AddressRange[]): AddressRange[] {
-  const kept: AddressRange[] = [];
-  let start = range.start;
-  for (const cut of removed) {
-    if (cut.end < start || cut.start > range.end) continue;
-    if (cut.start > start) kept.push({ v6: range.v6, start, end: cut.start - 1n });
-    start = cut.end + 1n;
-    if (start > range.end) return kept;
-  }
-  kept.push({ v6: range.v6, start, end: range.end });
-  return kept;
-}
-
-function formatAddress(value: bigint, v6: boolean): string {
-  if (!v6) return [24n, 16n, 8n, 0n].map(shift => String((value >> shift) & 0xFFn)).join('.');
-  const groups = Array.from({ length: 8 }, (_, index) => Number((value >> BigInt((7 - index) * 16)) & 0xFFFFn));
-  let bestStart = -1;
-  let bestLength = 1;
-  for (let index = 0; index < 8;) {
-    if (groups[index] !== 0) { index++; continue; }
-    let end = index;
-    while (end < 8 && groups[end] === 0) end++;
-    if (end - index > bestLength) { bestStart = index; bestLength = end - index; }
-    index = end;
-  }
-  const hex = groups.map(group => group.toString(16));
-  if (bestStart === -1) return hex.join(':');
-  return `${hex.slice(0, bestStart).join(':')}::${hex.slice(bestStart + bestLength).join(':')}`;
-}
-
-function addressRangeToCidrs({ v6, start, end }: AddressRange): string[] {
-  const bits = v6 ? 128n : 32n;
-  const cidrs: string[] = [];
-  let cursor = start;
-  while (cursor <= end) {
-    let hostBits = 0n;
-    while (
-      hostBits < bits
-      && (cursor & ((1n << (hostBits + 1n)) - 1n)) === 0n
-      && cursor + (1n << (hostBits + 1n)) - 1n <= end
-    ) hostBits++;
-    cidrs.push(`${formatAddress(cursor, v6)}/${bits - hostBits}`);
-    cursor += 1n << hostBits;
-  }
-  return cidrs;
 }
 
 export async function loadGoogleOwnedIpRules(
