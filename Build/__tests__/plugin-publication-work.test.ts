@@ -74,8 +74,7 @@ test('local fallback retains every request and response jq action through public
     content: '#!name=Directions\n[Rewrite]\n^https://test/request1 request-body-json-jq del(.ad1)\n^https://test/request2 http-request-json-jq del(.ad2)\n^https://test/response1 response-body-json-jq del(.ad3)\n^https://test/response2 http-response-json-jq del(.ad4)\n^https://test/response3 response-json-jq del(.ad5)\n[MITM]\nhostname=test\n',
   }));
   const [conversion] = await convertPluginsLocallyBatch([plugin('Directions')]);
-  assert.equal(typeof conversion.content, 'string');
-  if (typeof conversion.content !== 'string') throw new Error(conversion.content.error);
+  if (typeof conversion.content !== 'string') assert.fail(conversion.content.error);
   const outputPath = path.join(directory, 'Directions.sgmodule');
   const [result] = await publishPluginArtifacts([{
     content: conversion.content,
@@ -102,7 +101,7 @@ for (const expression of ['0 8 * * *', '0 0,30 8 * * *', '0 */15 8-17 * JAN-MAR 
       content: `#!name=Daily\n[Script]\ncron "${expression}" script-path=https://scripts.test/daily.js, tag=Daily`,
     }));
     const [conversion] = await convertPluginsLocallyBatch([plugin('Daily')]);
-    if (typeof conversion.content !== 'string') throw new Error(conversion.content.error);
+    if (typeof conversion.content !== 'string') assert.fail(conversion.content.error);
     const outputPath = path.join(directory, 'Daily.sgmodule');
     const [result] = await publishPluginArtifacts([{
       content: conversion.content,
