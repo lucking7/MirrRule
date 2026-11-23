@@ -5,8 +5,7 @@ import type { RuleOutputSlot } from './rule-output-variants';
 /** Consumer format used to parse subscription lines; never inferred from a directory name alone. */
 type CoverageSubscriptionFormat = 'rule-set' | 'domain-set' | 'inline';
 
-/** `merged` is the flat legacy subscription; the others are NRRule split variants. */
-export type CoverageVariant = RuleOutputSlot;
+export type CoverageVariant = Exclude<RuleOutputSlot, 'merged'>;
 
 export interface CoverageSubscription {
   id: string,
@@ -17,9 +16,27 @@ export interface CoverageSubscription {
   format?: CoverageSubscriptionFormat,
   variant?: CoverageVariant,
   extendedMatching?: boolean,
-  skipped?: 'missing-local-file' | 'unavailable-remote' | 'unsupported-reference' | 'unsupported-options' | 'absent-variant' | 'format-mismatch',
+  skipped?: 'missing-local-file' | 'unavailable-remote' | 'unsupported-reference' | 'unsupported-options' | 'absent-variant' | 'format-mismatch' | 'retired-subscription',
   /** Human-readable explanation recorded for skipped (not-covered) references. */
   notCoveredReason?: string
+}
+
+const NRRULE_RULESET_URL = /(?:^|[(,])\s*(?:RULE-SET|DOMAIN-SET)\s*,\s*["']?https?:\/\/nrrule\.pages\.dev(?::\d+)?(\/List\/[^,\s)"'?#]+)(?=[,\s)"'?#]|$)/gi;
+
+export function retiredSurgeBasename(pathname: string): string | undefined {
+  try {
+    return /^\/List\/([^/\\]+\.list)$/.exec(decodeURIComponent(pathname))?.[1];
+  } catch {
+    return undefined;
+  }
+}
+
+/** Include retired merged references inside compound rules. */
+export function *retiredSurgeReferences(line: string): Generator<string> {
+  for (const [, pathname] of line.matchAll(NRRULE_RULESET_URL)) {
+    const basename = retiredSurgeBasename(pathname);
+    if (basename) yield basename;
+  }
 }
 
 interface CoverageOwner {
@@ -90,7 +107,8 @@ export interface CoverageAuditReport {
     /** Every skipped entry, including inline rules; equal to skippedSubscriptions by construction. */
     notCoveredSubscriptions: number,
     absentVariantSubscriptions: number,
-    formatMismatchSubscriptions: number
+    formatMismatchSubscriptions: number,
+    retiredSubscriptions: number
   },
   subscriptions: SubscriptionCoverage[],
   conditionalWarnings: ConditionalCoverageWarning[]
@@ -265,14 +283,14 @@ export function auditRuleCoverage(
       'Profile input audits only its [Rule] section. Supply a sanitized effective profile to include enabled module rules.',
       'Remote subscriptions are not fetched. Missing or unsupported subscriptions are explicit gaps, and earlier gaps may change the actual winner.',
       'Does not simulate observed TLS SNI or HTTP Host, DNS lookup, pre-matching, client runtime indexes, connections or policy group selections.',
-      'DOMAIN-SET files are parsed as native domain sets (bare domain = DOMAIN, leading dot = DOMAIN-SUFFIX); RULE-SET files as classical rules. Split variants are audited only when the reference resolves to a local file with the matching format; absent variants, format mismatches and unresolved references are reported as not-covered.'
+      'DOMAIN-SET files are parsed as native domain sets (bare domain = DOMAIN, leading dot = DOMAIN-SUFFIX); RULE-SET files as classical rules. Split variants are audited when the reference resolves to a local file with the matching format. Retired subscriptions, absent variants, format mismatches and unresolved references are reported as not-covered.'
     ],
     summary: {
       subscriptions: 0, auditedSubscriptions: 0, skippedSubscriptions: 0, missingLocalSubscriptions: 0,
       domainRules: 0, unsupportedRules: 0, fullyCoveredDomainRules: 0, partlyOverlappingDomainRules: 0,
       samePolicyRedundancies: 0, differentPolicyConflicts: 0, fullyShadowedSubscriptions: 0,
       fullyShadowedDomainSubscriptions: 0, conditionalWarnings: 0,
-      notCoveredSubscriptions: 0, absentVariantSubscriptions: 0, formatMismatchSubscriptions: 0
+      notCoveredSubscriptions: 0, absentVariantSubscriptions: 0, formatMismatchSubscriptions: 0, retiredSubscriptions: 0
     },
     subscriptions: [],
     conditionalWarnings: []
@@ -298,6 +316,7 @@ export function auditRuleCoverage(
       if (subscription.skipped === 'missing-local-file') report.summary.missingLocalSubscriptions++;
       if (subscription.skipped === 'absent-variant') report.summary.absentVariantSubscriptions++;
       if (subscription.skipped === 'format-mismatch') report.summary.formatMismatchSubscriptions++;
+      if (subscription.skipped === 'retired-subscription') report.summary.retiredSubscriptions++;
       return;
     }
     if (result.kind === 'subscription') report.summary.auditedSubscriptions++;

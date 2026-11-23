@@ -7,7 +7,7 @@ import { gzip, gunzip } from 'node:zlib';
 import type { RuleConversionLosses, RuleDropSummary } from '../core/output/writing-strategy/base';
 import type { SupportedPlatform } from './platform-config';
 import type { RuleOutputFormat, RuleOutputSlot, RuleOutputStatus } from './rule-output-variants';
-import { PLATFORM_OUTPUT_LAYOUT, resolveRuleOutputTarget, RULE_OUTPUT_LAYOUT_VERSION } from './rule-output-variants';
+import { PLATFORM_OUTPUT_LAYOUT, resolveRuleOutputTarget, RULE_OUTPUT_LAYOUT_VERSION, RULE_OUTPUT_VARIANTS } from './rule-output-variants';
 import { writeFileAtomic } from './atomic-file';
 import { RuleLineUtils } from '../utils/validation/validators';
 import type { FetchAssetsSelection } from '../utils/network/fetch-assets';
@@ -126,6 +126,23 @@ export interface EffectiveOutputSnapshot {
   semanticSha256: string;
   /** Actual matcher entries; a text logical rule remains one condition. */
   conditions: string[];
+}
+
+/** One copy of each published classical condition, excluding domainset projections and aliases. */
+export function effectiveOutputFiles(outputs: readonly RuleOutputFileAudit[]): Map<SupportedPlatform, RuleOutputFileAudit[]> {
+  const files = new Map<SupportedPlatform, RuleOutputFileAudit[]>();
+  const hasSurgeMerged = outputs.some(output => output.platform === 'surge' && output.status === 'published' && output.variant === 'merged');
+  for (const output of outputs) {
+    if (output.status !== 'published') continue;
+    if (output.variant === 'merged') {
+      files.set(output.platform, [output]);
+    } else if (!hasSurgeMerged && output.platform === 'surge' && RULE_OUTPUT_VARIANTS.some(slot => slot === output.variant) && output.path.endsWith('.list')) {
+      const splits = files.get('surge');
+      if (splits) splits.push(output);
+      else files.set('surge', [output]);
+    }
+  }
+  return files;
 }
 
 /** Semantic content without banners, independently of bytes and generation dates. */
@@ -659,6 +676,72 @@ interface AuditedSnapshotBinding {
   effectiveOutputs?: Array<Omit<EffectiveOutputSnapshot, 'conditions'> & { conditionCount: number }>;
 }
 
+async function snapshotPublishedFiles(publicDir: string, rulesetId: string, files: RuleOutputFileAudit[]): Promise<EffectiveOutputSnapshot> {
+  const { platform, format } = files[0];
+  const content = await Promise.all(files.map(async file => {
+    const target = resolveRuleOutputTarget(platform, file.variant, rulesetId);
+    if (file.path !== target.relativePath || file.format !== target.format || file.format !== format) {
+      throw new Error(`Invalid effective output path or format: ${file.path}`);
+    }
+    const body = await fs.readFile(path.join(publicDir, ...target.relativePath.split('/')));
+    if (body.length !== file.bytes || sha256Hex(body) !== file.sha256) {
+      throw new Error(`Current effective output snapshot does not match file: ${file.path}`);
+    }
+    return body.toString('utf8').split('\n');
+  }));
+  return snapshotEffectiveOutput(platform, format, content.flat());
+}
+
+function matchesEffectiveOutputMetadata(output: EffectiveOutputSnapshot, audit: AuditedSnapshotBinding): boolean {
+  const metadata = audit.effectiveOutputs?.find(candidate => candidate.platform === output.platform);
+  return metadata?.format === output.format && metadata.semanticSha256 === output.semanticSha256 && metadata.conditionCount === output.conditions.length;
+}
+
+function sameEffectiveOutput(output: EffectiveOutputSnapshot, expected: EffectiveOutputSnapshot): boolean {
+  return output.semanticSha256 === expected.semanticSha256 && JSON.stringify(output.conditions) === JSON.stringify(expected.conditions);
+}
+
+/** Rebind the retired merged output to the audited Surge split files during a historical rollback. */
+async function projectEffectiveOutputs(
+  publicDir: string,
+  snapshot: SourceSnapshot,
+  audit: AuditedSnapshotBinding,
+  retired: ReadonlySet<string>
+): Promise<{ snapshotChanged: boolean; auditChanged: boolean }> {
+  const original = snapshot.effectiveOutputs;
+  if (!original || !retired.size) return { snapshotChanged: false, auditChanged: false };
+  const files = effectiveOutputFiles(audit.outputs);
+  const projected: EffectiveOutputSnapshot[] = [];
+  let auditChanged = false;
+  for (const output of original) {
+    if (!retired.has(resolveRuleOutputTarget(output.platform, 'merged', snapshot.rulesetId).relativePath)) {
+      projected.push(output);
+      continue;
+    }
+    const active = files.get(output.platform);
+    if (!active) continue;
+    if (!matchesEffectiveOutputMetadata(output, audit)
+      || (output.platform === 'surge' && !sameEffectiveOutput(output, snapshotEffectiveOutput(output.platform, output.format, output.conditions)))) {
+      throw new Error(`Historical effective output does not match output audit: ${snapshot.sourceId}/${output.platform}`);
+    }
+    // eslint-disable-next-line no-await-in-loop -- keep reads bounded and attributable to the projected platform
+    const replacement = await snapshotPublishedFiles(publicDir, snapshot.rulesetId, active);
+    if (sameEffectiveOutput(replacement, output)) {
+      projected.push(output);
+      continue;
+    }
+    const { conditions, ...metadata } = replacement;
+    audit.effectiveOutputs = audit.effectiveOutputs!.map(entry => (entry.platform === output.platform
+      ? { ...metadata, conditionCount: conditions.length }
+      : entry));
+    projected.push(replacement);
+    auditChanged = true;
+  }
+  const snapshotChanged = auditChanged || original.length !== projected.length;
+  if (snapshotChanged) snapshot.effectiveOutputs = projected;
+  return { snapshotChanged, auditChanged };
+}
+
 async function assertAuditedSnapshot(publicDir: string, snapshot: SourceSnapshot, audit: AuditedSnapshotBinding, filename: string): Promise<void> {
   if (audit.sourceId !== snapshot.sourceId || audit.snapshotPath !== `${SOURCE_SNAPSHOT_DIR}/${filename}`
     || audit.semanticSha256 !== snapshot.semanticSha256 || audit.rawInputSha256 !== snapshot.rawInputSha256
@@ -674,23 +757,17 @@ async function assertAuditedSnapshot(publicDir: string, snapshot: SourceSnapshot
     if (audit.effectiveOutputs) throw new Error(`Current effective output snapshot missing: ${snapshot.sourceId}`);
     return;
   }
-  const merged = audit.outputs.filter(output => output.variant === 'merged' && output.status === 'published');
-  const expectedPlatforms = new Set(merged.map(output => output.platform));
-  if (expectedPlatforms.size !== snapshot.effectiveOutputs.length || snapshot.effectiveOutputs.some(output => !expectedPlatforms.has(output.platform))) {
+  const expectedFiles = effectiveOutputFiles(audit.outputs);
+  if (expectedFiles.size !== snapshot.effectiveOutputs.length || snapshot.effectiveOutputs.some(output => !expectedFiles.has(output.platform))) {
     throw new Error(`Current effective output inventory does not match output audit: ${snapshot.sourceId}`);
   }
   for (const output of snapshot.effectiveOutputs) {
-    const target = resolveRuleOutputTarget(output.platform, 'merged', snapshot.rulesetId);
-    const audited = merged.find(candidate => candidate.platform === output.platform)!;
-    const metadata = audit.effectiveOutputs?.find(candidate => candidate.platform === output.platform);
-    if (audited.path !== target.relativePath || audited.format !== output.format
-      || metadata?.format !== output.format || metadata.semanticSha256 !== output.semanticSha256 || metadata.conditionCount !== output.conditions.length) {
+    if (!matchesEffectiveOutputMetadata(output, audit)) {
       throw new Error(`Current effective output does not match output audit: ${snapshot.sourceId}/${output.platform}`);
     }
-    // eslint-disable-next-line no-await-in-loop -- bind each platform snapshot to the actual staged file
-    const body = await fs.readFile(path.join(publicDir, ...target.relativePath.split('/')), 'utf8');
-    const actual = snapshotEffectiveOutput(output.platform, output.format, body.split('\n'));
-    if (actual.semanticSha256 !== output.semanticSha256 || JSON.stringify(actual.conditions) !== JSON.stringify(output.conditions)) {
+    // eslint-disable-next-line no-await-in-loop -- bind each platform snapshot to its actual staged files
+    const actual = await snapshotPublishedFiles(publicDir, snapshot.rulesetId, expectedFiles.get(output.platform)!);
+    if (!sameEffectiveOutput(actual, output)) {
       throw new Error(`Current effective output snapshot does not match file: ${snapshot.sourceId}/${output.platform}`);
     }
   }
@@ -710,13 +787,6 @@ export async function recomputeSourceDeltaFromSnapshots(
     // eslint-disable-next-line no-await-in-loop -- validate all snapshots before writing any projection
     const value: unknown = await readSourceSnapshotFile(path.join(snapshotDir, filename));
     assertCurrentSnapshot(value, sourceId);
-    if (value.effectiveOutputs) {
-      const filtered = value.effectiveOutputs.filter(output => !retired.has(resolveRuleOutputTarget(output.platform, 'merged', value.rulesetId).relativePath));
-      if (filtered.length !== value.effectiveOutputs.length) {
-        value.effectiveOutputs = filtered;
-        changed.push(value);
-      }
-    }
     snapshots.push(value);
   }
   const audit = JSON.parse(await fs.readFile(path.join(publicDir, RULE_OUTPUT_AUDIT_PATH), 'utf8')) as {
@@ -727,16 +797,22 @@ export async function recomputeSourceDeltaFromSnapshots(
   if (!Array.isArray(audit.rulesets) || new Set(audit.rulesets.map(ruleset => ruleset.id)).size !== audit.rulesets.length) {
     throw new Error('Invalid current output audit ruleset inventory');
   }
+  let auditChanged = false;
   for (const ruleset of audit.rulesets) {
     const snapshot = ids.get(ruleset.id);
     if (!snapshot) throw new Error(`Current source snapshot missing for audited ruleset: ${ruleset.id}`);
     if (snapshot.converterVersion !== audit.converterVersion) throw new Error(`Current snapshot converter does not match output audit: ${snapshot.sourceId}`);
+    // eslint-disable-next-line no-await-in-loop -- project each historical ruleset before checking its bindings
+    const projection = await projectEffectiveOutputs(publicDir, snapshot, ruleset, retired);
+    if (projection.snapshotChanged) changed.push(snapshot);
+    if (projection.auditChanged) auditChanged = true;
     // eslint-disable-next-line no-await-in-loop -- validate all bindings before replacing evidence
     await assertAuditedSnapshot(publicDir, snapshot, ruleset, snapshotFiles.get(snapshot.sourceId)!);
   }
   if (ids.size !== audit.rulesets.length) throw new Error('Current source snapshot inventory does not match output audit');
   // Read the baseline before projecting snapshots, including an explicitly in-place baseline.
   const result = await writeSourceDelta(publicDir, snapshots, options);
+  if (auditChanged) await writeFileAtomic(path.join(publicDir, RULE_OUTPUT_AUDIT_PATH), toJson(audit));
   for (const snapshot of changed) {
     // eslint-disable-next-line no-await-in-loop -- only explicit retirement projections replace snapshots
     await writeSourceSnapshotFile(path.join(snapshotDir, snapshotFiles.get(snapshot.sourceId)!), snapshot);

@@ -60,11 +60,13 @@ const fixtureRules = [
 const goldenRoot = path.join(__dirname, 'fixtures', 'goldens');
 const localRequire = createRequire(__filename);
 const goldenFiles = [
-  ['List/ordinary-golden.list', 'ordinary-golden.surge.list'],
+  ['List/non_ip/ordinary-golden.list', 'ordinary-golden.surge.non_ip.list'],
+  ['List/ip/ordinary-golden.list', 'ordinary-golden.surge.ip.list'],
   ['Clash/ordinary-golden.txt', 'ordinary-golden.clash.txt'],
   ['Loon/ordinary-golden.list', 'ordinary-golden.loon.list'],
   ['sing-box/ordinary-golden.json', 'ordinary-golden.singbox.json'],
-  ['List/special-golden.list', 'special-golden.surge.list'],
+  ['List/non_ip/special-golden.list', 'special-golden.surge.non_ip.list'],
+  ['List/ip/special-golden.list', 'special-golden.surge.ip.list'],
   ['Clash/special-golden.txt', 'special-golden.clash.txt'],
   ['Loon/special-golden.list', 'special-golden.loon.list'],
   ['sing-box/special-golden.json', 'special-golden.singbox.json'],
@@ -161,6 +163,9 @@ describe('four-platform golden pipeline', () => {
 
       // sing-box intentionally characterizes the currently supported subset; unsupported rules are omitted.
       compareOrUpdateGoldens(outputDir);
+      for (const filename of ['ordinary-golden.list', 'special-golden.list']) {
+        assert.equal(fs.existsSync(path.join(outputDir, 'List', filename)), false);
+      }
     } finally {
       fetchAssetsCacheEntry.exports = originalFetchAssetsExports;
       fs.rmSync(tempDir, { recursive: true, force: true });

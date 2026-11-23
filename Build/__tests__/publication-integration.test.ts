@@ -34,8 +34,6 @@ const VARIANT_FILES: Record<string, string> = {
 };
 
 const RULE_OUTPUTS: Record<string, string> = {
-  'List/apple_cdn.list': 'DOMAIN-SUFFIX,apple.com\n',
-  'List/telegram.list': 'IP-CIDR,91.108.4.0/22,no-resolve\n',
   'Clash/apple_cdn.txt': 'DOMAIN-SUFFIX,apple.com\n',
   'Loon/apple_cdn.list': 'DOMAIN-SUFFIX,apple.com\n',
   'sing-box/apple_cdn.json': '{"version":2,"rules":[]}\n',
@@ -129,6 +127,7 @@ describe('publication integration', () => {
     const byPath = new Map(result.manifest.files.map(file => [file.path, file]));
 
     for (const relative of Object.keys(VARIANT_FILES)) assert.equal(byPath.get(relative)?.origin, 'generated', relative);
+    assert.ok(!byPath.has('List/apple_cdn.list'));
     for (const relative of ['Internal/rule-output-audit.json', 'Internal/source-delta.json', 'Internal/source-snapshots/apple_cdn.json', 'Internal/rule-coverage.json', 'Internal/artifact-lifecycle.json']) {
       assert.ok(byPath.has(relative), relative);
     }

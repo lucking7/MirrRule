@@ -28,8 +28,10 @@ it('removes withdrawn Container, Discord and Scholar artifacts on all clients wh
   await Promise.all(outputs.map(([root]) => fs.mkdir(path.join(directory, root), { recursive: true })));
   for (const [root, extension] of outputs) {
     for (const id of ids) retired.push(`${root}/${id}.${extension}`);
-    for (const id of ['ai', 'direct-fmz', 'reject-fmz']) active.push(`${root}/${id}.${extension}`);
+    for (const id of ['ai', 'direct-fmz', 'reject-fmz']) active.push(`${root === 'List' ? 'List/non_ip' : root}/${id}.${extension}`);
   }
+  await fs.mkdir(path.join(directory, 'List/non_ip'));
+  retired.push('List/ai.list');
   await Promise.all([...retired, ...active].map(relative =>
     fs.writeFile(path.join(directory, relative), `Fixture: ${relative}\n`)
   ));
@@ -56,7 +58,7 @@ it('retires only the unsupported sing-box ASN artifact and retains other client 
   assert.deepEqual(group.targets, ['surge', 'clash', 'loon']);
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-asn-retirement-'));
   t.after(() => fs.rm(directory, { recursive: true, force: true }));
-  const entries = ['List/china_asn.list', 'Clash/china_asn.txt', 'Loon/china_asn.list', 'sing-box/china_asn.json'];
+  const entries = ['List/ip/china_asn.list', 'Clash/china_asn.txt', 'Loon/china_asn.list', 'sing-box/china_asn.json'];
   await Promise.all(entries.map(async entry => {
     await fs.mkdir(path.dirname(path.join(directory, entry)), { recursive: true });
     await fs.writeFile(path.join(directory, entry), `Fixture: ${entry}\n`);
@@ -193,18 +195,18 @@ describe('native public directory tree', () => {
   it('keeps every actual client path and folds direct client merged files into a collapsible group', () => {
     const tree: TreeTypeArray = [
       dir('Clash', [file('apple.txt', '/Clash/apple.txt')]),
-      dir('List', [file('apple.list', '/List/apple.list')]),
+      dir('List', [dir('non_ip', [file('apple.list', '/List/non_ip/apple.list')])]),
       dir('Loon', [file('apple.list', '/Loon/apple.list')]),
       dir('sing-box', [file('apple.json', '/sing-box/apple.json')]),
     ];
     const rendered = treeHtml(tree);
     assert.deepEqual(fileLinks(rendered).map(link => link.href), [
-      '/List/apple.list', '/Loon/apple.list', '/Clash/apple.txt', '/sing-box/apple.json',
+      '/List/non_ip/apple.list', '/Loon/apple.list', '/Clash/apple.txt', '/sing-box/apple.json',
     ]);
     assert.deepEqual(
       folderSummaries(rendered).map(item => [item.label, item.open]),
       [
-        ['List', true], ['Merged files 1 file', false],
+        ['List', true], ['non_ip', false],
         ['Loon', true], ['Merged files 1 file', false],
         ['Clash', true], ['Merged files 1 file', false],
         ['sing-box', true], ['Merged files 1 file', false],
@@ -214,13 +216,13 @@ describe('native public directory tree', () => {
 
   it('shows Surge-only files only under their actual output directory', () => {
     const tree: TreeTypeArray = [
-      dir('List', [file('reject_url_regex.list', '/List/reject_url_regex.list')]),
+      dir('List', [dir('non_ip', [file('reject_url_regex.list', '/List/non_ip/reject_url_regex.list')])]),
       dir('Clash', [file('reject.txt', '/Clash/reject.txt')]),
       dir('Loon', [file('reject.list', '/Loon/reject.list')]),
       dir('sing-box', [file('reject.json', '/sing-box/reject.json')]),
     ];
     const links = fileLinks(treeHtml(tree)).filter(link => link.text.includes('reject_url_regex'));
-    assert.deepEqual(links, [{ href: '/List/reject_url_regex.list', text: 'reject_url_regex.list' }]);
+    assert.deepEqual(links, [{ href: '/List/non_ip/reject_url_regex.list', text: 'reject_url_regex.list' }]);
   });
 
   it('opens normal roots, closes Mock/Internal roots, and leaves nested directories collapsed', () => {
@@ -239,7 +241,7 @@ describe('native public directory tree', () => {
 
   it('attaches consumer format metadata to split variant folders while keeping folder labels clean', () => {
     const variants = (root: string, extension: string) => dir(root, [
-      file(`apple.${extension}`, `/${root}/apple.${extension}`),
+      ...(root === 'List' ? [] : [file(`apple.${extension}`, `/${root}/apple.${extension}`)]),
       ...['ip', 'non_ip'].map(variant => dir(variant, [
         file(`apple.${extension}`, `/${root}/${variant}/apple.${extension}`),
       ], `/${root}/${variant}`)),
@@ -265,7 +267,7 @@ describe('native public directory tree', () => {
       ]
     );
     const links = fileLinks(rendered).map(link => link.href);
-    assert.deepEqual(links.slice(0, 3), ['/List/non_ip/apple.list', '/List/ip/apple.list', '/List/apple.list']);
+    assert.deepEqual(links.slice(0, 2), ['/List/non_ip/apple.list', '/List/ip/apple.list']);
     assert.ok(links.includes('/sing-box/non_ip/apple.json'));
   });
 
@@ -294,7 +296,7 @@ describe('native public directory tree', () => {
     const rendered = treeHtml([
       dir('sing-box', [file('ai.json', '/sing-box/ai.json')]),
       dir('GeoIP', [file('country.mmdb', '/GeoIP/country.mmdb')]),
-      dir('List', [file('ai.list', '/List/ai.list')]),
+      dir('List', [dir('non_ip', [file('ai.list', '/List/non_ip/ai.list')])]),
     ]);
     assert.match(rendered, /href="#ico-file-json"/);
     assert.match(rendered, /href="#ico-file-db"/);
@@ -305,16 +307,16 @@ describe('native public directory tree', () => {
     const tree: TreeTypeArray = [
       file('README.md', '/README.md'),
       dir('List', [
-        file('zeta.list', '/List/zeta.list'),
+        file('zeta.txt', '/List/zeta.txt'),
         dir('ip', [file('b.conf', '/List/ip/b.conf'), file('a.conf', '/List/ip/a.conf')], '/List/ip'),
         dir('non_ip', [file('service.conf', '/List/non_ip/service.conf')], '/List/non_ip'),
-        file('alpha.list', '/List/alpha.list'),
+        file('alpha.txt', '/List/alpha.txt'),
       ]),
     ];
     const before = structuredClone(tree);
     assert.deepEqual(fileLinks(treeHtml(tree)).map(link => link.href), [
       '/List/non_ip/service.conf', '/List/ip/a.conf',
-      '/List/ip/b.conf', '/List/alpha.list', '/List/zeta.list', '/README.md',
+      '/List/ip/b.conf', '/List/alpha.txt', '/List/zeta.txt', '/README.md',
     ]);
     assert.deepEqual(tree, before);
     generateHtml(tree, new Date('2026-10-07T18:02:03.456Z'));
@@ -352,17 +354,17 @@ describe('public filename visibility and escaping', () => {
 
   it('keeps literal percent escapes in filenames distinct from spaces', () => {
     const links = fileLinks(treeHtml([
-      file('a%20b.list', '/List/a%20b.list'), file('a b.list', '/List/a b.list'),
+      file('a%20b.list', '/List/non_ip/a%20b.list'), file('a b.list', '/List/non_ip/a b.list'),
     ]));
     assert.equal(new Set(links.map(link => link.href)).size, 2);
     assert.deepEqual(links.map(link => decodeURIComponent(new URL(link.href, 'https://nrrule.pages.dev').pathname)), [
-      '/List/a b.list', '/List/a%20b.list',
+      '/List/non_ip/a b.list', '/List/non_ip/a%20b.list',
     ]);
   });
 
   it('scans the real filesystem and applies exclusions recursively', async () => {
     await withPublicDirectory([
-      'README.md', 'LICENSE', 'List/apple.list', 'Clash/apple.txt', 'Loon/apple.list', 'sing-box/apple.json',
+      'README.md', 'LICENSE', 'List/non_ip/apple.list', 'Clash/apple.txt', 'Loon/apple.list', 'sing-box/apple.json',
       'Mirror/Sukka/sgmodule/module.sgmodule', 'List/README.md', 'List/LICENSE',
       '.private/secret.txt', '_private/secret.txt', 'List/.secret', 'List/_private/secret.txt',
       'List/_metadata.json', 'List/report.html', 'index.html', '404.html', '_headers', '_redirects',
@@ -370,7 +372,7 @@ describe('public filename visibility and escaping', () => {
     ], async directory => {
       const links = fileLinks(treeHtml(await scanPublicTree(directory)));
       assert.deepEqual(links.map(link => link.href).sort(), [
-        '/README.md', '/LICENSE', '/List/apple.list', '/Clash/apple.txt', '/Loon/apple.list', '/sing-box/apple.json',
+        '/README.md', '/LICENSE', '/List/non_ip/apple.list', '/Clash/apple.txt', '/Loon/apple.list', '/sing-box/apple.json',
         '/Mirror/Sukka/sgmodule/module.sgmodule', '/List/README.md', '/List/LICENSE',
       ].sort());
     });
@@ -390,10 +392,10 @@ describe('public filename visibility and escaping', () => {
   });
 
   it('retains actual directories without inventing file links when their contents are hidden', async () => {
-    await withPublicDirectory(['Empty/index.html', 'List/apple.list'], async directory => {
+    await withPublicDirectory(['Empty/index.html', 'List/non_ip/apple.list'], async directory => {
       const rendered = treeHtml(await scanPublicTree(directory));
       assert.equal(folderSummaries(rendered).some(item => item.label === 'Empty'), true);
-      assert.deepEqual(fileLinks(rendered).map(link => link.href), ['/List/apple.list']);
+      assert.deepEqual(fileLinks(rendered).map(link => link.href), ['/List/non_ip/apple.list']);
     });
   });
 });
@@ -401,7 +403,7 @@ describe('public filename visibility and escaping', () => {
 describe('standalone ruleset index generation', () => {
   it('uses NRRule/Luck branding, the coss ui shell, Tabler SVG sprite, and local metadata without external assets', () => {
     const html = generateHtml([
-      dir('List', [file('ai.list', '/List/ai.list')]),
+      dir('List', [dir('non_ip', [file('ai.list', '/List/non_ip/ai.list')])]),
       file('LICENSE', '/LICENSE'),
     ], new Date('2026-10-07T18:02:03.456Z'));
     assert.match(html, /<title>NRRule · nrrule\.pages\.dev<\/title>/);
@@ -454,7 +456,7 @@ describe('standalone ruleset index generation', () => {
 
   it('builds into PUBLIC_DIR and lists README/LICENSE on the first run without inventing formats', async () => {
     await withPublicDirectory([
-      'List/reject_url_regex.list', 'Clash/apple.txt', 'Loon/apple.list', 'sing-box/apple.json', 'GeoIP/country.mmdb',
+      'List/non_ip/reject_url_regex.list', 'Clash/apple.txt', 'Loon/apple.list', 'sing-box/apple.json', 'GeoIP/country.mmdb',
     ], async directory => {
       const result = spawnSync(process.execPath, ['-r', '@swc-node/register', path.join(__dirname, '../build-public.ts')], {
         cwd: path.join(__dirname, '../..'),
@@ -465,7 +467,7 @@ describe('standalone ruleset index generation', () => {
       assert.equal(result.status, 0, result.stderr || result.stdout);
       const html = await fs.readFile(path.join(directory, 'index.html'), 'utf8');
       assert.deepEqual(fileLinks(html).map(link => link.href).sort(), [
-        '/README.md', '/LICENSE', '/List/reject_url_regex.list', '/Clash/apple.txt',
+        '/README.md', '/LICENSE', '/List/non_ip/reject_url_regex.list', '/Clash/apple.txt',
         '/Loon/apple.list', '/sing-box/apple.json', '/GeoIP/country.mmdb', '/Internal/artifact-lifecycle.json',
       ].sort());
       assert.equal(await fs.readFile(path.join(directory, 'LICENSE'), 'utf8'),

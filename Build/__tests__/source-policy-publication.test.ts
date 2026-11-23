@@ -10,7 +10,7 @@ import { createSpan } from '../trace';
 import type { RuleTarget } from '../lib/rule-source-types';
 
 const outputs = [
-  ['List', 'list'], ['Clash', 'txt'], ['Loon', 'list'], ['sing-box', 'json'],
+  ['List/non_ip', 'list'], ['Clash', 'txt'], ['Loon', 'list'], ['sing-box', 'json'],
 ];
 
 async function withProxyOnlySource(verify: (url: string, outputDir: string, paths: string[]) => Promise<void>) {
@@ -88,6 +88,10 @@ describe('source-policy publication boundary', () => {
       assert.deepEqual(stats.errors, []);
       assert.equal(stats.rulesets[0].ruleCount, 0);
       for (const file of paths) {
+        if (path.relative(outputDir, file).startsWith(`List${path.sep}`)) {
+          assert.equal(fs.existsSync(file), false);
+          continue;
+        }
         const content = fs.readFileSync(file, 'utf8');
         if (file.endsWith('.json')) {
           assert.equal(content, 'last-known-good');

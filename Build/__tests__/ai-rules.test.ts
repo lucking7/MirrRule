@@ -165,6 +165,10 @@ test('AI combines RDAP-verified Anthropic official docs and RIPEstat BGP CIDRs a
     ['ip', ipRules],
   ] as const) {
     for (const [directory, extension] of [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list']]) {
+      if (directory === 'List' && !variant) {
+        assert.equal(fs.existsSync(path.join(outputDir, directory, 'ai.list')), false);
+        continue;
+      }
       const outputPath = path.join(outputDir, directory, variant, `ai.${extension}`);
       const lines: string[] = [];
       for (const line of fs.readFileSync(outputPath, 'utf8').split('\n')) {

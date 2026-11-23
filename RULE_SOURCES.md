@@ -16,7 +16,7 @@ Surge 保留 domain ruleset 的 extended-matching 语义；PROCESS-PATH 按平�
 
 ## 分版订阅
 
-四个平台继续发布根目录合并版及 `non_ip`、`ip` 分版。Surge 的两个分版使用 `List/{non_ip,ip}/<id>.conf`（`RULE-SET`），已有 `.list` 地址继续提供相同内容。通常按条件分类，含目标 IP 的完整 logical 规则和目标 IP 规则（即使带 `no-resolve`）归入 `ip`，域名、URL、进程、源地址等归入 `non_ip`。在 Surge 中，先加载域名规则，再加载可能触发解析的 IP 规则。`reject` 按来源指定分版，详见下文。
+四个平台都发布 `non_ip`、`ip` 分版；Clash、Loon 和 sing-box 另有根目录合并版。Surge 的两个分版使用 `List/{non_ip,ip}/<id>.conf`（`RULE-SET`），已有 `.list` 地址继续提供相同内容。通常按条件分类，含目标 IP 的完整 logical 规则和目标 IP 规则（即使带 `no-resolve`）归入 `ip`，域名、URL、进程、源地址等归入 `non_ip`。在 Surge 中，先加载域名规则，再加载可能触发解析的 IP 规则。`reject` 按来源指定分版，详见下文。
 
 Loon 3.0.3 起优先匹配域名规则，未命中时才解析域名并匹配 IP 规则。使用同一策略时，订阅合并版即可。需要为域名和 IP 指定不同策略时，再使用分版。[Loon 规则优先级](https://nsloon.app/docs/Rule/)
 
@@ -29,11 +29,11 @@ sing-box 转换时会丢弃 Surge 的 `no-resolve`。`reject` 通过 `sourceVari
 
 ## 退休与替代
 
-退休和废弃订阅统一登记在 [artifact-lifecycle.ts](Build/lib/artifact-lifecycle.ts)，发布为 `Internal/artifact-lifecycle.json`，包含原因、依据与替代。缓存恢复、历史产物下载、网页索引、发布候选和回滚都使用同一登记，retired 文件不会被重新发布；replacement 只是迁移说明，不做跨格式重定向。当前 retired：腾讯视频去广告插件模块（上游停止维护，无替代）；`container`、`discord`、`scholar` 四平台规则（已从规则源移除，无替代）；`sing-box/china_asn.json`（替代见上文）；旧 `Loon/domainset/` 目录。Surge 的旧 `List/domainset/*.list` 继续返回 404，现行的三个原生域名集格式见上文。
+退休和废弃订阅统一登记在 [artifact-lifecycle.ts](Build/lib/artifact-lifecycle.ts)，发布为 `Internal/artifact-lifecycle.json`，包含原因、依据与替代。缓存恢复、历史产物下载、网页索引、发布候选和回滚都使用同一登记，retired 文件不会被重新发布；replacement 只是迁移说明，不做跨格式重定向。当前 retired：Surge 根目录 `List/<id>.list`、腾讯视频去广告插件模块（上游停止维护，无替代）；`container`、`discord`、`scholar` 四平台规则（已从规则源移除，无替代）；`sing-box/china_asn.json`（替代见上文）；旧 `Loon/domainset/` 目录。Surge 的旧 `List/domainset/*.list` 继续返回 404，现行的三个原生域名集格式见上文。
 
 ## Reject 订阅边界
 
-基础 `reject` 仅合并 Sukka 的 `domainset/reject`、`non_ip/reject` 与 `ip/reject`，覆盖域名、通配规则和恶意 IP。IP 规则按上游逐条保留 `no-resolve`，不再统一添加，因此多数 IP 规则会匹配域名解析后的地址。合并版放在域名规则之前时，客户端应在该规则集行尾加 `no-resolve`，否则每个请求都会先在本地解析。2026-10-13 起，`reject` 的分版改为按上游文件发布（`sourceVariants`），不再按规则类型从合并结果分类；2026-10-17 起上游 `domainset/reject` 与 `non_ip/reject` 合并为 `non_ip/reject`，其中带 `no-resolve` 的 IP 规则与 `ip/reject` 可以绑定不同策略。Surge 按上游写法使用：`non_ip/reject` 绑定 REJECT 并放在其他域名规则之前，`ip/reject` 绑定 REJECT-DROP 并放在所有域名规则之后。`non_ip/my_reject` 移至独立可选订阅 `my_reject`，不再进入基础集合。其个人选择包含金融、视频、推送、软件验证、进程与端口拦截，启用前应核对使用需求。Surge 按上游说明绑定 REJECT-DROP；其他平台仅输出支持的类型，不保证连接处理方式等价。`ads`、`reject_extra`、fmz、drop/no-drop 与 URL 正则订阅保持独立。
+基础 `reject` 仅合并 Sukka 的 `domainset/reject`、`non_ip/reject` 与 `ip/reject`，覆盖域名、通配规则和恶意 IP。IP 规则按上游逐条保留 `no-resolve`，不再统一添加，因此多数 IP 规则会匹配域名解析后的地址。2026-10-13 起，`reject` 的分版改为按上游文件发布（`sourceVariants`），不再按规则类型从合并结果分类；2026-10-17 起上游 `domainset/reject` 与 `non_ip/reject` 合并为 `non_ip/reject`，其中带 `no-resolve` 的 IP 规则与 `ip/reject` 可以绑定不同策略。Surge 按上游写法使用：`non_ip/reject` 绑定 REJECT 并放在其他域名规则之前，`ip/reject` 绑定 REJECT-DROP 并放在所有域名规则之后。`non_ip/my_reject` 移至独立可选订阅 `my_reject`，不再进入基础集合。其个人选择包含金融、视频、推送、软件验证、进程与端口拦截，启用前应核对使用需求。Surge 按上游说明绑定 REJECT-DROP；其他平台仅输出支持的类型，不保证连接处理方式等价。`ads`、`reject_extra`、fmz、drop/no-drop 与 URL 正则订阅保持独立。
 
 ## 服务规则
 
@@ -69,7 +69,7 @@ Surge 与 Loon 保留 `.list`，Clash 输出 classical `.txt`，sing-box 输出 
 
 对照 [Claude 分流参考页](https://ip.net.coffee/claude/site.html)、[MetaCubeX meta 分支](https://github.com/MetaCubeX/meta-rules-dat/tree/meta)和 [Claude Code 官方网络要求](https://code.claude.com/docs/en/network-config)，本轮不额外引入兼容域名、共享遥测端点或拦截策略。参考页的兼容域名与遥测屏蔽由用户本机模块按需配置。Meta `category-ai-!cn.list` 已包含本次 `anthropic.list` 的全部 21 条，不重复添加该来源；上游已有的 Sentry、Intercom 等条目保持不变。官方网络要求是连接依赖清单，不代表其中所有通用依赖都应绑定 AI 出口；不添加全局遥测关键词或 `category-ntp`。
 
-四平台合并版和 `non_ip`／`ip` 地址不变。规则覆盖比较不代表客户端的实际出口、账号风控或地区解锁已经验证。
+Surge 通过 `non_ip` 和 `ip` 订阅，其他三个平台另有合并版。规则覆盖比较不代表客户端的实际出口、账号风控或地区解锁已经验证。
 
 ## CDN、Download 与 Speedtest
 
@@ -80,11 +80,11 @@ Surge 与 Loon 保留 `.list`，Clash 输出 classical `.txt`，sing-box 输出 
 | `cdn`                                        | Sukka domainset + non_ip + ip CDN                  | 已有聚合源，继续使用；IP 规则按上游不带 `no-resolve`；Repcz 通用 CDN 与其高度重叠，暂不叠加    |
 | `download`                                   | Sukka domainset + non_ip + ip Download             | 补齐 IP 部分；此分类不限于游戏或单个测速服务                                                   |
 | `speedtest`                                  | [Sukka 全球测速域名成品](https://ruleset.skk.moe/List/domainset/speedtest.conf) | 随上游更新，按现有流程转换为四个平台的订阅格式 |
-| `speedtest_china`、`speedtest_international` | 已验收的 Kelee 地域规则快照 | 2026-11-19 停止刷新，原有合并版和分版 URL 继续提供冻结内容 |
+| `speedtest_china`、`speedtest_international` | 已验收的 Kelee 地域规则快照 | 2026-11-19 停止刷新，Surge 分版继续提供冻结内容，其他平台另有冻结合并版 |
 
 Sukka 的[构建脚本](https://github.com/SukkaW/Surge/blob/master/Build/build-speedtest-domainset.ts)从 Ookla `servers.json` 的 `host` 和 `url` 提取主机名，并合入 LibreSpeed 后端、手工维护的测速域名和上一版输出。MirrRule 直接订阅生成的 `speedtest.conf`，沿用既有域名规范化与平台转换，无需另行下载节点 JSON 或按国家拆分。
 
-两个地域订阅固定在 [NRRule 已验收提交](https://github.com/lucking7/NRRule/commit/085c496b9f31e44d834a1106d67fbe104a65bf01)（receipt `7905690629`）。构建从 `Build/assets/frozen-rules/` 读取并校验两份归档，保留原规则和文本规则头部的 `Last Updated` 日期，来源审计记为 `frozen-snapshot`。Kelee URL 仅用于注明原始来源。国内版 11 条，四个平台各有合并版和 `non_ip`。国际版 18,499 条，四个平台各有合并版、`non_ip` 和 `ip`。生命周期登记为 `deprecated`，需要持续更新的全球测速规则可订阅 `speedtest`。
+两个地域订阅固定在 [NRRule 已验收提交](https://github.com/lucking7/NRRule/commit/085c496b9f31e44d834a1106d67fbe104a65bf01)（receipt `7905690629`）。构建从 `Build/assets/frozen-rules/` 读取并校验两份归档，保留原规则和文本规则头部的 `Last Updated` 日期，来源审计记为 `frozen-snapshot`。Kelee URL 仅用于注明原始来源。国内版 11 条，发布 `non_ip`；国际版 18,499 条，发布 `non_ip` 和 `ip`。两者的 Surge 分版都使用 `.list`，其他三个平台另有合并版。生命周期登记为 `deprecated`，需要持续更新的全球测速规则可订阅 `speedtest`。
 
 调查过 blackmatrix7 Download、Speedtest，Meta `category-cdn-cn`、`category-cdn-!cn`、游戏下载与 Speedtest，以及 Moli-X 镜像。blackmatrix7 Download 包含进程名等应用规则，不等价于下载 CDN；Meta 游戏下载不覆盖全部软件与对象存储；全球 Speedtest 集合不能直接替换中国/国际两个文件。Moli-X 下载 CDN 样本与 Repcz 相同，本次选用许可证与来源更明确的 Repcz。UsbEAm 备份是 hosts 编辑器 XML，没有当作 Surge ruleset 导入。
 
@@ -131,7 +131,7 @@ SukkaW/Surge 的源码生成 domainset、non_ip、ip 等类别，发布到 rules
 
 地域集合及总 `stream` 不再启用 `allowEmpty`。所有现役来源都须下载成功且清理后非空；下载、正文或空内容校验失败会停止该集合发布并保留旧产物。共享清理继续识别 Sukka 归属水印并保留合法数字开头域名。
 
-四平台合并版输出为 `List/<basename>.list`、`Clash/<basename>.txt`、`Loon/<basename>.list`、`sing-box/<basename>.json`，分版见[分版订阅](#分版订阅)；两个 Surge 专用集合除外。新增集合清理上游策略字段，IP 规则按上游逐条保留 `no-resolve`，不再统一添加。这里的“接入”是生成可订阅产物，不会自动修改客户端配置或启用拦截；来源更新后的公开路径须以对应生产部署为准。
+Surge 订阅从对应的分版目录读取。支持其他平台的规则集另有合并版，路径为 `Clash/<basename>.txt`、`Loon/<basename>.list`、`sing-box/<basename>.json`。各客户端格式见[分版订阅](#分版订阅)。新增集合清理上游策略字段，IP 规则按上游逐条保留 `no-resolve`，不再统一添加。这里的“接入”是生成可订阅产物，不会自动修改客户端配置或启用拦截；来源更新后的公开路径须以对应生产部署为准。
 
 `apple` 继续合并 CDN、中国服务、服务规则、服务 IP 和 iCloud Private Relay 五个来源，另提供对应的五个独立文件。`apple_intelligence` 单独保留，不加入 `apple`，需要专用出口时放在通用 Apple/AI 集合之前。其他 Apple 独立策略与 `microsoft_cdn` 也应放在各自聚合规则之前，IP 订阅放在域名规则之后。Microsoft CDN 样本含 URL-REGEX，Clash 与 sing-box 按现有矩阵丢弃该类型；Apple 服务的进程规则也不保证四平台等价。
 

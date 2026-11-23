@@ -202,7 +202,7 @@ describe('EnhancedFileOutput', () => {
     assert.deepEqual(await fs.readdir(directory), []);
 
     await published.write();
-    const outputPath = path.join(directory, 'List/published.list');
+    const outputPath = path.join(directory, 'List/non_ip/published.list');
     const content = await fs.readFile(outputPath, 'utf8');
     assert.equal(content, [
       '#########################################',
@@ -210,6 +210,7 @@ describe('EnhancedFileOutput', () => {
       '# Last Updated: 2026-01-01T00:00:00.000Z',
       '# Size: 1',
       '# Fixture description',
+      '# Variant: non_ip. Load every published non_ip and ip variant for complete coverage.',
       '#########################################',
       'DOMAIN,published.example',
       '################## EOF ##################',
@@ -222,7 +223,7 @@ describe('EnhancedFileOutput', () => {
     await assert.rejects(published.compile(), /Strategies already written/);
     await assert.rejects(published.write(), /Strategies already written/);
     assert.equal(await fs.readFile(outputPath, 'utf8'), content);
-    assert.deepEqual(await fs.readdir(path.join(directory, 'List')), ['domainset', 'non_ip', 'published.list']);
+    assert.deepEqual(await fs.readdir(path.join(directory, 'List')), ['domainset', 'non_ip']);
     assert.deepEqual(await fs.readdir(path.join(directory, 'List', 'non_ip')), ['published.conf', 'published.list']);
     const nonIp = await fs.readFile(path.join(directory, 'List/non_ip/published.list'), 'utf8');
     assert.ok(nonIp.split('\n').includes('DOMAIN,published.example'));

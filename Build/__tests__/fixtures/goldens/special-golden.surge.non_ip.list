@@ -1,0 +1,19 @@
+#########################################
+# Special Golden
+# Last Updated: 2026-01-01T00:00:00.000Z
+# Size: 9
+# Offline merged special-rule pipeline fixture
+# Merged from 2 sources
+# Variant: non_ip. Load every published non_ip and ip variant for complete coverage.
+#########################################
+DOMAIN-SUFFIX,shorthand.example
+DOMAIN,exact.example
+DOMAIN-SUFFIX,z.example
+DOMAIN,a.example
+DOMAIN-KEYWORD,keyword
+DOMAIN-WILDCARD,*.wild.example
+USER-AGENT,Example*
+PROCESS-NAME,Example App
+URL-REGEX,^https://z\.example/path
+################## EOF ##################
+

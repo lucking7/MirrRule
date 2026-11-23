@@ -20,6 +20,8 @@ export interface ArtifactLifecycleRecord {
   pathPrefixes?: readonly string[],
   /** When set, retire only files ending with this extension below the prefixes. */
   pathSuffix?: string,
+  /** Match only files directly inside the listed directories. Requires a suffix. */
+  directChildrenOnly?: true,
   /** Upstream sources whose conversion is retired, compared after canonicalization. */
   canonicalSources?: readonly string[],
   reason: string,
@@ -27,7 +29,7 @@ export interface ArtifactLifecycleRecord {
   replacement?: string
 }
 
-export const ARTIFACT_LIFECYCLE_VERSION = 4;
+export const ARTIFACT_LIFECYCLE_VERSION = 5;
 
 /** Public report location, relative to the publication root. */
 export const ARTIFACT_LIFECYCLE_REPORT_PATH = 'Internal/artifact-lifecycle.json';
@@ -152,6 +154,17 @@ export const ARTIFACT_LIFECYCLE_REGISTRY: readonly ArtifactLifecycleRecord[] = [
     replacement: 'Loon/non_ip/<id>.list',
   },
   {
+    id: 'variant:surge-merged',
+    state: 'retired',
+    paths: [],
+    pathPrefixes: ['List/'],
+    pathSuffix: '.list',
+    directChildrenOnly: true,
+    reason: 'Surge rule subscriptions are published only as split outputs',
+    evidence: 'Build/lib/rule-output-variants.ts defines the Surge split-only layout',
+    replacement: 'Published RULE-SET files in List/non_ip/ and List/ip/. Frozen regional speedtests use .list.',
+  },
+  {
     id: 'variant:surge-domainset-list',
     state: 'retired',
     paths: [],
@@ -194,10 +207,13 @@ export function validateLifecycleRegistry(registry: readonly ArtifactLifecycleRe
     if (record.pathSuffix !== undefined && (!record.pathPrefixes?.length || !/^\.[\da-z]+$/i.test(record.pathSuffix))) {
       throw new Error(`Lifecycle suffix requires a directory prefix and a literal extension: ${record.id}`);
     }
+    if (record.directChildrenOnly && !record.pathSuffix) {
+      throw new Error(`Direct-child lifecycle rules require a suffix: ${record.id}`);
+    }
     for (const raw of record.pathPrefixes ?? []) {
       const normalized = normalizePublicPrefix(raw);
       const segments = normalized.split('/');
-      if (!raw.endsWith('/') || segments.length < 3 || !LIFECYCLE_ROOTS.has(segments[0])) {
+      if (!raw.endsWith('/') || (segments.length < 3 && !record.directChildrenOnly) || !LIFECYCLE_ROOTS.has(segments[0])) {
         throw new Error(`Lifecycle prefix must be a directory below a registered publication directory: ${raw}`);
       }
       if (prefixes.has(normalized)) throw new Error(`Duplicate lifecycle prefix: ${raw}`);
@@ -221,7 +237,7 @@ export function validateLifecycleRegistry(registry: readonly ArtifactLifecycleRe
   }
   for (const [relative, owner] of paths) {
     for (const [prefix, record] of prefixes) {
-      if (matchesLifecyclePrefix(relative, prefix, record.pathSuffix)) {
+      if (matchesLifecyclePrefix(relative, prefix, record.pathSuffix, record.directChildrenOnly)) {
         throw new Error(`Lifecycle path ${relative} registered by ${owner} is inside prefix ${prefix} of ${record.id}`);
       }
     }
@@ -234,19 +250,17 @@ export function retiredPublicPaths(registry: readonly ArtifactLifecycleRecord[] 
   return registry.filter(record => record.state === 'retired').flatMap(record => record.paths.map(normalizePublicPath));
 }
 
-/** Retired directory prefixes for which every file is retired. */
-export function retiredPublicPrefixes(registry: readonly ArtifactLifecycleRecord[] = ARTIFACT_LIFECYCLE_REGISTRY): string[] {
-  return retiredPublicPrefixRules(registry).flatMap(({ prefix, suffix }) => (suffix === undefined ? [prefix] : []));
-}
-
-export function retiredPublicPrefixRules(registry: readonly ArtifactLifecycleRecord[] = ARTIFACT_LIFECYCLE_REGISTRY): Array<{ prefix: string, suffix?: string }> {
-  return registry.flatMap(({ state, pathPrefixes, pathSuffix }) => (
-    state === 'retired' ? (pathPrefixes ?? []).map(prefix => ({ prefix: normalizePublicPrefix(prefix), suffix: pathSuffix })) : []
+export function retiredPublicPrefixRules(registry: readonly ArtifactLifecycleRecord[] = ARTIFACT_LIFECYCLE_REGISTRY): Array<{ prefix: string, suffix?: string, directChildrenOnly?: true }> {
+  return registry.flatMap(({ state, pathPrefixes, pathSuffix, directChildrenOnly }) => (
+    state === 'retired' ? (pathPrefixes ?? []).map(prefix => ({ prefix: normalizePublicPrefix(prefix), suffix: pathSuffix, directChildrenOnly })) : []
   ));
 }
 
-function matchesLifecyclePrefix(relative: string, rawPrefix: string, suffix: string | undefined): boolean {
-  return relative.startsWith(normalizePublicPrefix(rawPrefix)) && (suffix === undefined || relative.endsWith(suffix));
+function matchesLifecyclePrefix(relative: string, rawPrefix: string, suffix?: string, directChildrenOnly?: true): boolean {
+  const prefix = normalizePublicPrefix(rawPrefix);
+  return relative.startsWith(prefix)
+    && (suffix === undefined || relative.endsWith(suffix))
+    && (!directChildrenOnly || !relative.includes('/', prefix.length));
 }
 
 export function findLifecycleRecord(
@@ -255,7 +269,7 @@ export function findLifecycleRecord(
 ): ArtifactLifecycleRecord | undefined {
   const normalized = normalizePublicPath(relative);
   return registry.find(record => record.paths.some(candidate => normalizePublicPath(candidate) === normalized))
-    ?? registry.find(record => record.pathPrefixes?.some(prefix => matchesLifecyclePrefix(normalized, prefix, record.pathSuffix)));
+    ?? registry.find(record => record.pathPrefixes?.some(prefix => matchesLifecyclePrefix(normalized, prefix, record.pathSuffix, record.directChildrenOnly)));
 }
 
 export function isRetiredPublicPath(relative: string, registry: readonly ArtifactLifecycleRecord[] = ARTIFACT_LIFECYCLE_REGISTRY): boolean {
@@ -322,19 +336,19 @@ async function removeRegistered(root: string, relatives: readonly string[]): Pro
 /** Files below retired prefixes, as relative paths; symlinked prefix ancestors are refused. */
 async function retiredPrefixFiles(root: string, registry: readonly ArtifactLifecycleRecord[]): Promise<string[]> {
   const files: string[] = [];
-  for (const { prefix, suffix } of retiredPublicPrefixRules(registry)) {
+  for (const { prefix, suffix, directChildrenOnly } of retiredPublicPrefixRules(registry)) {
     // eslint-disable-next-line no-await-in-loop -- deterministic report order
     const directory = await resolveInsideRoot(root, prefix.slice(0, -1));
     if (!directory) continue;
     // eslint-disable-next-line no-await-in-loop -- deterministic report order
-    for (const file of (await filesUnder(directory)).sort()) {
+    for (const file of (await filesUnder(directory, !directChildrenOnly)).sort()) {
       if (suffix === undefined || file.endsWith(suffix)) files.push(path.relative(root, file).split(path.sep).join('/'));
     }
   }
   return files;
 }
 
-async function filesUnder(directory: string): Promise<string[]> {
+async function filesUnder(directory: string, recursive = true): Promise<string[]> {
   let entries;
   try {
     entries = await fs.readdir(directory, { withFileTypes: true });
@@ -344,7 +358,7 @@ async function filesUnder(directory: string): Promise<string[]> {
   }
   const nested = await Promise.all(entries.map(async (entry): Promise<string[]> => {
     const file = path.join(directory, entry.name);
-    if (entry.isDirectory()) return filesUnder(file);
+    if (recursive && entry.isDirectory()) return filesUnder(file);
     return entry.isFile() ? [file] : [];
   }));
   return nested.flat();
@@ -473,6 +487,7 @@ interface ArtifactLifecycleReportRecord {
   paths: string[],
   pathPrefixes?: string[],
   pathSuffix?: string,
+  directChildrenOnly?: true,
   canonicalSources?: string[],
   reason: string,
   evidence: string,
@@ -503,6 +518,7 @@ export function createLifecycleReport(
       paths: record.paths.map(normalizePublicPath),
       ...(record.pathPrefixes && record.pathPrefixes.length > 0 && { pathPrefixes: record.pathPrefixes.map(normalizePublicPrefix) }),
       ...(record.pathSuffix !== undefined && { pathSuffix: record.pathSuffix }),
+      ...(record.directChildrenOnly && { directChildrenOnly: true }),
       ...(record.canonicalSources && record.canonicalSources.length > 0 && { canonicalSources: [...record.canonicalSources] }),
       reason: record.reason,
       evidence: record.evidence,

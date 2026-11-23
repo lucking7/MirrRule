@@ -99,7 +99,8 @@ export function resolveRuleOutputTargets(
   id: string,
   { legacyOnly = false }: { legacyOnly?: boolean } = {}
 ): RuleOutputTarget[] {
-  const targets = [resolveRuleOutputTarget(platform, 'merged', id)];
+  const targets: RuleOutputTarget[] = [];
+  if (platform !== 'surge') targets.push(resolveRuleOutputTarget(platform, 'merged', id));
   if (!legacyOnly && supportsDomainset(platform)) targets.push(resolveRuleOutputTarget(platform, 'domainset', id));
   for (const variant of RULE_OUTPUT_VARIANTS) {
     const target = resolveRuleOutputTarget(platform, variant, id);

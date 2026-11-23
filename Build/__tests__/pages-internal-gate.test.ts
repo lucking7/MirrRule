@@ -61,7 +61,7 @@ for (const check of ${JSON.stringify(checks)}) {
       assert.equal(response.headers.get('cache-control'), 'public, max-age=0, must-revalidate');
       assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
       assert.equal(response.headers.get('x-robots-tag'), 'noindex');
-    } else if (/^\/(?:(?:List|Clash|Loon|sing-box)\/(?:domainset|ip|non_ip)|Mirror)\//.test(check.pathname)) {
+    } else if (/^\/(?:(?:List|Clash|Loon|sing-box)\/(?:domainset|ip|non_ip)|Mirror)\//.test(decodeURIComponent(check.pathname))) {
       assert.equal(response.headers.get('cache-control'), 'public, max-age=0, must-revalidate');
       assert.equal(response.headers.get('content-type'), 'text/plain; charset=utf-8');
       assert.equal(response.headers.get('x-robots-tag'), 'noindex');
@@ -108,9 +108,9 @@ describe('Pages Internal inventory gate', () => {
     await writePagesInternalGate(root);
     const routes = JSON.parse(await fs.readFile(path.join(root, '_routes.json'), 'utf8')) as { version: number, include: string[], exclude: string[] };
     const routed = [
-      '/Clash/domainset/', '/Clash/ip/', '/Clash/non_ip/', '/List/domainset/', '/List/ip/', '/List/non_ip/',
+      '/Clash/domainset/', '/Clash/ip/', '/Clash/non_ip/',
       '/Loon/ip/', '/Loon/non_ip/', '/Mirror/', '/sing-box/domainset/', '/sing-box/ip/', '/sing-box/non_ip/',
-      '/Loon/domainset/',
+      '/Loon/domainset/', '/List/',
     ];
     assert.deepEqual(routes, {
       version: 1,
@@ -139,7 +139,9 @@ describe('Pages Internal inventory gate', () => {
       { pathname: '/Internal/audit.json', status: 200, delegated: true },
       { pathname: '/Internal/nested/report.json', status: 200, delegated: true },
       { pathname: '/Internal/preserved-artifacts.json', status: 404, delegated: false },
-      { pathname: '/List/ai.list', status: 200, delegated: true },
+      { pathname: '/List/ai.list', status: 404, delegated: false },
+      { pathname: '/List/%61i.list?cached=1', status: 404, delegated: false, method: 'HEAD' },
+      { pathname: '/List/notes.md', status: 200, delegated: true },
       { pathname: '/List/ip/cdn.list', status: 200, delegated: true },
       { pathname: '/List/ip/cdn.list', status: 200, delegated: true, method: 'HEAD' },
       // A deleted ip variant is answered before the edge cache can serve its stale copy.
@@ -147,6 +149,8 @@ describe('Pages Internal inventory gate', () => {
       { pathname: '/Clash/ip/cdn.txt', status: 404, delegated: false },
       { pathname: '/List/ip/discord.list', status: 404, delegated: false },
       { pathname: '/List/non_ip/cdn.list', status: 200, delegated: true },
+      { pathname: '/List/%6eon_ip/cdn.list', status: 200, delegated: true },
+      { pathname: '/List/%6eon_ip/stale.list', status: 404, delegated: false },
       { pathname: '/List/non_ip/cdn.conf', status: 200, delegated: true },
       { pathname: '/List/domainset/cdn.conf', status: 200, delegated: true },
       { pathname: '/Clash/domainset/cdn.txt', status: 200, delegated: true },
@@ -209,7 +213,10 @@ describe('Pages Internal inventory gate', () => {
       { pathname: '/List/domainset/cdn.list', status: 404, delegated: false },
       { pathname: '/sing-box/domainset/cdn.json?v=1', status: 404, delegated: false },
       { pathname: '/List/non_ip/cdn.list', status: 404, delegated: false },
-      { pathname: '/List/ai.list', status: 200, delegated: true },
+      { pathname: '/List/ai.list', status: 404, delegated: false },
+      { pathname: '/List/speedtest_china.list', status: 404, delegated: false },
+      { pathname: '/List/arbitrary%20old.list', status: 404, delegated: false },
+      { pathname: '/Loon/ai.list', status: 200, delegated: true },
       { pathname: '/sing-box/china_ip.json', status: 200, delegated: true },
     ]);
   });

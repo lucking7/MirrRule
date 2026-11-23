@@ -20,9 +20,9 @@ const SUKKA_SPEEDTEST = 'https://ruleset.skk.moe/List/domainset/speedtest.conf';
 const CHINA_PATH = 'List/speedtest_china.list';
 const INTERNATIONAL_PATH = 'List/speedtest_international.list';
 const LIVE_PATH = 'List/speedtest.list';
-// SHA256 of the sorted `path sha256` lines, joined by LF, for the 20 regional files in
+// SHA256 of the sorted `path sha256` lines, joined by LF, for the 18 retained regional files in
 // NRRule 085c496b9f31e44d834a1106d67fbe104a65bf01's Internal/publication-manifest.json.
-const ACCEPTED_REGIONAL_DIGEST = '974b69183f04cdd997b905d4819b7541841da2690507266fea1289c5636cdbd0';
+const ACCEPTED_REGIONAL_DIGEST = '737a03adcfaac32bc122d9b37fdd1b6f3364776d78d14b4ad85738f5dcf87e8e';
 
 it('publishes the existing regional subscriptions from frozen archives and refreshes Sukka Speedtest', async t => {
   const extra = ruleGroups.find(group => group.name === 'Extra');
@@ -46,15 +46,16 @@ it('publishes the existing regional subscriptions from frozen archives and refre
 
   const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-frozen-speedtest-'));
   t.after(() => fs.rmSync(outputDir, { recursive: true, force: true }));
-  fs.mkdirSync(path.join(outputDir, 'List'));
   for (const [outputPath, alterContents] of [
     [CHINA_PATH, (body: string) => body.replace(/^# Last Updated: .*$/m, '# Last Updated: 2000-01-01')],
     [INTERNATIONAL_PATH, (body: string) => body.replaceAll('\n', '\r\n')],
   ] as const) {
+    const split = path.join('List/non_ip', path.basename(outputPath));
     const archive = gunzipSync(fs.readFileSync(path.join(ROOT_DIR, 'Build/assets/frozen-rules', path.basename(outputPath) + '.gz'))).toString('utf8');
     const altered = alterContents(archive);
     assert.notEqual(altered, archive, outputPath);
-    fs.writeFileSync(path.join(outputDir, outputPath), altered);
+    fs.mkdirSync(path.join(outputDir, 'List/non_ip'), { recursive: true });
+    fs.writeFileSync(path.join(outputDir, split), altered);
   }
 
   const processor = new RuleSourceProcessor(createSpan('frozen-speedtest'), outputDir);
@@ -94,7 +95,9 @@ it('publishes the existing regional subscriptions from frozen archives and refre
     'Loon/ip/speedtest_china.list',
     'sing-box/ip/speedtest_china.json',
   ]);
-  assert.equal(actualFiles.length, 20);
+  assert.equal(actualFiles.length, 18);
+  assert.equal(fs.existsSync(path.join(outputDir, CHINA_PATH)), false);
+  assert.equal(fs.existsSync(path.join(outputDir, INTERNATIONAL_PATH)), false);
   assert.equal(createHash('sha256').update(actualFiles.sort().join('\n')).digest('hex'), ACCEPTED_REGIONAL_DIGEST);
 
   const speedtest = stats.audits.find(audit => audit.id === 'speedtest');

@@ -99,7 +99,9 @@ describe('output audit', () => {
     assert.equal(ruleset.stages.canonicalCount, 4);
     assert.deepEqual(ruleset.sources, [source]);
     const merged = Object.fromEntries(ruleset.outputs.flatMap(entry => (entry.variant === 'merged' ? [[entry.platform, entry]] : [])));
-    assert.equal(merged.surge.effectiveConditionCount, 4);
+    assert.equal(merged.surge, undefined);
+    const surge = ruleset.outputs.filter(entry => entry.platform === 'surge' && entry.path.endsWith('.list'));
+    assert.deepEqual(surge.map(entry => [entry.variant, entry.effectiveConditionCount]), [['non_ip', 2], ['ip', 2]]);
     assert.equal(merged.clash.effectiveConditionCount, 3);
     assert.equal(merged.loon.effectiveConditionCount, 4);
     assert.equal(merged.singbox.effectiveConditionCount, 2);

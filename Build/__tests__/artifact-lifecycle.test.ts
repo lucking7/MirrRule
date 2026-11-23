@@ -88,24 +88,29 @@ describe('artifact lifecycle registry', () => {
 
   it('purges retired merged and split rules while preserving active subscriptions', async () => {
     const paths = [
-      'List/discord.list', 'Clash/domainset/discord.txt', 'List/ip/discord.conf',
+      'List/discord.list', 'List/apple_cdn.list', 'List/speedtest_china.list', 'Clash/domainset/discord.txt', 'List/ip/discord.conf',
       'Loon/domainset/nested/x.list', 'Loon/non_ip/scholar.list', 'sing-box/ip/container.json',
       'sing-box/non_ip/china_asn.json', 'sing-box/domainset/china_asn.json',
     ];
     await withTree(Object.fromEntries([
       ...paths.map(relative => [relative, 'old']),
       ['List/non_ip/apple_cdn.list', 'DOMAIN-SUFFIX,apple.com'],
+      ['List/ip/speedtest_international.list', 'IP-CIDR,192.0.2.0/24'],
       ['List/domainset/apple_cdn.conf', '.apple.com'],
+      ['Loon/apple_cdn.list', 'DOMAIN-SUFFIX,apple.com'],
+      ['List/notes.md', 'keep'],
     ]), async root => {
       for (const relative of paths) assert.equal(isRetiredPublicPath(relative), true);
       assert.equal(isRetiredPublicPath('List/domainset'), false);
       assert.equal(isRetiredPublicPath('List/domainsetx/a.list'), false);
       assert.equal(findLifecycleRecord('Loon/domainset/nested/x.list')?.id, 'variant:domainset');
       assert.equal(findLifecycleRecord('Clash/domainset/discord.txt')?.id, 'ruleset:discord');
+      assert.equal(findLifecycleRecord('List/apple_cdn.list')?.id, 'variant:surge-merged');
       assert.equal(isRetiredPublicPath('List/domainset/apple_cdn.conf'), false);
       await assert.rejects(assertNoRetiredArtifacts(root), /Loon\/domainset\/nested\/x\.list/);
       assert.deepEqual(new Set(await purgeRetiredArtifacts(root)), new Set(paths));
       await assertNoRetiredArtifacts(root);
+      await assertAllExist(root, ['List/ip/speedtest_international.list', 'Loon/apple_cdn.list', 'List/notes.md']);
       assert.equal(await fs.readFile(path.join(root, 'List/non_ip/apple_cdn.list'), 'utf8'), 'DOMAIN-SUFFIX,apple.com');
       assert.equal(await fs.readFile(path.join(root, 'List/domainset/apple_cdn.conf'), 'utf8'), '.apple.com');
     });
@@ -116,6 +121,10 @@ describe('artifact lifecycle registry', () => {
     assert.doesNotThrow(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['List/old/'] }]));
     assert.throws(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['List/old'] }]), /directory/);
     assert.throws(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['List/'] }]), /directory/);
+    assert.throws(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['List/'], directChildrenOnly: true }]), /require a suffix/);
+    const rootLists = { ...base, id: 'a', paths: [], pathPrefixes: ['List/'], pathSuffix: '.list', directChildrenOnly: true } as const;
+    assert.doesNotThrow(() => validateLifecycleRegistry([rootLists, { ...base, id: 'b', paths: ['List/ip/x.list'] }]));
+    assert.throws(() => validateLifecycleRegistry([rootLists, { ...base, id: 'b', paths: ['List/x.list'] }]), /inside prefix List\/ of a/);
     assert.throws(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['Other/old/'] }]), /directory/);
     assert.throws(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['../List/old/'] }]), /escapes/);
     assert.throws(() => validateLifecycleRegistry([{ ...base, id: 'a', paths: [], pathPrefixes: ['List/old/'], pathSuffix: '*.list' }]), /literal extension/);
@@ -179,7 +188,7 @@ describe('retired artifact cleanup', () => {
       'Scripts/tencent-only.js': 'const tencent = true;',
       'Scripts/shared.js': 'const shared = true;',
       'Scripts/mirror.js': 'const mirror = true;',
-      'List/apple.list': 'DOMAIN,apple.com',
+      'List/non_ip/apple.list': 'DOMAIN,apple.com',
       'sing-box/china_asn.json': '{}',
     }, async root => {
       await assert.rejects(assertNoRetiredArtifacts(root), /腾讯视频去广告\.sgmodule/);
@@ -192,7 +201,7 @@ describe('retired artifact cleanup', () => {
         'Scripts/tencent-only.js',
       ]);
       await assertNoRetiredArtifacts(root);
-      await assertAllExist(root, ['Modules/Converted/哈罗去广告.sgmodule', 'Scripts/shared.js', 'Scripts/mirror.js', 'Mirror/Sukka/module.sgmodule', 'List/apple.list']);
+      await assertAllExist(root, ['Modules/Converted/哈罗去广告.sgmodule', 'Scripts/shared.js', 'Scripts/mirror.js', 'Mirror/Sukka/module.sgmodule', 'List/non_ip/apple.list']);
       assert.deepEqual(await purgeRetiredArtifacts(root), []);
     });
   });
@@ -244,6 +253,7 @@ describe('retired artifact cleanup', () => {
     await withTree({
       'Modules/Converted/腾讯视频去广告.sgmodule': '[Rule]\nDOMAIN,retired.test,REJECT',
       'List/apple.list': 'DOMAIN,apple.com',
+      'List/non_ip/apple.list': 'DOMAIN,apple.com',
     }, async root => {
       const result = spawnSync(process.execPath, ['-r', '@swc-node/register', 'Build/download-previous-build.ts'], {
         cwd: path.resolve(__dirname, '../..'),
@@ -254,7 +264,8 @@ describe('retired artifact cleanup', () => {
       assert.equal(result.status, 0, result.stderr || result.stdout);
       assert.match(result.stdout, /skip downloading previous build/);
       assert.equal(await exists(path.join(root, 'Modules/Converted/腾讯视频去广告.sgmodule')), false);
-      await assertAllExist(root, ['List/apple.list']);
+      assert.equal(await exists(path.join(root, 'List/apple.list')), false);
+      await assertAllExist(root, ['List/non_ip/apple.list']);
     });
   });
 
@@ -268,12 +279,12 @@ describe('retired artifact cleanup', () => {
   it('keeps deprecated subscriptions published and reports replacement without redirecting', async () => {
     const registry: ArtifactLifecycleRecord[] = [
       ...ARTIFACT_LIFECYCLE_REGISTRY,
-      { id: 'ruleset:legacy', state: 'deprecated', paths: ['List/legacy.list'], reason: 'Split into variants', evidence: 'test', replacement: 'List/non_ip/legacy.list' },
+      { id: 'ruleset:legacy', state: 'deprecated', paths: ['List/non_ip/legacy.list'], reason: 'Frozen', evidence: 'test', replacement: 'List/non_ip/current.list' },
     ];
-    await withTree({ 'List/legacy.list': 'DOMAIN,legacy.test', 'List/container.list': 'DOMAIN,old.test' }, async root => {
+    await withTree({ 'List/non_ip/legacy.list': 'DOMAIN,legacy.test', 'List/container.list': 'DOMAIN,old.test' }, async root => {
       const removed = await purgeRetiredArtifacts(root, registry);
       assert.deepEqual(removed, ['List/container.list']);
-      assert.equal(await exists(path.join(root, 'List/legacy.list')), true);
+      assert.equal(await exists(path.join(root, 'List/non_ip/legacy.list')), true);
       await assertNoRetiredArtifacts(root, registry);
       const written = await writeLifecycleReport(root, removed, registry);
       assert.equal(written, path.join(root, ...ARTIFACT_LIFECYCLE_REPORT_PATH.split('/')));
@@ -283,15 +294,19 @@ describe('retired artifact cleanup', () => {
       assert.equal(report.automaticRedirects, false);
       assert.deepEqual(report.removed, ['List/container.list']);
       assert.deepEqual(report.records.find((record: { id: string }) => record.id === 'ruleset:legacy'), {
-        id: 'ruleset:legacy', state: 'deprecated', paths: ['List/legacy.list'], reason: 'Split into variants', evidence: 'test', replacement: 'List/non_ip/legacy.list',
+        id: 'ruleset:legacy', state: 'deprecated', paths: ['List/non_ip/legacy.list'], reason: 'Frozen', evidence: 'test', replacement: 'List/non_ip/current.list',
       });
+      const merged = report.records.find((record: { id: string }) => record.id === 'variant:surge-merged');
+      assert.deepEqual(merged?.pathPrefixes, ['List/']);
+      assert.equal(merged?.pathSuffix, '.list');
+      assert.equal(merged?.directChildrenOnly, true);
       const asn = report.records.find((record: { id: string }) => record.id === 'ruleset:china_asn:sing-box');
       assert.match(asn?.replacement ?? '', /sing-box\/china_ip\.json/);
       const tencent = report.records.find((record: { id: string }) => record.id === 'plugin:tencent-video-remove-ads');
       assert.ok(tencent);
       assert.deepEqual(tencent.canonicalSources, [TENCENT_SOURCE]);
       assert.equal('replacement' in tencent, false);
-      assert.equal(await exists(path.join(root, 'List/non_ip/legacy.list')), false);
+      assert.equal(await exists(path.join(root, 'List/container.list')), false);
     });
   });
 });

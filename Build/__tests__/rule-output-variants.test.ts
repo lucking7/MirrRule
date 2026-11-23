@@ -14,6 +14,7 @@ import type { RuleProcessingOptions } from '../lib/rule-source-types';
 import {
   classifyRuleLine,
   resolveRuleOutputTarget,
+  resolveRuleOutputTargets,
   RULE_OUTPUT_VARIANTS,
   rulesetIdFromConfigPath,
 } from '../lib/rule-output-variants';
@@ -171,8 +172,7 @@ describe('rule output variant contract', () => {
     const paths = new Set<string>();
     for (const [index, config] of configs.entries()) {
       for (const platform of normalizeTargets(config.targets)) {
-        for (const slot of ['merged', ...RULE_OUTPUT_VARIANTS] as const) {
-          const { relativePath } = resolveRuleOutputTarget(platform, slot, ids[index]);
+        for (const { relativePath } of resolveRuleOutputTargets(platform, ids[index])) {
           assert.equal(paths.has(relativePath), false, relativePath);
           paths.add(relativePath);
         }
@@ -199,7 +199,7 @@ describe('rule output variants', () => {
     assert.deepEqual(textConditions(surge.split('\n')), [
       'DOMAIN,mzstatic.com', 'DOMAIN,notcdn-apple.com', 'DOMAIN-SUFFIX,aaplimg.com', 'DOMAIN-SUFFIX,cdn-apple.com',
     ].sort((x, y) => surge.indexOf(x) - surge.indexOf(y)));
-    for (const [directoryName, extension] of [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list'], ['sing-box', 'json']]) {
+    for (const [directoryName, extension] of [['Clash', 'txt'], ['Loon', 'list'], ['sing-box', 'json']]) {
       // eslint-disable-next-line no-await-in-loop -- compare each platform pair
       const flat = await fs.readFile(path.join(directory, directoryName, `apple_cdn.${extension}`), 'utf8');
       // eslint-disable-next-line no-await-in-loop -- compare each platform pair
@@ -213,6 +213,7 @@ describe('rule output variants', () => {
       assert.equal(entry.reason, 'no-conditions');
       assert.equal(entry.sha256, null);
     }
+    await assert.rejects(fs.access(path.join(directory, 'List/apple_cdn.list')), { code: 'ENOENT' });
     await assert.rejects(fs.access(path.join(directory, 'List/ip/apple_cdn.list')), { code: 'ENOENT' });
     await assert.rejects(fs.access(path.join(directory, 'List/domainset/apple_cdn.list')), { code: 'ENOENT' });
     const surgeNonIp = findOutput(audit.outputs, 'surge', 'non_ip');
@@ -341,12 +342,14 @@ describe('rule output variants', () => {
 
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-variants-extended-logical-'));
     t.after(() => fs.rm(directory, { recursive: true, force: true }));
-    const flatBefore = merged.join('\n');
     const audit = await makeOutput('extended_logical', rules, { directory }).write();
     assert.deepEqual(findOutput(audit.outputs, 'surge', 'non_ip').reroutedFromIp, { reason: 'extended-matching', count: 1 });
     assert.equal(findOutput(audit.outputs, 'clash', 'non_ip').reroutedFromIp, undefined);
-    const flat = await fs.readFile(path.join(directory, 'List/extended_logical.list'), 'utf8');
-    assert.equal(textConditions(flat.split('\n')).join('\n'), flatBefore);
+    await assert.rejects(fs.access(path.join(directory, 'List/extended_logical.list')), { code: 'ENOENT' });
+    const published = await Promise.all(RULE_OUTPUT_VARIANTS.map(variant => (
+      fs.readFile(path.join(directory, 'List', variant, 'extended_logical.list'), 'utf8')
+    )));
+    assert.deepEqual(new Map(published.flatMap(body => [...surgeExtendedContext(textConditions(body.split('\n')))])), expected);
   });
 
   it('records dropped values and ignored modifiers per output without changing flat payloads', async t => {
@@ -370,7 +373,9 @@ describe('rule output variants', () => {
     assert.deepEqual(findOutput(audit.outputs, 'singbox', 'non_ip').losses.ignoredModifiers, { 'extended-matching': 2 });
     assert.deepEqual(findOutput(audit.outputs, 'singbox', 'ip').losses.ignoredModifiers, { 'no-resolve': 2 });
     assert.deepEqual(findOutput(audit.outputs, 'loon', 'non_ip').losses.ignoredModifiers, { 'extended-matching': 2 });
-    assert.deepEqual(findOutput(audit.outputs, 'surge', 'merged').losses, { droppedValues: {}, ignoredModifiers: {} });
+    for (const variant of RULE_OUTPUT_VARIANTS) {
+      assert.deepEqual(findOutput(audit.outputs, 'surge', variant).losses, { droppedValues: {}, ignoredModifiers: {} });
+    }
     const clash = await fs.readFile(path.join(directory, 'Clash/losses.txt'), 'utf8');
     assert.equal(clash.includes('QUIC'), false);
     assert.ok(clash.includes('NETWORK,UDP'));

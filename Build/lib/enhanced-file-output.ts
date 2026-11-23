@@ -16,19 +16,19 @@ import { compareAndWriteFile } from './create-file';
 import { createWriter, normalizeTargets } from './platform-config';
 import type { SupportedPlatform } from './platform-config';
 import type { RuleProcessingOptions } from './rule-source-types';
-import { classifyRuleLine, EXTENDED_MATCHING_RULE_TYPES, hasDomainMatcherSubRule, resolveRuleOutputTarget, resolveRuleOutputTargets, RULE_OUTPUT_VARIANTS } from './rule-output-variants';
+import { classifyRuleLine, EXTENDED_MATCHING_RULE_TYPES, hasDomainMatcherSubRule, resolveRuleOutputTargets, RULE_OUTPUT_VARIANTS } from './rule-output-variants';
 import type { RuleOutputTarget, RuleOutputVariant } from './rule-output-variants';
-import { countEffectiveConditions, sha256Hex, snapshotEffectiveOutput } from './output-audit';
+import { countEffectiveConditions, effectiveOutputFiles, sha256Hex, snapshotEffectiveOutput } from './output-audit';
 import type { RuleOptimizationAudit, RuleOutputFileAudit, RulesetOutputAudit, RulesetStageCounts } from './output-audit';
 import { cleanPolicy } from './policy-cleaner';
 import { smartConvertRule, withBannerArray } from './misc';
 import { RuleLineUtils } from '../utils/validation/validators';
 import { merge as mergeCidr } from 'fast-cidr-tools';
 
-/** One platform's merged writer plus the mutually exclusive variant writers. */
+/** One platform's optional merged writer and its variant writers. */
 interface PlatformOutputs {
   platform: SupportedPlatform;
-  merged: BaseWriteStrategy;
+  merged: BaseWriteStrategy | null;
   variants: Record<RuleOutputVariant, BaseWriteStrategy>;
   routed: Record<RuleOutputVariant, number>;
   /** Conditions written to the merged writer; differs from the variant sum for source variants. */
@@ -62,7 +62,6 @@ const DOMAINSET_HOSTNAME = /^(?:\w(?:[\w-]{0,61}\w)?\.)*\w(?:[\w-]{0,61}\w)?$/;
  */
 export class EnhancedFileOutput {
   private readonly targets: SupportedPlatform[];
-  private readonly strategies: BaseWriteStrategy[];
   private readonly platformOutputs: PlatformOutputs[];
   private readonly span: Span;
 
@@ -158,10 +157,9 @@ export class EnhancedFileOutput {
     };
 
     this.targets = normalizeTargets(targets);
-    this.strategies = this.targets.map(platform => createWriter(platform));
-    this.platformOutputs = this.targets.map((platform, index) => ({
+    this.platformOutputs = this.targets.map(platform => ({
       platform,
-      merged: this.strategies[index],
+      merged: platform === 'surge' ? null : createWriter(platform),
       variants: {
         non_ip: createWriter(platform),
         ip: createWriter(platform),
@@ -574,8 +572,10 @@ export class EnhancedFileOutput {
   ) {
     for (const outputs of this.platformOutputs) {
       if (this.pinnedVariant === null) {
-        write(outputs.merged);
-        outputs.mergedRouted += count;
+        if (outputs.merged) {
+          write(outputs.merged);
+          outputs.mergedRouted += count;
+        }
         if (this.variantSources.size > 0) continue;
       }
       const slot = this.pinnedVariant ?? variant;
@@ -584,12 +584,16 @@ export class EnhancedFileOutput {
     }
   }
 
-  private writeToStrategies() {
+  private writeToStrategies(includeSurgeMerged = false) {
     if (this.strategiesWritten) {
       throw new Error('Strategies already written');
     }
 
     this.strategiesWritten = true;
+    if (includeSurgeMerged) {
+      const surge = this.platformOutputs.find(outputs => outputs.platform === 'surge');
+      if (surge) surge.merged = createWriter('surge');
+    }
 
     // DOMAIN-KEYWORD covers matching DOMAIN, DOMAIN-SUFFIX, and DOMAIN-WILDCARD rules.
     const kwfilter = createKeywordFilter(Array.from(this.domainKeywords));
@@ -597,7 +601,7 @@ export class EnhancedFileOutput {
     this.wildcardTrie.dumpWithoutDot(wildcard => wildcardsBeforeCoverage.add(wildcard));
 
     for (const outputs of this.platformOutputs) {
-      outputs.merged.setExtendedDomainMatching(this.extendedDomainMatching);
+      outputs.merged?.setExtendedDomainMatching(this.extendedDomainMatching);
       for (const variant of RULE_OUTPUT_VARIANTS) {
         outputs.variants[variant].setExtendedDomainMatching(this.extendedDomainMatching);
       }
@@ -697,8 +701,10 @@ export class EnhancedFileOutput {
         if (isSurge && this.variantSources.size === 0) outputs.reroutedFromIp = surgeRerouted;
         const byVariant = isSurge ? surgeOtherRulesByVariant : otherRulesByVariant;
         if (this.pinnedVariant === null) {
-          outputs.merged.writeOtherRules(this.otherRules);
-          outputs.mergedRouted += RULE_OUTPUT_VARIANTS.reduce((sum, variant) => sum + byVariant[variant].length, 0);
+          if (outputs.merged) {
+            outputs.merged.writeOtherRules(this.otherRules);
+            outputs.mergedRouted += RULE_OUTPUT_VARIANTS.reduce((sum, variant) => sum + byVariant[variant].length, 0);
+          }
           if (this.variantSources.size > 0) continue;
         }
         for (const variant of RULE_OUTPUT_VARIANTS) {
@@ -793,10 +799,12 @@ export class EnhancedFileOutput {
     const staged: StagedOutput[] = [];
 
     for (const outputs of this.platformOutputs) {
-      outputs.merged.validateForPublication();
-      for (const message of outputs.merged.getRuleDropMessages()) console.warn(message);
+      outputs.merged?.validateForPublication();
       // Frozen sources retain the subscription set for which their archives were captured.
       const targets = resolveRuleOutputTargets(outputs.platform, this.id, { legacyOnly: this.frozenDate !== undefined });
+      const splitDescription = outputs.platform === 'surge' && this.frozenDate === undefined
+        ? 'Load every published non_ip and ip variant for complete coverage.'
+        : 'Combine non_ip and ip for the conditions of the merged ruleset.';
       for (const target of targets) {
         const { slot } = target;
         if (target.aliasOf) {
@@ -810,13 +818,17 @@ export class EnhancedFileOutput {
         } else if (slot === 'domainset') {
           staged.push(this.stageDomainset(target, title, descriptions));
         } else if (slot === 'merged') {
-          staged.push(this.stageOutput(outputs, target, outputs.merged, title, descriptions));
+          staged.push(this.stageOutput(outputs, target, nullthrow(outputs.merged), title, descriptions));
         } else {
           staged.push(this.stageOutput(outputs, target, outputs.variants[slot], title, [
             ...descriptions,
-            `Variant: ${slot}. Combine non_ip and ip for the conditions of the merged ruleset.`,
+            `Variant: ${slot}. ${splitDescription}`,
           ]));
         }
+      }
+      const strategies = outputs.merged ? [outputs.merged] : Object.values(outputs.variants);
+      for (const strategy of strategies) {
+        for (const message of strategy.getRuleDropMessages()) console.warn(message);
       }
     }
     return staged;
@@ -1004,16 +1016,16 @@ export class EnhancedFileOutput {
         }));
       });
 
-      this.publicationAudit = this.buildPublicationAudit(staged.map(output => output.audit));
+      this.publicationAudit = this.buildPublicationAudit(staged);
       return this.publicationAudit;
     });
   }
 
   async compile(): Promise<string[][]> {
     await this.done();
-    this.writeToStrategies();
+    this.writeToStrategies(true);
 
-    return this.strategies.map(strategy => strategy.content);
+    return this.platformOutputs.map(outputs => nullthrow(outputs.merged).content);
   }
 
   /** Writer content of one variant after compile() or write(). */
@@ -1027,8 +1039,21 @@ export class EnhancedFileOutput {
 
   public getRuleDropSummaries(): Partial<Record<RulePlatform, RuleDropSummary>> {
     const summaries: Partial<Record<RulePlatform, RuleDropSummary>> = {};
-    for (const strategy of [...this.strategies].sort((a, b) => a.platform.localeCompare(b.platform))) {
-      summaries[strategy.platform] = strategy.ruleDropSummary;
+    for (const { platform, merged, variants } of [...this.platformOutputs].sort((a, b) => a.platform.localeCompare(b.platform))) {
+      if (merged) {
+        summaries[platform] = merged.ruleDropSummary;
+      } else {
+        const summary: RuleDropSummary = { unsupported: {}, malformed: 0, unknown: {} };
+        for (const variant of Object.values(variants)) {
+          const drops = variant.ruleDropSummary;
+          summary.malformed += drops.malformed;
+          for (const type of Object.keys(drops.unsupported) as Array<keyof RuleDropSummary['unsupported']>) {
+            summary.unsupported[type] = (summary.unsupported[type] ?? 0) + (drops.unsupported[type] ?? 0);
+          }
+          for (const [type, count] of Object.entries(drops.unknown)) summary.unknown[type] = (summary.unknown[type] ?? 0) + count;
+        }
+        summaries[platform] = summary;
+      }
     }
     return summaries;
   }
@@ -1038,8 +1063,10 @@ export class EnhancedFileOutput {
     return nullthrow(this.publicationAudit, `Ruleset has not been published: ${this.id}`);
   }
 
-  private buildPublicationAudit(outputs: RuleOutputFileAudit[]): RulesetOutputAudit {
+  private buildPublicationAudit(staged: StagedOutput[]): RulesetOutputAudit {
     const conditions = this.getCanonicalConditions();
+    const outputs = staged.map(output => output.audit);
+    const lines = new Map(staged.map(output => [output.audit.path, output.lines]));
     return {
       id: this.id,
       platforms: [...this.targets],
@@ -1057,10 +1084,9 @@ export class EnhancedFileOutput {
         byType: { ...summary.byType },
         samples: [...summary.samples].sort(),
       })),
-      effectiveOutputs: this.platformOutputs.map(output => {
-        const target = resolveRuleOutputTarget(output.platform, 'merged', this.id);
-        return snapshotEffectiveOutput(output.platform, target.format, output.merged.content);
-      }),
+      effectiveOutputs: [...effectiveOutputFiles(outputs)].map(([platform, files]) => (
+        snapshotEffectiveOutput(platform, files[0].format, files.flatMap(file => nullthrow(lines.get(file.path))))
+      )),
       conditions,
       contextSha256: sha256Hex(JSON.stringify({
         defaultPolicy: this.defaultPolicy,

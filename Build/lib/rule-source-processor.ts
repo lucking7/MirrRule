@@ -443,7 +443,7 @@ export class RuleSourceProcessor {
           }
 
           if (stats.errors.length > errorCountBeforeSources) {
-            // Per-source variants are not recoverable from the merged snapshot conditions.
+            // The canonical snapshot does not retain per-source variant assignments.
             if (ruleConfig.sourceVariants) return;
             const failures = stats.errors.slice(errorCountBeforeSources);
             const reused = await this.republishBaselineSnapshot(ruleSpan, {

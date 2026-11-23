@@ -40,7 +40,7 @@ export interface RuleProcessingOptions {
  * 单个文件下载配置
  */
 export interface FileConfig extends RuleProcessingOptions {
-  /** 文件保存路径（相对于输出目录） */
+  /** 配置路径。basename 决定规则集 ID，发布路径由平台与分版决定。 */
   path: string,
   /** 文件下载URL */
   url: string,
@@ -78,13 +78,13 @@ export interface RuleGroup {
 export interface SpecialRuleConfig extends RuleProcessingOptions {
   /** 规则名称 */
   name: string,
-  /** 目标文件路径 */
+  /** 配置路径。basename 决定聚合后的规则集 ID。 */
   targetFile: string,
   /** 源文件URL列表 */
   sourceFiles: string[],
   /**
    * Publish each source as this variant, in sourceFiles order, instead of classifying the
-   * merged rules by type; several sources may share a variant. Use it when upstream grouping
+   * combined source conditions by type; several sources may share a variant. Use it when upstream grouping
    * must be kept, for example no-resolve IP rules that upstream keeps in its ip file so they
    * share that file's policy.
    */

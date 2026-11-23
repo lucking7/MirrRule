@@ -1,34 +1,35 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
-import { auditRuleCoverage, cleanAuditRuleLine, splitSurgeRuleFields } from './lib/rule-coverage-audit';
+import { auditRuleCoverage, cleanAuditRuleLine, retiredSurgeBasename, retiredSurgeReferences, splitSurgeRuleFields } from './lib/rule-coverage-audit';
 import type { CoverageAuditReport, CoverageSubscription, CoverageVariant } from './lib/rule-coverage-audit';
 import { writeFileAtomic } from './lib/atomic-file';
+import { RULE_OUTPUT_VARIANTS, resolveRuleOutputTargets } from './lib/rule-output-variants';
 
 /** An illustrative order, with distinct policy roles to expose otherwise hidden overlaps. */
 export const exampleRoutingOrder: ReadonlyArray<readonly [string, string]> = [
-  ['reject.list', 'REJECT'],
-  ['wechat.list', 'DIRECT'],
-  ['apple_intelligence.list', 'AppleIntelligence'],
-  ['ai.list', 'AI'],
-  ['emby.list', 'Emby'],
-  ['stream.list', 'Streaming'],
-  ['telegram.list', 'Telegram'],
-  ['apple_cdn.list', 'DIRECT'],
-  ['apple_cn.list', 'DIRECT'],
-  ['microsoft_cdn.list', 'DIRECT'],
-  ['download.list', 'CDN'],
-  ['domestic_cdn.list', 'DIRECT'],
-  ['domestic.list', 'DIRECT'],
-  ['cdn.list', 'CDN'],
-  ['apple_services.list', 'Apple'],
-  ['apple_services_ip.list', 'Apple'],
-  ['icloud_private_relay.list', 'Apple'],
-  ['google.list', 'Google'],
-  ['amazon.list', 'Amazon'],
-  ['global.list', 'Proxy'],
-  ['lan.list', 'DIRECT'],
-  ['china_ip.list', 'DIRECT']
+  ['reject', 'REJECT'],
+  ['wechat', 'DIRECT'],
+  ['apple_intelligence', 'AppleIntelligence'],
+  ['ai', 'AI'],
+  ['emby', 'Emby'],
+  ['stream', 'Streaming'],
+  ['telegram', 'Telegram'],
+  ['apple_cdn', 'DIRECT'],
+  ['apple_cn', 'DIRECT'],
+  ['microsoft_cdn', 'DIRECT'],
+  ['download', 'CDN'],
+  ['domestic_cdn', 'DIRECT'],
+  ['domestic', 'DIRECT'],
+  ['cdn', 'CDN'],
+  ['apple_services', 'Apple'],
+  ['apple_services_ip', 'Apple'],
+  ['icloud_private_relay', 'Apple'],
+  ['google', 'Google'],
+  ['amazon', 'Amazon'],
+  ['global', 'Proxy'],
+  ['lan', 'DIRECT'],
+  ['china_ip', 'DIRECT']
 ];
 
 function unquote(value: string): string {
@@ -52,7 +53,7 @@ async function readSubscription(
 }
 
 const NRRULE_HOST = 'nrrule.pages.dev';
-const NRRULE_SURGE_PATH = /^\/List\/(?:(domainset|non_ip|ip)\/)?([^/]+)\.(list|conf)$/;
+const NRRULE_SURGE_PATH = /^\/List\/(domainset|non_ip|ip)\/([^/]+)\.(list|conf)$/;
 
 type ReferenceFormat = 'rule-set' | 'domain-set';
 
@@ -65,21 +66,23 @@ interface ResolvedReference {
   notCoveredReason?: string
 }
 
-/** Resolve current and compatibility subscriptions and enforce the client's reference format. */
+/** Resolve published split subscriptions and enforce the client's reference format. */
 export function resolveNrruleSurgeReference(pathname: string, format: ReferenceFormat, rulesDir: string): ResolvedReference {
+  const retired = retiredSurgeBasename(pathname);
+  if (retired) return { label: retired, skipped: 'retired-subscription', notCoveredReason: `List/${retired} is retired; use the published non_ip and ip variants` };
   const match = NRRULE_SURGE_PATH.exec(pathname);
   const directory = match?.[1];
   const extension = match?.[3];
-  if (!match || (!directory && extension !== 'list') || (directory === 'domainset' && extension !== 'conf')) {
+  if (!match || (directory === 'domainset' && extension !== 'conf')) {
     return {
       label: pathname.replace(/^\//, ''),
       skipped: 'unavailable-remote',
       notCoveredReason: 'Unknown NRRule Surge subscription path or extension'
     };
   }
-  const variant = (directory ?? 'merged') as CoverageVariant;
+  const variant = directory as CoverageVariant;
   const basename = `${match[2]}.${extension}`;
-  const label = directory ? `${directory}/${basename}` : basename;
+  const label = `${directory}/${basename}`;
   const expected = directory === 'domainset' ? 'domain-set' : 'rule-set';
   if (format !== expected) {
     return {
@@ -89,10 +92,28 @@ export function resolveNrruleSurgeReference(pathname: string, format: ReferenceF
       notCoveredReason: `List/${label} requires ${expected.toUpperCase()}; profile uses ${format.toUpperCase()}`
     };
   }
-  return { label, variant, filename: directory ? path.join(rulesDir, directory, basename) : path.join(rulesDir, basename) };
+  return { label, variant, filename: path.join(rulesDir, label) };
 }
 
 type VariantAvailability = ReadonlyMap<string, string>;
+
+interface AuditedRuleSet {
+  id?: unknown,
+  outputs?: unknown
+}
+
+async function readAuditedRuleSets(auditPath: string): Promise<AuditedRuleSet[]> {
+  let data: unknown;
+  try {
+    data = JSON.parse(await fs.readFile(auditPath, 'utf8'));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw new Error('Unable to read rule output audit', { cause: error });
+  }
+  const rulesets = (data as { rulesets?: unknown } | null)?.rulesets;
+  if (!Array.isArray(rulesets)) throw new TypeError('Rule output audit has no rulesets list');
+  return rulesets.filter((ruleset): ruleset is AuditedRuleSet => Boolean(ruleset) && typeof ruleset === 'object');
+}
 
 /**
  * Read absent Surge variant states from `Internal/rule-output-audit.json`
@@ -101,17 +122,8 @@ type VariantAvailability = ReadonlyMap<string, string>;
  */
 export async function loadVariantAvailability(auditPath: string): Promise<VariantAvailability> {
   const availability = new Map<string, string>();
-  let data: unknown;
-  try {
-    data = JSON.parse(await fs.readFile(auditPath, 'utf8'));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return availability;
-    throw new Error('Unable to read rule output audit', { cause: error });
-  }
-  const rulesets = (data as { rulesets?: unknown } | null)?.rulesets;
-  if (!Array.isArray(rulesets)) throw new TypeError('Rule output audit has no rulesets list');
-  for (const ruleset of rulesets as Array<{ id?: unknown, outputs?: unknown } | null>) {
-    if (typeof ruleset?.id !== 'string' || !Array.isArray(ruleset.outputs)) continue;
+  for (const ruleset of await readAuditedRuleSets(auditPath)) {
+    if (typeof ruleset.id !== 'string' || !Array.isArray(ruleset.outputs)) continue;
     for (const output of ruleset.outputs as Array<Record<string, unknown> | null>) {
       const { platform, variant, status, reason } = output ?? {};
       if (platform !== 'surge' || typeof variant !== 'string' || typeof status !== 'string' || !status.startsWith('absent-')) continue;
@@ -129,7 +141,6 @@ export async function readProfileSubscriptions(
 ): Promise<CoverageSubscription[]> {
   let availability: Promise<VariantAvailability> | undefined;
   const absentStatus = async (variant: CoverageVariant, basename: string) => {
-    if (variant === 'merged') return;
     availability ??= loadVariantAvailability(options.outputAuditPath ?? path.join(rulesDir, '..', 'Internal', 'rule-output-audit.json'));
     return (await availability).get(`${basename.replace(/\.(?:list|conf)$/, '').toLowerCase()}/${variant}`);
   };
@@ -149,6 +160,19 @@ export async function readProfileSubscriptions(
     const fields = splitSurgeRuleFields(line);
     const type = fields[0].toUpperCase();
     if (type !== 'RULE-SET' && type !== 'DOMAIN-SET') {
+      const retired = [...retiredSurgeReferences(line)];
+      if (retired.length) {
+        for (const basename of retired) {
+          subscriptions.push({
+            id: `${NRRULE_HOST}/List/${basename}:${lineIndex + 1}`,
+            policy: unquote(fields[2] ?? 'UNKNOWN'),
+            lines: [],
+            skipped: 'retired-subscription',
+            notCoveredReason: `List/${basename} is retired; use the published non_ip and ip variants`
+          });
+        }
+        continue;
+      }
       // Remove the outer policy, retaining only conditions needed for the audit.
       const policyIndex = type === 'FINAL' ? 1 : 2;
       const policy = unquote(fields[policyIndex] ?? 'UNKNOWN');
@@ -173,7 +197,10 @@ export async function readProfileSubscriptions(
         if (url.hostname === NRRULE_HOST) {
           const resolved = resolveNrruleSurgeReference(url.pathname, format, rulesDir);
           ({ filename, variant, skipped, notCoveredReason } = resolved);
-          if (!skipped) id = `${url.hostname}/${resolved.label}:${lineIndex + 1}`;
+          if (!skipped || skipped === 'retired-subscription') {
+            const label = skipped === 'retired-subscription' ? `List/${resolved.label}` : resolved.label;
+            id = `${url.hostname}/${label}:${lineIndex + 1}`;
+          }
         } else {
           skipped = 'unavailable-remote';
           notCoveredReason = 'Remote subscriptions are not fetched';
@@ -186,7 +213,7 @@ export async function readProfileSubscriptions(
       filename = path.resolve(profileBase, reference);
     } else skipped = 'unsupported-reference';
     const outerOptions = fields.slice(3).map(field => field.toLowerCase());
-    if (outerOptions.some(field => !['extended-matching', 'no-resolve'].includes(field) && !/^update-interval=-?\d+$/.test(field))) {
+    if (skipped !== 'retired-subscription' && outerOptions.some(field => !['extended-matching', 'no-resolve'].includes(field) && !/^update-interval=-?\d+$/.test(field))) {
       skipped = 'unsupported-options';
       notCoveredReason = 'Unsupported outer subscription options';
     }
@@ -202,7 +229,7 @@ export async function readProfileSubscriptions(
         if (absent) {
           subscription.skipped = 'absent-variant';
           subscription.notCoveredReason = `rule-output-audit reports ${absent} for the Surge ${variant} variant; no file is published at this URL`;
-        } else if (variant !== 'merged') {
+        } else {
           subscription.notCoveredReason = 'Variant file not found and rule-output-audit records no absent status for it';
         }
       }
@@ -212,6 +239,31 @@ export async function readProfileSubscriptions(
   }
   if (!hasRules) throw new Error('Profile input has no [Rule] section');
   return subscriptions;
+}
+
+async function readExampleSubscriptions(rulesDir: string, auditPath: string): Promise<CoverageSubscription[]> {
+  const rulesets = new Map((await readAuditedRuleSets(auditPath)).map(ruleSet => [ruleSet.id, ruleSet.outputs]));
+  return (await Promise.all(exampleRoutingOrder.map(async ([id, policy]) => {
+    const outputs = rulesets.get(id);
+    const targets = resolveRuleOutputTargets('surge', id);
+    const paths = RULE_OUTPUT_VARIANTS.flatMap(variant => {
+      if (!Array.isArray(outputs)) return [];
+      const published = outputs.filter((output: Record<string, unknown> | null) =>
+        output?.platform === 'surge' && output.variant === variant && output.status === 'published'
+      );
+      const available = targets.filter(target => target.slot === variant && published.some(output =>
+        output.path === target.relativePath || (output.path === undefined && !target.aliasOf)
+      ));
+      const target = available.find(output => output.relativePath.endsWith('.conf')) ?? available.at(0);
+      return target ? [{ label: target.relativePath.slice('List/'.length), variant }] : [];
+    });
+    if (paths.length === 0) {
+      return [{ id, policy, lines: [], skipped: 'missing-local-file' as const, notCoveredReason: 'Rule output audit lists no published classical Surge variant' }];
+    }
+    return Promise.all(paths.map(({ label, variant }) =>
+      readSubscription(label, policy, path.join(rulesDir, label), { format: 'rule-set', variant })
+    ));
+  }))).flat();
 }
 
 export async function createRuleCoverageReport(options: {
@@ -232,7 +284,7 @@ export async function createRuleCoverageReport(options: {
     }
     subscriptions = await readProfileSubscriptions(text, options.profileBase ?? path.dirname(options.profilePath), options.rulesDir, { outputAuditPath: options.outputAuditPath });
   } else {
-    subscriptions = await Promise.all(exampleRoutingOrder.map(([filename, policy]) => readSubscription(filename, policy, path.join(options.rulesDir, filename))));
+    subscriptions = await readExampleSubscriptions(options.rulesDir, options.outputAuditPath ?? path.join(options.rulesDir, '..', 'Internal', 'rule-output-audit.json'));
   }
   return auditRuleCoverage(subscriptions, {
     basis: options.profilePath ? 'profile-rule-section' : 'example-order',
@@ -253,7 +305,7 @@ export async function runCoverageAuditCli(args: readonly string[]): Promise<numb
   if (args[0] === '--') args = args.slice(1);
   if (args.includes('--help') || args.includes('-h')) {
     console.log('Usage: pnpm run node Build/audit-rule-coverage.ts --rules-dir public/List --output report.json [--profile profile.conf] [--profile-base directory] [--output-audit Internal/rule-output-audit.json] [--fail-on-full-shadow]');
-    console.log('Without --profile, audits the example subscription order. Profile references resolve below --rules-dir: DOMAIN-SET for List/domainset/*.conf and RULE-SET for merged and non_ip/ip subscriptions. Missing files, absent variants and format mismatches exit 1; --fail-on-full-shadow exits 2 for proven full subscription shadow.');
+    console.log('Without --profile, audits the example subscription order. Profile references resolve below --rules-dir: DOMAIN-SET for List/domainset/*.conf and RULE-SET for non_ip/ip subscriptions. Retired subscriptions, missing files, absent variants and format mismatches exit 1; --fail-on-full-shadow exits 2 for proven full subscription shadow.');
     return 0;
   }
   const values: Record<string, string> = {};
@@ -274,8 +326,8 @@ export async function runCoverageAuditCli(args: readonly string[]): Promise<numb
   const report = await createRuleCoverageReport({ rulesDir: values['--rules-dir'] ?? path.resolve('public/List'), profilePath: values['--profile'], profileBase: values['--profile-base'], outputAuditPath: values['--output-audit'] });
   await writeRuleCoverageReport(report, values['--output']);
   console.log(`Coverage audit (${report.basis}): ${report.summary.auditedSubscriptions} subscriptions, ${report.summary.fullyShadowedSubscriptions} fully shadowed, ${report.summary.differentPolicyConflicts} domain policy overlaps, ${report.summary.skippedSubscriptions} skipped (not covered), ${report.summary.unsupportedRules} unsupported rules.`);
-  const { missingLocalSubscriptions, absentVariantSubscriptions, formatMismatchSubscriptions } = report.summary;
-  if (missingLocalSubscriptions || absentVariantSubscriptions || formatMismatchSubscriptions) return 1;
+  const { missingLocalSubscriptions, absentVariantSubscriptions, formatMismatchSubscriptions, retiredSubscriptions } = report.summary;
+  if (missingLocalSubscriptions || absentVariantSubscriptions || formatMismatchSubscriptions || retiredSubscriptions) return 1;
   return failOnFullShadow && report.summary.fullyShadowedSubscriptions ? 2 : 0;
 }
 

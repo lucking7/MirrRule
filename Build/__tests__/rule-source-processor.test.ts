@@ -197,7 +197,7 @@ describe('RuleSourceProcessor ordinary rules', () => {
         [
           'Clash/domainset/provenance.txt', 'Clash/ip/provenance.txt', 'Clash/non_ip/provenance.txt', 'Clash/provenance.txt',
           'List/domainset/provenance.conf', 'List/ip/provenance.conf', 'List/ip/provenance.list',
-          'List/non_ip/provenance.conf', 'List/non_ip/provenance.list', 'List/provenance.list',
+          'List/non_ip/provenance.conf', 'List/non_ip/provenance.list',
         ]
       );
     } finally {
@@ -251,9 +251,9 @@ describe('RuleSourceProcessor ordinary rules', () => {
       assert.equal(stats.filesProcessed, 2);
       assert.equal(stats.rulesMerged, 2);
       assert.deepEqual(stats.errors.map(error => error.file), ['List/second.list']);
-      assert.equal(fs.existsSync(path.join(tempDir, 'List', 'first.list')), true);
-      assert.equal(fs.existsSync(path.join(tempDir, 'List', 'second.list')), false);
-      assert.equal(fs.existsSync(path.join(tempDir, 'List', 'third.list')), true);
+      assert.equal(fs.existsSync(path.join(tempDir, 'List', 'non_ip', 'first.list')), true);
+      assert.equal(fs.existsSync(path.join(tempDir, 'List', 'non_ip', 'second.list')), false);
+      assert.equal(fs.existsSync(path.join(tempDir, 'List', 'non_ip', 'third.list')), true);
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
       await new Promise<void>((resolve, reject) => {
@@ -282,7 +282,7 @@ describe('RuleSourceProcessor ordinary rules', () => {
 
         assert.equal(stats.errors.length, 1);
         assert.equal(stats.filesProcessed, 0);
-        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'empty.list')), false);
+        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'non_ip', 'empty.list')), false);
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -309,8 +309,9 @@ describe('RuleSourceProcessor ordinary rules', () => {
 
         assert.equal(stats.errors.length, 1);
         assert.equal(stats.filesProcessed, 1);
-        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'empty-false.list')), false);
-        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'empty-true.list')), true);
+        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'non_ip', 'empty-false.list')), false);
+        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'non_ip', 'empty-true.list')), false);
+        assert.ok(stats.audits[0].outputs.every(output => output.status === 'absent-empty'));
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -334,7 +335,7 @@ describe('RuleSourceProcessor ordinary rules', () => {
 
         assert.equal(stats.errors.length, 0);
         assert.equal(stats.filesProcessed, 1);
-        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'non-empty.list')), true);
+        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'non_ip', 'non-empty.list')), true);
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -370,8 +371,8 @@ describe('RuleSourceProcessor special rules', () => {
           .split(/\r?\n/)
           .filter(line => line && !line.startsWith('#'));
         assert.deepEqual(
-          ruleLines(path.join(tempDir, 'List', 'ordinary.list')),
-          ruleLines(path.join(tempDir, 'List', 'special.list'))
+          ruleLines(path.join(tempDir, 'List', 'non_ip', 'ordinary.list')),
+          ruleLines(path.join(tempDir, 'List', 'non_ip', 'special.list'))
         );
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
@@ -397,7 +398,7 @@ describe('RuleSourceProcessor special rules', () => {
 
         assert.equal(stats.errors.length, 1);
         assert.equal(stats.filesProcessed, 0);
-        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'empty-url.list')), false);
+        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'non_ip', 'empty-url.list')), false);
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -424,7 +425,7 @@ describe('RuleSourceProcessor special rules', () => {
         assert.equal(stats.errors.length, 1);
         assert.match(stats.errors[0]?.error ?? '', /No rules loaded/);
         assert.equal(stats.filesProcessed, 0);
-        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'allowed-empty-url.list')), false);
+        assert.equal(fs.existsSync(path.join(tempDir, 'List', 'non_ip', 'allowed-empty-url.list')), false);
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -458,7 +459,7 @@ describe('RuleSourceProcessor special rules', () => {
       assert.ok(stats.errors.length >= 1, 'expected at least one error');
       assert.equal(stats.filesProcessed, 0);
       assert.equal(
-        fs.existsSync(path.join(outputDir, 'List', 'partial-test.list')),
+        fs.existsSync(path.join(outputDir, 'List', 'non_ip', 'partial-test.list')),
         false,
         'partial output should not be written'
       );
@@ -496,7 +497,7 @@ describe('RuleSourceProcessor special rules', () => {
       assert.equal(stats.errors.length, 0);
       assert.equal(stats.filesProcessed, 1);
       assert.equal(
-        fs.existsSync(path.join(outputDir, 'List', 'success-test.list')),
+        fs.existsSync(path.join(outputDir, 'List', 'non_ip', 'success-test.list')),
         true,
         'expected output file to be written'
       );
@@ -528,7 +529,7 @@ describe('RuleSourceProcessor special rules', () => {
       };
 
       const stats = await processor.processSpecialRules([config]);
-      const outputPath = path.join(outputDir, 'List', 'large-source.list');
+      const outputPath = path.join(outputDir, 'List', 'non_ip', 'large-source.list');
 
       assert.equal(stats.errors.length, 0);
       assert.equal(stats.filesProcessed, 1);
@@ -576,7 +577,7 @@ describe('RuleSourceProcessor accepted baseline fallback', () => {
 
       assert.deepEqual(stats.errors, []);
       assert.equal(stats.audits[0].sources[0].selection, 'baseline-snapshot');
-      for (const relative of ['List/fallback.list', 'List/non_ip/fallback.list', 'Clash/fallback.txt']) {
+      for (const relative of ['List/non_ip/fallback.list', 'Clash/fallback.txt']) {
         const content = (dir: string) => fs.readFileSync(path.join(dir, relative), 'utf8').split('\n').filter(line => !line.startsWith('#'));
         assert.deepEqual(content(candidate), content(baselineDir), relative);
       }
@@ -596,7 +597,7 @@ describe('RuleSourceProcessor accepted baseline fallback', () => {
       delete process.env.PUBLICATION_BASELINE_DIR;
       const noBaseline = await new RuleSourceProcessor(fakeSpan as any, path.join(root, 'b')).processRuleGroups([group(`${baseUrl}/gone`)]);
       assert.equal(noBaseline.errors.length, 1);
-      assert.equal(fs.existsSync(path.join(root, 'b/List/fallback.list')), false);
+      assert.equal(fs.existsSync(path.join(root, 'b/List/non_ip/fallback.list')), false);
     });
   });
 
@@ -627,7 +628,7 @@ describe('RuleSourceProcessor accepted baseline fallback', () => {
         const reused = await new RuleSourceProcessor(fakeSpan as any, path.join(root, 'candidate')).processSpecialRules([config([`${baseUrl}/gone`, good])]);
         assert.deepEqual(reused.errors, []);
         assert.deepEqual(reused.audits[0].sources.map(source => source.selection), ['baseline-snapshot', 'baseline-snapshot']);
-        assert.match(fs.readFileSync(path.join(root, 'candidate/List/special.list'), 'utf8'), /example\.com[\s\S]*second\.example|second\.example[\s\S]*example\.com/);
+        assert.match(fs.readFileSync(path.join(root, 'candidate/List/non_ip/special.list'), 'utf8'), /example\.com[\s\S]*second\.example|second\.example[\s\S]*example\.com/);
 
         const pinned = await new RuleSourceProcessor(fakeSpan as any, path.join(root, 'pinned')).processSpecialRules([
           config([`${baseUrl}/gone`, good], { sourceVariants: ['non_ip', 'ip'] }),

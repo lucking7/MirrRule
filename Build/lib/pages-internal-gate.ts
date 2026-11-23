@@ -51,9 +51,10 @@ export async function writePagesInternalGate(publicDir: string, domainsets?: Rea
     return !isNativeDomainsetPath(localPath) || currentDomainsets.has(localPath);
   });
   const retired = [...new Set(retiredPublicPaths().map(relative => `/${relative}`))].sort();
-  const retiredRules = retiredPublicPrefixRules().map(({ prefix, suffix }) => ({ prefix: `/${prefix}`, suffix }));
-  // Exact retired paths inside a routed directory need no route of their own.
-  const routedPrefixes = [...new Set([...GATED_PREFIXES, ...retiredRules.map(rule => rule.prefix)])];
+  const retiredRules = retiredPublicPrefixRules().map(rule => ({ ...rule, prefix: `/${rule.prefix}` }));
+  // A routed directory covers nested prefixes and exact paths. The worker applies their individual rules.
+  const routedPrefixes = [...new Set([...GATED_PREFIXES, ...retiredRules.map(rule => rule.prefix)])]
+    .filter((prefix, _index, prefixes) => !prefixes.some(other => other !== prefix && prefix.startsWith(other)));
   const include = [
     INTERNAL_PREFIX + '*',
     ...routedPrefixes.map(prefix => encodePublicPath(prefix) + '*'),
@@ -73,8 +74,9 @@ export default {
     try { decoded = decodeURIComponent(pathname); } catch { decoded = null; }
     const isRetired = retired.has(decoded) || (decoded !== null && retiredRules.some(rule =>
       decoded.startsWith(rule.prefix) && (rule.suffix === undefined || decoded.endsWith(rule.suffix))
+        && (!rule.directChildrenOnly || !decoded.includes('/', rule.prefix.length))
     ));
-    const isGated = gatedPrefixes.some(gatedPrefix => pathname.startsWith(gatedPrefix));
+    const isGated = gatedPrefixes.some(gatedPrefix => (decoded ?? pathname).startsWith(gatedPrefix));
     if (!pathname.startsWith(prefix) && !isGated && !isRetired) return env.ASSETS.fetch(request);
     if (!isRetired && isGated && published.has(decoded)) {
       const asset = await env.ASSETS.fetch(request);

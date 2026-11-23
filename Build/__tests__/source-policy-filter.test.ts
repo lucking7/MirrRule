@@ -5,6 +5,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { EnhancedFileOutput } from '../lib/enhanced-file-output';
 import type { RuleProcessingOptions } from '../lib/rule-source-types';
+import { readPublishedRules } from './fixtures/read-published-rules';
 import { createSpan } from '../trace';
 
 const mixedRules = [
@@ -37,7 +38,7 @@ async function publish(
   output.addRules(rules);
   await output.write();
   const text = [
-    fs.readFileSync(path.join(directory, 'List', `${id}.list`), 'utf8'),
+    readPublishedRules(directory, 'List', `${id}.list`),
     fs.readFileSync(path.join(directory, 'Clash', `${id}.txt`), 'utf8'),
     fs.readFileSync(path.join(directory, 'Loon', `${id}.list`), 'utf8'),
   ];

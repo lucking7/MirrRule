@@ -1,18 +1,19 @@
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
 import { EnhancedFileOutput } from '../lib/enhanced-file-output';
-import { writeRuleOutputReports, readSourceSnapshotFile, writeSourceSnapshotFile } from '../lib/output-audit';
+import { writeRuleOutputReports, readSourceSnapshotFile, snapshotEffectiveOutput, writeSourceSnapshotFile } from '../lib/output-audit';
 import type { RulesetAuditRecord } from '../lib/output-audit';
 import type { ResolvedBaseline } from '../lib/publication-baseline';
 import { computeCandidateId, hashFile, scanTree, sha256Hex } from '../lib/publication-manifest';
 import { StageError, renderPublicInChild, stagePublication } from '../lib/publication-stage';
 import { projectRetiredRuleOutputs } from '../lib/publication-projection';
 import { collectAbsentPaths } from '../lib/publication-verify';
-import { purgeRetiredArtifacts, retiredPublicPaths, retiredPublicPrefixes } from '../lib/artifact-lifecycle';
+import { purgeRetiredArtifacts, retiredPublicPaths } from '../lib/artifact-lifecycle';
 import { pruneStaleNativeDomainsets, readPublishedDomainsetPaths } from '../lib/publication-outputs';
 import { createSpan } from '../trace';
 
@@ -25,13 +26,27 @@ async function json<T>(file: string): Promise<T> {
   return (file.endsWith('.json.gz') ? await readSourceSnapshotFile(file) : JSON.parse(await fs.readFile(file, 'utf8'))) as T;
 }
 
-async function fixture(root: string, records: Array<[string, string[]]>, receiptId: number): Promise<void> {
+async function fixture(root: string, records: Array<[string, string[]]>, receiptId: number, historicalSurgeMerged = false): Promise<void> {
   const audits: RulesetAuditRecord[] = [];
   for (const [id, rules] of records) {
     const output = new EnhancedFileOutput(createSpan(id), id, ['surge', 'clash', 'singbox', 'loon'], null, undefined, root).withTitle(id).withDescription(['fixture']);
     output.addRules(rules);
     // eslint-disable-next-line no-await-in-loop -- fixture publication keeps its own audit with the written files
-    audits.push({ ...(await output.write()), sources: [] });
+    const audit = await output.write();
+    if (historicalSurgeMerged) {
+      const parts = audit.outputs.filter(file => file.platform === 'surge' && file.status === 'published' && /\/(?:non_ip|ip)\/[^/]+\.list$/.test(file.path));
+      // eslint-disable-next-line no-await-in-loop -- each historical audit binds its own split parts
+      const bodies = await Promise.all(parts.map(file => fs.readFile(path.join(root, file.path), 'utf8')));
+      const relative = `List/${id}.list`;
+      const body = bodies.join('');
+      // eslint-disable-next-line no-await-in-loop -- reproduce a receipt from before Surge merged URLs were retired
+      await fs.writeFile(path.join(root, relative), body);
+      const snapshot = snapshotEffectiveOutput('surge', parts[0].format, body.split('\n'));
+      const count = snapshot.conditions.length;
+      audit.outputs.push({ ...parts[0], variant: 'merged', path: relative, routedConditionCount: count, effectiveConditionCount: count, bytes: Buffer.byteLength(body), sha256: sha256Hex(body) });
+      audit.effectiveOutputs = audit.effectiveOutputs.map(value => (value.platform === 'surge' ? snapshot : value));
+    }
+    audits.push({ ...audit, sources: [] });
   }
   await writeRuleOutputReports({ outputRoot: root, records: audits, generatedAt: BUILT_AT, baselineDir: null, baselineReceiptId: receiptId });
   await fs.mkdir(path.join(root, 'GeoIP'), { recursive: true });
@@ -59,17 +74,19 @@ interface Snapshot { conditions: string[]; effectiveOutputs: Array<{ platform: s
 interface Delta { baseline: { receiptId: number }; sources: Array<{ rulesetId: string; status: string; added: number; removed: number; samples: { added: string[]; removed: string[] } }> }
 
 describe('publication lifecycle projection and baseline rebase', () => {
-  it('rolls back a historical audited ruleset, retiring its flat and variant files without claiming they are published', async t => {
+  it('rolls back historical split subscriptions and other platforms without restoring retired Surge merged URLs', async t => {
     const env = await environment(t);
-    await fixture(env.candidate, [['keep', ['DOMAIN,keep.example']], ['discord', ['DOMAIN,discord.example', 'IP-CIDR,203.0.113.0/24']]], 1);
+    await fixture(env.candidate, [['keep', ['DOMAIN,keep.example', 'IP-CIDR,192.0.2.0/24']], ['discord', ['DOMAIN,discord.example', 'IP-CIDR,203.0.113.0/24']]], 1, true);
     await fs.writeFile(path.join(env.candidate, '_worker.js'), 'stale worker');
     await fs.writeFile(path.join(env.candidate, '_routes.json'), '{}');
     await fs.cp(env.candidate, env.tree, { recursive: true });
     const result = await stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['rollback'], sourceCommit: SOURCE, baseline: await baseline(env.tree, 2), baselineTreeDir: env.tree, rollbackOf: { receiptId: 1, deployCommit: OLD_COMMIT, sourceCommit: SOURCE }, render: renderPublicInChild });
     const audit = await json<ProjectionAudit>(path.join(env.out, 'Internal/rule-output-audit.json'));
     assert.deepEqual(audit.rulesets.map(record => record.id), ['keep']);
-    assert.equal(audit.retiredOutputs.length, 17);
-    assert.ok(audit.retiredOutputs.every(output => output.lifecycleId === 'ruleset:discord'));
+    assert.equal(audit.retiredOutputs.length, 18);
+    assert.deepEqual(audit.retiredOutputs.flatMap(output => (output.lifecycleId === 'variant:surge-merged' ? [output.path] : [])), ['List/discord.list', 'List/keep.list']);
+    assert.ok(audit.retiredOutputs.filter(output => output.lifecycleId !== 'variant:surge-merged').every(output => output.lifecycleId === 'ruleset:discord'));
+    assert.ok(audit.rulesets[0].effectiveOutputs.some(output => output.platform === 'surge'));
     assert.ok(result.manifest.retiredRemoved.includes('List/non_ip/discord.list'));
     assert.ok(result.manifest.retiredRemoved.includes('List/non_ip/discord.conf'));
     assert.ok(result.manifest.retiredRemoved.includes('Clash/domainset/discord.txt'));
@@ -87,16 +104,21 @@ describe('publication lifecycle projection and baseline rebase', () => {
     // Retired directories are probed on every run, not only when the baseline still listed files.
     assert.ok(absent.includes('Loon/domainset/nrrule-retired-probe'));
     assert.ok(absent.includes('List/domainset/nrrule-retired-probe.list'));
+    assert.ok(absent.includes('List/nrrule-retired-probe.list'));
     assert.ok(absent.includes('List/domainset/nrrule-absent-probe.list'));
     assert.ok(absent.includes('List/domainset/discord.conf'));
-    assert.ok(absent.includes('List/ip/keep.conf'));
+    assert.ok(absent.includes('List/keep.list'));
     const manifestFiles = new Map(result.manifest.files.map(file => [file.path, file]));
     assert.ok(manifestFiles.has('List/domainset/keep.conf'));
     assert.ok(manifestFiles.has('Clash/domainset/keep.txt'));
     assert.ok(manifestFiles.has('sing-box/domainset/keep.json'));
+    assert.ok(manifestFiles.has('Clash/keep.txt'));
+    assert.ok(manifestFiles.has('List/ip/keep.conf'));
+    assert.ok(!manifestFiles.has('List/keep.list'));
     assert.equal(manifestFiles.get('List/non_ip/keep.conf')?.sha256, manifestFiles.get('List/non_ip/keep.list')?.sha256);
     const index = await fs.readFile(path.join(env.out, 'index.html'), 'utf8');
     assert.match(index, /href="\/List\/domainset\/keep\.conf"/);
+    assert.doesNotMatch(index, /href="\/List\/keep\.list"/);
     assert.equal(result.manifest.files.find(file => file.path === 'Internal/rule-output-audit.json')?.origin, 'generated');
     assert.equal(result.manifest.files.find(file => file.path === 'Internal/source-snapshots/keep.json.gz')?.origin, 'preserved');
     for (const relative of ['_worker.js', '_routes.json']) {
@@ -107,9 +129,9 @@ describe('publication lifecycle projection and baseline rebase', () => {
     assert.equal(worker.includes('discord.json.gz'), false);
     const routes = await json<{ include: string[]; exclude: string[] }>(path.join(env.out, '_routes.json'));
     const routed = [
-      'Clash/domainset/', 'Clash/ip/', 'Clash/non_ip/', 'List/domainset/', 'List/ip/', 'List/non_ip/',
+      'Clash/domainset/', 'Clash/ip/', 'Clash/non_ip/',
       'Loon/ip/', 'Loon/non_ip/', 'Mirror/', 'sing-box/domainset/', 'sing-box/ip/', 'sing-box/non_ip/',
-      ...retiredPublicPrefixes().sort(),
+      'Loon/domainset/', 'List/',
     ];
     assert.deepEqual(routes.include, [
       '/Internal/*',
@@ -206,7 +228,7 @@ describe('publication lifecycle projection and baseline rebase', () => {
     assert.deepEqual(after.conditions, before.conditions);
     assert.deepEqual(after.effectiveOutputs.map(output => output.platform).sort(), ['clash', 'loon', 'surge']);
     assert.equal(result.manifest.files.find(file => file.path === 'Internal/source-snapshots/china_asn.json.gz')?.origin, 'generated');
-    await fs.access(path.join(env.out, 'List/china_asn.list'));
+    await fs.access(path.join(env.out, 'List/ip/china_asn.list'));
     await assert.rejects(fs.access(path.join(env.out, 'sing-box/non_ip/china_asn.json')));
   });
 
@@ -226,7 +248,7 @@ describe('publication lifecycle projection and baseline rebase', () => {
     await fs.writeFile(path.join(env.candidate, 'Scripts/fresh.js'), 'fresh');
     const restored = await hashFile(path.join(env.candidate, modulePath));
     await fs.writeFile(path.join(env.candidate, 'Internal/preserved-artifacts.json'), JSON.stringify({ schemaVersion: 1, fromCommit: OLD_COMMIT, files: [{ path: modulePath, ...restored }] }));
-    const before = await hashFile(path.join(env.candidate, 'List/keep.list'));
+    const before = await hashFile(path.join(env.candidate, 'List/non_ip/keep.list'));
     const result = await stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['build', 'deploy', 'convert-plugins'], sourceCommit: SOURCE, baseline: await baseline(env.tree, 2), baselineTreeDir: env.tree, render: renderPublicInChild });
     const delta = await json<Delta>(path.join(env.out, 'Internal/source-delta.json'));
     assert.equal(delta.baseline.receiptId, 2);
@@ -234,8 +256,8 @@ describe('publication lifecycle projection and baseline rebase', () => {
     assert.deepEqual(keep?.samples, { added: ['DOMAIN,current.example'], removed: ['DOMAIN,latest.example'] });
     assert.equal(keep?.added, 1);
     assert.equal(keep?.removed, 1);
-    assert.deepEqual(await hashFile(path.join(env.out, 'List/keep.list')), before);
-    assert.deepEqual(await hashFile(path.join(env.candidate, 'List/keep.list')), before);
+    assert.deepEqual(await hashFile(path.join(env.out, 'List/non_ip/keep.list')), before);
+    assert.deepEqual(await hashFile(path.join(env.candidate, 'List/non_ip/keep.list')), before);
     assert.equal(await fs.readFile(path.join(env.out, modulePath), 'utf8'), '#!name=latest accepted\n');
     assert.equal(result.manifest.files.find(file => file.path === modulePath)?.preservedFromCommit, NEW_COMMIT);
     assert.equal(result.manifest.baselineReceiptId, 2);
@@ -369,7 +391,7 @@ describe('publication lifecycle projection and baseline rebase', () => {
 
   it('rejects corrupted original output digests before retirement projection can hide the mismatch', async t => {
     const env = await environment(t);
-    await fixture(env.candidate, [['keep', ['DOMAIN,keep.example']], ['discord', ['DOMAIN,discord.example']]], 1);
+    await fixture(env.candidate, [['keep', ['DOMAIN,keep.example']], ['discord', ['DOMAIN,discord.example']]], 1, true);
     await fs.writeFile(path.join(env.candidate, 'List/discord.list'), 'tampered');
     await assert.rejects(stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['rollback'], sourceCommit: SOURCE, baseline: null, baselineTreeDir: null, rollbackOf: { receiptId: 1, deployCommit: OLD_COMMIT, sourceCommit: SOURCE }, render: renderPublicInChild }), error => error instanceof StageError && error.code === 'output-mismatch');
   });

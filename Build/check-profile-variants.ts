@@ -1,19 +1,18 @@
 import fs from 'node:fs/promises';
 import process from 'node:process';
 
-import { cleanAuditRuleLine } from './lib/rule-coverage-audit';
+import { cleanAuditRuleLine, retiredSurgeReferences } from './lib/rule-coverage-audit';
 import { RULE_OUTPUT_VARIANTS } from './lib/rule-output-variants';
 import type { RuleOutputSlot } from './lib/rule-output-variants';
 
 const DEFAULT_AUDIT = 'https://nrrule.pages.dev/Internal/rule-output-audit.json';
-const NRRULE_SURGE_URL = /https?:\/\/nrrule\.pages\.dev\/(List\/(?:(domainset|non_ip|ip)\/)?([^/,\s)"'?#]+)\.(?:list|conf))(?=[,\s)"'?#]|$)/g;
+const NRRULE_SURGE_URL = /https?:\/\/nrrule\.pages\.dev\/(List\/(domainset|non_ip|ip)\/([^/,\s)"'?#]+)\.(?:list|conf))(?=[,\s)"'?#]|$)/g;
 
 export interface ProfileVariantFinding {
   id: string,
   /** Surge path below the NRRule host, e.g. `List/ip/download.conf`. */
   path: string,
-  /** `unreferenced`: published but not loaded by the profile; `absent`: loaded but not published (404). */
-  kind: 'unreferenced' | 'absent'
+  kind: 'unreferenced' | 'absent' | 'retired'
 }
 
 type SlotPaths = Map<RuleOutputSlot, Set<string>>;
@@ -25,7 +24,7 @@ function addPath(slots: SlotPaths, slot: RuleOutputSlot, path: string): void {
 }
 
 /** NRRule Surge subscriptions referenced by active lines of the profile's [Rule] section, by ruleset id. */
-function referencedSlots(profile: string): Map<string, SlotPaths> {
+function referencedSlots(profile: string, findings: ProfileVariantFinding[]): Map<string, SlotPaths> {
   const referenced = new Map<string, SlotPaths>();
   let inRules = false;
   for (const raw of profile.split(/\r?\n/)) {
@@ -36,11 +35,16 @@ function referencedSlots(profile: string): Map<string, SlotPaths> {
       continue;
     }
     if (!inRules || !line || /^(?:#|;|\/\/)/.test(line)) continue;
+    for (const basename of retiredSurgeReferences(line)) {
+      const id = basename.slice(0, -'.list'.length).toLowerCase();
+      const path = `List/${basename}`;
+      if (!findings.some(finding => finding.path === path)) findings.push({ id, path, kind: 'retired' });
+    }
     // Matches nested references in logical rules as well as top-level RULE-SET/DOMAIN-SET lines.
     for (const [, path, variant, basename] of line.matchAll(NRRULE_SURGE_URL)) {
       const id = basename.toLowerCase();
       const slots = referenced.get(id) ?? new Map();
-      addPath(slots, (variant || 'merged') as RuleOutputSlot, path);
+      addPath(slots, variant as RuleOutputSlot, path);
       referenced.set(id, slots);
     }
   }
@@ -58,13 +62,12 @@ function publishedSlots(audit: unknown): Map<string, SlotPaths> {
     for (const output of ruleset.outputs as Array<Record<string, unknown> | null>) {
       if (output?.platform !== 'surge' || output.status !== 'published') continue;
       const slot = output.variant;
-      if (slot !== 'merged' && slot !== 'domainset' && slot !== 'non_ip' && slot !== 'ip') continue;
+      if (slot !== 'domainset' && slot !== 'non_ip' && slot !== 'ip') continue;
       if (typeof output.path === 'string') {
         addPath(slots, slot, output.path);
       } else if (slot !== 'domainset' && output.path === undefined) {
         // Historical pathless audit entries describe only the original .list outputs.
-        const directory = slot === 'merged' ? 'List' : `List/${slot}`;
-        addPath(slots, slot, `${directory}/${ruleset.id}.list`);
+        addPath(slots, slot, `List/${slot}/${ruleset.id}.list`);
       }
     }
     published.set(ruleset.id, slots);
@@ -79,7 +82,7 @@ function publishedSlots(audit: unknown): Map<string, SlotPaths> {
 export function checkProfileVariants(profile: string, audit: unknown): ProfileVariantFinding[] {
   const published = publishedSlots(audit);
   const findings: ProfileVariantFinding[] = [];
-  for (const [id, slots] of [...referencedSlots(profile)].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [id, slots] of [...referencedSlots(profile, findings)].sort(([a], [b]) => a.localeCompare(b))) {
     const available = published.get(id);
     const loaded = new Set<RuleOutputSlot>();
     for (const [slot, paths] of slots) {
@@ -88,8 +91,7 @@ export function checkProfileVariants(profile: string, audit: unknown): ProfileVa
         else findings.push({ id, path, kind: 'absent' });
       }
     }
-    // The merged file already carries every condition.
-    if (loaded.has('merged') || !RULE_OUTPUT_VARIANTS.some(variant => slots.has(variant))) continue;
+    if (!RULE_OUTPUT_VARIANTS.some(variant => slots.has(variant))) continue;
     for (const variant of RULE_OUTPUT_VARIANTS) {
       if (loaded.has(variant)) continue;
       const paths = [...available?.get(variant) ?? []];
@@ -113,7 +115,7 @@ export async function runProfileVariantCli(args: readonly string[]): Promise<num
   if (args[0] === '--') args = args.slice(1);
   if (args.includes('--help') || args.includes('-h')) {
     console.log(`Usage: pnpm run node Build/check-profile-variants.ts --profile profile.conf [--audit <path or URL, default ${DEFAULT_AUDIT}>]`);
-    console.log('Checks referenced NRRule Surge paths against the audit and reports missing non_ip or ip coverage for split subscriptions. Exits 1 when it finds either.');
+    console.log('Checks NRRule Surge paths against the audit. Exits 1 for retired or absent subscriptions and missing non_ip or ip coverage.');
     return 0;
   }
   const values: Record<string, string> = {};
@@ -129,7 +131,9 @@ export async function runProfileVariantCli(args: readonly string[]): Promise<num
   for (const finding of findings) {
     console.log(finding.kind === 'unreferenced'
       ? `missing: ${finding.path} is published but the profile does not load it`
-      : `absent: ${finding.path} is loaded but not published (HTTP 404)`);
+      : (finding.kind === 'retired'
+        ? `retired: ${finding.path} must be replaced with published split subscriptions`
+        : `absent: ${finding.path} is loaded but not published (HTTP 404)`));
   }
   if (!findings.length) console.log('OK: NRRule Surge subscriptions and split coverage match the audit');
   return findings.length ? 1 : 0;

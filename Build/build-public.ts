@@ -236,7 +236,7 @@ export function treeHtml(tree: TreeTypeArray, level = 0, parent = ''): string {
   const sortedTree = [...tree].sort(level === 0 ? prioritySorter : nestedFolderSorter);
   const topSegment = parent.split('/')[0];
   const clientRegion = CLIENT_ROOTS.get(topSegment) ?? '';
-  const isDirectClientRoot = level === 1 && CLIENT_ROOTS.has(parent);
+  const isMergedRoot = level === 1 && parent !== 'List' && CLIENT_ROOTS.has(parent);
   const mergedRows: string[] = [];
 
   for (const entry of sortedTree) {
@@ -248,7 +248,7 @@ export function treeHtml(tree: TreeTypeArray, level = 0, parent = ''): string {
       const format = level === 1 ? VARIANT_FORMAT_LABELS.get(entryDir) : undefined;
       const formatAttr = format ? ` title="${escapeHtml(format)}"` : '';
       result += `<li class="folder${rootClass}"><details data-branch data-folder="${escapeHtml(entryDir)}"${open}><summary${formatAttr}>${folderIconHtml()}<span class="folder-name">${escapeHtml(entry.name)}</span></summary><ul>${treeHtml(entry.children, level + 1, entryDir)}</ul></details></li>`;
-    } else if (isDirectClientRoot) {
+    } else if (isMergedRoot) {
       const format = VARIANT_FORMAT_LABELS.get(`${parent}/non_ip`) ?? '';
       mergedRows.push(renderFileRow(entry, { region: clientRegion, slot: 'merged', format }));
     } else {

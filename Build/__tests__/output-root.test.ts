@@ -38,7 +38,7 @@ replace('Build/lib/rule-sources.ts', {
   specialRules: [{ name: 'Merged fixture', targets, targetFile: 'List/special.list', sourceFiles: ['https://fixture.test/special'] }]
 });
 const coverage = require(path.join(repository, 'Build/audit-rule-coverage.ts'));
-coverage.exampleRoutingOrder.splice(0, coverage.exampleRoutingOrder.length, ['group.list', 'Proxy'], ['special.list', 'DIRECT']);
+coverage.exampleRoutingOrder.splice(0, coverage.exampleRoutingOrder.length, ['group', 'Proxy'], ['special', 'DIRECT']);
 `);
   return { root, cwd, destination, preload };
 }
@@ -66,7 +66,7 @@ it('build entry publishes rules, index and status under PUBLIC_DIR from another 
   for (const [platform, extension] of outputs) {
     for (const id of ['group', 'special']) {
       // eslint-disable-next-line no-await-in-loop -- assert each published platform fixture
-      const content = await fs.readFile(path.join(destination, platform, `${id}.${extension}`), 'utf8');
+      const content = await fs.readFile(path.join(destination, platform, platform === 'List' ? 'non_ip' : '', `${id}.${extension}`), 'utf8');
       assert.match(content, new RegExp(String.raw`${id}\.example`));
     }
     // eslint-disable-next-line no-await-in-loop -- assert each published variant fixture
@@ -84,7 +84,7 @@ it('build entry publishes rules, index and status under PUBLIC_DIR from another 
   assert.deepEqual(audit.rulesets.map((entry: { id: string }) => entry.id), ['group', 'special']);
   assert.equal(audit.rulesets[0].sources[0].configuredUrl, 'https://fixture.test/group');
   assert.equal(audit.rulesets[1].sources[0].selection, 'primary');
-  assert.equal(audit.rulesets[0].outputs.length, 17);
+  assert.equal(audit.rulesets[0].outputs.length, 16);
   assert.equal(await fs.readFile(path.join(destination, 'List/non_ip/group.conf'), 'utf8'),
     await fs.readFile(path.join(destination, 'List/non_ip/group.list'), 'utf8'));
   assert.match(await fs.readFile(path.join(destination, 'List/domainset/group.conf'), 'utf8'), /^group\.example$/m);

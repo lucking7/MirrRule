@@ -7,6 +7,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { RuleSourceProcessor } from '../lib/rule-source-processor';
 import { specialRules } from '../lib/rule-sources';
+import { readPublishedRules } from './fixtures/read-published-rules';
 import { createSpan } from '../trace';
 
 const regions = ['us', 'hk', 'jp', 'tw', 'kr', 'eu'];
@@ -79,12 +80,15 @@ describe('Sukka aggregate subscriptions', () => {
       assert.equal(stats.filesProcessed, 6);
       const before = new Map<string, string>();
       for (const [directory, extension] of [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list']]) {
-        const streamPath = path.join(outputDir, directory, `stream.${extension}`);
-        const extraPath = path.join(outputDir, directory, `reject_extra.${extension}`);
-        const stream = fs.readFileSync(streamPath, 'utf8');
-        const extra = fs.readFileSync(extraPath, 'utf8');
-        before.set(streamPath, stream);
-        before.set(extraPath, extra);
+        const stream = readPublishedRules(outputDir, directory, `stream.${extension}`);
+        const extra = readPublishedRules(outputDir, directory, `reject_extra.${extension}`);
+        for (const filename of [`stream.${extension}`, `reject_extra.${extension}`]) {
+          const locations = directory === 'List' ? ['non_ip', 'ip'] : [''];
+          for (const location of locations) {
+            const file = path.join(outputDir, directory, location, filename);
+            if (fs.existsSync(file)) before.set(file, fs.readFileSync(file, 'utf8'));
+          }
+        }
         for (const domain of ['shared.test', ...regions.map(region => `${region}.test`)]) {
           assert.equal(stream.split('\n').filter(line => line.startsWith(`DOMAIN-SUFFIX,${domain}`)).length, 1);
         }
@@ -98,8 +102,8 @@ describe('Sukka aggregate subscriptions', () => {
           assert.equal(extra.split('\n').filter(line => line.startsWith(`DOMAIN-SUFFIX,${domain}`)).length, 1);
         }
         assert.equal(extra.includes('phishing.test'), false);
-        assert.ok(fs.readFileSync(path.join(outputDir, directory, `stream_us.${extension}`), 'utf8').includes('us.test'));
-        assert.ok(fs.readFileSync(path.join(outputDir, directory, `reject_phishing.${extension}`), 'utf8').includes('phishing.test'));
+        assert.ok(readPublishedRules(outputDir, directory, `stream_us.${extension}`).includes('us.test'));
+        assert.ok(readPublishedRules(outputDir, directory, `reject_phishing.${extension}`).includes('phishing.test'));
       }
       for (const [id, domains] of [
         ['stream', ['shared.test', ...regions.map(region => `${region}.test`)]],
@@ -115,8 +119,8 @@ describe('Sukka aggregate subscriptions', () => {
         }
       }
       for (const [directory, extension] of [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list'], ['sing-box', 'json']]) {
-        const base = fs.readFileSync(path.join(outputDir, directory, `reject.${extension}`), 'utf8');
-        const personal = fs.readFileSync(path.join(outputDir, directory, `my_reject.${extension}`), 'utf8');
+        const base = readPublishedRules(outputDir, directory, `reject.${extension}`);
+        const personal = readPublishedRules(outputDir, directory, `my_reject.${extension}`);
         assert.ok(base.includes('base-block.test'));
         assert.ok(base.includes('other-block.test'));
         assert.ok(base.includes('198.51.100.0/24'));
@@ -134,9 +138,11 @@ describe('Sukka aggregate subscriptions', () => {
         const read = (slot: string) => new Set(
           fs.readFileSync(path.join(outputDir, directory, slot, `reject.${extension}`), 'utf8').split('\n').filter(line => line && !line.startsWith('#'))
         );
-        const merged = read('.');
-        assert.ok(merged.has('IP-CIDR,203.0.113.7/32,no-resolve'));
-        assert.equal(merged.has('DOMAIN-SUFFIX,base-block.test'), true);
+        if (directory !== 'List') {
+          const merged = read('.');
+          assert.ok(merged.has('IP-CIDR,203.0.113.7/32,no-resolve'));
+          assert.equal(merged.has('DOMAIN-SUFFIX,base-block.test'), true);
+        }
         assert.deepEqual(read('non_ip'), new Set([
           'DOMAIN,other-block.test', 'DOMAIN-SUFFIX,base-block.test', 'IP-CIDR,203.0.113.7/32,no-resolve',
         ]));

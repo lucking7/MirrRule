@@ -26,7 +26,7 @@ function textConditions(body: string) {
   return body.split('\n').filter(line => line && !line.startsWith('#')).sort();
 }
 
-it('renders native domainset formats alongside complete legacy classical and JSON outputs', async t => {
+it('renders native domainset formats alongside complete classical and JSON outputs', async t => {
   const directory = await makeDirectory(t);
   const audit = await makeOutput(directory, [
     'DOMAIN,exact.example',
@@ -54,7 +54,7 @@ it('renders native domainset formats alongside complete legacy classical and JSO
   ]);
   assert.equal(audit.effectiveOutputs.length, 4);
   const paths = resolveRuleOutputTargets('surge', 'sample', { legacyOnly: true }).map(target => target.relativePath);
-  assert.deepEqual(paths, ['List/sample.list', 'List/non_ip/sample.list', 'List/ip/sample.list']);
+  assert.deepEqual(paths, ['List/non_ip/sample.list', 'List/ip/sample.list']);
 });
 
 it('mirrors the exact legacy Surge bytes, including a retained timestamp, and cleans absent variants', async t => {

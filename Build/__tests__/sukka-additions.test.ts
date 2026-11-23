@@ -75,7 +75,7 @@ describe('additional Sukka subscriptions', () => {
           assert.equal(fs.readFileSync(file, 'utf8').includes(watermark), false, path.relative(outputDir, file));
         }
       }
-      for (const [directory, extension] of [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list']]) {
+      for (const [directory, extension] of [['List/non_ip', 'list'], ['Clash', 'txt'], ['Loon', 'list']]) {
         const game = fs.readFileSync(path.join(outputDir, directory, `game_download.${extension}`), 'utf8');
         const stream = fs.readFileSync(path.join(outputDir, directory, `stream_us.${extension}`), 'utf8');
         assert.match(game, /DOMAIN-SUFFIX,steamcontent\.com/);
@@ -87,14 +87,14 @@ describe('additional Sukka subscriptions', () => {
       assert.ok(gameJson.rules[0].domain_suffix.includes('steamcontent.com'));
       assert.ok(streamJson.rules[0].domain_suffix.includes('netflix.com'));
       assert.equal(streamJson.rules[0].ip_cidr, undefined);
-      const cloud = fs.readFileSync(path.join(outputDir, 'List/cloudmounter.list'), 'utf8');
+      const cloud = fs.readFileSync(path.join(outputDir, 'List/non_ip/cloudmounter.list'), 'utf8');
       for (const rule of [condition, sourceIpCondition, wildcardCondition]) assert.ok(cloud.includes(rule));
       assert.equal(cloud.split('\n').some(line => /^(?:DOMAIN|DOMAIN-SUFFIX|DOMAIN-WILDCARD),/.test(line)), false);
       for (const directory of ['Clash', 'Loon', 'sing-box']) {
         assert.equal(fs.readdirSync(path.join(outputDir, directory)).some(name => name.startsWith('cloudmounter.')), false);
       }
       const regional = configs[1];
-      const regionalOutput = fs.readFileSync(path.join(outputDir, 'List/stream_us.list'), 'utf8');
+      const regionalOutput = fs.readFileSync(path.join(outputDir, 'List/non_ip/stream_us.list'), 'utf8');
       assert.match(regionalOutput, /DOMAIN-SUFFIX,netflix\.com/);
       assert.equal(regionalOutput.includes(watermark), false);
       assert.equal(regionalOutput.includes('IP-CIDR'), false);
@@ -104,7 +104,7 @@ describe('additional Sukka subscriptions', () => {
       ]);
       assert.equal(emptySourceStats.filesProcessed, 0);
       assert.equal(emptySourceStats.errors.length, 1);
-      assert.equal(fs.readFileSync(path.join(outputDir, 'List/stream_us.list'), 'utf8'), regionalOutput);
+      assert.equal(fs.readFileSync(path.join(outputDir, 'List/non_ip/stream_us.list'), 'utf8'), regionalOutput);
 
       const emptyAllStats = await processor.processSpecialRules([
         { ...regional, sourceFiles: [`http://127.0.0.1:${port}/3`] },
@@ -112,7 +112,7 @@ describe('additional Sukka subscriptions', () => {
       assert.equal(emptyAllStats.filesProcessed, 0);
       assert.equal(emptyAllStats.errors.length, 1);
       assert.match(emptyAllStats.errors[0].error, /empty response/);
-      assert.equal(fs.readFileSync(path.join(outputDir, 'List/stream_us.list'), 'utf8'), regionalOutput);
+      assert.equal(fs.readFileSync(path.join(outputDir, 'List/non_ip/stream_us.list'), 'utf8'), regionalOutput);
     } finally {
       fs.rmSync(outputDir, { recursive: true, force: true });
       await new Promise<void>((resolve, reject) => {

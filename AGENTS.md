@@ -45,7 +45,7 @@ MirrRule 下载上游代理规则、GitHub Release 镜像和插件，经清洗�
 
 ## 规则构建
 
-入口 `Build/index.ts`：下载 GeoIP，`RuleSourceProcessor` 读取 `Build/lib/rule-sources.ts`，`EnhancedFileOutput` 清洗、转换并用 Trie/Set 去重，四个平台 writer 写合并版和分版，然后生成输出审计、来源快照与 delta，执行覆盖审查，最后由 `buildPublic` 生成索引页和部署辅助文件。
+入口 `Build/index.ts`：下载 GeoIP，`RuleSourceProcessor` 读取 `Build/lib/rule-sources.ts`，`EnhancedFileOutput` 清洗、转换并用 Trie/Set 去重，四个平台 writer 写分版，Clash、Loon、sing-box 另写合并版，然后生成输出审计、来源快照与 delta，执行覆盖审查，最后由 `buildPublic` 生成索引页和部署辅助文件。
 
 - `GeoIP/country.mmdb` 不由 `pnpm run build` 生成，CI 在它之前运行 `Build/build-geoip-country.py`。该脚本失败时复用 `--fallback-tree` 中已验收的旧库；没有可用旧库时不写这个文件。两种情况都只发 warning 并退出 0，所以这个库可能在无人察觉时变旧或缺失；检查条件见 `RULE_SOURCES.md` 的 GeoIP 国家库一节。
 - 规则源字段的定义与含义在 `Build/lib/rule-source-types.ts`。新增上游时优先在现有 `RuleGroup.files` 中追加配置，现有字段不够用时才扩展类型。字段名看不出的约束：
@@ -64,17 +64,17 @@ MirrRule 下载上游代理规则、GitHub Release 镜像和插件，经清洗�
 
 | 分版 | Surge | Clash | sing-box | Loon |
 |---|---|---|---|---|
-| 合并版 | `List/<id>.list` | `Clash/<id>.txt` | `sing-box/<id>.json` | `Loon/<id>.list` |
+| 合并版 | 不提供（根目录 `.list` 已退休） | `Clash/<id>.txt` | `sing-box/<id>.json` | `Loon/<id>.list` |
 | `non_ip`、`ip` | `List/<分版>/<id>.list`，另有同内容的 `.conf` | classical `.txt` | JSON v2 | classical `.list` |
 | `domainset` | `List/domainset/<id>.conf`（`DOMAIN-SET`） | `.txt`（`behavior: domain`） | JSON v2 | 不提供 |
 
-- 默认按条件分类：目标 IP 条件（不论有无 `no-resolve`）和含目标 IP 子条件的 logical 规则进 `ip`，其余进 `non_ip`，两者并集等于合并版。`domainset` 是 `non_ip` 中精确域名与后缀的子集。
+- 默认按条件分类：目标 IP 条件（不论有无 `no-resolve`）和含目标 IP 子条件的 logical 规则进 `ip`，其余进 `non_ip`，两者并集覆盖规则集。`domainset` 是 `non_ip` 中精确域名与后缀的子集。
 - 例外一：`specialRules` 设置 `sourceVariants` 时，按来源文件整体分版，不按类型分类，也不跨分版去重（当前只有 `reject`）。
 - 例外二：规则集含 `extended-matching` 时，Surge 把含域名或 URL-REGEX 子条件的目标 IP logical 规则留在 `non_ip`，以保留文件级标志，审计记为 `reroutedFromIp`。
 - 平台损失记录在审计的 `outputs[].drops` 与 `outputs[].losses` 中，文档里不能写成"保留"：sing-box 不能表达 `no-resolve`，丢弃全部 AND/OR/NOT 复合规则以及 PROCESS-NAME、USER-AGENT、URL-REGEX、IP-ASN、GEOIP、端口、PROTOCOL 等类型（只含这些规则的规则集会碰到有效匹配条件门槛）；Clash 不支持 USER-AGENT、URL-REGEX，并丢弃 TCP/UDP 以外的 `PROTOCOL` 值；Loon 不支持 PROCESS-NAME、DOMAIN-WILDCARD、SRC-IP-CIDR；Surge 以外的平台忽略 `extended-matching`。
 - 空分版不写文件，审计记为 `absent-empty` 或 `absent-unsupported`；成功构建会删除以前存在、现已合法消失的分版文件。
 - 下载失败不能当作空分版处理：该规则集用 `PUBLICATION_BASELINE_DIR` 中已验收的来源快照原样重发（`sources[].selection` 为 `baseline-snapshot`，日志带 `::warning::`），其他规则集照常更新。没有可用快照、设置了 `sourceVariants`，或快照在当前处理选项下不能复现时，构建失败。
-- 两个冻结的地域测速订阅（`speedtest_china`、`speedtest_international`）只发布原有路径，没有 `domainset`，也没有 Surge 分版的 `.conf`。
+- 两个冻结的地域测速订阅（`speedtest_china`、`speedtest_international`）只保留原有分版和 Surge 以外的平台合并版，没有 `domainset`，也没有 Surge 分版的 `.conf`。
 
 ## 发布
 
@@ -84,7 +84,7 @@ MirrRule 下载上游代理规则、GitHub Release 镜像和插件，经清洗�
 - 基线是最近一个状态为 success 的 receipt，不是 NRRule 的 HEAD。
 - stage 要求 `Internal/` 下的 `rule-output-audit.json`、`source-delta.json`、`rule-coverage.json`、`artifact-lifecycle.json` 和根目录的 `status.json` 齐全，每个 published 输出的字节数和 SHA-256 与审计一致，单文件不超过 25 MiB。
 - 本轮未运行的任务对应的 `Mirror/`、`Modules/`、`Scripts/` 从基线按摘要复制，在 manifest 中标为 `preserved`。`deploy-modules` 复制的 `Modules/Converted` 必须与基线摘要一致；构建期间基线 receipt 变化，或依赖审计删了其中的行，stage 都会在 push 前失败，需要重新构建。
-- `_worker.js` 与 `_routes.json` 由 `pages-internal-gate.ts` 生成。分版目录和 `Mirror/` 只放行本次 tree 中存在的文件，其余返回 404，因为这些文件会随上游出现和消失，而 Pages 边缘缓存会继续返回已删除的文件。路由总数不能超过 Pages 的 100 条（代码中有断言）；`/Internal/*`、每个门控目录、每个退休目录前缀和每条不在这些目录内的退休精确路径各占一条。Pages 项目必须设置 `fail_open: false`，否则 Functions 额度耗尽后会跳过检查。
+- `_worker.js` 与 `_routes.json` 由 `pages-internal-gate.ts` 生成。分版目录和 `Mirror/` 只放行本次 tree 中存在的文件，其余返回 404，因为这些文件会随上游出现和消失，而 Pages 边缘缓存会继续返回已删除的文件。路由总数不能超过 Pages 的 100 条（代码中有断言）；`/Internal/*`、门控目录和退休前缀按最外层目录合并，剩余退休精确路径各占一条。`/List/*` 覆盖根目录退休的 `.list` 和仍发布的分版。Pages 项目必须设置 `fail_open: false`，否则 Functions 额度耗尽后会跳过检查。
 - `Modules/Converted/` 与 `Scripts/` 不经 worker（避免每次下载都计入 Functions 调用），其中被删除且未退休的文件只要求 immutable URL 返回 404。
 - `verify` 退出码：0 accepted，10 check-failed，11 check-timeout，12 immutable-mismatch，13 production-lagging。`record-receipt` 退出 14 表示网站已验收但 receipt 未持久化。
 

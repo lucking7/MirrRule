@@ -7,6 +7,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { RuleSourceProcessor } from '../lib/rule-source-processor';
 import { ruleGroups, specialRules } from '../lib/rule-sources';
+import { readPublishedRules } from './fixtures/read-published-rules';
 import { createSpan } from '../trace';
 
 function getSpecialRule(id: string) {
@@ -115,7 +116,7 @@ describe('service source migration', () => {
       assert.deepEqual(stats.errors, []);
       assert.equal(stats.filesProcessed, 1);
       for (const [directory, extension] of [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list']]) {
-        const text = fs.readFileSync(path.join(tempDir, directory, `netflix.${extension}`), 'utf8');
+        const text = readPublishedRules(tempDir, directory, `netflix.${extension}`);
         assert.match(text, /DOMAIN,2mdn\.net/);
         assert.match(text, /DOMAIN-SUFFIX,video\.test/);
         assert.match(text, /IP-CIDR,203\.0\.113\.0\/24,no-resolve/);
@@ -231,13 +232,13 @@ describe('Sukka source migration', () => {
     await publishSukkaFixtures(fixtures, ids, outputDir => {
       for (const [directory, extension] of [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list']]) {
         for (const [id, expected] of Object.entries(splitDomains)) {
-          const output = fs.readFileSync(path.join(outputDir, directory, `${id}.${extension}`), 'utf8');
+          const output = readPublishedRules(outputDir, directory, `${id}.${extension}`);
           assert.ok(output.split('\n').includes(expected), `${directory}/${id}`);
           for (const [otherId, otherRule] of Object.entries(splitDomains)) {
             if (otherId !== id) assert.equal(output.split('\n').includes(otherRule), false, `${id} must not include ${otherId}`);
           }
         }
-        const apple = fs.readFileSync(path.join(outputDir, directory, `apple.${extension}`), 'utf8');
+        const apple = readPublishedRules(outputDir, directory, `apple.${extension}`);
         assert.match(apple, /DOMAIN-SUFFIX,updates\.cdn-apple\.com/);
         assert.match(apple, /DOMAIN-SUFFIX,icloud\.com\.cn/);
         assert.match(apple, /DOMAIN-SUFFIX,apple\.com/);
@@ -245,10 +246,10 @@ describe('Sukka source migration', () => {
         assert.match(apple, /IP-CIDR,17\.0\.0\.0\/8,no-resolve/);
         assert.match(apple, /IP-CIDR6,2403:300::\/32,no-resolve/);
         assert.equal(apple.includes('apple-relay.fastly-edge.com'), false);
-        const appleIp = fs.readFileSync(path.join(outputDir, directory, `apple_services_ip.${extension}`), 'utf8');
+        const appleIp = readPublishedRules(outputDir, directory, `apple_services_ip.${extension}`);
         assert.match(appleIp, /IP-CIDR,17\.0\.0\.0\/8,no-resolve/);
         assert.equal(appleIp.includes('DOMAIN'), false);
-        const microsoft = fs.readFileSync(path.join(outputDir, directory, `microsoft.${extension}`), 'utf8');
+        const microsoft = readPublishedRules(outputDir, directory, `microsoft.${extension}`);
         assert.match(microsoft, /DOMAIN,account\.microsoft\.com/);
         assert.match(microsoft, /DOMAIN-SUFFIX,download\.microsoft\.com/);
       }
@@ -277,7 +278,7 @@ describe('Sukka source migration', () => {
     };
     await publishSukkaFixtures(fixtures, ['telegram', 'reject_url_regex'], outputDir => {
       for (const [directory, extension] of [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list']]) {
-        const telegram = fs.readFileSync(path.join(outputDir, directory, `telegram.${extension}`), 'utf8');
+        const telegram = readPublishedRules(outputDir, directory, `telegram.${extension}`);
         assert.match(telegram, /DOMAIN-SUFFIX,telegram\.org/);
         assert.match(telegram, /IP-CIDR,149\.154\.160\.0\/20,no-resolve/);
         assert.match(telegram, /IP-CIDR6,2001:b28:f23d::\/48,no-resolve/);
@@ -286,7 +287,7 @@ describe('Sukka source migration', () => {
       const telegram = JSON.parse(fs.readFileSync(path.join(outputDir, 'sing-box/telegram.json'), 'utf8')).rules[0];
       assert.deepEqual(telegram.domain_suffix, ['telegram.org']);
       assert.deepEqual(new Set(telegram.ip_cidr), new Set(['149.154.160.0/20', '2001:b28:f23d::/48']));
-      const regex = fs.readFileSync(path.join(outputDir, 'List/reject_url_regex.list'), 'utf8');
+      const regex = fs.readFileSync(path.join(outputDir, 'List/non_ip/reject_url_regex.list'), 'utf8');
       const activeRules = regex.split('\n').filter(line => line && !line.startsWith('#'));
       assert.deepEqual(new Set(activeRules), new Set([...upstreamRegexRules, policyRegexRule]));
       for (const [directory, extension] of [['Clash', 'txt'], ['Loon', 'list'], ['sing-box', 'json']]) {

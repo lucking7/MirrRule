@@ -6,7 +6,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { createSpan } from '../trace';
 import { EnhancedFileOutput } from '../lib/enhanced-file-output';
-import { recomputeSourceDeltaFromSnapshots, writeRuleOutputReports, readSourceSnapshotFile, writeSourceSnapshotFile, listSourceSnapshotFiles } from '../lib/output-audit';
+import { recomputeSourceDeltaFromSnapshots, writeRuleOutputReports, readSourceSnapshotFile, writeSourceSnapshotFile, listSourceSnapshotFiles, snapshotEffectiveOutput } from '../lib/output-audit';
 import type { RulesetAuditRecord, SourceSnapshot } from '../lib/output-audit';
 import type { SupportedPlatform } from '../lib/platform-config';
 
@@ -155,12 +155,12 @@ describe('normalized source and effective output audits', () => {
     const filename = path.join(candidateDir, 'Internal/source-snapshots/fixture.json.gz');
     const snapshotBefore = await fs.readFile(filename, 'utf8');
     const normalizedBefore = await readJson<SourceSnapshot>(filename);
-    const flatBefore = await fs.readFile(path.join(candidateDir, 'List/fixture.list'), 'utf8');
+    const flatBefore = await fs.readFile(path.join(candidateDir, 'List/non_ip/fixture.list'), 'utf8');
     await recomputeSourceDeltaFromSnapshots(candidateDir, {
       baselineDir: newerDir, baselineReceiptId: 42, generatedAt: '2026-10-11T01:00:00.000Z',
     });
     assert.equal(await fs.readFile(filename, 'utf8'), snapshotBefore);
-    assert.equal(await fs.readFile(path.join(candidateDir, 'List/fixture.list'), 'utf8'), flatBefore);
+    assert.equal(await fs.readFile(path.join(candidateDir, 'List/non_ip/fixture.list'), 'utf8'), flatBefore);
     const report = await readJson<DeltaReport>(path.join(candidateDir, 'Internal/source-delta.json'));
     assert.equal(report.baseline.receiptId, 42);
     assert.deepEqual(report.sources[0].samples, { added: ['DOMAIN,b.example'], removed: ['DOMAIN,c.example'] });
@@ -202,6 +202,39 @@ describe('normalized source and effective output audits', () => {
     assert.equal(await fs.readFile(deltaPath, 'utf8'), deltaText);
   });
 
+  it('rebinds a historical Surge effective snapshot to audited splits after retiring its merged output', async t => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-audit-retired-surge-'));
+    t.after(() => fs.rm(root, { recursive: true, force: true }));
+    await build(root, ['DOMAIN,surviving.example', 'IP-CIDR,192.0.2.0/24']);
+    const snapshotPath = path.join(root, 'Internal/source-snapshots/fixture.json.gz');
+    const auditPath = path.join(root, 'Internal/rule-output-audit.json');
+    const ipPath = path.join(root, 'List/ip/fixture.list');
+    const original = await readJson<SourceSnapshot>(snapshotPath);
+    const auditText = await fs.readFile(auditPath, 'utf8');
+    const audit = JSON.parse(auditText) as { rulesets: Array<{ effectiveOutputs: Array<{ platform: SupportedPlatform }> }> };
+    // A historical report after its merged audit row is removed but before rebinding its snapshot.
+    const oldSurge = snapshotEffectiveOutput('surge', 'surge-classical', ['DOMAIN,old-merged.example']);
+    const { conditions, ...oldMetadata } = oldSurge;
+    audit.rulesets[0].effectiveOutputs = audit.rulesets[0].effectiveOutputs.map(output => (output.platform === 'surge'
+      ? { ...oldMetadata, conditionCount: conditions.length }
+      : output));
+    await fs.writeFile(auditPath, JSON.stringify(audit));
+    await writeSourceSnapshotFile(snapshotPath, {
+      ...original,
+      effectiveOutputs: original.effectiveOutputs?.map(output => (output.platform === 'surge' ? oldSurge : output)),
+    });
+    const options = { baselineDir: null, baselineReceiptId: null, retiredOutputPaths: ['List/fixture.list'] };
+    const ip = await fs.readFile(ipPath, 'utf8');
+    await fs.writeFile(ipPath, ip.replace('192.0.2.0', '198.51.100.0'));
+    await assert.rejects(recomputeSourceDeltaFromSnapshots(root, options), /snapshot does not match file: List\/ip\/fixture\.list/);
+    await fs.rm(ipPath);
+    await assert.rejects(recomputeSourceDeltaFromSnapshots(root, options), { code: 'ENOENT' });
+    await fs.writeFile(ipPath, ip);
+    await recomputeSourceDeltaFromSnapshots(root, options);
+    assert.deepEqual(await readJson<SourceSnapshot>(snapshotPath), original);
+    assert.deepEqual(await readJson(auditPath), JSON.parse(auditText));
+  });
+
   it('binds condition digests, exact inventory and effective snapshots to audited staged files', async t => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-audit-bindings-'));
     t.after(() => fs.rm(root, { recursive: true, force: true }));
@@ -217,7 +250,7 @@ describe('normalized source and effective output audits', () => {
     await writeSourceSnapshotFile(path.join(root, 'Internal/source-snapshots/extra.json.gz'), { ...original, sourceId: 'extra', rulesetId: 'extra' });
     await assert.rejects(recomputeSourceDeltaFromSnapshots(root, options), /inventory does not match/);
     await fs.rm(path.join(root, 'Internal/source-snapshots/extra.json.gz'));
-    const bodyPath = path.join(root, 'List/fixture.list');
+    const bodyPath = path.join(root, 'List/non_ip/fixture.list');
     const body = await fs.readFile(bodyPath, 'utf8');
     await fs.writeFile(bodyPath, body.replace('DOMAIN,a.example', 'DOMAIN,incorrect.example'));
     await assert.rejects(recomputeSourceDeltaFromSnapshots(root, options), /does not match file/);

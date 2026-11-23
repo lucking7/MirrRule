@@ -43,8 +43,24 @@ describe('profile variant check', () => {
       nested: ['merged', 'non_ip', 'ip'],
     }));
     assert.deepEqual(findings, [
+      { id: 'google', path: 'List/google.list', kind: 'retired' },
       { id: 'download', path: 'List/ip/download.list', kind: 'unreferenced' },
       { id: 'nested', path: 'List/ip/nested.list', kind: 'unreferenced' },
+    ]);
+  });
+
+  it('rejects retired root paths inside compound rules even when their old audit marks them published', () => {
+    const profile = [
+      '[Rule]',
+      `OR,((RULE-SET,"${BASE}/sample%2Elist?version=1"),(RULE-SET,${BASE}/other.list)),DIRECT`,
+      `# RULE-SET,${BASE}/commented.list,DIRECT`,
+      `RULE-SET,${BASE}/non_ip/sample.list,DIRECT`,
+      `RULE-SET,${BASE}/sample.list,DIRECT`,
+      `URL-REGEX,${BASE}/unrelated.list,DIRECT`
+    ].join('\n');
+    assert.deepEqual(checkProfileVariants(profile, audit({ sample: ['merged', 'non_ip'], other: ['merged'] })), [
+      { id: 'sample', path: 'List/sample.list', kind: 'retired' },
+      { id: 'other', path: 'List/other.list', kind: 'retired' },
     ]);
   });
 

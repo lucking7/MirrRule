@@ -25,12 +25,12 @@ NRRule 是 MirrRule 构建脚本生成的静态规则文件服务，公开地址
 
 | 目录 | 客户端与格式 |
 |---|---|
-| `List/` | Surge。合并版用 `.list`，`non_ip`、`ip` 用 `.conf` 或兼容的 `.list`，`domainset/*.conf` 用 DOMAIN-SET |
+| `List/` | Surge。`non_ip`、`ip` 用 `.conf` 或兼容的 `.list`，`domainset/*.conf` 用 DOMAIN-SET |
 | `Loon/` | Loon，`.list` |
 | `Clash/` | Clash 文本提供者。`domainset/*.txt` 用 domain，其他规则用 classical |
 | `sing-box/` | sing-box rule-set，`.json` |
 
-目录用原生 `<details>` / `<summary>` 折叠。顶层目录默认展开，`Mock` 和 `Internal` 默认折叠；所有嵌套分版目录默认折叠，客户端根目录下的合并版文件折叠收纳在 `Merged files` 分组下（不影响实际文件 URL）。原生域名集仅展示通过当前输出审计校验的文件。
+目录用原生 `<details>` / `<summary>` 折叠。顶层目录默认展开，`Mock` 和 `Internal` 默认折叠；所有嵌套分版目录默认折叠，Clash、Loon、sing-box 根目录的合并版文件折叠收纳在 `Merged files` 分组下（不影响实际文件 URL）。原生域名集仅展示通过当前输出审计校验的文件。
 
 ## 构建与归属
 

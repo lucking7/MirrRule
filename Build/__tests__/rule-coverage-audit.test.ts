@@ -6,7 +6,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { auditRuleCoverage, domainSetLineToRule } from '../lib/rule-coverage-audit';
-import { createRuleCoverageReport, exampleRoutingOrder, loadVariantAvailability, readProfileSubscriptions, resolveNrruleSurgeReference } from '../audit-rule-coverage';
+import { createRuleCoverageReport, exampleRoutingOrder, loadVariantAvailability, readProfileSubscriptions, resolveNrruleSurgeReference, runCoverageAuditCli } from '../audit-rule-coverage';
 
 describe('cross-subscription domain coverage', () => {
   it('detects AppleAI fully shadowed by a previous aggregate AI subscription', () => {
@@ -93,9 +93,9 @@ describe('cross-subscription domain coverage', () => {
 
   it('places AppleAI before AI and CDN before broad Google and Amazon subscriptions in the example', () => {
     const files = exampleRoutingOrder.map(([file]) => file);
-    assert.ok(files.indexOf('apple_intelligence.list') < files.indexOf('ai.list'));
-    assert.ok(files.indexOf('cdn.list') < files.indexOf('google.list'));
-    assert.ok(files.indexOf('cdn.list') < files.indexOf('amazon.list'));
+    assert.ok(files.indexOf('apple_intelligence') < files.indexOf('ai'));
+    assert.ok(files.indexOf('cdn') < files.indexOf('google'));
+    assert.ok(files.indexOf('cdn') < files.indexOf('amazon'));
   });
 
   it('recognizes real AppleAI conditions when the earlier aggregate uses extended matching', () => {
@@ -151,9 +151,10 @@ describe('coverage CLI and profile input', () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'coverage-audit-'));
     try {
       const profile = path.join(directory, 'profile.conf');
-      await fs.writeFile(path.join(directory, 'ai.list'), 'DOMAIN,chatgpt.com\n');
+      await fs.mkdir(path.join(directory, 'non_ip'));
+      await fs.writeFile(path.join(directory, 'non_ip', 'ai.conf'), 'DOMAIN,chatgpt.com\n');
       await fs.writeFile(path.join(directory, 'local.list'), 'DOMAIN,chatgpt.com\n');
-      await fs.writeFile(profile, '[Proxy]\nsecret=token-password\n[Rule]\nRULE-SET,https://nrrule.pages.dev/List/ai.list,AI\nRULE-SET,local.list,DIRECT\nRULE-SET,https://example.com/private?secret=token-password,DIRECT\nRULE-SET,missing.list,DIRECT\n[Host]\nsecret=token-password\n');
+      await fs.writeFile(profile, '[Proxy]\nsecret=token-password\n[Rule]\nRULE-SET,https://nrrule.pages.dev/List/non_ip/ai.conf,AI\nRULE-SET,local.list,DIRECT\nRULE-SET,https://example.com/private?secret=token-password,DIRECT\nRULE-SET,missing.list,DIRECT\n[Host]\nsecret=token-password\n');
       const report = await createRuleCoverageReport({ profilePath: profile, rulesDir: directory });
       assert.equal(report.subscriptions.length, 4);
       assert.equal(report.subscriptions[1].differentPolicyConflicts, 1);
@@ -229,13 +230,13 @@ describe('coverage CLI and profile input', () => {
     assert.equal(report.subscriptions[1].fullyShadowedSubscription, false);
   });
 
-  it('maps flat and nested NRRule Surge paths to the matching local files and formats', () => {
+  it('rejects flat NRRule paths and maps split paths to the matching local files and formats', () => {
     const rulesDir = '/tmp/public/List';
-    assert.deepEqual(resolveNrruleSurgeReference('/List/apple_cdn.list', 'rule-set', rulesDir), { label: 'apple_cdn.list', variant: 'merged', filename: path.join(rulesDir, 'apple_cdn.list') });
+    assert.deepEqual(resolveNrruleSurgeReference('/List/apple_cdn.list', 'rule-set', rulesDir), { label: 'apple_cdn.list', skipped: 'retired-subscription', notCoveredReason: 'List/apple_cdn.list is retired; use the published non_ip and ip variants' });
     assert.equal(resolveNrruleSurgeReference('/List/non_ip/microsoft_cdn.list', 'rule-set', rulesDir).filename, path.join(rulesDir, 'non_ip', 'microsoft_cdn.list'));
     assert.equal(resolveNrruleSurgeReference('/List/ip/telegram.list', 'rule-set', rulesDir).variant, 'ip');
     assert.equal(resolveNrruleSurgeReference('/List/non_ip/apple_cdn.list', 'domain-set', rulesDir).skipped, 'format-mismatch');
-    assert.equal(resolveNrruleSurgeReference('/List/apple_cdn.list', 'domain-set', rulesDir).skipped, 'format-mismatch');
+    assert.equal(resolveNrruleSurgeReference('/List/apple_cdn.list', 'domain-set', rulesDir).skipped, 'retired-subscription');
     assert.equal(resolveNrruleSurgeReference('/List/ip/telegram.conf', 'rule-set', rulesDir).filename, path.join(rulesDir, 'ip', 'telegram.conf'));
     assert.equal(resolveNrruleSurgeReference('/List/domainset/apple_cdn.conf', 'rule-set', rulesDir).skipped, 'format-mismatch');
     for (const unresolved of ['/List/domainset/apple_cdn.list', '/List/apple.conf', '/List/other/apple_cdn.list', '/List/a/b/c.list', '/Clash/apple_cdn.txt']) {
@@ -243,6 +244,70 @@ describe('coverage CLI and profile input', () => {
       assert.equal(resolved.skipped, 'unavailable-remote');
       assert.equal(resolved.filename, undefined);
     }
+  });
+
+  it('fails on retired profile references even if old files and an old audit are present', async t => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'coverage-retired-'));
+    t.after(() => fs.rm(root, { recursive: true, force: true }));
+    const list = path.join(root, 'List');
+    const auditPath = path.join(root, 'audit.json');
+    const output = path.join(root, 'coverage.json');
+    const profile = path.join(root, 'profile.conf');
+    await fs.mkdir(list);
+    await fs.writeFile(path.join(list, 'ai.list'), 'DOMAIN,chatgpt.com\n');
+    await fs.writeFile(auditPath, JSON.stringify({ rulesets: [{ id: 'ai', outputs: [
+      { platform: 'surge', variant: 'merged', status: 'published', path: 'List/ai.list' },
+    ] }] }));
+    await fs.writeFile(profile, [
+      '[Rule]',
+      'RULE-SET,https://nrrule.pages.dev/List/ai.list,AI,pre-matching',
+      'OR,((RULE-SET,https://nrrule.pages.dev/List/old%2Elist)),AI',
+      'RULE-SET,https://example.com/List/ai.list,AI',
+    ].join('\n'));
+    assert.equal(await runCoverageAuditCli(['--profile', profile, '--rules-dir', list, '--output-audit', auditPath, '--output', output]), 1);
+    const report = JSON.parse(await fs.readFile(output, 'utf8'));
+    assert.equal(report.summary.retiredSubscriptions, 2);
+    assert.equal(report.summary.auditedSubscriptions, 0);
+    assert.equal(report.summary.missingLocalSubscriptions, 0);
+    assert.deepEqual(report.subscriptions.map((item: { skipped: string }) => item.skipped), [
+      'retired-subscription', 'retired-subscription', 'unavailable-remote'
+    ]);
+  });
+
+  it('selects audited classical split files for the example in ruleset order', async t => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'coverage-example-'));
+    t.after(() => fs.rm(root, { recursive: true, force: true }));
+    const list = path.join(root, 'List');
+    const auditPath = path.join(root, 'audit.json');
+    await fs.mkdir(path.join(list, 'non_ip'), { recursive: true });
+    await fs.mkdir(path.join(list, 'ip'));
+    await fs.writeFile(path.join(list, 'non_ip', 'reject.conf'), 'DOMAIN,ads.example\n');
+    await fs.writeFile(path.join(list, 'non_ip', 'reject.list'), 'DOMAIN,alias.example\n');
+    await fs.writeFile(path.join(list, 'ip', 'reject.list'), 'IP-CIDR,192.0.2.0/24,no-resolve\n');
+    await fs.writeFile(path.join(list, 'non_ip', 'wechat.list'), 'DOMAIN,wechat.example\n');
+    await fs.writeFile(auditPath, JSON.stringify({ rulesets: [
+      { id: 'reject', outputs: [
+        { platform: 'surge', variant: 'merged', status: 'published', path: 'List/reject.list' },
+        { platform: 'surge', variant: 'non_ip', status: 'published', path: 'List/non_ip/reject.list' },
+        { platform: 'surge', variant: 'non_ip', status: 'published', path: 'List/non_ip/reject.conf' },
+        { platform: 'surge', variant: 'ip', status: 'published', path: 'List/ip/reject.list' },
+      ] },
+      { id: 'wechat', outputs: [
+        { platform: 'surge', variant: 'non_ip', status: 'published', path: 'List/non_ip/wechat.list' },
+        { platform: 'surge', variant: 'ip', status: 'absent-empty', path: 'List/ip/wechat.conf' },
+        { platform: 'clash', variant: 'ip', status: 'published', path: 'Clash/ip/wechat.txt' },
+      ] }
+    ] }));
+    const report = await createRuleCoverageReport({ rulesDir: list, outputAuditPath: auditPath });
+    assert.deepEqual(report.subscriptions.slice(0, 3).map(({ id, variant, status }) => [id, variant, status]), [
+      ['non_ip/reject.conf', 'non_ip', 'audited'],
+      ['ip/reject.list', 'ip', 'audited'],
+      ['non_ip/wechat.list', 'non_ip', 'audited'],
+    ]);
+    assert.equal(report.summary.auditedSubscriptions, 3);
+    await fs.unlink(path.join(list, 'non_ip', 'reject.conf'));
+    const missing = await createRuleCoverageReport({ rulesDir: list, outputAuditPath: auditPath });
+    assert.equal(missing.subscriptions[0].skipped, 'missing-local-file');
   });
 
   it('audits published Surge domain sets and reports absent .conf files from the output audit', async t => {

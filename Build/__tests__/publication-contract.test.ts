@@ -226,8 +226,8 @@ const fakeRender: RenderPublic = async (dir, options) => {
 };
 
 const RULE_FILES: Record<string, string> = {
-  'List/ai.list': 'DOMAIN-SUFFIX,openai.com\n',
-  'List/telegram.list': 'IP-CIDR,91.108.4.0/22,no-resolve\n',
+  'List/non_ip/ai.list': 'DOMAIN-SUFFIX,openai.com\n',
+  'List/ip/telegram.list': 'IP-CIDR,91.108.4.0/22,no-resolve\n',
   'Clash/ai.txt': 'DOMAIN-SUFFIX,openai.com\n',
   'Loon/ai.list': 'DOMAIN-SUFFIX,openai.com\n',
   'sing-box/ai.json': '{"version":2,"rules":[]}\n',
@@ -673,7 +673,7 @@ describe('publication staging', () => {
     );
   });
 
-  it('checks every audited output, flat and variant, by presence, bytes and sha256', async (t) => {
+  it('checks every audited output by presence, bytes and sha256', async (t) => {
     const absent = ['List/domainset/telegram.list'];
     const run = async (mutate: (candidate: string) => Promise<void>) => {
       const env = await setup(t, candidateFixture({ receiptId: 7, absent }), { 'Mirror/a.sgmodule': 'a' });
@@ -681,10 +681,10 @@ describe('publication staging', () => {
       return stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['build', 'deploy'], sourceCommit: SOURCE, baseline: await baselineFrom(env.tree, 7), baselineTreeDir: env.tree, render: fakeRender });
     };
     const ok = await run(() => Promise.resolve());
-    assert.ok(ok.manifest.files.some(file => file.path === 'List/telegram.list'));
-    await assert.rejects(run(candidate => fs.rm(path.join(candidate, 'List', 'telegram.list'))), stageError('output-mismatch', /List\/telegram\.list: published in the audit but missing/));
-    await assert.rejects(run(candidate => fs.writeFile(path.join(candidate, 'List', 'ai.list'), 'DOMAIN-SUFFIX,openai')), stageError('output-mismatch', /List\/ai\.list: \d+ bytes/));
-    await assert.rejects(run(candidate => fs.writeFile(path.join(candidate, 'List', 'ai.list'), 'DOMAIN-SUFFIX,openai.org\n')), stageError('output-mismatch', /List\/ai\.list/));
+    assert.ok(ok.manifest.files.some(file => file.path === 'List/ip/telegram.list'));
+    await assert.rejects(run(candidate => fs.rm(path.join(candidate, 'List', 'ip', 'telegram.list'))), stageError('output-mismatch', /List\/ip\/telegram\.list: published in the audit but missing/));
+    await assert.rejects(run(candidate => fs.writeFile(path.join(candidate, 'List', 'non_ip', 'ai.list'), 'DOMAIN-SUFFIX,openai')), stageError('output-mismatch', /List\/non_ip\/ai\.list: \d+ bytes/));
+    await assert.rejects(run(candidate => fs.writeFile(path.join(candidate, 'List', 'non_ip', 'ai.list'), 'DOMAIN-SUFFIX,openai.org\n')), stageError('output-mismatch', /List\/non_ip\/ai\.list/));
     await assert.rejects(
       run(candidate => writeTree(candidate, { 'List/domainset/telegram.list': '.telegram.org\n' })),
       stageError('output-mismatch', /List\/domainset\/telegram\.list: audit says absent-empty but the file is present/)
@@ -717,14 +717,16 @@ describe('publication staging', () => {
   });
 
   it('records baseline paths that are no longer published so they must answer 404', async (t) => {
-    const env = await setup(t, candidateFixture({ receiptId: 7 }), { 'Mirror/a.sgmodule': 'a', 'List/ip/old.list': 'old' });
+    const env = await setup(t, candidateFixture({ receiptId: 7 }), { 'Mirror/a.sgmodule': 'a', 'List/ip/old.list': 'old', 'List/ai.list': 'historical merged file' });
     const baseline = await baselineFrom(env.tree, 7);
     const result = await stagePublication({ candidateDir: env.candidate, outDir: env.out, tasks: ['build', 'deploy'], sourceCommit: SOURCE, baseline, baselineTreeDir: env.tree, render: fakeRender });
-    assert.deepEqual(result.manifest.removedPaths, ['List/ip/old.list']);
+    assert.deepEqual(result.manifest.removedPaths, ['List/ai.list', 'List/ip/old.list']);
     const absent = await collectAbsentPaths(env.out, result.manifest);
     assert.ok(absent.includes('List/ip/old.list'));
     assert.ok(absent.includes('Modules/Converted/腾讯视频去广告.sgmodule'));
-    assert.ok(!absent.includes('List/ai.list'));
+    assert.ok(absent.includes('List/ai.list'));
+    assert.ok(absent.includes('List/nrrule-retired-probe.list'));
+    assert.ok(!absent.includes('List/non_ip/ai.list'));
   });
 
   it('recognizes the original candidate after a rebased publication is accepted', async (t) => {
@@ -773,7 +775,7 @@ describe('publication staging', () => {
       // eslint-disable-next-line no-await-in-loop -- restore this input rather than accumulating changes
       await writeTree(env.candidate, { [relative]: original[relative as keyof typeof original] });
     }
-    await writeTree(env.candidate, { 'List/ai.list': 'DOMAIN,changed.example\n' });
+    await writeTree(env.candidate, { 'List/non_ip/ai.list': 'DOMAIN,changed.example\n' });
     await assert.rejects(stagePublication(retry), stageError('output-mismatch'));
   });
 

@@ -16,7 +16,7 @@ it('preserves every published platform when type filtering removes all condition
   await new Promise<void>(resolve => { server.listen(0, '127.0.0.1', resolve); });
   const { port } = server.address() as AddressInfo;
   const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mirrrule-rule-type-publication-'));
-  const paths = [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list'], ['sing-box', 'json']]
+  const paths = [['List/non_ip', 'list'], ['Clash', 'txt'], ['Loon', 'list'], ['sing-box', 'json']]
     .map(([directory, extension]) => path.join(outputDir, directory, `wechat_no_ua.${extension}`));
   for (const file of paths) {
     fs.mkdirSync(path.dirname(file), { recursive: true });

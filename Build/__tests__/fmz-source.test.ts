@@ -8,6 +8,7 @@ import { it } from 'node:test';
 import { RuleSourceProcessor } from '../lib/rule-source-processor';
 import type { RuleGroup } from '../lib/rule-source-types';
 import { ruleGroups } from '../lib/rule-sources';
+import { readPublishedRules } from './fixtures/read-published-rules';
 import { createSpan } from '../trace';
 
 it('rebuilds registered fmz subscriptions without routing the upstream proxy exception directly', async () => {
@@ -47,14 +48,14 @@ it('rebuilds registered fmz subscriptions without routing the upstream proxy exc
     assert.deepEqual(stats.errors, []);
     assert.equal(stats.filesProcessed, 2, 'both historical identities must have a current publisher');
     for (const [directory, extension] of [['List', 'list'], ['Clash', 'txt'], ['Loon', 'list']]) {
-      const direct = fs.readFileSync(path.join(outputDir, directory, `direct-fmz.${extension}`), 'utf8');
+      const direct = readPublishedRules(outputDir, directory, `direct-fmz.${extension}`);
       assert.match(direct, /^DOMAIN,ad\.12306\.cn$/m);
       assert.match(direct, /^DOMAIN-KEYWORD,push\.apple\.com$/m);
       assert.match(direct, /^DOMAIN-SUFFIX,weather-data\.apple\.com$/m);
       assert.match(direct, /^IP-CIDR,192\.168\.0\.0\/23$/m);
       assert.equal(direct.includes('amp-api.podcasts.apple.com'), false);
       assert.doesNotMatch(direct, /,(?:direct|proxy)\b/i);
-      const reject = fs.readFileSync(path.join(outputDir, directory, `reject-fmz.${extension}`), 'utf8');
+      const reject = readPublishedRules(outputDir, directory, `reject-fmz.${extension}`);
       assert.match(reject, /^DOMAIN-KEYWORD,adproxy\.autohome\.com$/m);
       assert.match(reject, /^IP-CIDR6,2001:db8::\/32$/m);
     }

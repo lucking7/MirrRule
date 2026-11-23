@@ -10,7 +10,7 @@ MirrRule 是构建型规则聚合项目：下载上游成品规则，清洗、�
 
 | 能力                    | 入口 / 主要实现                                                                                                                                                | 输出与边界                                                                                                          |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 规则聚合、多平台输出    | [Build/index.ts](Build/index.ts)、[rule-source-processor.ts](Build/lib/rule-source-processor.ts)、[enhanced-file-output.ts](Build/lib/enhanced-file-output.ts) | `public/List/*.list`、`Clash/*.txt`、`Loon/*.list`、`sing-box/*.json`；不同平台会丢弃不支持或非法规则，查看构建日志 |
+| 规则聚合、多平台输出    | [Build/index.ts](Build/index.ts)、[rule-source-processor.ts](Build/lib/rule-source-processor.ts)、[enhanced-file-output.ts](Build/lib/enhanced-file-output.ts) | `public/List/{non_ip,ip,domainset}/`、`Clash/*.txt`、`Loon/*.list`、`sing-box/*.json`；不同平台会丢弃不支持或非法规则，查看构建日志 |
 | GeoIP 下载              | [download-geoip.ts](Build/download-geoip.ts)                                                                                                                   | `public/GeoIP/*.mmdb`；临时文件验证大小后替换                                                                       |
 | GeoIP 国家库            | [build-geoip-country.py](Build/build-geoip-country.py)                                                                                                         | `public/GeoIP/country.mmdb`；本地运行需要 `maxminddb` 与 Loyalsoldier/geoip 转换器，`pnpm run build` 不生成          |
 | Release 与分支镜像      | [sync-mirrors.ts](Build/sync-mirrors.ts)、[mirror-config.ts](Build/integration/mirror-sync/mirror-config.ts)                                                   | `public/Mirror/{iRingo,DualSubs,BiliUniverse,GetSomeFries}`；前 3 组同步 Release，`GetSomeFries` 无 Release，按 `main` 分支固定文件读取 |
@@ -109,7 +109,8 @@ test -s .BUILD_FINISHED
 test -s public/index.html
 test -s public/_headers
 test -s public/GeoIP/ipinfo.mmdb
-test -s public/List/reject.list
+test -s public/List/non_ip/reject.conf
+test -s public/List/ip/reject.conf
 test -s public/Clash/reject.txt
 test -s public/Loon/reject.list
 node -e 'const fs=require("node:fs"); for (const p of ["public/status.json","public/sing-box/reject.json"]) JSON.parse(fs.readFileSync(p,"utf8")); console.log("JSON OK")'
