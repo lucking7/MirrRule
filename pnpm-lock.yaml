@@ -16,8 +16,8 @@ importers:
   .:
     dependencies:
       better-sqlite3:
-        specifier: ^13.0.3
-        version: 13.0.3
+        specifier: ^13.2.0
+        version: 13.2.0
       ci-info:
         specifier: ^4.5.0
         version: 4.5.0
@@ -1005,8 +1005,8 @@ packages:
   bare-url@2.4.5:
     resolution: {integrity: sha512-K+y9xF1tN+CdPu4qWwr0QiK1Al07eFPGYK5M2pDXcmHdMdgC/tT/bpmMe1hrmRHaidKLkXrC+cRNYf3XVDUhSQ==}
 
-  better-sqlite3@13.0.3:
-    resolution: {integrity: sha512-RbOBxmLBG8uvFUc15X9+9SFemKcQ0WBuISBVkpuiaUB2qblC8UWlHEjdWVoZ8AdhSwmoEgsiXKfopX0CQxaACQ==}
+  better-sqlite3@13.2.0:
+    resolution: {integrity: sha512-Z8Q/9x/uNyKxA1v4FNodyItRVRw1TeKBrmj32JhxhR0ceNcBY+wMobt/Bv7M7TzwPAXjnZRtNaEsATnUZSKWZQ==}
     engines: {node: '>=22'}
 
   brace-expansion@5.0.13:
@@ -2396,7 +2396,7 @@ snapshots:
     dependencies:
       bare-path: 3.0.1
 
-  better-sqlite3@13.0.3:
+  better-sqlite3@13.2.0:
     dependencies:
       node-addon-api: 8.9.2
 
@@ -3166,7 +3166,7 @@ snapshots:
 
   undici-cache-store-better-sqlite3@1.1.1(undici@8.12.4):
     dependencies:
-      better-sqlite3: 13.0.3
+      better-sqlite3: 13.2.0
       foxts: 5.9.1
       undici: 8.12.4
 
