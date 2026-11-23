@@ -1,59 +1,47 @@
 # DESIGN.md · NRRule index page
 
-## 参考与范围
+## 概览与范围
 
-本页采用 2026-10-08 核对的 [Sukka Ruleset Server](https://ruleset.skk.moe/) 目录树设计。样式来源为 [SukkaW/Surge 的 `Build/build-public.ts`](https://github.com/SukkaW/Surge/blob/6373d9aca136bf6b8f4ad091baebf50a8f088d4a/Build/build-public.ts)，页面身份与文件集合按 [PRODUCT](PRODUCT.md) 替换。
-
-保留参考的系统字体、蓝灰配色、响应式容器、排版、图标与原生折叠行为。字体、颜色、命中区和间距以参考 CSS 为准，不添加独立的字号或触控尺寸下限。
+NRRule 索引页由 `Build/build-public.ts` 生成，内联 `Build/assets/ruleset-index.css`、官方 Tabler Icons（MIT，`24×24` 网格、`1.5px` 细描边）SVG `<symbol>` 精灵与 `Build/lib/ruleset-index-script.ts` 渐进增强脚本。页面零外部字体、零外部样式与脚本依赖。
 
 ## 布局与排版
 
-页面为一个居中的 `main.container`。正文左右留白由容器控制，主区域上下 padding 为 `2rem`；在 576px 起的断点取消容器左右 padding。
+居中 `main.container` 随视口自适应宽度，顶部分为两行式紧凑页头（`.masthead`），下方以 `1px solid var(--color-separator)` 分隔目录树与页脚（`.page-foot`）。
 
-| 视口宽度 | 容器 max-width | 正文字号 | 容器左右 padding |
+| 视口宽度 | 容器 max-width | 基准字号 | 容器左右 padding |
 |---|---:|---:|---:|
 | <576px | 100% | 16px | 1rem |
-| ≥576px | 510px | 17px | 0 |
-| ≥768px | 700px | 18px | 0 |
-| ≥992px | 920px | 19px | 0 |
-| ≥1200px | 1130px | 20px | 0 |
+| ≥576px | 520px | 16.5px | 0 |
+| ≥768px | 720px | 17px | 0 |
+| ≥992px | 900px | 17.5px | 0 |
+| ≥1200px | 1040px | 18px | 0 |
 
-字体栈为 `system-ui, -apple-system, "Segoe UI", "Roboto", "Ubuntu", "Cantarell", "Noto Sans", sans-serif`，随后为参考中的系统 emoji 回退字体。目录、文件名和正文共用这个字体栈，不下载 webfont。正文 font-weight 为 400，line-height 为 1.5；H1 为 700、2rem，下边距为 3rem。普通段落下边距为 1.5rem。
-
-目录行使用原生文本行高与链接命中区。16px 正文字号对应 24px line box，20px 对应 30px；`li` 下边距为 `0.375rem`，分别为 6px 和 7.5px。不要通过固定行高、额外按钮或扩大的点击层改变参考的目录密度。
+- **页头第一行**：无底盒 Tabler `route` 图标 + `NRRule` 主标题（`-0.03em` 字距）+ 同基线等宽规范域名 `nrrule.pages.dev`；右侧为无框轻量 `GitHub` 链接（Tabler `brand-github`）。
+- **页头第二行**：左侧为静态翠绿状态圆点 + 易读 UTC 更新时间（`Nov 20, 2026 · 09:15 UTC`，完整 ISO 保留在 `<time datetime>` 与 `title`）及 `tabular-nums` 统计（规则集数与文件数）；右侧为常驻内联搜索框（同心圆角：`8px` 外框与 `4px` 内置 `/` 提示及清空 `×` 按钮，移动端输入框保持 `16px` 防 iOS 缩放）。
+- **字体栈**：系统无衬线用于界面与目录列表，系统等宽仅用于域名 `nrrule.pages.dev` 与快捷键标识；全站根元素统一启用抗锯齿。
 
 ## 颜色与主题
 
-主题由 `prefers-color-scheme` 跟随系统，不增加主题切换器。
+采用两层 CSS 变量（原始色阶 -> 语义 token），仅通过 `prefers-color-scheme` 跟随系统切换（切换瞬间临时禁用过渡避免换肤拖影），并适配 `prefers-contrast: more` 与 `forced-colors: active`。
 
-| CSS token | Light | Dark |
+| Semantic token | Light | Dark |
 |---|---|---|
-| `--background-color` | `#fff` | `#11191f` |
-| `--color` | `#415462` | `#bbc6ce` |
-| `--h1-color` | `#1b2832` | `#edf0f3` |
-| `--h3-color` | `#2c3d49` | `#d5dce2` |
-| `--muted-color` | `#73828c` | `#73828c` |
-| `--primary` | `#1095c1` | `#1095c1` |
-| `--primary-hover` | `#08769b` | `#1ab3e6` |
-| `--secondary` | `#596b78` | `#596b78` |
-| `--secondary-hover` | `#415462` | `#73828c` |
+| `--color-bg-page` | `#ffffff` | `#10171d` |
+| `--color-bg-surface` | `#f7f9fb` | `#162028` |
+| `--color-bg-row-hover` | `#f3f6f8` | `#18222a` |
+| `--color-text-heading` | `#152028` | `#eef3f6` |
+| `--color-text-primary` | `#334552` | `#cdd7df` |
+| `--color-text-muted` | `#526370` | `#adbac4` |
+| `--color-accent-text` | `#09698c` | `#5ac4ea` |
+| `--color-success-bg` / `--color-success-text` | `#eaf7ef` / `#0d663b` | `#102c1c` / `#82cfa0` |
 
-作者、源码和许可证链接使用 primary 色。文件链接使用正文色与 1px secondary 下边框，hover 时使用 h3 色和 secondary-hover 边框；不要将全部文件链接改成 primary 色。图标按参考的 light / dark 内联 SVG 切换。
+所有正文与次级文字均满足 WCAG 2.1 AA 与 APCA 阈值（正文 ≥ Lc 75，次级/强调 ≥ Lc 60）。
 
-## 目录树与交互
+## 图标、目录树与交互
 
-树的 DOM 为 `ul.tree`，目录为 `li.folder > details > summary + ul`，文件为 `li.file > a.file-link`。顶层默认展开，`Mock`、`Internal` 默认折叠，所有嵌套目录默认折叠。分版目录按 `domainset`、`non_ip`、`ip` 排序，标签在目录名后注明客户端格式。其他目录显示实际名称。文件标签保留扩展名。
+- **统一 Tabler Icons（`1.5px` 描边，`currentColor`）**：目录闭合/展开（`folder` / `folder-open`）、合并集合（`stack-2` + `chevron-right`）、文件按扩展名区分文本规则（`file-text`）、JSON（`file-code`）与二进制数据库/压缩快照（`database`）。
+- **目录结构**：顶层目录默认展开，`Mock` 和 `Internal` 默认折叠；嵌套分版目录（`domainset`、`non_ip`、`ip`）默认折叠；各客户端根目录下的合并版文件折叠收纳在 `Merged files` 分组中并显示实时文件计数徽标。
+- **悬挂对齐与引导线**：目录与文件行使用 flex 悬挂对齐，长文件名换行不回折到图标下方；子目录附带极淡垂直引导线（`--color-guide`），精细指针悬停时浮现柔和底色与就近复制按钮。
+- **渐进增强交互**：支持实时多词搜索、`/` 快捷聚焦、`Esc` 清空/失焦、文件行一键复制完整订阅 URL（带 `scale(0.25 -> 1)`、`opacity` 与 `blur(4px -> 0)` 图标交叉过渡，包裹在 `prefers-reduced-motion: no-preference` 内，并通过 `role="status"` 播报）；关闭 JavaScript 时搜索框隐藏、不注入复制按钮，全部静态链接正常可访问。
 
-- `--tree-spacing: 1.5rem`，`--radius: 10px`。
-- 子级 `li` 的左 padding 为 `calc(2 * var(--tree-spacing) - var(--radius) - 2px)`；子 `ul` 左 margin 为 `calc(var(--radius) - var(--tree-spacing))`，左 padding 为 0。
-- 文件与目录图标框为 20px × 20px，右 margin 为 10px，背景图尺寸为 `75% auto`。目录展开时替换为参考的 open-folder SVG。
-- 隐藏默认 summary marker，以图标表达目录状态。summary 使用 pointer cursor，`focus-visible` 保留参考的 `1px dotted #000` outline。
-- 文件链接采用参考的 `all 0.2s ease` transition；`details` 直接由浏览器展开与收起，不添加高度动画。
-
-页面不需要应用 JavaScript。键盘操作使用原生 summary 和链接行为；长文件名按参考的 `overflow-wrap: break-word` 换行。订阅格式、规则用途和 MITM 配置说明保留在 README，不放入额外卡片或提示面板。
-
-## 验收
-
-使用相同浏览器、视口与系统配色对照参考，检查标题区、容器宽度、系统字体、正文行高、目录缩进、图标、链接与默认折叠状态。覆盖移动端和桌面端的 light / dark；在需要时展开同名目录比较其子级结构。
-
-NRRule 的标题、作者链接、构建时间、真实目录与文件数量会与参考不同，因此页面总高度和内容换行随实际数据变化。每个文件链接必须落到 NRRule 自身的正确路径，四个客户端目录的可见文件必须与本次产物一致。CSS 来源与许可见 [Build/assets/README](Build/assets/README.md)。
+图标与样式归属说明见 [Build/assets/README](Build/assets/README.md)。
