@@ -50,7 +50,7 @@ function referencedSlots(profile: string): Map<string, SlotPaths> {
 /** Surge outputs the audit reports as published, by ruleset id. */
 function publishedSlots(audit: unknown): Map<string, SlotPaths> {
   const rulesets = (audit as { rulesets?: unknown } | null)?.rulesets;
-  if (!Array.isArray(rulesets)) throw new Error('Rule output audit has no rulesets list');
+  if (!Array.isArray(rulesets)) throw new TypeError('Rule output audit has no rulesets list');
   const published = new Map<string, SlotPaths>();
   for (const ruleset of rulesets as Array<{ id?: unknown, outputs?: unknown } | null>) {
     if (typeof ruleset?.id !== 'string' || !Array.isArray(ruleset.outputs)) continue;
