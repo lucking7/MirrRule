@@ -41,7 +41,7 @@
     "ci-info": "^4.5.0",
     "cron-parser": "^5.10.6",
     "domain-alive": "^0.1.25",
-    "fast-cidr-tools": "^0.3.2",
+    "fast-cidr-tools": "^0.3.5",
     "foxts": "^5.9.2",
     "json-stringify-pretty-compact": "3.0.0",
     "mmdb-lib": "^3.0.5",

@@ -28,8 +28,8 @@ importers:
         specifier: ^0.1.25
         version: 0.1.25
       fast-cidr-tools:
-        specifier: ^0.3.2
-        version: 0.3.2
+        specifier: ^0.3.5
+        version: 0.3.5
       foxts:
         specifier: ^5.9.2
         version: 5.9.2
@@ -1250,8 +1250,8 @@ packages:
   events-universal@1.0.1:
     resolution: {integrity: sha512-LUd5euvbMLpwOF8m6ivPCbhQeSiYVNb8Vs0fQ8QjXo0JTkEHpz8pxdQf0gStltaPpw0Cca8b39KxvK9cfKRiAw==}
 
-  fast-cidr-tools@0.3.2:
-    resolution: {integrity: sha512-hH8m1zjBer5VxrFG3dCEIMGEu/hDs/2scCH0vCJqce5ujCEBmZYlCejfZ4IFYTCt1YQard/uXmMzNBs9SR3/qg==}
+  fast-cidr-tools@0.3.5:
+    resolution: {integrity: sha512-b50KUQdL6mEktu7k+EqXypsrRaiEZ9RJbJr/ON5AiOilAf2S9eK1k8Py9NsgDHoAmAnZOKBDA7LmHYBKHhDNdQ==}
     engines: {node: '>=16'}
 
   fast-deep-equal@3.1.3:
@@ -2723,7 +2723,9 @@ snapshots:
     transitivePeerDependencies:
       - bare-abort-controller
 
-  fast-cidr-tools@0.3.2: {}
+  fast-cidr-tools@0.3.5:
+    dependencies:
+      foxts: 5.9.2
 
   fast-deep-equal@3.1.3: {}
 
