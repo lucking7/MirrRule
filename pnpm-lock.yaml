@@ -19,8 +19,8 @@ importers:
         specifier: ^13.0.3
         version: 13.0.3
       ci-info:
-        specifier: ^4.4.0
-        version: 4.4.0
+        specifier: ^4.5.0
+        version: 4.5.0
       cron-parser:
         specifier: ^5.10.6
         version: 5.10.6
@@ -1019,8 +1019,8 @@ packages:
   cacheable@2.5.0:
     resolution: {integrity: sha512-60cyAOytib/OzBw1JNSoSV/boK1AtHryDIjvVBk7XbN4ugfkM3+Sry7fEjNgPMGgOjuaZPAp8ruZ0Cxafwyq9g==}
 
-  ci-info@4.4.0:
-    resolution: {integrity: sha512-77PSwercCZU2Fc4sX94eF8k8Pxte6JAwL4/ICZLFjJLqegs7kCuAsqqj/70NQF6TvDpgFjkubQB2FW2ZZddvQg==}
+  ci-info@4.5.0:
+    resolution: {integrity: sha512-d1uM8k5UZEyPza1n/MG3ko8nKupKN0KJpFsipgPcgaCCvV+IqIfJ+NzTjetlLM+UcXZx3+cLrNr76+eAO7G1Mw==}
     engines: {node: '>=8'}
 
   cjs-module-lexer@2.3.0:
@@ -2414,7 +2414,7 @@ snapshots:
       keyv: 5.6.0
       qified: 0.10.1
 
-  ci-info@4.4.0: {}
+  ci-info@4.5.0: {}
 
   cjs-module-lexer@2.3.0: {}
 
@@ -2486,7 +2486,7 @@ snapshots:
       '@eslint/js': 10.0.1(eslint@10.15.0(jiti@2.7.0))
       '@typescript-eslint/eslint-plugin': 8.73.0(@typescript-eslint/parser@8.73.0(eslint@10.15.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.15.0(jiti@2.7.0))(typescript@6.0.3)
       '@typescript-eslint/parser': 8.73.0(eslint@10.15.0(jiti@2.7.0))(typescript@6.0.3)
-      ci-info: 4.4.0
+      ci-info: 4.5.0
       defu: 6.1.7
       eslint: 10.15.0(jiti@2.7.0)
       eslint-import-resolver-typescript: 4.4.5(eslint-plugin-import-x@4.18.1(@typescript-eslint/utils@8.73.0(eslint@10.15.0(jiti@2.7.0))(typescript@6.0.3))(eslint-import-resolver-node@0.3.9)(eslint@10.15.0(jiti@2.7.0)))(eslint@10.15.0(jiti@2.7.0))
@@ -2511,7 +2511,7 @@ snapshots:
 
   eslint-formatter-sukka@9.2.1(eslint@10.15.0(jiti@2.7.0)):
     dependencies:
-      ci-info: 4.4.0
+      ci-info: 4.5.0
       eslint: 10.15.0(jiti@2.7.0)
       foxts: 5.9.2
       picocolors: 1.1.1
