@@ -1,3 +1,4 @@
+import { GOOGLE_CLOUD_IP_RANGES_URL, isGoogleIpRangesUrl } from './primary-ip-sources';
 import type { RuleGroup, SpecialRuleConfig } from './rule-source-types';
 import { getBranchFileUrl } from '../integration/mirror-sync/sync-engine';
 import type { MirrorGroup } from '../integration/mirror-sync/sync-engine';
@@ -44,7 +45,11 @@ export function createSourceInventory(
   for (const rule of specialRules) {
     for (const source of rule.sourceFiles) {
       // Local files are build intermediates, not upstream network dependencies.
-      if (isNetworkSource(source)) add(entries, 'special-source', 'rule', source);
+      if (!isNetworkSource(source)) continue;
+      add(entries, 'special-source', 'rule', source);
+      if (isGoogleIpRangesUrl(source)) {
+        add(entries, 'special-source', 'rule', GOOGLE_CLOUD_IP_RANGES_URL);
+      }
     }
   }
   for (const group of mirrorGroups) {
