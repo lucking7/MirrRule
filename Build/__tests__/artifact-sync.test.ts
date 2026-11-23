@@ -131,7 +131,8 @@ describe('artifact synchronization', () => {
         fetchRelease: () => assert.fail('branch files must not query releases'),
         download(url: string) {
           downloaded.push(url);
-          return Promise.resolve(Buffer.from(`#!name=${path.posix.basename(url)}`));
+          // Mirrored modules must pass the structure checks, so each body has an active rule.
+          return Promise.resolve(Buffer.from(`#!name=${path.posix.basename(url)}\n[Rule]\nDOMAIN,example.com,DIRECT\n`));
         },
       });
 
@@ -140,7 +141,7 @@ describe('artifact synchronization', () => {
         'https://raw.githubusercontent.com/VirgilClyne/GetSomeFries/main/plugin/DNS.plugin',
       ]);
       assert.equal(result.succeeded, 2);
-      assert.equal(await fsp.readFile(path.join(directory, 'plugin', 'DNS.plugin'), 'utf8'), '#!name=DNS.plugin');
+      assert.equal(await fsp.readFile(path.join(directory, 'plugin', 'DNS.plugin'), 'utf8'), '#!name=DNS.plugin\n[Rule]\nDOMAIN,example.com,DIRECT\n');
     } finally {
       await fsp.rm(directory, { recursive: true, force: true });
     }

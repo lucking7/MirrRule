@@ -21,7 +21,7 @@ export enum FileType {
  * 无 Release 的上游：按固定分支读取指定文件。
  * 每个路径都是必需来源，缺失即同步失败，不回退为空。
  */
-export interface MirrorBranchFiles {
+interface MirrorBranchFiles {
   ref: string,
   paths: string[]
 }
