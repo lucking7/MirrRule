@@ -161,7 +161,7 @@ const BLACKMATRIX_SURGE = 'https://raw.githubusercontent.com/blackmatrix7/ios_ru
 const META_RULES = 'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo';
 
 // Keep service subscriptions separate from the existing regional/aggregate rulesets.
-// Services use only MetaCubeX (geosite categories, plus geoip where published). WeChat keeps
+// Services use MetaCubeX geosite categories, plus a service-owned IP source where one exists. WeChat keeps
 // blackmatrix7 because MetaCubeX has no WeChat category. `excluded` drops blackmatrix7 entries
 // shared by unrelated sites, which would route them through the service policy.
 const serviceRules: SpecialRuleConfig[] = [
@@ -175,10 +175,12 @@ const serviceRules: SpecialRuleConfig[] = [
   { name: 'TikTok', id: 'tiktok', geosite: ['tiktok'] },
   // Meta has no dedicated WeChat category; do not merge the broader Tencent category.
   { name: 'WeChat', id: 'wechat', blackmatrix: 'WeChat' },
-  { name: 'Google', id: 'google', geosite: ['google'] },
+  // MetaCubeX geoip/google also covers Google Cloud customer addresses; use Google's own
+  // published ranges minus its Cloud customer ranges instead.
+  { name: 'Google', id: 'google', geosite: ['google'], ipSources: ['https://www.gstatic.com/ipranges/goog.json'] },
   { name: 'GitHub', id: 'github', geosite: ['github'] },
-].map(({ name, id, blackmatrix, geosite = [], geoip, excluded }: {
-  name: string, id: string, blackmatrix?: string, geosite?: string[], geoip?: string, excluded?: string[],
+].map(({ name, id, blackmatrix, geosite = [], geoip, ipSources = [], excluded }: {
+  name: string, id: string, blackmatrix?: string, geosite?: string[], geoip?: string, ipSources?: string[], excluded?: string[],
 }): SpecialRuleConfig => ({
   name,
   targetFile: `List/${id}.list`,
@@ -186,10 +188,13 @@ const serviceRules: SpecialRuleConfig[] = [
     ...(blackmatrix ? [`${BLACKMATRIX_SURGE}/${blackmatrix}/${blackmatrix}.list`] : []),
     ...geosite.map(category => `${META_RULES}/geosite/${category}.list`),
     ...(geoip ? [`${META_RULES}/geoip/${geoip}.list`] : []),
+    ...ipSources,
   ],
   description: blackmatrix
     ? 'Service rules from blackmatrix7.'
-    : 'Service rules from MetaCubeX domain and IP categories.',
+    : (ipSources.length > 0
+      ? 'Service rules from MetaCubeX domain categories and the service\'s published IP ranges.'
+      : 'Service rules from MetaCubeX domain and IP categories.'),
   targets: ['surge', 'clash', 'singbox', 'loon'],
   defaultPolicy: null,
   applyNoResolve: true,

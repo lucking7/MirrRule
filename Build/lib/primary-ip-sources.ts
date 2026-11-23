@@ -102,6 +102,191 @@ export function isRipestatAnnouncedPrefixesUrl(value: string): boolean {
   return extractRipestatAsn(value) !== null;
 }
 
+/** Google's published ranges; goog.json includes the Google Cloud customer ranges in cloud.json. */
+export const GOOGLE_IP_RANGES_URL = 'https://www.gstatic.com/ipranges/goog.json';
+export const GOOGLE_CLOUD_IP_RANGES_URL = 'https://www.gstatic.com/ipranges/cloud.json';
+
+export function isGoogleIpRangesUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:'
+      && url.hostname.toLowerCase() === 'www.gstatic.com'
+      && url.pathname === '/ipranges/goog.json'
+      && !url.search;
+  } catch {
+    return false;
+  }
+}
+
+/** Parse a gstatic ipranges document; every prefix must be a valid, not overly broad CIDR. */
+export function parseGoogleIpRanges(json: unknown, label: string): string[] {
+  if (
+    !isObject(json)
+    || typeof json.syncToken !== 'string'
+    || typeof json.creationTime !== 'string'
+    || !Array.isArray(json.prefixes)
+  ) {
+    throw new Error(`${label}: expected syncToken, creationTime and a prefixes array`);
+  }
+  const cidrs: string[] = [];
+  for (const [index, entry] of json.prefixes.entries()) {
+    if (!isObject(entry)) throw new Error(`${label}: invalid prefix entry at index ${index}`);
+    const values = [entry.ipv4Prefix, entry.ipv6Prefix].filter(value => value !== undefined);
+    if (values.length !== 1 || typeof values[0] !== 'string') {
+      throw new Error(`${label}: entry ${index} must have exactly one ipv4Prefix or ipv6Prefix`);
+    }
+    const cidr = normalizeValidatedCidr(values[0]);
+    if (cidr === null) throw new Error(`${label}: invalid prefix at index ${index}: ${values[0]}`);
+    if (cidr.includes(':') !== (entry.ipv6Prefix !== undefined)) {
+      throw new Error(`${label}: prefix at index ${index} is in the wrong address family: ${cidr}`);
+    }
+    cidrs.push(cidr);
+  }
+  if (cidrs.length === 0) throw new Error(`${label}: no prefixes`);
+  return cidrs;
+}
+
+/**
+ * Google-operated ranges: goog.json minus cloud.json, the subtraction Google documents for
+ * separating its own services from addresses assigned to Google Cloud customers.
+ */
+export function excludeGoogleCloudRanges(google: readonly string[], cloud: readonly string[]): string[] {
+  const result: string[] = [];
+  for (const v6 of [false, true]) {
+    const removed: AddressRange[] = [];
+    for (const cidr of cloud) {
+      const range = parseAddressRange(cidr);
+      if (range.v6 === v6) removed.push(range);
+    }
+    const mergedRemoved = mergeAddressRanges(removed);
+    const kept: AddressRange[] = [];
+    for (const cidr of google) {
+      const range = parseAddressRange(cidr);
+      if (range.v6 === v6) kept.push(...subtractAddressRanges(range, mergedRemoved));
+    }
+    for (const range of mergeAddressRanges(kept)) result.push(...addressRangeToCidrs(range));
+  }
+  return result;
+}
+
+// fast-cidr-tools collapses IPv6 prefixes (2001:4860::/32 becomes /64), so ranges are computed here.
+interface AddressRange { v6: boolean, start: bigint, end: bigint }
+
+function parseAddressBits(address: string, v6: boolean): bigint {
+  // Shifting leaves the low bits zero, so adding each field is the same as OR-ing it in.
+  if (!v6) return address.split('.').reduce((value, octet) => (value << 8n) + BigInt(Number(octet)), 0n);
+  const parts = address.toLowerCase().split('::');
+  if (parts.length > 2) throw new Error(`Invalid IPv6 address: ${address}`);
+  const headGroups = parts[0] ? parts[0].split(':') : [];
+  const tailGroups = parts.length === 2 && parts[1] ? parts[1].split(':') : [];
+  const groups = parts.length === 1
+    ? headGroups
+    : [...headGroups, ...Array.from({ length: 8 - headGroups.length - tailGroups.length }, () => '0'), ...tailGroups];
+  if (groups.length !== 8) throw new Error(`Invalid IPv6 address: ${address}`);
+  return groups.reduce((value, group) => (value << 16n) + BigInt(Number.parseInt(group, 16)), 0n);
+}
+
+function parseAddressRange(cidr: string): AddressRange {
+  const [address, length] = cidr.split('/');
+  const v6 = address.includes(':');
+  const hostBits = BigInt((v6 ? 128 : 32) - Number(length));
+  const start = (parseAddressBits(address, v6) >> hostBits) << hostBits;
+  return { v6, start, end: start + (1n << hostBits) - 1n };
+}
+
+function mergeAddressRanges(ranges: readonly AddressRange[]): AddressRange[] {
+  const merged: AddressRange[] = [];
+  for (const range of [...ranges].sort((a, b) => (a.start < b.start ? -1 : (a.start > b.start ? 1 : 0)))) {
+    const last = merged.at(-1);
+    if (last && range.start <= last.end + 1n) {
+      if (range.end > last.end) last.end = range.end;
+    } else {
+      merged.push({ ...range });
+    }
+  }
+  return merged;
+}
+
+function subtractAddressRanges(range: AddressRange, removed: readonly AddressRange[]): AddressRange[] {
+  const kept: AddressRange[] = [];
+  let start = range.start;
+  for (const cut of removed) {
+    if (cut.end < start || cut.start > range.end) continue;
+    if (cut.start > start) kept.push({ v6: range.v6, start, end: cut.start - 1n });
+    start = cut.end + 1n;
+    if (start > range.end) return kept;
+  }
+  kept.push({ v6: range.v6, start, end: range.end });
+  return kept;
+}
+
+function formatAddress(value: bigint, v6: boolean): string {
+  if (!v6) return [24n, 16n, 8n, 0n].map(shift => String((value >> shift) & 0xFFn)).join('.');
+  const groups = Array.from({ length: 8 }, (_, index) => Number((value >> BigInt((7 - index) * 16)) & 0xFFFFn));
+  let bestStart = -1;
+  let bestLength = 1;
+  for (let index = 0; index < 8;) {
+    if (groups[index] !== 0) { index++; continue; }
+    let end = index;
+    while (end < 8 && groups[end] === 0) end++;
+    if (end - index > bestLength) { bestStart = index; bestLength = end - index; }
+    index = end;
+  }
+  const hex = groups.map(group => group.toString(16));
+  if (bestStart === -1) return hex.join(':');
+  return `${hex.slice(0, bestStart).join(':')}::${hex.slice(bestStart + bestLength).join(':')}`;
+}
+
+function addressRangeToCidrs({ v6, start, end }: AddressRange): string[] {
+  const bits = v6 ? 128n : 32n;
+  const cidrs: string[] = [];
+  let cursor = start;
+  while (cursor <= end) {
+    let hostBits = 0n;
+    while (
+      hostBits < bits
+      && (cursor & ((1n << (hostBits + 1n)) - 1n)) === 0n
+      && cursor + (1n << (hostBits + 1n)) - 1n <= end
+    ) hostBits++;
+    cidrs.push(`${formatAddress(cursor, v6)}/${bits - hostBits}`);
+    cursor += 1n << hostBits;
+  }
+  return cidrs;
+}
+
+export async function loadGoogleOwnedIpRules(
+  url: string = GOOGLE_IP_RANGES_URL,
+  options: PrimaryIpLoadOptions & { cloudUrl?: string } = {}
+): Promise<string[]> {
+  const fetchFn = options.fetchFn ?? $$fetch;
+  const cloudUrl = options.cloudUrl ?? GOOGLE_CLOUD_IP_RANGES_URL;
+  console.log(picocolors.gray(`[primary-ip] Loading Google IP ranges: ${url} minus ${cloudUrl}`));
+
+  try {
+    const fetchJson = async (target: string): Promise<unknown> => {
+      const response = await fetchFn(target, {
+        headers: { 'User-Agent': UA_SURGE_MAC, Accept: 'application/json' },
+      });
+      return response.json();
+    };
+    const [google, cloud] = await Promise.all([fetchJson(url), fetchJson(cloudUrl)]);
+    const owned = excludeGoogleCloudRanges(
+      parseGoogleIpRanges(google, 'goog.json'),
+      parseGoogleIpRanges(cloud, 'cloud.json')
+    );
+    if (owned.length === 0 && !options.allowEmpty) {
+      throw new Error('No Google ranges remain after removing Google Cloud customer ranges');
+    }
+    const rules = formatCidrRules(owned);
+    console.log(picocolors.green(`[primary-ip] Loaded ${rules.length} Google CIDRs outside Google Cloud customer ranges`));
+    return rules;
+  } catch (error) {
+    console.error(picocolors.red(`[primary-ip] Failed to load Google IP ranges: ${url}`), error);
+    if (options.throwOnError) throw error;
+    return [];
+  }
+}
+
 /**
  * Parse only the "Inbound IP addresses" section of Anthropic's official Markdown documentation,
  * ignoring Outbound and Phased out sections.

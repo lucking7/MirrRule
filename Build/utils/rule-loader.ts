@@ -9,8 +9,10 @@ import { $$fetch, defaultRequestInit } from './network/fetch-retry';
 import { IPValidator } from './validation/validators';
 import {
   isAnthropicIpDocsUrl,
+  isGoogleIpRangesUrl,
   isRipestatAnnouncedPrefixesUrl,
   loadAnthropicDocsIpRules,
+  loadGoogleOwnedIpRules,
   loadRipestatAsnRules,
 } from '../lib/primary-ip-sources';
 
@@ -180,6 +182,9 @@ export async function loadRules(
     }
     if (isRipestatAnnouncedPrefixesUrl(source)) {
       return loadRipestatAsnRules(source, options);
+    }
+    if (isGoogleIpRangesUrl(source)) {
+      return loadGoogleOwnedIpRules(source, options);
     }
     if (isSingboxJsonUrl(source)) {
       return loadFromSingboxJson(source, options);
