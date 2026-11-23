@@ -13,9 +13,9 @@ export interface GitHubClient {
 }
 
 export class GitHubApiError extends Error {
+  // eslint-disable-next-line sukka/unicorn/custom-error-definition -- preserve the structured publication constructor
   constructor(
     readonly method: string,
-    // eslint-disable-next-line sukka/unicorn/custom-error-definition -- structured publication fields precede the message
     readonly apiPath: string,
     readonly status: number,
     detail: string

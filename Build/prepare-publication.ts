@@ -268,6 +268,7 @@ async function bootstrap(args: string[]): Promise<number> {
 async function renderPublic(args: string[]): Promise<number> {
   const { values } = parseArgs({ args, options: { 'built-at': { type: 'string' }, removed: { type: 'string' } } });
   const builtAt = new Date(requireOption(values, 'built-at'));
+  // eslint-disable-next-line sukka/unicorn/prefer-type-error -- an invalid date string is a CLI input error
   if (Number.isNaN(builtAt.getTime())) throw new Error('--built-at must be an ISO date');
   const removed = JSON.parse(values.removed ?? '[]') as string[];
   const publicDir = process.env.PUBLIC_DIR;
