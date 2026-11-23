@@ -109,8 +109,7 @@ export async function loadVariantAvailability(auditPath: string): Promise<Varian
     throw new Error('Unable to read rule output audit', { cause: error });
   }
   const rulesets = (data as { rulesets?: unknown } | null)?.rulesets;
-  // eslint-disable-next-line sukka/unicorn/prefer-type-error -- preserve the error for a malformed audit report
-  if (!Array.isArray(rulesets)) throw new Error('Rule output audit has no rulesets list');
+  if (!Array.isArray(rulesets)) throw new TypeError('Rule output audit has no rulesets list');
   for (const ruleset of rulesets as Array<{ id?: unknown, outputs?: unknown } | null>) {
     if (typeof ruleset?.id !== 'string' || !Array.isArray(ruleset.outputs)) continue;
     for (const output of ruleset.outputs as Array<Record<string, unknown> | null>) {
