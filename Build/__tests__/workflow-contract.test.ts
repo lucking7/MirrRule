@@ -417,20 +417,31 @@ describe('GitHub Actions workflow contract', () => {
   });
 
   it('uses the same pinned setup-python action before installing Python dependencies', () => {
-    const consumers = [
-      ['convert-plugins', 'Install browser gateway dependencies'],
-      ['build', 'Install GeoIP country builder'],
-    ] as const;
+    const pipJobIds: string[] = [];
     const pythonActions = new Set<string>();
-    for (const [jobId, installStepName] of consumers) {
-      const job = getJob(jobId);
-      const steps = job.steps ?? [];
-      const pythonSetup = steps.find((step) => step.uses?.startsWith('actions/setup-python@'));
-      assert.ok(pythonSetup?.uses, `job ${jobId} should set up Python`);
-      assert.match(pythonSetup.uses, /^actions\/setup-python@[a-f0-9]{40}$/);
-      assert.equal(pythonSetup.with?.['python-version'], '3.11');
-      assert.ok(steps.indexOf(pythonSetup) < steps.indexOf(getStep(job, installStepName)));
-      pythonActions.add(pythonSetup.uses);
+    if (workflow.jobs) {
+      for (const [jobId, job] of Object.entries(workflow.jobs)) {
+        const steps = job.steps ?? [];
+        const installIndex = steps.findIndex((step) => /\bpip3?\s+install\b/.test(step.run ?? ''));
+        if (installIndex === -1) continue;
+
+        pipJobIds.push(jobId);
+        const pythonSetup = steps.find((step) => step.uses?.startsWith('actions/setup-python@'));
+        assert.ok(pythonSetup?.uses, `job ${jobId} should set up Python`);
+        assert.match(pythonSetup.uses, /^actions\/setup-python@[a-f0-9]{40}$/);
+        assert.equal(pythonSetup.with?.['python-version'], '3.11');
+        assert.ok(
+          steps.indexOf(pythonSetup) < installIndex,
+          `job ${jobId} should set up Python before running pip install`,
+        );
+        pythonActions.add(pythonSetup.uses);
+      }
+    }
+    for (const expectedJobId of ['build', 'convert-plugins', 'verify-kelee']) {
+      assert.ok(
+        pipJobIds.includes(expectedJobId),
+        `job ${expectedJobId} should be discovered as a pip-installing job`,
+      );
     }
     assert.equal(pythonActions.size, 1);
   });
