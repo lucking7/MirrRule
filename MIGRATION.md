@@ -13,7 +13,7 @@ MirrRule 是构建型规则聚合项目：下载上游成品规则，清洗、�
 | 规则聚合、多平台输出    | [Build/index.ts](Build/index.ts)、[rule-source-processor.ts](Build/lib/rule-source-processor.ts)、[enhanced-file-output.ts](Build/lib/enhanced-file-output.ts) | `public/List/*.list`、`Clash/*.txt`、`Loon/*.list`、`sing-box/*.json`；不同平台会丢弃不支持或非法规则，查看构建日志 |
 | GeoIP 下载              | [download-geoip.ts](Build/download-geoip.ts)                                                                                                                   | `public/GeoIP/*.mmdb`；临时文件验证大小后替换                                                                       |
 | GeoIP 国家库            | [build-geoip-country.py](Build/build-geoip-country.py)                                                                                                         | `public/GeoIP/country.mmdb`；本地运行需要 `maxminddb` 与 Loyalsoldier/geoip 转换器，`pnpm run build` 不生成          |
-| Release 镜像            | [sync-mirrors.ts](Build/sync-mirrors.ts)、[mirror-config.ts](Build/integration/mirror-sync/mirror-config.ts)                                                   | `public/Mirror/{iRingo,DualSubs,BiliUniverse}`                                                                      |
+| Release 与分支镜像      | [sync-mirrors.ts](Build/sync-mirrors.ts)、[mirror-config.ts](Build/integration/mirror-sync/mirror-config.ts)                                                   | `public/Mirror/{iRingo,DualSubs,BiliUniverse,GetSomeFries}`；前 3 组同步 Release，`GetSomeFries` 无 Release，按 `main` 分支固定文件读取 |
 | Sukka、fmz200 镜像      | [download-mock-modules.ts](Build/download-mock-modules.ts)、[download-fmz200-split.ts](Build/download-fmz200-split.ts)                                         | `public/Mirror/Sukka/{mock,sgmodule}`、`public/Mirror/fmz200/sgmodule`                                              |
 | Loon 插件转换与脚本镜像 | [convert-plugins.ts](Build/convert-plugins.ts)、[plugin-converter](Build/integration/plugin-converter)                                                         | `public/Modules/Converted`、`public/Scripts`；Script-Hub 转换、本地 fallback、依赖脚本发布检查                      |
 | Surge 模块合并          | [merge-modules.ts](Build/merge-modules.ts)、[module-merger](Build/lib/module-merger)                                                                           | `public/Modules/Merged/All-in-One-Pro.sgmodule`（`Modules/Rules/reject-pro.list` 已于 2026-11-16 退休）               |
@@ -176,7 +176,7 @@ pnpm run download-fmz200-split
 pnpm run build-web
 ```
 
-第一条只同步 Release 镜像组，不包括后两条。也可用 `pnpm run mirror:iringo`、`mirror:dualsubs`、`mirror:biliuniverse` 分组运行。iRingo 模块会将 `Proxy` 参数改为 `🇺🇸`，迁移时确认这是否符合自己的策略组命名。地图、TestFlight、Siri 模块已因苹果证书固定失效，2026-11-16 起不再镜像，旧地址返回 404。
+第一条同步 `iRingo`、`DualSubs`、`BiliUniverse` 三个 Release 镜像组以及 `GetSomeFries`（无 Release，按 `main` 分支固定文件读取），不包括后两条。也可用 `pnpm run mirror:iringo`、`pnpm run mirror:dualsubs`、`pnpm run mirror:biliuniverse`、`pnpm run mirror:getsomefries` 分组运行。iRingo 模块会将 `Proxy` 参数改为 `🇺🇸`，迁移时确认这是否符合自己的策略组命名。地图、TestFlight、Siri 模块已因苹果证书固定失效，2026-11-16 起不再镜像，旧地址返回 404。
 
 遇到限流或上游失效，保留日志和已下载的文件，停止把本次输出视为完整快照。Release 下载具备校验与保留旧文件逻辑，但第一次运行没有旧文件可以兜底。
 

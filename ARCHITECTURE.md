@@ -26,19 +26,19 @@ Build/index.ts
 
 Canonical rule collections deduplicate through Trie/Set storage, then platform writers apply their fixed output order. Logical output validation rejects a complete expression when a child cannot be represented by its platform. Base/Loon and Surge share recursive validation; Clash keeps its platform conversion and shares the quote-aware field splitter. sing-box rejects unsupported logical output. Rule source configuration does not switch either behavior per source.
 
-Service subscriptions use `specialRules` with MetaCubeX text geosite categories only; Netflix also merges MetaCubeX geoip CIDRs, and BiliBili merges the `bilibili` and `biliintl` categories. WeChat remains a single blackmatrix7 source because MetaCubeX has no WeChat category. `smartConvertRule` normalizes numeric-leading domains and bare IPv4/IPv6 CIDRs before they enter the same canonical collections. `sourceFiles` are complementary inputs, not fallback URLs. When a source cannot be downloaded, the whole ruleset is republished from the accepted baseline's source snapshot with a build warning, so one unreachable upstream does not stop the others; without a usable snapshot the build fails.
+Service subscriptions use `specialRules` with MetaCubeX text geosite categories; Netflix also merges MetaCubeX geoip CIDRs, Google also merges Google's published `goog.json` minus `cloud.json` (`Build/lib/primary-ip-sources.ts`) instead of MetaCubeX `geoip/google`, and BiliBili merges the `bilibili` and `biliintl` categories. WeChat remains a single blackmatrix7 source because MetaCubeX has no WeChat category. `smartConvertRule` normalizes numeric-leading domains and bare IPv4/IPv6 CIDRs before they enter the same canonical collections. `sourceFiles` are complementary inputs, not fallback URLs. When a source cannot be downloaded, the whole ruleset is republished from the accepted baseline's source snapshot with a build warning, so one unreachable upstream does not stop the others; without a usable snapshot the build fails.
 
 ## Upstream artifacts
 
-Mirror sources use release adapters behind one artifact synchronization module. Release assets are filtered before download, validated before publication, and replaced through the shared atomic-file primitive, so a failed download or post-process keeps the last-known-good file. Add another adapter only when a production source requires one.
+Mirror sources use release adapters behind one artifact synchronization module, or a repository may list `branchFiles` instead: fixed paths read from a branch over `raw.githubusercontent.com` without a token (`GetSomeFries`), all required. Release assets and branch files are filtered before download, validated before publication, and replaced through the shared atomic-file primitive, so a failed download or post-process keeps the last-known-good file. Add another adapter only when a production source requires one.
 
 `SyncResult.failed` is the sole failure list for release mirrors. The CLI and summaries derive their counts and messages from it, so the reported failures match the required-failure decision. The fmz200 CLI uses the shared `task()` entry point once per invocation.
 
-`NSRingo/Siri` is release-driven. The mirror accepts the `iRingo.Siri`, `iRingo.Search`, and `iRingo.Spotlight` asset families and does not build the upstream `dev` branch.
+The iRingo mirror syncs only `NSRingo/WeatherKit`, `NSRingo/News`, and `NSRingo/TV`. `iRingo.Maps`, `iRingo.Siri`, `iRingo.Search`, `iRingo.Spotlight`, and `iRingo.TestFlight` were retired on 2026-11-16 because Apple pins their certificates, and their paths are registered as retired in `Build/lib/artifact-lifecycle.ts`.
 
 `tarball-utils` owns source selection and streaming transport for the previous-build and Sukka mock/module CLIs; extraction, filtering, category labels, and lifecycle remain with each CLI. Source inventory and health reports share URL redaction without changing source identity.
 
-Source health probes carry the same request profile as their build source. Rule inputs use the Surge User-Agent, while GitHub release metadata uses the mirror User-Agent.
+Source health probes carry the same request profile as their build source. Rule inputs (including `cloud.json`, listed alongside `goog.json` in the source inventory) use the Surge User-Agent, while GitHub release metadata and raw branch files use the mirror User-Agent.
 
 ## Plugin artifacts
 
