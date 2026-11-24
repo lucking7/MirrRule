@@ -159,11 +159,15 @@ export const ruleGroups: RuleGroup[] = [
 
 const BLACKMATRIX_SURGE = 'https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge';
 const META_RULES = 'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo';
+const ANTHROPIC_IP_SOURCES = [
+  // Official inbound addresses and current AS399358 announcements, verified against RIR RDAP.
+  'https://platform.claude.com/docs/en/api/ip-addresses.md',
+  'https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS399358',
+];
 
 // Keep service subscriptions separate from the existing regional/aggregate rulesets.
 // Services use MetaCubeX geosite categories, plus a service-owned IP source where one exists. WeChat keeps
-// blackmatrix7 because MetaCubeX has no WeChat category. `excluded` drops blackmatrix7 entries
-// shared by unrelated sites, which would route them through the service policy.
+// blackmatrix7 because MetaCubeX has no WeChat category.
 const serviceRules: SpecialRuleConfig[] = [
   { name: 'Netflix', id: 'netflix', geosite: ['netflix'], geoip: 'netflix' },
   { name: 'Disney', id: 'disney', geosite: ['disney'] },
@@ -177,10 +181,31 @@ const serviceRules: SpecialRuleConfig[] = [
   { name: 'WeChat', id: 'wechat', blackmatrix: 'WeChat' },
   // MetaCubeX geoip/google also covers Google Cloud customer addresses; use Google's own
   // published ranges minus its Cloud customer ranges instead.
-  { name: 'Google', id: 'google', geosite: ['google'], ipSources: ['https://www.gstatic.com/ipranges/goog.json'] },
+  { name: 'Google', id: 'google', geosite: ['google'], additionalSources: ['https://www.gstatic.com/ipranges/goog.json'] },
   { name: 'GitHub', id: 'github', geosite: ['github'] },
-].map(({ name, id, blackmatrix, geosite = [], geoip, ipSources = [], excluded }: {
-  name: string, id: string, blackmatrix?: string, geosite?: string[], geoip?: string, ipSources?: string[], excluded?: string[],
+  {
+    name: 'OpenAI',
+    id: 'openai',
+    geosite: ['openai'],
+    additionalSources: ['https://openai.com/chatgpt-voice.json', require.resolve('../assets/openai-domains.ts')],
+    excluded: [
+      'DOMAIN,browser-intake-datadoghq.com',
+      'DOMAIN-SUFFIX,host.livekit.cloud',
+      'DOMAIN-SUFFIX,turn.livekit.cloud',
+    ],
+  },
+  {
+    name: 'Anthropic',
+    id: 'anthropic',
+    geosite: ['anthropic'],
+    additionalSources: ANTHROPIC_IP_SOURCES,
+    excluded: ['DOMAIN,http-intake.logs.us5.datadoghq.com'],
+    // The existing AI rules allow DNS resolution for the provider's CIDRs and ASN.
+    applyNoResolve: false,
+  },
+].map(({ name, id, blackmatrix, geosite = [], geoip, additionalSources = [], excluded, applyNoResolve = true }: {
+  name: string, id: string, blackmatrix?: string, geosite?: string[], geoip?: string,
+  additionalSources?: string[], excluded?: string[], applyNoResolve?: boolean,
 }): SpecialRuleConfig => ({
   name,
   targetFile: `List/${id}.list`,
@@ -188,16 +213,16 @@ const serviceRules: SpecialRuleConfig[] = [
     ...(blackmatrix ? [`${BLACKMATRIX_SURGE}/${blackmatrix}/${blackmatrix}.list`] : []),
     ...geosite.map(category => `${META_RULES}/geosite/${category}.list`),
     ...(geoip ? [`${META_RULES}/geoip/${geoip}.list`] : []),
-    ...ipSources,
+    ...additionalSources,
   ],
   description: blackmatrix
     ? 'Service rules from blackmatrix7.'
-    : (ipSources.length > 0
+    : (additionalSources.length > 0
       ? 'Service rules from MetaCubeX domain categories and the service\'s published IP ranges.'
       : 'Service rules from MetaCubeX domain and IP categories.'),
   targets: ['surge', 'clash', 'singbox', 'loon'],
   defaultPolicy: null,
-  applyNoResolve: true,
+  applyNoResolve,
   ...(excluded && { excludedRules: excluded }),
 }));
 
@@ -268,10 +293,7 @@ export const specialRules: SpecialRuleConfig[] = [
       'https://github.com/dler-io/Rules/raw/main/Surge/Surge%203/Provider/AI%20Suite.list',
       // Use Meta's text geosite format; the JSON path cannot preserve every field.
       `${META_RULES}/geosite/category-ai-!cn.list`,
-      // Official Anthropic inbound IP documentation (Markdown), cross-checked against RIR RDAP.
-      'https://platform.claude.com/docs/en/api/ip-addresses.md',
-      // Live global BGP announced prefixes for AS399358, cross-checked against RIR RDAP.
-      'https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS399358',
+      ...ANTHROPIC_IP_SOURCES,
     ],
     defaultPolicy: null, // 无策略，纯RULE-SET格式
     targets: ['surge', 'clash', 'singbox', 'loon'], // 多平台支持

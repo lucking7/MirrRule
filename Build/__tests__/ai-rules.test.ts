@@ -11,6 +11,7 @@ import {
   isAnthropicIpDocsUrl,
   isRipestatAnnouncedPrefixesUrl,
   loadAnthropicDocsIpRules,
+  loadOpenAiVoiceIpRules,
   loadRipestatAsnRules,
 } from '../lib/primary-ip-sources';
 import { RuleSourceProcessor } from '../lib/rule-source-processor';
@@ -19,10 +20,38 @@ import { createSpan } from '../trace';
 import { loadRules } from '../utils/rule-loader';
 
 const RIPESTAT_AS399358_URL = 'https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS399358';
+const OPENAI_VOICE_URL = 'https://openai.com/chatgpt-voice.json';
 
-test('AI combines RDAP-verified Anthropic official docs and RIPEstat BGP CIDRs across all four platforms', async t => {
+function readRulesFile(file: string): string[] {
+  const rules: string[] = [];
+  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#')) rules.push(trimmed);
+  }
+  return rules.sort();
+}
+
+function readSingboxConditions(file: string): Record<string, string[]> {
+  const json = JSON.parse(fs.readFileSync(file, 'utf8')) as {
+    version: number;
+    rules: Array<Record<string, string[]>>;
+  };
+  assert.equal(json.version, 2);
+  assert.equal(json.rules.length, 1);
+  const conditions: Record<string, string[]> = {};
+  for (const [key, values] of Object.entries(json.rules[0])) {
+    if (values.length > 0) conditions[key] = values.sort();
+  }
+  return conditions;
+}
+
+test('publishes aggregate and provider AI rules with their original IP matching behavior on all four platforms', async t => {
   const ai = specialRules.find(rule => rule.targetFile === 'List/ai.list');
+  const openai = specialRules.find(rule => rule.targetFile === 'List/openai.list');
+  const anthropic = specialRules.find(rule => rule.targetFile === 'List/anthropic.list');
   assert.ok(ai);
+  assert.ok(openai);
+  assert.ok(anthropic);
   assert.ok(ai.sourceFiles.includes(ANTHROPIC_IP_DOCS_URL));
   assert.ok(ai.sourceFiles.includes(RIPESTAT_AS399358_URL));
 
@@ -31,6 +60,18 @@ test('AI combines RDAP-verified Anthropic official docs and RIPEstat BGP CIDRs a
     'https://ruleset.skk.moe/List/ip/ai.conf': 'IP-CIDR,198.51.100.0/24,no-resolve\nIP-ASN,399358\n',
     'https://github.com/dler-io/Rules/raw/main/Surge/Surge%203/Provider/AI%20Suite.list': 'DOMAIN,api.ai.test,AI\nDOMAIN,maps.googleapis.com,AI\nDOMAIN-SUFFIX,intercom.io,AI\n',
     'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ai-!cn.list': '+.openai.com\n+.anthropic.com\nfull:meta.ai.test\n',
+    'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/openai.list': [
+      '+.openai.com', '+.chatgpt.com', '+.chatgpt.livekit.cloud', '+.host.livekit.cloud', '+.turn.livekit.cloud',
+      'openaiassets.blob.core.windows.net', 'o33249.ingest.sentry.io', 'browser-intake-datadoghq.com',
+    ].join('\n'),
+    'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/anthropic.list': [
+      '+.anthropic.com', '+.claude.ai', '+.claude.com', '+.claudeusercontent.com', '+.claudemcpcontent.com',
+      'servd-anthropic-website.b-cdn.net', 'http-intake.logs.us5.datadoghq.com', 'o1158394.ingest.us.sentry.io',
+    ].join('\n'),
+    [OPENAI_VOICE_URL]: JSON.stringify({
+      creationTime: '2026-11-23T00:00:00Z',
+      prefixes: [{ ipv4Prefix: '198.51.100.0/24' }, { ipv6Prefix: '2001:db8:1::/48' }],
+    }),
     [ANTHROPIC_IP_DOCS_URL]: [
       '## Inbound IP addresses',
       '### IPv4',
@@ -116,8 +157,10 @@ test('AI combines RDAP-verified Anthropic official docs and RIPEstat BGP CIDRs a
 
   const rdapBaseUrl = `http://127.0.0.1:${port}/rdap`;
   const testRuleLoader: typeof loadRules = async (source, options) => {
+    if (source.endsWith('.ts')) return loadRules(source, options);
     assert.ok(textFixtures[source], `missing AI fixture: ${source}`);
     const localUrl = `http://127.0.0.1:${port}/${encodeURIComponent(source)}`;
+    if (source === OPENAI_VOICE_URL) return loadOpenAiVoiceIpRules(localUrl, options);
     if (isAnthropicIpDocsUrl(source)) {
       return loadAnthropicDocsIpRules(localUrl, {
         ...options,
@@ -137,9 +180,9 @@ test('AI combines RDAP-verified Anthropic official docs and RIPEstat BGP CIDRs a
   };
 
   const processor = new RuleSourceProcessor(createSpan('ai-rules'), outputDir, testRuleLoader);
-  const stats = await processor.processSpecialRules([ai]);
+  const stats = await processor.processSpecialRules([ai, openai, anthropic]);
   assert.deepEqual(stats.errors, []);
-  assert.equal(stats.filesProcessed, 1);
+  assert.equal(stats.filesProcessed, 3);
 
   const domains = [
     'api.ai.test',
@@ -170,25 +213,10 @@ test('AI combines RDAP-verified Anthropic official docs and RIPEstat BGP CIDRs a
         continue;
       }
       const outputPath = path.join(outputDir, directory, variant, `ai.${extension}`);
-      const lines: string[] = [];
-      for (const line of fs.readFileSync(outputPath, 'utf8').split('\n')) {
-        const trimmed = line.trim();
-        if (trimmed && !trimmed.startsWith('#')) lines.push(trimmed);
-      }
-      assert.deepEqual(lines.sort(), [...expected].sort(), `${directory}/${variant || 'flat'}`);
+      assert.deepEqual(readRulesFile(outputPath), [...expected].sort(), `${directory}/${variant || 'flat'}`);
     }
 
-    const json = JSON.parse(fs.readFileSync(path.join(outputDir, 'sing-box', variant, 'ai.json'), 'utf8')) as {
-      version: number;
-      rules: Array<Record<string, string[]>>;
-    };
-    assert.equal(json.version, 2);
-    assert.equal(json.rules.length, 1);
-    const conditions: Record<string, string[]> = {};
-    for (const [key, values] of Object.entries(json.rules[0])) {
-      if (values.length > 0) conditions[key] = values.sort();
-    }
-    assert.deepEqual(conditions, {
+    assert.deepEqual(readSingboxConditions(path.join(outputDir, 'sing-box', variant, 'ai.json')), {
       ...(variant !== 'ip' && { domain: [...domains].sort(), domain_suffix: [...suffixes].sort() }),
       ...(variant !== 'non_ip' && {
         ip_cidr: [
@@ -200,5 +228,41 @@ test('AI combines RDAP-verified Anthropic official docs and RIPEstat BGP CIDRs a
         ].sort(),
       }),
     }, `sing-box/${variant || 'flat'}`);
+  }
+
+  for (const provider of [
+    {
+      id: 'openai',
+      domains: [
+        'cdn.openaimerge.com', 'o207216.ingest.sentry.io',
+        'o33249.ingest.sentry.io', 'openaiassets.blob.core.windows.net',
+      ],
+      suffixes: ['chatgpt.com', 'chatgpt.livekit.cloud', 'openai.com'],
+      ips: ['IP-CIDR,198.51.100.0/24,no-resolve', 'IP-CIDR6,2001:db8:1::/48,no-resolve'],
+    },
+    {
+      id: 'anthropic',
+      domains: ['o1158394.ingest.us.sentry.io', 'servd-anthropic-website.b-cdn.net'],
+      suffixes: ['anthropic.com', 'claude.ai', 'claude.com', 'claudemcpcontent.com', 'claudeusercontent.com'],
+      ips: ipRules.filter(rule => !rule.includes('no-resolve')),
+    },
+  ]) {
+    const nonIp = [
+      ...provider.domains.map(domain => `DOMAIN,${domain}`),
+      ...provider.suffixes.map(suffix => `DOMAIN-SUFFIX,${suffix}`),
+    ].sort();
+    assert.equal(fs.existsSync(path.join(outputDir, 'List', `${provider.id}.list`)), false);
+    for (const [directory, extension] of [['List', 'conf'], ['Clash', 'txt'], ['Loon', 'list']]) {
+      const outputName = `${provider.id}.${extension}`;
+      assert.deepEqual(readRulesFile(path.join(outputDir, directory, 'non_ip', outputName)), nonIp);
+      assert.deepEqual(readRulesFile(path.join(outputDir, directory, 'ip', outputName)), provider.ips.sort());
+    }
+    assert.deepEqual(readSingboxConditions(path.join(outputDir, 'sing-box', 'non_ip', `${provider.id}.json`)), {
+      domain: provider.domains.sort(),
+      domain_suffix: provider.suffixes.sort(),
+    });
+    assert.deepEqual(readSingboxConditions(path.join(outputDir, 'sing-box', 'ip', `${provider.id}.json`)), {
+      ip_cidr: provider.ips.flatMap(rule => (rule.startsWith('IP-CIDR') ? [rule.split(',')[1]] : [])).sort(),
+    });
   }
 });

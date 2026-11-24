@@ -91,9 +91,11 @@ describe('cross-subscription domain coverage', () => {
     assert.equal(report.subscriptions[1].fullyCoveredDomainRules, 0);
   });
 
-  it('places AppleAI before AI and CDN before broad Google and Amazon subscriptions in the example', () => {
+  it('places provider subscriptions before AI and CDN before broad Google and Amazon subscriptions in the example', () => {
     const files = exampleRoutingOrder.map(([file]) => file);
-    assert.ok(files.indexOf('apple_intelligence') < files.indexOf('ai'));
+    for (const id of ['apple_intelligence', 'openai', 'anthropic']) {
+      assert.ok(files.includes(id) && files.indexOf(id) < files.indexOf('ai'));
+    }
     assert.ok(files.indexOf('cdn') < files.indexOf('google'));
     assert.ok(files.indexOf('cdn') < files.indexOf('amazon'));
   });

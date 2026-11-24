@@ -71,6 +71,14 @@ Surge 与 Loon 保留 `.list`，Clash 输出 classical `.txt`，sing-box 输出 
 
 Surge 通过 `non_ip` 和 `ip` 订阅，其他三个平台另有合并版。规则覆盖比较不代表客户端的实际出口、账号风控或地区解锁已经验证。
 
+### OpenAI 与 Anthropic 独立订阅
+
+`openai` 和 `anthropic` 从 MetaCubeX 各自的域名分类构建。厂商域名与服务专用的第三方主机可以指定独立策略，共用的 Datadog 接收端、通用云域名和第三方身份验证平台继续由后续规则决定。OpenAI 另以精确主机补充其网络文档列出的 `cdn.openaimerge.com`。保留 Meta 分类中的 `chatgpt.livekit.cloud`，共享的 `host.livekit.cloud` 和 `turn.livekit.cloud` 后缀交给原有聚合规则。Meta 的域名文本版还省略了 classical 版中的一条 Azure Web PubSub 正则，因此这组动态主机没有独立厂商规则。聚合 `ai` 继续按原来源构建。[OpenAI 网络要求](https://help.openai.com/en/articles/9247338-network-recommendations-for-chatgpt-errors-on-web-and-apps) · [Claude Code 网络要求](https://code.claude.com/docs/en/network-config)
+
+`ip/openai` 直接读取 [ChatGPT Voice 地址 JSON](https://openai.com/chatgpt-voice.json)，保留 IPv4 和 IPv6 前缀，并给 Surge 的每条 CIDR 加上 `no-resolve`。这份地址清单用于语音服务器，API、网页和认证流量按域名匹配。`ip/anthropic` 复用上述入站文档、RIPEstat 和 RDAP 校验，CIDR 与 ASN 允许为尚未解析的主机名触发 DNS。sing-box 发布 CIDR，平台无法表达的 ASN 与 DNS 标志记入审计。
+
+Surge 对直接连接的 IP 可立即匹配；对域名，按顺序遇到首个需要目标 IP 的规则时才可能触发 DNS。`no-resolve` 让当前规则跳过尚未解析的域名，已有解析结果仍可参与匹配。订阅行上的 `no-resolve` 作用于其中的所有规则。在现有 `ai` 聚合中，Voice CIDR 与 Anthropic 网络规则的 DNS 行为不同，应保留各条规则自己的标志。[Surge IP 规则](https://manual.nssurge.com/rules/ip.html) · [RULE-SET 参数](https://manual.nssurge.com/rules/ruleset.html)
+
 ## CDN、Download 与 Speedtest
 
 | 用途                                         | 采用来源                                           | 选择依据与限制                                                                                 |

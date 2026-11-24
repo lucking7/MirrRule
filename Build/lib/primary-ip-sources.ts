@@ -1,6 +1,6 @@
 /**
- * Automated primary IP/CIDR loaders for first-party documentation and live global BGP routes,
- * cross-verified against authoritative RIR RDAP ownership and prefix containment records.
+ * IP/CIDR loaders for provider-published address ranges and live BGP routes.
+ * Anthropic prefixes are also checked against RIR RDAP ownership and containment records.
  */
 
 import { Buffer } from 'node:buffer';
@@ -15,6 +15,7 @@ import { isNonHtmlText } from './downloaded-text';
 
 export const ANTHROPIC_IP_DOCS_URL = 'https://platform.claude.com/docs/en/api/ip-addresses.md';
 export const ANTHROPIC_ASN = 399358;
+export const OPENAI_VOICE_IP_RANGES_URL = 'https://openai.com/chatgpt-voice.json';
 const DEFAULT_ARIN_RDAP_BASE_URL = 'https://rdap.arin.net/registry';
 const DEFAULT_BOOTSTRAP_RDAP_BASE_URL = 'https://rdap.org';
 
@@ -102,6 +103,10 @@ export function isRipestatAnnouncedPrefixesUrl(value: string): boolean {
   return extractRipestatAsn(value) !== null;
 }
 
+export function isOpenAiVoiceIpRangesUrl(value: string): boolean {
+  return URL.parse(value)?.href === OPENAI_VOICE_IP_RANGES_URL;
+}
+
 /** Google's published ranges; goog.json includes the Google Cloud customer ranges in cloud.json. */
 export const GOOGLE_IP_RANGES_URL = 'https://www.gstatic.com/ipranges/goog.json';
 export const GOOGLE_CLOUD_IP_RANGES_URL = 'https://www.gstatic.com/ipranges/cloud.json';
@@ -128,8 +133,12 @@ export function parseGoogleIpRanges(json: unknown, label: string): string[] {
   ) {
     throw new Error(`${label}: expected syncToken, creationTime and a prefixes array`);
   }
+  return parseIpRangePrefixes(json.prefixes, label);
+}
+
+function parseIpRangePrefixes(prefixes: readonly unknown[], label: string): string[] {
   const cidrs: string[] = [];
-  for (const [index, entry] of json.prefixes.entries()) {
+  for (const [index, entry] of prefixes.entries()) {
     if (!isObject(entry)) throw new Error(`${label}: invalid prefix entry at index ${index}`);
     const values = [entry.ipv4Prefix, entry.ipv6Prefix].filter(value => value !== undefined);
     if (values.length !== 1 || typeof values[0] !== 'string') {
@@ -144,6 +153,33 @@ export function parseGoogleIpRanges(json: unknown, label: string): string[] {
   }
   if (cidrs.length === 0) throw new Error(`${label}: no prefixes`);
   return cidrs;
+}
+
+export async function loadOpenAiVoiceIpRules(
+  url: string = OPENAI_VOICE_IP_RANGES_URL,
+  options: PrimaryIpLoadOptions = {}
+): Promise<string[]> {
+  const fetchFn = options.fetchFn ?? $$fetch;
+  const label = 'ChatGPT Voice IP ranges';
+  console.log(picocolors.gray(`[primary-ip] Loading ${label}: ${url}`));
+
+  try {
+    const response = await fetchFn(url, {
+      headers: { 'User-Agent': UA_SURGE_MAC, Accept: 'application/json' },
+    });
+    const json: unknown = await response.json();
+    if (!isObject(json) || typeof json.creationTime !== 'string' || !Array.isArray(json.prefixes)) {
+      throw new Error(`${label}: expected creationTime and a prefixes array`);
+    }
+    const cidrs = parseIpRangePrefixes(json.prefixes, label);
+    const rules = formatCidrRules(cidrs).map(rule => `${rule},no-resolve`);
+    console.log(picocolors.green(`[primary-ip] Loaded ${rules.length} ChatGPT Voice CIDRs`));
+    return rules;
+  } catch (error) {
+    console.error(picocolors.red(`[primary-ip] Failed to load ${label}: ${url}`), error);
+    if (options.throwOnError) throw error;
+    return [];
+  }
 }
 
 /**

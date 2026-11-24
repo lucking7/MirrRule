@@ -124,6 +124,8 @@ sing-box:
 
 Whether a ruleset has an `ip` variant follows upstream and can change: if you load only `non_ip/<id>`, a later `ip/<id>` is not loaded, and you cannot reference it in advance because a missing variant returns 404. Check your profile against the current audit with `pnpm run node Build/check-profile-variants.ts --profile <profile.conf>`. It exits 1 if a referenced URL is retired or absent, or if a published `non_ip` or `ip` part of a subscribed ruleset is missing from the profile. Use `--audit` to check against a local audit file.
 
+For separate OpenAI and Anthropic policies in Surge, load `List/non_ip/openai.conf` and `List/non_ip/anthropic.conf` before the general `non_ip/ai` subscription. In the IP section, place `List/ip/openai.conf` and `List/ip/anthropic.conf` before `ip/ai`. Assign each provider's two subscriptions to its own policy group. OpenAI's IP file covers ChatGPT Voice servers and uses `no-resolve`. Anthropic's IP file can trigger DNS for an unmatched hostname. Leave the outer `RULE-SET` free of `no-resolve` to retain that behavior. Earlier module rules still take priority.
+
 For a Surge ruleset with only one published classical part, subscribe to that part alone. Equal condition sets do not guarantee the same policy outcome once the variants are rearranged: an `ip` variant can hold logical rules with a domain child, and moving it later delays that domain match. Use the same policy for both variants of a ruleset unless its notes below say otherwise (see `reject`), and review cross-subscription reordering with the coverage audit below.
 
 ## Routing Coverage Audit
@@ -158,6 +160,9 @@ Netflix, Disney, Spotify, Prime Video, YouTube, BiliBili, TikTok, Google and Git
 | `direct` | Direct connection without proxy |
 | `stream` | Streaming services (all regions) |
 | `telegram` | Telegram |
+| `ai` | Aggregate AI routing across providers |
+| `openai` | OpenAI and ChatGPT domains, plus the official ChatGPT Voice server ranges |
+| `anthropic` | Anthropic and Claude domains, inbound API prefixes and verified AS399358 network rules |
 | `youtube` | YouTube |
 | `spotify` | Spotify |
 | `tiktok` | TikTok |

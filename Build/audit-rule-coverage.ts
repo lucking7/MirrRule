@@ -14,6 +14,8 @@ export const exampleRoutingOrder: ReadonlyArray<readonly [string, string]> = [
   ['reject', 'REJECT'],
   ['wechat', 'DIRECT'],
   ['apple_intelligence', 'AppleIntelligence'],
+  ['openai', 'OpenAI'],
+  ['anthropic', 'Anthropic'],
   ['ai', 'AI'],
   ['emby', 'Emby'],
   ['stream', 'Streaming'],

@@ -11,10 +11,13 @@ import {
   GOOGLE_IP_RANGES_URL,
   isAnthropicIpDocsUrl,
   isGoogleIpRangesUrl,
+  isOpenAiVoiceIpRangesUrl,
   isRipestatAnnouncedPrefixesUrl,
   loadAnthropicDocsIpRules,
   loadGoogleOwnedIpRules,
+  loadOpenAiVoiceIpRules,
   loadRipestatAsnRules,
+  OPENAI_VOICE_IP_RANGES_URL,
   parseAnthropicInboundCidrs,
   parseGoogleIpRanges,
   parseRipestatAnnouncedPrefixes,
@@ -441,6 +444,37 @@ describe('end-to-end automated primary IP loaders', () => {
 function googleRanges(prefixes: Array<Record<string, string>>) {
   return { syncToken: '1795400000000', creationTime: '2026-11-22T18:05:36.039917', prefixes };
 }
+
+describe('ChatGPT Voice published IP ranges', () => {
+  it('recognizes the official Voice URL', () => {
+    assert.equal(isOpenAiVoiceIpRangesUrl(OPENAI_VOICE_IP_RANGES_URL), true);
+    assert.equal(isOpenAiVoiceIpRangesUrl('https://openai.com/chatgpt-actions.json'), false);
+    assert.equal(isOpenAiVoiceIpRangesUrl('https://openai.com.example/chatgpt-voice.json'), false);
+    assert.equal(isOpenAiVoiceIpRangesUrl('http://openai.com/chatgpt-voice.json'), false);
+  });
+
+  it('loads both address families with no-resolve and rejects invalid address families or empty feeds', async () => {
+    const creationTime = '2026-11-16T01:33:53.175979+00:00';
+    await withHttpServer((request, response) => {
+      const routes: Record<string, unknown> = {
+        '/voice.json': { creationTime, prefixes: [{ ipv4Prefix: '192.0.2.5/32' }, { ipv6Prefix: '2001:DB8::/32' }] },
+        '/wrong-family.json': { creationTime, prefixes: [{ ipv6Prefix: '192.0.2.5/32' }] },
+        '/empty.json': { creationTime, prefixes: [] },
+      };
+      const body = routes[request.url ?? ''];
+      response.writeHead(body ? 200 : 404, { 'content-type': 'application/octet-stream', 'cache-control': 'no-store' });
+      response.end(JSON.stringify(body ?? {}));
+    }, async baseUrl => {
+      const options = { throwOnError: true };
+      assert.deepEqual(
+        await loadOpenAiVoiceIpRules(`${baseUrl}/voice.json`, options),
+        ['IP-CIDR,192.0.2.5/32,no-resolve', 'IP-CIDR6,2001:db8::/32,no-resolve']
+      );
+      await assert.rejects(loadOpenAiVoiceIpRules(`${baseUrl}/wrong-family.json`, options), /wrong address family/);
+      await assert.rejects(loadOpenAiVoiceIpRules(`${baseUrl}/empty.json`, options), /no prefixes/);
+    });
+  });
+});
 
 describe('Google published IP ranges', () => {
   it('matches only the gstatic goog.json URL', () => {

@@ -10,9 +10,11 @@ import { IPValidator } from './validation/validators';
 import {
   isAnthropicIpDocsUrl,
   isGoogleIpRangesUrl,
+  isOpenAiVoiceIpRangesUrl,
   isRipestatAnnouncedPrefixesUrl,
   loadAnthropicDocsIpRules,
   loadGoogleOwnedIpRules,
+  loadOpenAiVoiceIpRules,
   loadRipestatAsnRules,
 } from '../lib/primary-ip-sources';
 
@@ -185,6 +187,9 @@ export async function loadRules(
     }
     if (isGoogleIpRangesUrl(source)) {
       return loadGoogleOwnedIpRules(source, options);
+    }
+    if (isOpenAiVoiceIpRangesUrl(source)) {
+      return loadOpenAiVoiceIpRules(source, options);
     }
     if (isSingboxJsonUrl(source)) {
       return loadFromSingboxJson(source, options);
