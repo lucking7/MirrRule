@@ -1,5 +1,5 @@
 export const CANONICAL_RULE_TYPES = [
-  'DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN-WILDCARD',
+  'DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'DOMAIN-WILDCARD', 'DOMAIN-REGEX',
   'IP-CIDR', 'IP-CIDR6', 'IP-ASN', 'GEOIP',
   'USER-AGENT', 'PROCESS-NAME', 'PROCESS-PATH', 'URL-REGEX',
   'SRC-IP-CIDR', 'SRC-PORT', 'DEST-PORT', 'PROTOCOL',
@@ -34,7 +34,7 @@ const convertible = (conversion: string): RuleSupport => ({ status: 'convertible
 export const RULE_SUPPORT_MATRIX: Record<RulePlatform, Record<CanonicalRuleType, RuleSupport>> = {
   surge: {
     DOMAIN: supported, 'DOMAIN-SUFFIX': supported, 'DOMAIN-KEYWORD': supported,
-    'DOMAIN-WILDCARD': supported, 'IP-CIDR': supported, 'IP-CIDR6': supported,
+    'DOMAIN-WILDCARD': supported, 'DOMAIN-REGEX': unsupported, 'IP-CIDR': supported, 'IP-CIDR6': supported,
     'IP-ASN': supported, GEOIP: supported, 'USER-AGENT': supported,
     'PROCESS-NAME': supported, 'PROCESS-PATH': convertible('PROCESS-NAME'),
     'URL-REGEX': supported, 'SRC-IP-CIDR': convertible('SRC-IP'),
@@ -43,7 +43,7 @@ export const RULE_SUPPORT_MATRIX: Record<RulePlatform, Record<CanonicalRuleType,
   },
   clash: {
     DOMAIN: supported, 'DOMAIN-SUFFIX': supported, 'DOMAIN-KEYWORD': supported,
-    'DOMAIN-WILDCARD': supported, 'IP-CIDR': supported, 'IP-CIDR6': supported,
+    'DOMAIN-WILDCARD': supported, 'DOMAIN-REGEX': supported, 'IP-CIDR': supported, 'IP-CIDR6': supported,
     'IP-ASN': supported, GEOIP: supported, 'USER-AGENT': unsupported,
     'PROCESS-NAME': supported, 'PROCESS-PATH': supported, 'URL-REGEX': unsupported,
     'SRC-IP-CIDR': convertible('SRC-IP-CIDR/SRC-IP-CIDR6'), 'SRC-PORT': supported,
@@ -52,7 +52,7 @@ export const RULE_SUPPORT_MATRIX: Record<RulePlatform, Record<CanonicalRuleType,
   },
   loon: {
     DOMAIN: supported, 'DOMAIN-SUFFIX': supported, 'DOMAIN-KEYWORD': supported,
-    'DOMAIN-WILDCARD': unsupported, 'IP-CIDR': supported, 'IP-CIDR6': supported,
+    'DOMAIN-WILDCARD': unsupported, 'DOMAIN-REGEX': unsupported, 'IP-CIDR': supported, 'IP-CIDR6': supported,
     'IP-ASN': supported, GEOIP: supported, 'USER-AGENT': supported,
     'PROCESS-NAME': unsupported, 'PROCESS-PATH': supported, 'URL-REGEX': supported,
     'SRC-IP-CIDR': unsupported, 'SRC-PORT': supported, 'DEST-PORT': supported,
@@ -61,7 +61,7 @@ export const RULE_SUPPORT_MATRIX: Record<RulePlatform, Record<CanonicalRuleType,
   },
   singbox: {
     DOMAIN: supported, 'DOMAIN-SUFFIX': supported, 'DOMAIN-KEYWORD': supported,
-    'DOMAIN-WILDCARD': convertible('domainWildCardToRegex'), 'IP-CIDR': supported,
+    'DOMAIN-WILDCARD': convertible('domainWildCardToRegex'), 'DOMAIN-REGEX': convertible('domain_regex'), 'IP-CIDR': supported,
     'IP-CIDR6': convertible('ip_cidr'), 'IP-ASN': unsupported, GEOIP: unsupported,
     'USER-AGENT': unsupported, 'PROCESS-NAME': unsupported, 'PROCESS-PATH': unsupported,
     'URL-REGEX': unsupported, 'SRC-IP-CIDR': unsupported, 'SRC-PORT': unsupported,

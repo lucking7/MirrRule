@@ -126,6 +126,9 @@ export abstract class BaseWriteStrategy {
   abstract writeDomainSuffix(domain: string): void;
   abstract writeDomainKeywords(keyword: Set<string>): void;
   abstract writeDomainWildcard(wildcard: string): void;
+  writeDomainRegexes(patterns: ReadonlySet<string>): void {
+    this.accepts('DOMAIN-REGEX', patterns.size);
+  }
   abstract writeUserAgents(userAgent: Set<string>): void;
   abstract writeProcessNames(processName: Set<string>): void;
   abstract writeProcessPaths(processPath: Set<string>): void;

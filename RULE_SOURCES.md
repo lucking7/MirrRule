@@ -73,7 +73,11 @@ Surge 通过 `non_ip` 和 `ip` 订阅，其他三个平台另有合并版。规�
 
 ### OpenAI 与 Anthropic 独立订阅
 
-`openai` 和 `anthropic` 从 MetaCubeX 各自的域名分类构建。厂商域名与服务专用的第三方主机可以指定独立策略，共用的 Datadog 接收端、通用云域名和第三方身份验证平台继续由后续规则决定。OpenAI 另以精确主机补充其网络文档列出的 `cdn.openaimerge.com`。保留 Meta 分类中的 `chatgpt.livekit.cloud`，共享的 `host.livekit.cloud` 和 `turn.livekit.cloud` 后缀交给原有聚合规则。Meta 的域名文本版还省略了 classical 版中的一条 Azure Web PubSub 正则，因此这组动态主机没有独立厂商规则。聚合 `ai` 继续按原来源构建。[OpenAI 网络要求](https://help.openai.com/en/articles/9247338-network-recommendations-for-chatgpt-errors-on-web-and-apps) · [Claude Code 网络要求](https://code.claude.com/docs/en/network-config)
+`openai` 使用 [MetaCubeX OpenAI classical](https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/classical/openai.list) 的整份规则，并补充官方网络文档中的两个精确主机 `cdn.openaimerge.com` 和 `o207216.ingest.sentry.io`。上游列出的 `host.livekit.cloud`、`turn.livekit.cloud` 后缀和 `browser-intake-datadoghq.com` 也会匹配 OpenAI 策略，其他应用访问这些共享服务时同样适用。[OpenAI 网络要求](https://help.openai.com/en/articles/9247338-network-recommendations-for-chatgpt-errors-on-web-and-apps)
+
+Meta 用域名正则匹配 ChatGPT 在 Azure Web PubSub 的动态主机。Mihomo 和 sing-box 保留该正则。Surge 使用等价的域名通配符匹配有效 DNS 主机名，按数字尾缀的长度展开，避免匹配其他 Azure 主机。Loon 为兼容现有订阅客户端省略此条件，输出审计记录一次 `DOMAIN-REGEX` 损失。若上游更改表达式或新增正则，当前转换器会将未核验的表达式记入审计，需重新核对各平台输出。`domainset` 只含精确域名和后缀，Surge 需要加载 `non_ip` 才能匹配这些动态主机。
+
+`anthropic` 使用 MetaCubeX 的 Anthropic 域名分类，排除共用的 Datadog 接收端。聚合 `ai` 继续使用原有来源。[Claude Code 网络要求](https://code.claude.com/docs/en/network-config)
 
 `ip/openai` 直接读取 [ChatGPT Voice 地址 JSON](https://openai.com/chatgpt-voice.json)，保留 IPv4 和 IPv6 前缀，并给 Surge 的每条 CIDR 加上 `no-resolve`。这份地址清单用于语音服务器，API、网页和认证流量按域名匹配。`ip/anthropic` 复用上述入站文档、RIPEstat 和 RDAP 校验，CIDR 与 ASN 允许为尚未解析的主机名触发 DNS。sing-box 发布 CIDR，平台无法表达的 ASN 与 DNS 标志记入审计。
 

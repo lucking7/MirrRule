@@ -186,13 +186,8 @@ const serviceRules: SpecialRuleConfig[] = [
   {
     name: 'OpenAI',
     id: 'openai',
-    geosite: ['openai'],
+    geosite: ['classical/openai'],
     additionalSources: ['https://openai.com/chatgpt-voice.json', require.resolve('../assets/openai-domains.ts')],
-    excluded: [
-      'DOMAIN,browser-intake-datadoghq.com',
-      'DOMAIN-SUFFIX,host.livekit.cloud',
-      'DOMAIN-SUFFIX,turn.livekit.cloud',
-    ],
   },
   {
     name: 'Anthropic',

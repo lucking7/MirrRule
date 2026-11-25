@@ -32,7 +32,7 @@ const RULE_OUTPUT_AUDIT_SCHEMA_VERSION = 1;
 const SOURCE_SNAPSHOT_SCHEMA_VERSION = 1;
 const SOURCE_DELTA_SCHEMA_VERSION = 1;
 /** Bump when normalization or writer semantics change so old snapshots are not compared directly. */
-export const RULE_OUTPUT_CONVERTER_VERSION = 'mirrrule-rule-output/2';
+export const RULE_OUTPUT_CONVERTER_VERSION = 'mirrrule-rule-output/3';
 const SINGBOX_MATCHER_KEYS = new Set([
   'domain', 'domain_suffix', 'domain_keyword', 'domain_regex', 'ip_cidr',
 ]);

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { createSpan } from '../trace';
 import { EnhancedFileOutput } from '../lib/enhanced-file-output';
-import { recomputeSourceDeltaFromSnapshots, writeRuleOutputReports, readSourceSnapshotFile, writeSourceSnapshotFile, listSourceSnapshotFiles, snapshotEffectiveOutput } from '../lib/output-audit';
+import { RULE_OUTPUT_CONVERTER_VERSION, recomputeSourceDeltaFromSnapshots, writeRuleOutputReports, readSourceSnapshotFile, writeSourceSnapshotFile, listSourceSnapshotFiles, snapshotEffectiveOutput } from '../lib/output-audit';
 import type { RulesetAuditRecord, SourceSnapshot } from '../lib/output-audit';
 import type { SupportedPlatform } from '../lib/platform-config';
 
@@ -293,7 +293,7 @@ describe('normalized source and effective output audits', () => {
     await recomputeSourceDeltaFromSnapshots(candidateDir, { baselineDir, baselineReceiptId: 10 });
     const delta = await readJson<DeltaReport & { converterVersion: string; toolConverterVersion: string }>(path.join(candidateDir, 'Internal/source-delta.json'));
     assert.equal(delta.converterVersion, 'mirrrule-rule-output/1');
-    assert.equal(delta.toolConverterVersion, 'mirrrule-rule-output/2');
+    assert.equal(delta.toolConverterVersion, RULE_OUTPUT_CONVERTER_VERSION);
     assert.equal(delta.sources[0].semanticChanged, true);
     assert.equal(delta.sources[0].added, 1);
     assert.equal(delta.sources[0].removed, 1);

@@ -243,6 +243,56 @@ describe('rule output variants', () => {
     await assertUnionEqualsMerged(makeOutput('microsoft_cdn', rules), ALL_PLATFORMS);
   });
 
+  it('preserves classical domain regex payloads and reports portability losses per platform', async t => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-variants-domain-regex-'));
+    t.after(() => fs.rm(directory, { recursive: true, force: true }));
+    const portable = String.raw`^chatgpt-async-webps-prod-\S+-\d+\.webpubsub\.azure\.com$`;
+    const unverified = String.raw`^tenant(?!-test)-[0-9]{1,3}\.example$`;
+    const invalid = '^invalid[';
+    const rules = ['DOMAIN,other.example', `DOMAIN-REGEX,${portable}`, `DOMAIN-REGEX,${unverified}`, `DOMAIN-REGEX,${invalid}`];
+    const output = makeOutput('domain_regex', rules, { directory, config: { validate: true } });
+    assert.deepEqual(output.getCanonicalConditions(), [...rules].sort());
+    const filtered = makeOutput('domain_regex', [rules[2]], { config: { sourcePolicies: [String.raw`3}\.example$`] } });
+    assert.deepEqual(filtered.getCanonicalConditions(), []);
+    const audit = await output.write();
+
+    const surge = findOutput(audit.outputs, 'surge', 'non_ip');
+    assert.equal(surge.effectiveConditionCount, 63);
+    assert.deepEqual(surge.drops.unsupported, { 'DOMAIN-REGEX': 2 });
+    const unverifiedPatterns = { [`DOMAIN-REGEX:${unverified}`]: 1, [`DOMAIN-REGEX:${invalid}`]: 1 };
+    const clash = findOutput(audit.outputs, 'clash', 'non_ip');
+    assert.deepEqual(clash.drops.unsupported, {});
+    assert.deepEqual(clash.losses.droppedValues, unverifiedPatterns);
+    const clashRules = new Set((await fs.readFile(path.join(directory, clash.path), 'utf8')).split('\n'));
+    assert.ok(clashRules.has(rules[1]));
+    assert.equal(clashRules.has(rules[2]), false);
+    assert.equal(clashRules.has(rules[3]), false);
+    const singbox = findOutput(audit.outputs, 'singbox', 'non_ip');
+    assert.deepEqual(singbox.losses.droppedValues, unverifiedPatterns);
+    const json = JSON.parse(await fs.readFile(path.join(directory, singbox.path), 'utf8')) as SingboxJson;
+    assert.deepEqual(json.rules[0].domain_regex, [portable]);
+    const loon = findOutput(audit.outputs, 'loon', 'non_ip');
+    assert.equal(loon.effectiveConditionCount, 1);
+    assert.deepEqual(loon.drops.unsupported, { 'DOMAIN-REGEX': 3 });
+    for (const platform of ['surge', 'clash', 'singbox'] as const) {
+      const domainset = findOutput(audit.outputs, platform, 'domainset');
+      assert.equal(domainset.routedConditionCount, 1);
+      assert.equal(domainset.effectiveConditionCount, 1);
+    }
+  });
+
+  it('drops a complete Clash logical rule containing an unverified domain regex child', async t => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mirrrule-variants-domain-regex-logical-'));
+    t.after(() => fs.rm(directory, { recursive: true, force: true }));
+    const pattern = String.raw`^foo\d{1,2}$`;
+    const regex = `AND,((DOMAIN-REGEX,${pattern}),(DOMAIN-SUFFIX,test.com))`;
+    const output = makeOutput('domain_regex_logical', [regex, 'DOMAIN,other.example'], { directory, platforms: ['clash'] });
+    const audit = await output.write();
+    const entry = findOutput(audit.outputs, 'clash', 'non_ip');
+    assert.deepEqual(entry.losses.droppedValues, { [`DOMAIN-REGEX:${pattern}`]: 1 });
+    assert.deepEqual(textConditions((await fs.readFile(path.join(directory, entry.path), 'utf8')).split('\n')), ['DOMAIN,other.example']);
+  });
+
   it('splits AI, Telegram and stream-like mixed rules into exclusive variants on every platform', async t => {
     await assertUnionEqualsMerged(makeOutput('mixed', MIXED_RULES), ALL_PLATFORMS);
 

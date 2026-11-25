@@ -3,6 +3,7 @@ import { BaseWriteStrategy } from './base';
 import { withBannerArray, smartConvertRule } from '../../../lib/misc';
 import { RuleLineUtils } from '../../../utils/validation/validators';
 import { cleanPolicy } from '../../../lib/policy-cleaner';
+import { OPENAI_WEB_PUBSUB_DOMAIN_REGEX } from './domain-regex';
 
 export class SurgeRuleSet extends BaseWriteStrategy {
   public readonly platform = 'surge' as const;
@@ -42,6 +43,20 @@ export class SurgeRuleSet extends BaseWriteStrategy {
 
   writeDomainWildcard(wildcard: string): void {
     this.result.push(`DOMAIN-WILDCARD,${wildcard}${this.domainParameter}`);
+  }
+
+  writeDomainRegexes(patterns: ReadonlySet<string>): void {
+    for (const pattern of patterns) {
+      if (pattern !== OPENAI_WEB_PUBSUB_DOMAIN_REGEX) {
+        this.accepts('DOMAIN-REGEX');
+        continue;
+      }
+      // Surge wildcards have no + quantifier. A DNS label is at most 63 bytes,
+      // so enumerate the numeric tail widths after its separating hyphen.
+      for (let width = 1; width <= 62; width++) {
+        this.result.push(`DOMAIN-WILDCARD,chatgpt-async-webps-prod-?*-${'[0-9]'.repeat(width)}.webpubsub.azure.com`);
+      }
+    }
   }
 
   writeUserAgents(userAgent: Set<string>): void {
@@ -104,7 +119,9 @@ export class SurgeRuleSet extends BaseWriteStrategy {
 
   writeOtherRules(rules: string[]): void {
     for (const rule of rules) {
-      if (/^(?:AND|OR|NOT)\s*,/i.test(rule.trim())) {
+      if (/^DOMAIN-REGEX\s*,/i.test(rule.trim())) {
+        this.accepts('DOMAIN-REGEX');
+      } else if (/^(?:AND|OR|NOT)\s*,/i.test(rule.trim())) {
         const converted = this.convertSupportedLogicalRule(this.stripPolicy ? cleanPolicy(rule) : rule.trim(), this.stripPolicy);
         if (converted !== null) this.result.push(converted);
       } else if (this.stripPolicy) {

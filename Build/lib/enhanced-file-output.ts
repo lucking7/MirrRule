@@ -41,6 +41,9 @@ interface PlatformOutputs {
 function ruleExclusionKey(rule: string): string | null {
   const [rawType, rawValue] = rule.split(',', 2);
   const type = rawType.trim().toUpperCase();
+  if (type === 'DOMAIN-REGEX' && rawValue) {
+    return `${type},${rule.slice(rule.indexOf(',') + 1).trim()}`;
+  }
   let value = rawValue?.trim().toLowerCase();
   if (!type || !value || type === 'AND' || type === 'OR' || type === 'NOT') return null;
   if (type === 'DOMAIN-SUFFIX' && value.startsWith('.')) value = value.slice(1);
@@ -68,6 +71,7 @@ export class EnhancedFileOutput {
   private readonly domainTrie = new HostnameSmolTrie(null);
   private readonly wildcardTrie = new HostnameSmolTrie(null);
   private readonly domainKeywords = new Set<string>();
+  private readonly domainRegexes = new Set<string>();
   private readonly domainset: { domains: Array<{ domain: string; suffix: boolean }>; malformed: number } = {
     domains: [],
     malformed: 0,
@@ -216,8 +220,9 @@ export class EnhancedFileOutput {
       }
     }
 
+    const ruleType = this.detectRuleType(normalizedRule);
     if (this.config.sourcePolicies !== undefined) {
-      const sourcePolicy = normalizedRule.split(',').at(2)?.trim().toLowerCase();
+      const sourcePolicy = ruleType === 'domain-regex' ? undefined : normalizedRule.split(',').at(2)?.trim().toLowerCase();
       if (sourcePolicy === undefined || !this.config.sourcePolicies.includes(sourcePolicy)) {
         this.stageCounts.filtered.sourcePolicy++;
         return this;
@@ -229,14 +234,20 @@ export class EnhancedFileOutput {
       return this;
     }
 
+    if (ruleType === 'domain-regex') {
+      // Mihomo classical providers treat the entire remainder as the pattern, including commas.
+      const pattern = normalizedRule.slice(normalizedRule.indexOf(',') + 1).trim();
+      if (pattern) this.domainRegexes.add(pattern);
+      else this.stageCounts.filtered.invalid++;
+      return this;
+    }
+
     if (this.config.applyNoResolve) {
       normalizedRule = this.applyNoResolveParameter(normalizedRule);
     }
 
     const processedRule =
       this.defaultPolicy === null ? cleanPolicy(normalizedRule) : normalizedRule;
-
-    const ruleType = this.detectRuleType(processedRule);
 
     // Surge applies this parameter to every domain rule in the external RULE-SET.
     if (ruleType.startsWith('domain') && processedRule.split(',').slice(2).some(
@@ -534,6 +545,7 @@ export class EnhancedFileOutput {
         this.countTrieNodes() +
         wildcardCount +
         this.domainKeywords.size +
+        this.domainRegexes.size +
         this.userAgent.size +
         this.processName.size +
         this.processPath.size +
@@ -720,6 +732,9 @@ export class EnhancedFileOutput {
     }
     if (this.urlRegex.size) {
       this.route('non_ip', this.urlRegex.size, strategy => strategy.writeUrlRegexes(this.urlRegex));
+    }
+    if (this.domainRegexes.size) {
+      this.route('non_ip', this.domainRegexes.size, strategy => strategy.writeDomainRegexes(this.domainRegexes));
     }
 
     let ipcidr: string[] | null = null;
@@ -1123,6 +1138,7 @@ export class EnhancedFileOutput {
       conditions.add(`DOMAIN-WILDCARD,${wildcard}${domainModifier}`);
     });
     add('DOMAIN-KEYWORD', this.domainKeywords, domainModifier);
+    add('DOMAIN-REGEX', this.domainRegexes);
     add('USER-AGENT', this.userAgent);
     add('PROCESS-NAME', this.processName);
     add('PROCESS-PATH', this.processPath);

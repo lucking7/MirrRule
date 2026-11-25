@@ -21,6 +21,7 @@ import { loadRules } from '../utils/rule-loader';
 
 const RIPESTAT_AS399358_URL = 'https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS399358';
 const OPENAI_VOICE_URL = 'https://openai.com/chatgpt-voice.json';
+const OPENAI_WEB_PUBSUB_REGEX = String.raw`^chatgpt-async-webps-prod-\S+-\d+\.webpubsub\.azure\.com$`;
 
 function readRulesFile(file: string): string[] {
   const rules: string[] = [];
@@ -60,9 +61,16 @@ test('publishes aggregate and provider AI rules with their original IP matching 
     'https://ruleset.skk.moe/List/ip/ai.conf': 'IP-CIDR,198.51.100.0/24,no-resolve\nIP-ASN,399358\n',
     'https://github.com/dler-io/Rules/raw/main/Surge/Surge%203/Provider/AI%20Suite.list': 'DOMAIN,api.ai.test,AI\nDOMAIN,maps.googleapis.com,AI\nDOMAIN-SUFFIX,intercom.io,AI\n',
     'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/category-ai-!cn.list': '+.openai.com\n+.anthropic.com\nfull:meta.ai.test\n',
-    'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/openai.list': [
-      '+.openai.com', '+.chatgpt.com', '+.chatgpt.livekit.cloud', '+.host.livekit.cloud', '+.turn.livekit.cloud',
-      'openaiassets.blob.core.windows.net', 'o33249.ingest.sentry.io', 'browser-intake-datadoghq.com',
+    'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/classical/openai.list': [
+      'DOMAIN-SUFFIX,openai.com',
+      'DOMAIN-SUFFIX,chatgpt.com',
+      'DOMAIN-SUFFIX,chatgpt.livekit.cloud',
+      'DOMAIN-SUFFIX,host.livekit.cloud',
+      'DOMAIN-SUFFIX,turn.livekit.cloud',
+      'DOMAIN,openaiassets.blob.core.windows.net',
+      'DOMAIN,o33249.ingest.sentry.io',
+      'DOMAIN,browser-intake-datadoghq.com',
+      `DOMAIN-REGEX,${OPENAI_WEB_PUBSUB_REGEX}`,
     ].join('\n'),
     'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/anthropic.list': [
       '+.anthropic.com', '+.claude.ai', '+.claude.com', '+.claudeusercontent.com', '+.claudemcpcontent.com',
@@ -234,10 +242,11 @@ test('publishes aggregate and provider AI rules with their original IP matching 
     {
       id: 'openai',
       domains: [
-        'cdn.openaimerge.com', 'o207216.ingest.sentry.io',
+        'browser-intake-datadoghq.com', 'cdn.openaimerge.com', 'o207216.ingest.sentry.io',
         'o33249.ingest.sentry.io', 'openaiassets.blob.core.windows.net',
       ],
-      suffixes: ['chatgpt.com', 'chatgpt.livekit.cloud', 'openai.com'],
+      suffixes: ['chatgpt.com', 'chatgpt.livekit.cloud', 'host.livekit.cloud', 'openai.com', 'turn.livekit.cloud'],
+      domainRegex: OPENAI_WEB_PUBSUB_REGEX,
       ips: ['IP-CIDR,198.51.100.0/24,no-resolve', 'IP-CIDR6,2001:db8:1::/48,no-resolve'],
     },
     {
@@ -254,15 +263,35 @@ test('publishes aggregate and provider AI rules with their original IP matching 
     assert.equal(fs.existsSync(path.join(outputDir, 'List', `${provider.id}.list`)), false);
     for (const [directory, extension] of [['List', 'conf'], ['Clash', 'txt'], ['Loon', 'list']]) {
       const outputName = `${provider.id}.${extension}`;
-      assert.deepEqual(readRulesFile(path.join(outputDir, directory, 'non_ip', outputName)), nonIp);
+      const domainRules = [...nonIp];
+      if (provider.domainRegex) {
+        if (directory === 'Clash') domainRules.push(`DOMAIN-REGEX,${provider.domainRegex}`);
+        if (directory === 'List') {
+          for (let digits = 1; digits <= 62; digits++) {
+            domainRules.push(`DOMAIN-WILDCARD,chatgpt-async-webps-prod-?*-${'[0-9]'.repeat(digits)}.webpubsub.azure.com`);
+          }
+        }
+      }
+      assert.deepEqual(readRulesFile(path.join(outputDir, directory, 'non_ip', outputName)), domainRules.sort());
       assert.deepEqual(readRulesFile(path.join(outputDir, directory, 'ip', outputName)), provider.ips.sort());
     }
     assert.deepEqual(readSingboxConditions(path.join(outputDir, 'sing-box', 'non_ip', `${provider.id}.json`)), {
       domain: provider.domains.sort(),
       domain_suffix: provider.suffixes.sort(),
+      ...(provider.domainRegex && { domain_regex: [provider.domainRegex] }),
     });
     assert.deepEqual(readSingboxConditions(path.join(outputDir, 'sing-box', 'ip', `${provider.id}.json`)), {
       ip_cidr: provider.ips.flatMap(rule => (rule.startsWith('IP-CIDR') ? [rule.split(',')[1]] : [])).sort(),
     });
   }
+
+  const openAiAudit = stats.audits.find(audit => audit.id === 'openai');
+  assert.ok(openAiAudit);
+  assert.ok(openAiAudit.conditions.includes(`DOMAIN-REGEX,${OPENAI_WEB_PUBSUB_REGEX}`));
+  for (const output of openAiAudit.outputs) {
+    if (output.variant !== 'non_ip') continue;
+    const expectedDrops = output.platform === 'loon' ? 1 : undefined;
+    assert.equal(output.drops.unsupported['DOMAIN-REGEX'], expectedDrops, output.path);
+  }
+  assert.equal(readSingboxConditions(path.join(outputDir, 'sing-box/domainset/openai.json')).domain_regex, undefined);
 });

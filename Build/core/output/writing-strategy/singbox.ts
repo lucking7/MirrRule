@@ -3,6 +3,7 @@ import { appendArrayInPlace } from 'foxts/append-array-in-place';
 import { withIdentityContent } from '../../../lib/misc';
 import stringify from 'json-stringify-pretty-compact';
 import { RuleLineUtils } from '../../../utils/validation/validators';
+import { OPENAI_WEB_PUBSUB_DOMAIN_REGEX } from './domain-regex';
 
 interface SingboxHeadlessRule {
   domain: string[];
@@ -58,6 +59,17 @@ export class SingboxSource extends BaseWriteStrategy {
   writeDomainWildcard(wildcard: string): void {
     this.singbox.domain_regex ??= [];
     this.singbox.domain_regex.push(SingboxSource.domainWildCardToRegex(wildcard));
+  }
+
+  writeDomainRegexes(patterns: ReadonlySet<string>): void {
+    for (const pattern of patterns) {
+      if (pattern === OPENAI_WEB_PUBSUB_DOMAIN_REGEX) {
+        (this.singbox.domain_regex ??= []).push(pattern);
+      } else {
+        // Mihomo accepts regexp2 syntax that Go's regexp engine cannot compile.
+        this.recordDroppedValue('DOMAIN-REGEX', pattern);
+      }
+    }
   }
 
   writeUserAgents(userAgent: Set<string>): void {

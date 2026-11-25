@@ -5,6 +5,7 @@ import { fastIpVersion } from 'foxts/fast-ip-version';
 import { splitLogicalFields } from './logical-fields';
 import { cleanPolicy } from '../../../lib/policy-cleaner';
 import { normalizeRuleType } from '../rule-support-matrix';
+import { OPENAI_WEB_PUBSUB_DOMAIN_REGEX } from './domain-regex';
 
 export class ClashClassicRuleSet extends BaseWriteStrategy {
   public readonly platform = 'clash' as const;
@@ -28,6 +29,18 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
 
   writeDomainWildcard(wildcard: string): void {
     this.result.push(`DOMAIN-WILDCARD,${wildcard}`);
+  }
+
+  writeDomainRegexes(patterns: ReadonlySet<string>): void {
+    for (const pattern of patterns) this.writeDomainRegex(pattern);
+  }
+
+  private writeDomainRegex(pattern: string): void {
+    if (pattern === OPENAI_WEB_PUBSUB_DOMAIN_REGEX) {
+      this.result.push(`DOMAIN-REGEX,${pattern}`);
+    } else {
+      this.recordDroppedValue('DOMAIN-REGEX', pattern);
+    }
   }
 
   writeUserAgents(userAgent: Set<string>): void {
@@ -100,7 +113,12 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
 
   writeOtherRules(rules: string[]): void {
     for (const rule of rules) {
-      const type = rule.slice(0, rule.indexOf(',')).trim().toUpperCase();
+      const comma = rule.indexOf(',');
+      const type = rule.slice(0, comma).trim().toUpperCase();
+      if (type === 'DOMAIN-REGEX') {
+        this.writeDomainRegex(rule.slice(comma + 1).trim());
+        continue;
+      }
       if (type !== 'AND' && type !== 'OR' && type !== 'NOT') {
         super.writeOtherRules([rule]);
         continue;
@@ -145,6 +163,11 @@ export class ClashClassicRuleSet extends BaseWriteStrategy {
     const canonicalType = normalizeRuleType(type) ?? type;
     const accounted = this.accountOtherRule(`${canonicalType},${fields.slice(1).join(',')}`);
     if (accounted === 'skip' || accounted === 'unknown' || !this.accepts(accounted)) return null;
+    if (canonicalType === 'DOMAIN-REGEX') {
+      // The classical input conversion only accepts standalone domain regex rules.
+      this.recordDroppedValue('DOMAIN-REGEX', rule.slice(rule.indexOf(',') + 1).trim());
+      return null;
+    }
     const value = fields[1];
     if (canonicalType === 'PROTOCOL') {
       if (value.toUpperCase() !== 'UDP' && value.toUpperCase() !== 'TCP') {
